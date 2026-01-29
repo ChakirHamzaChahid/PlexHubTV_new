@@ -1,0 +1,676 @@
+package com.chakir.plexhubtv.data.repository
+
+import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.network.PlexApiService
+import com.chakir.plexhubtv.data.mapper.MediaMapper
+import com.chakir.plexhubtv.data.model.MetadataDTO
+import com.chakir.plexhubtv.domain.model.Hub
+import com.chakir.plexhubtv.domain.model.MediaItem
+import com.chakir.plexhubtv.domain.model.MediaType
+import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.model.Server
+import javax.inject.Inject
+
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+
+class MediaRepositoryImpl @Inject constructor(
+    private val api: PlexApiService,
+    private val mediaDao: MediaDao,
+    private val apiCacheDao: com.chakir.plexhubtv.core.database.ApiCacheDao,
+    private val homeContentDao: com.chakir.plexhubtv.core.database.HomeContentDao,
+    private val mapper: MediaMapper,
+    private val authRepository: com.chakir.plexhubtv.domain.repository.AuthRepository,
+    private val connectionManager: com.chakir.plexhubtv.core.network.ConnectionManager,
+    private val favoriteDao: com.chakir.plexhubtv.core.database.FavoriteDao
+) : MediaRepository {
+
+    private val gson = com.google.gson.Gson()
+
+    override fun getUnifiedOnDeck(): Flow<List<MediaItem>> = flow {
+        // 1. Emit Cache First (Fast Path)
+        val cachedItems = getCachedOnDeck()
+        emit(cachedItems)
+        
+        // 2. Refresh from Network
+        val clients = getActiveClients()
+        if (clients.isNotEmpty()) {
+            coroutineScope {
+                val servers = authRepository.getServers().getOrNull() ?: emptyList()
+                val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
+
+                val deferreds = clients.map { client ->
+                    async(Dispatchers.IO) {
+                        try {
+                            val response = client.getOnDeck()
+                            if (response.isSuccessful) {
+                                val body = response.body() ?: return@async emptyList()
+                                val metadata = body.mediaContainer?.metadata ?: emptyList()
+                                
+                                val entities = metadata.filter { mapper.isQualityMetadata(it) }.map { dto ->
+                                    mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "0")
+                                        .copy(filter = "ondeck", sortOrder = "default", pageOffset = 0)
+                                }
+                                
+                                mediaDao.upsertMedia(entities)
+                                
+                                val homeContent = entities.mapIndexed { index, entity ->
+                                    com.chakir.plexhubtv.core.database.HomeContentEntity(
+                                        type = "onDeck",
+                                        hubIdentifier = "onDeck",
+                                        title = "On Deck",
+                                        itemServerId = entity.serverId,
+                                        itemRatingKey = entity.ratingKey,
+                                        orderIndex = index
+                                    )
+                                }
+                                homeContentDao.insertHomeContent(homeContent)
+
+                                entities.map { entity ->
+                                    val domain = mapper.mapEntityToDomain(entity)
+                                    val baseUrl = client.baseUrl
+                                    val token = client.server.accessToken
+                                    
+                                    val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) "$baseUrl${entity.thumbUrl}?X-Plex-Token=$token" else entity.thumbUrl
+                                    val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) "$baseUrl${entity.artUrl}?X-Plex-Token=$token" else entity.artUrl
+                                    val rawParentThumb = if (domain.parentThumb != null && !domain.parentThumb.startsWith("http")) "$baseUrl${domain.parentThumb}?X-Plex-Token=$token" else domain.parentThumb
+                                    val rawGrandparentThumb = if (domain.grandparentThumb != null && !domain.grandparentThumb.startsWith("http")) "$baseUrl${domain.grandparentThumb}?X-Plex-Token=$token" else domain.grandparentThumb
+                                    
+                                    val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                                    val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                                    val fullParentThumb = getOptimizedImageUrl(rawParentThumb, 300, 450) ?: rawParentThumb
+                                    val fullGrandparentThumb = getOptimizedImageUrl(rawGrandparentThumb, 300, 450) ?: rawGrandparentThumb
+
+                                    domain.copy(
+                                        baseUrl = baseUrl,
+                                        accessToken = token,
+                                        thumbUrl = fullThumb,
+                                        artUrl = fullArt,
+                                        parentThumb = fullParentThumb,
+                                        grandparentThumb = fullGrandparentThumb
+                                    )
+                                }
+                            } else emptyList()
+                        } catch (e: Exception) { emptyList() }
+                    }
+                }
+                val allItems = deferreds.awaitAll().flatten()
+                if (allItems.isNotEmpty()) {
+                    val result = deduplicateMediaItems(allItems, ownedServerIds, servers)
+                    emit(result)
+                }
+            }
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private suspend fun getCachedOnDeck(): List<MediaItem> {
+        val servers = authRepository.getServers().getOrNull() ?: return emptyList()
+// ... (Lines 96-127 remain mostly same, implied unchanged by replace tool matching context)
+        val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
+        
+        // Fetch from DB
+        val entities = homeContentDao.getHomeMediaItems("onDeck", "onDeck")
+        val items = entities.map { entity ->
+            val server = servers.find { it.clientIdentifier == entity.serverId }
+            val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
+            
+            val domain = mapper.mapEntityToDomain(entity)
+            if (server != null && baseUrl != null) {
+                // Reconstruct full URLs from relative paths
+                val fullThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) "$baseUrl${entity.thumbUrl}?X-Plex-Token=${server.accessToken}" else entity.thumbUrl
+                val fullArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) "$baseUrl${entity.artUrl}?X-Plex-Token=${server.accessToken}" else entity.artUrl
+                val fullParentThumb = if (domain.parentThumb != null && !domain.parentThumb.startsWith("http")) "$baseUrl${domain.parentThumb}?X-Plex-Token=${server.accessToken}" else domain.parentThumb
+                val fullGrandparentThumb = if (domain.grandparentThumb != null && !domain.grandparentThumb.startsWith("http")) "$baseUrl${domain.grandparentThumb}?X-Plex-Token=${server.accessToken}" else domain.grandparentThumb
+
+                domain.copy(
+                    baseUrl = baseUrl, 
+                    accessToken = server.accessToken,
+                    thumbUrl = fullThumb,
+                    artUrl = fullArt,
+                    parentThumb = fullParentThumb,
+                    grandparentThumb = fullGrandparentThumb
+                )
+            } else {
+                domain
+            }
+        }
+        
+        return deduplicateMediaItems(items, ownedServerIds, servers)
+    }
+
+    override fun getUnifiedHubs(): Flow<List<Hub>> = flow {
+        // 1. Emit Cache First
+        val cachedHubs = getCachedHubs()
+        emit(cachedHubs)
+
+        val clients = getActiveClients()
+        if (clients.isNotEmpty()) {
+            coroutineScope {
+                val servers = authRepository.getServers().getOrNull() ?: emptyList()
+                val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
+
+                val deferreds = clients.map { client ->
+                     async(Dispatchers.IO) {
+                         try {
+                            val response = client.getHubs()
+                            if (response.isSuccessful) {
+                                val body = response.body() ?: return@async emptyList()
+                                val hubs = body.mediaContainer?.hubs ?: emptyList()
+                                
+                                hubs.mapNotNull { hubDto ->
+                                    val hubIdentifier = hubDto.hubIdentifier ?: hubDto.title ?: "unknown"
+                                    val hubTitle = hubDto.title ?: "Unknown"
+                                    
+                                    val metadata = hubDto.metadata ?: emptyList()
+                                    val entities = metadata.filter { mapper.isQualityMetadata(it) }.map { dto ->
+                                        mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "0")
+                                            .copy(filter = "hub", sortOrder = hubDto.hubIdentifier ?: "default", pageOffset = 0)
+                                    }
+                                    
+                                    if (entities.isNotEmpty()) {
+                                        mediaDao.upsertMedia(entities)
+                                        val homeContent = entities.mapIndexed { index, entity ->
+                                            com.chakir.plexhubtv.core.database.HomeContentEntity(
+                                                type = "hub",
+                                                hubIdentifier = hubIdentifier,
+                                                title = hubTitle,
+                                                itemServerId = entity.serverId,
+                                                itemRatingKey = entity.ratingKey,
+                                                orderIndex = index
+                                            )
+                                        }
+                                        homeContentDao.insertHomeContent(homeContent)
+                                        
+                                        com.chakir.plexhubtv.domain.model.Hub(
+                                            key = hubDto.key ?: "",
+                                            title = hubTitle,
+                                            type = hubDto.type ?: "mixed",
+                                            hubIdentifier = hubIdentifier,
+                                            items = entities.map { entity ->
+                                                val domain = mapper.mapEntityToDomain(entity)
+                                                val baseUrl = client.baseUrl
+                                                val token = client.server.accessToken
+                                                
+                                                val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) "$baseUrl${entity.thumbUrl}?X-Plex-Token=$token" else entity.thumbUrl
+                                                val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) "$baseUrl${entity.artUrl}?X-Plex-Token=$token" else entity.artUrl
+                                                val rawParentThumb = if (domain.parentThumb != null && !domain.parentThumb.startsWith("http")) "$baseUrl${domain.parentThumb}?X-Plex-Token=$token" else domain.parentThumb
+                                                val rawGrandparentThumb = if (domain.grandparentThumb != null && !domain.grandparentThumb.startsWith("http")) "$baseUrl${domain.grandparentThumb}?X-Plex-Token=$token" else domain.grandparentThumb
+
+                                                val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                                                val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                                                val fullParentThumb = getOptimizedImageUrl(rawParentThumb, 300, 450) ?: rawParentThumb
+                                                val fullGrandparentThumb = getOptimizedImageUrl(rawGrandparentThumb, 300, 450) ?: rawGrandparentThumb
+
+                                                domain.copy(
+                                                    baseUrl = baseUrl,
+                                                    accessToken = token,
+                                                    thumbUrl = fullThumb,
+                                                    artUrl = fullArt,
+                                                    parentThumb = fullParentThumb,
+                                                    grandparentThumb = fullGrandparentThumb
+                                                )
+                                            },
+                                            serverId = client.server.clientIdentifier
+                                        )
+                                    } else null
+                                }
+                            } else emptyList()
+                         } catch (e: Exception) { emptyList() }
+                     }
+                }
+                
+                val allHubs = deferreds.awaitAll().flatten()
+                if (allHubs.isNotEmpty()) {
+                    val result = aggregateHubs(allHubs, ownedServerIds, servers)
+                    emit(result)
+                }
+            }
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private suspend fun getCachedHubs(): List<Hub> {
+        val servers = authRepository.getServers().getOrNull() ?: return emptyList()
+        val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
+
+        // Fetch distinct hubs from DB
+        val hubInfos = homeContentDao.getHubsList()
+        
+        val allHubs = hubInfos.map { hubInfo ->
+            val entities = homeContentDao.getHomeMediaItems("hub", hubInfo.hubIdentifier)
+            val items = entities.map { entity ->
+                val server = servers.find { it.clientIdentifier == entity.serverId }
+                val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
+                
+                val domain = mapper.mapEntityToDomain(entity)
+                if (server != null && baseUrl != null) {
+                    // Reconstruct full URLs from relative paths
+                    val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) "$baseUrl${entity.thumbUrl}?X-Plex-Token=${server.accessToken}" else entity.thumbUrl
+                    val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) "$baseUrl${entity.artUrl}?X-Plex-Token=${server.accessToken}" else entity.artUrl
+                    val rawParentThumb = if (domain.parentThumb != null && !domain.parentThumb.startsWith("http")) "$baseUrl${domain.parentThumb}?X-Plex-Token=${server.accessToken}" else domain.parentThumb
+                    val rawGrandparentThumb = if (domain.grandparentThumb != null && !domain.grandparentThumb.startsWith("http")) "$baseUrl${domain.grandparentThumb}?X-Plex-Token=${server.accessToken}" else domain.grandparentThumb
+
+                    val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                    val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                    val fullParentThumb = getOptimizedImageUrl(rawParentThumb, 300, 450) ?: rawParentThumb
+                    val fullGrandparentThumb = getOptimizedImageUrl(rawGrandparentThumb, 300, 450) ?: rawGrandparentThumb
+
+                    domain.copy(
+                        baseUrl = baseUrl, 
+                        accessToken = server.accessToken,
+                        thumbUrl = fullThumb,
+                        artUrl = fullArt,
+                        parentThumb = fullParentThumb,
+                        grandparentThumb = fullGrandparentThumb
+                    )
+                } else {
+                    domain
+                }
+            }
+            
+            com.chakir.plexhubtv.domain.model.Hub(
+                key = "", // Not needed for offline display
+                title = hubInfo.title,
+                type = "mixed",
+                hubIdentifier = hubInfo.hubIdentifier,
+                items = items,
+                serverId = null 
+            )
+        }
+        return aggregateHubs(allHubs, ownedServerIds, servers)
+    }
+
+    override suspend fun getMediaDetail(ratingKey: String, serverId: String): Result<MediaItem> {
+        // 1. Attempt Primary Fetch
+        try {
+            val client = getClient(serverId)
+            if (client != null) {
+                val response = client.getMetadata(ratingKey, includeChildren = true)
+                if (response.isSuccessful) {
+                    val metadata = response.body()?.mediaContainer?.metadata?.firstOrNull()
+                    if (metadata != null) {
+                        val entity = mapper.mapDtoToEntity(
+                            dto = metadata, 
+                            serverId = serverId, 
+                            libraryKey = metadata.librarySectionID ?: "0"
+                        )
+                        mediaDao.insertMedia(entity)
+                        return Result.success(mapper.mapDtoToDomain(metadata, serverId, client.baseUrl, client.server.accessToken))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore primary failure, proceed to fallback
+        }
+
+        // 2. Fallback: Search for duplicates via GUID
+        // We need the local item to get its GUID
+        val local = mediaDao.getMedia(ratingKey, serverId) ?: return Result.failure(Exception("Item not found and no local cache to enable fallback."))
+        val guid = local.guid ?: return Result.failure(Exception("Item failed to load and has no GUID for fallback."))
+
+        // Find alternatives on other servers
+        val alternatives = mediaDao.getMediaByGuid(guid, excludeServerId = serverId)
+        
+        for (alt in alternatives) {
+            try {
+                val altClient = getClient(alt.serverId) ?: continue
+                val response = altClient.getMetadata(alt.ratingKey, includeChildren = true)
+                if (response.isSuccessful) {
+                    val metadata = response.body()?.mediaContainer?.metadata?.firstOrNull()
+                    if (metadata != null) {
+                        // Persist the fresh data from the alternative source
+                        val entity = mapper.mapDtoToEntity(
+                            dto = metadata, 
+                            serverId = alt.serverId, 
+                            libraryKey = metadata.librarySectionID ?: "0"
+                        )
+                        mediaDao.insertMedia(entity)
+                        
+                        // Return the ALTERNATIVE item as the source of truth
+                        return Result.success(mapper.mapDtoToDomain(metadata, alt.serverId, altClient.baseUrl, altClient.server.accessToken))
+                    }
+                }
+            } catch (e: Exception) {
+                continue
+            }
+        }
+
+        return Result.failure(Exception("Media not found on any available server."))
+    }
+
+    override suspend fun getSeasonEpisodes(ratingKey: String, serverId: String): Result<List<MediaItem>> {
+        // 1. Try API First
+        try {
+             val client = getClient(serverId)
+             if (client != null) {
+                 val response = client.getChildren(ratingKey)
+                 if (response.isSuccessful) {
+                     val metadata = response.body()?.mediaContainer?.metadata
+                     if (metadata != null) {
+                         // Cache these items? Maybe later. For now, strict fix.
+                         val items = metadata.map {
+                             mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
+                         }
+                         return Result.success(items)
+                     }
+                 }
+             }
+        } catch (e: Exception) {
+            // Fallthrough to DB
+        }
+        
+        // 2. Fallback to DB
+        val localEntities = mediaDao.getChildren(ratingKey, serverId)
+        if (localEntities.isNotEmpty()) {
+             // We need to resolve base URL for caching if possible, or just use what we have
+             val client = getClient(serverId)
+             val baseUrl = client?.baseUrl
+             val token = client?.server?.accessToken
+             
+             val items = localEntities.map { 
+                 mapper.mapEntityToDomain(it).let { domain ->
+                     // Attempt to fix URLs
+                     if (baseUrl != null && token != null) {
+                         val fullThumb = if (domain.thumbUrl != null && !domain.thumbUrl.startsWith("http")) "$baseUrl${domain.thumbUrl}?X-Plex-Token=$token" else domain.thumbUrl
+                         domain.copy(thumbUrl = fullThumb, baseUrl = baseUrl, accessToken = token)
+                     } else domain
+                 }
+             }
+             return Result.success(items)
+        }
+        
+        // 3. Final Failure
+        return Result.failure(Exception("Episodes not found (API failed and DB empty)"))
+    }
+
+    override suspend fun getShowSeasons(ratingKey: String, serverId: String): Result<List<MediaItem>> {
+        return getSeasonEpisodes(ratingKey, serverId) // Same endpoint logically for children
+    }
+
+    override suspend fun toggleWatchStatus(media: MediaItem, isWatched: Boolean): Result<Unit> {
+        val client = getClient(media.serverId) ?: return Result.failure(Exception("Server not found"))
+        val response = if (isWatched) client.scrobble(media.ratingKey) else client.unscrobble(media.ratingKey)
+        return if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("API Error"))
+    }
+
+    override suspend fun updatePlaybackProgress(media: MediaItem, positionMs: Long): Result<Unit> {
+        val client = getClient(media.serverId) ?: return Result.failure(Exception("Server not found"))
+        val response = client.updateTimeline(
+            ratingKey = media.ratingKey,
+            state = "playing", // Should be passed from UI
+            timeMs = positionMs,
+            durationMs = media.durationMs ?: 0L
+        )
+        return if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("API Error"))
+    }
+
+    override suspend fun getNextMedia(currentItem: MediaItem): MediaItem? {
+        if (currentItem.type != MediaType.Episode) return null
+        val episodes = getSeasonEpisodes(currentItem.parentRatingKey ?: "", currentItem.serverId).getOrNull() ?: return null
+        val currentIndex = episodes.indexOfFirst { it.ratingKey == currentItem.ratingKey }
+        return if (currentIndex != -1 && currentIndex < episodes.size - 1) episodes[currentIndex + 1] else null
+    }
+
+    override suspend fun getPreviousMedia(currentItem: MediaItem): MediaItem? {
+        if (currentItem.type != MediaType.Episode) return null
+        val episodes = getSeasonEpisodes(currentItem.parentRatingKey ?: "", currentItem.serverId).getOrNull() ?: return null
+        val currentIndex = episodes.indexOfFirst { it.ratingKey == currentItem.ratingKey }
+        return if (currentIndex > 0) episodes[currentIndex - 1] else null
+    }
+
+    override fun getFavorites(): kotlinx.coroutines.flow.Flow<List<MediaItem>> {
+        return favoriteDao.getAllFavorites().map { entities ->
+             entities.map { entity ->
+                 val mediaEntity = mediaDao.getMedia(entity.ratingKey, entity.serverId)
+                 if (mediaEntity != null) {
+                     mapper.mapEntityToDomain(mediaEntity)
+                 } else {
+                      MediaItem(
+                             id = entity.ratingKey,
+                             ratingKey = entity.ratingKey,
+                             serverId = entity.serverId,
+                             title = entity.title,
+                             type = when(entity.type) { "movie" -> MediaType.Movie; "show" -> MediaType.Show; "episode" -> MediaType.Episode; else -> MediaType.Movie },
+                             thumbUrl = entity.thumbUrl,
+                             artUrl = entity.artUrl,
+                             year = entity.year
+                        )
+                 }
+             }
+        }
+    }
+
+    override fun isFavorite(ratingKey: String, serverId: String): kotlinx.coroutines.flow.Flow<Boolean> {
+        return favoriteDao.isFavorite(ratingKey, serverId)
+    }
+
+    override suspend fun toggleFavorite(media: MediaItem): Result<Boolean> {
+        return try {
+            val isFav = favoriteDao.isFavorite(media.ratingKey, media.serverId).first()
+            if (isFav) {
+                favoriteDao.deleteFavorite(media.ratingKey, media.serverId)
+                Result.success(false)
+            } else {
+                favoriteDao.insertFavorite(com.chakir.plexhubtv.core.database.FavoriteEntity(
+                    ratingKey = media.ratingKey,
+                    serverId = media.serverId,
+                    title = media.title,
+                    type = media.type.name.lowercase(), // Ensure matching type logic
+                    thumbUrl = media.thumbUrl,
+                    artUrl = media.artUrl,
+                    year = media.year
+                ))
+                Result.success(true)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override fun getWatchHistory(limit: Int, offset: Int): kotlinx.coroutines.flow.Flow<List<MediaItem>> {
+        return mediaDao.getHistory(limit, offset).map { entities ->
+             // Fetch servers to resolve base URLs
+             val servers = authRepository.getServers().getOrNull() ?: emptyList()
+             
+             entities.map { entity ->
+                 val server = servers.find { it.clientIdentifier == entity.serverId }
+                 val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
+                 
+                 val domain = mapper.mapEntityToDomain(entity)
+                 if (server != null && baseUrl != null) {
+                        val fullThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) 
+                            "$baseUrl${entity.thumbUrl}?X-Plex-Token=${server.accessToken}" else entity.thumbUrl
+                        val fullArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) 
+                            "$baseUrl${entity.artUrl}?X-Plex-Token=${server.accessToken}" else entity.artUrl
+                        
+                        domain.copy(
+                            baseUrl = baseUrl,
+                            accessToken = server.accessToken,
+                            thumbUrl = fullThumb,
+                            artUrl = fullArt
+                        )
+                 } else {
+                     domain
+                 }
+             }
+        }
+    }
+
+    // --- Aggregation Logic ---
+
+    private suspend fun getActiveClients(): List<com.chakir.plexhubtv.core.network.PlexClient> = coroutineScope {
+        val servers = authRepository.getServers(forceRefresh = true).getOrNull() ?: return@coroutineScope emptyList()
+        
+        servers.map { server ->
+            async {
+                val baseUrl = connectionManager.findBestConnection(server)
+                if (baseUrl != null) {
+                    com.chakir.plexhubtv.core.network.PlexClient(server, api, baseUrl)
+                } else null
+            }
+        }.awaitAll().filterNotNull()
+    }
+
+    private suspend fun getClient(serverId: String): com.chakir.plexhubtv.core.network.PlexClient? {
+        val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
+        val server = servers.find { it.clientIdentifier == serverId } ?: return null
+        val baseUrl = connectionManager.findBestConnection(server) ?: return null
+        return com.chakir.plexhubtv.core.network.PlexClient(server, api, baseUrl)
+    }
+
+    private suspend fun deduplicateMediaItems(items: List<MediaItem>, ownedServerIds: Set<String>, servers: List<Server>): List<MediaItem> = withContext(Dispatchers.Default) {
+        // Advanced Grouping Logic (Matching Python Script Strictly)
+        // Priority: IMDB ID -> TMDB ID -> Title+Year
+        // We INTENTIONALLY SKIP item.guid to avoid splitting items from different agents (Legacy vs Plex Movie)
+        items.groupBy { item ->
+            when {
+                !item.imdbId.isNullOrBlank() -> "imdb://${item.imdbId}"
+                !item.tmdbId.isNullOrBlank() -> "tmdb://${item.tmdbId}"
+                // Fallback to Title + Year (Normalized)
+                else -> "${item.title.lowercase().trim().replace(Regex("[^a-z0-9 ]"), "")}_${item.year ?: 0}"
+            }
+        }.map { (_, group) ->
+            // Sort by Owned first, then by Last Updated (descending)
+            val prioritizedItem = group.sortedWith(
+                compareByDescending<MediaItem> { it.serverId in ownedServerIds }
+                    .thenByDescending { it.updatedAt ?: 0L }
+            ).first()
+            
+            // Calculate Average Rating
+            val ratings = group.mapNotNull { it.rating }
+            val averageRating = if (ratings.isNotEmpty()) {
+                ratings.average()
+            } else null
+
+            // Calculate Average Audience Rating
+            val audienceRatings = group.mapNotNull { it.audienceRating }
+            val averageAudienceRating = if (audienceRatings.isNotEmpty()) {
+                audienceRatings.average()
+            } else null
+
+            // Populate Remote Sources
+            val sources = group.map { item ->
+                val serverName = servers.find { it.clientIdentifier == item.serverId }?.name ?: "Unknown"
+                // Extract resolution from mediaParts if available
+                val bestMedia = item.mediaParts.firstOrNull()
+                val videoStream = bestMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.domain.model.VideoStream>()?.firstOrNull()
+                val audioStream = bestMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.domain.model.AudioStream>()?.firstOrNull()
+                val languages = bestMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.domain.model.AudioStream>()
+                    ?.mapNotNull { it.language }?.distinct() ?: emptyList()
+
+                val resolution = videoStream?.let { "${it.height}p" }
+                val hasHDR = videoStream?.hasHDR ?: false
+                
+                // Calculate full URLs for the alternative source
+                val server = servers.find { it.clientIdentifier == item.serverId }
+                val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
+                
+                val rawThumb = if (item.thumbUrl != null && !item.thumbUrl.startsWith("http")) {
+                    if (baseUrl != null && server?.accessToken != null) "$baseUrl${item.thumbUrl}?X-Plex-Token=${server.accessToken}" else null
+                } else item.thumbUrl
+
+                val rawArt = if (item.artUrl != null && !item.artUrl.startsWith("http")) {
+                    if (baseUrl != null && server?.accessToken != null) "$baseUrl${item.artUrl}?X-Plex-Token=${server.accessToken}" else null
+                } else item.artUrl
+
+                val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                
+                com.chakir.plexhubtv.domain.model.MediaSource(
+                    serverId = item.serverId,
+                    ratingKey = item.ratingKey,
+                    serverName = serverName,
+                    resolution = resolution,
+                    container = bestMedia?.container,
+                    videoCodec = videoStream?.codec,
+                    audioCodec = audioStream?.codec,
+                    audioChannels = audioStream?.channels,
+                    fileSize = bestMedia?.size,
+                    bitrate = videoStream?.bitrate,
+                    hasHDR = hasHDR,
+                    languages = languages,
+                    thumbUrl = fullThumb,
+                    artUrl = fullArt
+                )
+            }
+            
+            prioritizedItem.copy(
+                rating = averageRating, // Use average critic rating
+                audienceRating = averageAudienceRating, // Use average audience rating
+                remoteSources = sources
+            )
+        }
+    }
+
+    override suspend fun getUnifiedLibrary(mediaType: String): Result<List<MediaItem>> = coroutineScope {
+        try {
+            // 1. Fetch All Raw Data (No SQL Aggregation)
+            // We use flow.first() to get the current snapshot of the DB
+            val entities = mediaDao.getAllMediaByType(mediaType).first()
+            
+            // 2. Fetch Servers for Context (Owned vs Shared, BaseURLs)
+            val servers = authRepository.getServers().getOrNull() ?: emptyList()
+            val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
+
+            // 3. Map to Domain & Reconstruct URLs
+            val items = entities.map { entity ->
+                val server = servers.find { it.clientIdentifier == entity.serverId }
+                val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
+                
+                val domain = mapper.mapEntityToDomain(entity)
+                
+                if (server != null && baseUrl != null) {
+                    val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) 
+                        "$baseUrl${entity.thumbUrl}?X-Plex-Token=${server.accessToken}" else entity.thumbUrl
+                    val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) 
+                        "$baseUrl${entity.artUrl}?X-Plex-Token=${server.accessToken}" else entity.artUrl
+                    
+                    val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                    val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+
+                    domain.copy(
+                        baseUrl = baseUrl,
+                        accessToken = server.accessToken,
+                        thumbUrl = fullThumb,
+                        artUrl = fullArt
+                    )
+                } else {
+                    domain
+                }
+            }
+
+            // 4. Apply Robust Deduplication (Kotlin)
+            // This prioritizes IMDB > TMDB > GUID > Title+Year
+            val unifiedItems = deduplicateMediaItems(items, ownedServerIds, servers)
+            
+            Result.success(unifiedItems)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun aggregateHubs(hubs: List<com.chakir.plexhubtv.domain.model.Hub>, ownedServerIds: Set<String>, servers: List<Server>): List<com.chakir.plexhubtv.domain.model.Hub> = coroutineScope {
+        // Group hubs by identifier (e.g. "recentlyAdded")
+        hubs.groupBy { it.hubIdentifier ?: it.title }.map { (identifier, group) ->
+            async {
+                val first = group.first()
+                com.chakir.plexhubtv.domain.model.Hub(
+                    key = first.key,
+                    title = first.title,
+                    type = first.type,
+                    hubIdentifier = identifier,
+                    items = deduplicateMediaItems(group.flatMap { it.items }, ownedServerIds, servers),
+                    serverId = null // Aggregate hubs are not server-specific
+                )
+            }
+        }.awaitAll().sortedBy { it.title } // Or use a predefined order for hubs
+    }
+}

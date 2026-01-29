@@ -1,0 +1,157 @@
+package com.chakir.plexhubtv.core.datastore
+
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+
+class SettingsDataStore @Inject constructor(
+    private val dataStore: DataStore<Preferences>
+) {
+
+    private val PLEX_TOKEN = stringPreferencesKey("plex_token")
+    private val CLIENT_ID = stringPreferencesKey("client_id")
+    private val SERVER_QUALITY = stringPreferencesKey("server_quality")
+    private val CURRENT_USER_UUID = stringPreferencesKey("current_user_uuid")
+    private val CURRENT_USER_NAME = stringPreferencesKey("current_user_name")
+    private val SHOW_HERO_SECTION = stringPreferencesKey("show_hero_section")
+    private val EPISODE_POSTER_MODE = stringPreferencesKey("episode_poster_mode")
+    private val APP_THEME = stringPreferencesKey("app_theme")
+    private val CACHE_ENABLED = stringPreferencesKey("cache_enabled")
+    private val DEFAULT_SERVER = stringPreferencesKey("default_server")
+    private val PLAYER_ENGINE = stringPreferencesKey("player_engine")
+    private val LAST_SYNC_TIME = stringPreferencesKey("last_sync_time")
+    private val FIRST_SYNC_COMPLETE = stringPreferencesKey("first_sync_complete")
+
+    val plexToken: Flow<String?> = dataStore.data
+        .map { preferences -> preferences[PLEX_TOKEN] }
+
+    val clientId: Flow<String?> = dataStore.data
+        .map { preferences -> preferences[CLIENT_ID] }
+
+    val currentUserUuid: Flow<String?> = dataStore.data
+        .map { preferences -> preferences[CURRENT_USER_UUID] }
+
+    val currentUserName: Flow<String?> = dataStore.data
+        .map { preferences -> preferences[CURRENT_USER_NAME] }
+
+    val showHeroSection: Flow<Boolean> = dataStore.data
+        .map { preferences -> preferences[SHOW_HERO_SECTION]?.toBoolean() ?: true }
+
+    val episodePosterMode: Flow<String> = dataStore.data
+        .map { preferences -> preferences[EPISODE_POSTER_MODE] ?: "series" }
+
+    val appTheme: Flow<String> = dataStore.data
+        .map { preferences -> preferences[APP_THEME] ?: "Plex" }
+
+    val videoQuality: Flow<String> = dataStore.data
+        .map { preferences -> preferences[SERVER_QUALITY] ?: "Original" }
+
+    val isCacheEnabled: Flow<Boolean> = dataStore.data
+        .map { preferences -> preferences[CACHE_ENABLED]?.toBoolean() ?: true }
+
+    val defaultServer: Flow<String> = dataStore.data
+        .map { preferences -> preferences[DEFAULT_SERVER] ?: "MyServer" }
+
+    val playerEngine: Flow<String> = dataStore.data
+        .map { preferences -> preferences[PLAYER_ENGINE] ?: "ExoPlayer" }
+
+    val lastSyncTime: Flow<Long> = dataStore.data
+        .map { preferences -> preferences[LAST_SYNC_TIME]?.toLongOrNull() ?: 0L }
+
+    val isFirstSyncComplete: Flow<Boolean> = dataStore.data
+        .map { preferences -> preferences[FIRST_SYNC_COMPLETE]?.toBoolean() ?: false }
+
+    suspend fun saveToken(token: String) {
+        dataStore.edit { preferences ->
+            preferences[PLEX_TOKEN] = token
+        }
+    }
+
+    suspend fun saveClientId(id: String) {
+        dataStore.edit { preferences ->
+            preferences[CLIENT_ID] = id
+        }
+    }
+
+    suspend fun saveUser(uuid: String, name: String) {
+        dataStore.edit { preferences ->
+            preferences[CURRENT_USER_UUID] = uuid
+            preferences[CURRENT_USER_NAME] = name
+        }
+    }
+
+    suspend fun saveShowHeroSection(show: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[SHOW_HERO_SECTION] = show.toString()
+        }
+    }
+
+    suspend fun saveEpisodePosterMode(mode: String) {
+        dataStore.edit { preferences ->
+            preferences[EPISODE_POSTER_MODE] = mode
+        }
+    }
+
+    suspend fun saveAppTheme(theme: String) {
+        dataStore.edit { preferences ->
+            preferences[APP_THEME] = theme
+        }
+    }
+
+    suspend fun clearToken() {
+        dataStore.edit { preferences ->
+            preferences.remove(PLEX_TOKEN)
+        }
+    }
+
+    suspend fun clearUser() {
+        dataStore.edit { preferences ->
+            preferences.remove(CURRENT_USER_UUID)
+            preferences.remove(CURRENT_USER_NAME)
+        }
+    }
+
+    suspend fun saveVideoQuality(quality: String) {
+        dataStore.edit { preferences ->
+            preferences[SERVER_QUALITY] = quality
+        }
+    }
+
+    suspend fun saveCacheEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[CACHE_ENABLED] = enabled.toString()
+        }
+    }
+
+    suspend fun saveDefaultServer(server: String) {
+        dataStore.edit { preferences ->
+            preferences[DEFAULT_SERVER] = server
+        }
+    }
+
+    suspend fun savePlayerEngine(engine: String) {
+        dataStore.edit { preferences ->
+            preferences[PLAYER_ENGINE] = engine
+        }
+    }
+
+    suspend fun saveLastSyncTime(time: Long) {
+        dataStore.edit { preferences ->
+            preferences[LAST_SYNC_TIME] = time.toString()
+        }
+    }
+
+    suspend fun saveFirstSyncComplete(complete: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[FIRST_SYNC_COMPLETE] = complete.toString()
+        }
+    }
+
+    suspend fun clearAll() {
+        dataStore.edit { it.clear() }
+    }
+}

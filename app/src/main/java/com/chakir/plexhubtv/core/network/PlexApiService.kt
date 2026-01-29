@@ -1,0 +1,123 @@
+package com.chakir.plexhubtv.core.network
+
+import com.chakir.plexhubtv.data.model.GenericPlexResponse
+import com.chakir.plexhubtv.data.model.PinResponse
+import com.chakir.plexhubtv.data.model.PlexResource
+import com.chakir.plexhubtv.data.model.PlexResponse
+import com.chakir.plexhubtv.data.model.PlexHomeUserDto
+import com.chakir.plexhubtv.data.model.UserSwitchResponseDto
+import retrofit2.Response
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
+import retrofit2.http.Url
+
+interface PlexApiService {
+
+    // --- Authentication (plex.tv) ---
+
+    @POST("https://plex.tv/api/v2/pins")
+    suspend fun getPin(
+        @Query("strong") strong: Boolean = true,
+        @Header("X-Plex-Client-Identifier") clientId: String
+    ): Response<PinResponse>
+
+    @GET("https://plex.tv/api/v2/pins/{id}")
+    suspend fun getPinStatus(
+        @Path("id") id: String,
+        @Header("X-Plex-Client-Identifier") clientId: String
+    ): Response<PinResponse>
+
+    @GET("https://plex.tv/api/v2/user")
+    suspend fun getUser(
+        @Header("X-Plex-Token") token: String,
+        @Header("X-Plex-Client-Identifier") clientId: String
+    ): Response<GenericPlexResponse> // Replace with UserResponse
+
+    @GET("https://plex.tv/api/v2/resources")
+    suspend fun getResources(
+        @Query("includeHttps") includeHttps: Int = 1,
+        @Header("X-Plex-Token") token: String,
+        @Header("X-Plex-Client-Identifier") clientId: String
+    ): Response<List<PlexResource>>
+
+    // --- Media / Library (Dynamic Server URL) ---
+
+    @GET
+    suspend fun getHubs(
+        @Url url: String,
+        @Query("count") count: Int = 50
+    ): Response<GenericPlexResponse> // Replace with HubResponse
+
+    @GET
+    suspend fun getMetadata(
+        @Url url: String
+        // Add specific query params if needed
+    ): Response<PlexResponse> // Replace with MetadataResponse
+
+    @GET
+    suspend fun search(
+        @Url url: String,
+        @Query("query") query: String
+    ): Response<GenericPlexResponse> // SearchResponse
+
+    @GET
+    suspend fun getSections(
+        @Url url: String
+    ): Response<GenericPlexResponse>
+
+    @GET
+    suspend fun getLibraryContents(
+        @Url url: String,
+        @Query("X-Plex-Container-Start") start: Int,
+        @Query("X-Plex-Container-Size") size: Int,
+        @Query("type") type: String? = null,
+        @Query("sort") sort: String? = null
+    ): Response<PlexResponse>
+
+    // --- Playback Tracking ---
+
+    @GET
+    suspend fun updateTimeline(
+        @Url url: String,
+        @Query("ratingKey") ratingKey: String,
+        @Query("state") state: String,
+        @Query("time") time: Long,
+        @Query("duration") duration: Long,
+        @Query("X-Plex-Token") token: String
+    ): Response<Unit>
+
+    @GET
+    suspend fun scrobble(
+        @Url url: String,
+        @Query("identifier") identifier: String = "com.plexapp.plugins.library",
+        @Query("key") ratingKey: String,
+        @Query("X-Plex-Token") token: String
+    ): Response<Unit>
+
+    @GET
+    suspend fun unscrobble(
+        @Url url: String,
+        @Query("identifier") identifier: String = "com.plexapp.plugins.library",
+        @Query("key") ratingKey: String,
+        @Query("X-Plex-Token") token: String
+    ): Response<Unit>
+
+    // --- Plex Home / Users ---
+
+    @GET("https://plex.tv/api/home/users")
+    suspend fun getHomeUsers(
+        @Header("X-Plex-Token") token: String,
+        @Header("X-Plex-Client-Identifier") clientId: String
+    ): Response<List<PlexHomeUserDto>>
+
+    @POST("https://plex.tv/api/home/users/{uuid}/switch")
+    suspend fun switchUser(
+        @Path("uuid") uuid: String,
+        @Query("pin") pin: String?,
+        @Header("X-Plex-Token") token: String,
+        @Header("X-Plex-Client-Identifier") clientId: String
+    ): Response<UserSwitchResponseDto>
+}
