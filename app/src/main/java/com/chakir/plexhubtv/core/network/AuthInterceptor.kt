@@ -8,6 +8,16 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
+/**
+ * Intercepteur OkHttp pour injecter automatiquement les tokens d'authentification Plex.
+ *
+ * Responsabilités :
+ * - Ajoute `X-Plex-Token` (Token utilisateur) si disponible.
+ * - Ajoute `X-Plex-Client-Identifier` (UUID de l'appareil).
+ * - Ajoute les en-têtes standards de la plateforme Plex (OS, Version, App Name).
+ *
+ * Les tokens sont observés de manière réactive depuis le DataStore.
+ */
 @Singleton
 class AuthInterceptor @Inject constructor(
     private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore

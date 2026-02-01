@@ -27,6 +27,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+/**
+ * Sidebar alphabétique pour la navigation rapide (Jump-to-letter).
+ */
 @Composable
 fun AlphabetSidebar(
     onLetterSelected: (String) -> Unit,
@@ -66,12 +69,11 @@ fun SidebarItem(
     
     Box(
         modifier = Modifier
-            .width(28.dp)
+            .width(32.dp) // Increased hit target
             .clip(RoundedCornerShape(4.dp))
             .background(if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent)
-            .clickable(onClick = onClick)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable(),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(

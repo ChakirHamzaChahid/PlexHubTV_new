@@ -5,6 +5,9 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
+/**
+ * DAO pour accéder au cache API.
+ */
 @Dao
 interface ApiCacheDao {
     @Query("SELECT * FROM api_cache WHERE cacheKey = :key")

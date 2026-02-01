@@ -7,6 +7,10 @@ import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * DAO pour la file d'attente de synchronisation du statut de visionnage.
+ * Permet de stocker les actions (vu/non-vu) faites hors-ligne pour les rejouer une fois connecté.
+ */
 @Dao
 interface OfflineWatchProgressDao {
 

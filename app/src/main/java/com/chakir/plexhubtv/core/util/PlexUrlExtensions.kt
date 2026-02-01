@@ -3,6 +3,10 @@ package com.chakir.plexhubtv.core.util
 import android.net.Uri
 
 /**
+ * Extensions Kotlin pour faciliter la construction et la manipulation des URLs Plex.
+ * Gestion transparente de l'injection des tokens d'authentification.
+ */
+/**
  * Appends a Plex authentication token to a URL string.
  * Automatically determines whether to use '?' or '&' as the separator.
  */

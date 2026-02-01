@@ -9,6 +9,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
+/**
+ * Implémentation du repository pour la gestion des comptes utilisateurs (Plex Home).
+ * Gère le changement d'utilisateur (User Switch) et la récupération des membres de la maison.
+ */
 class AccountRepositoryImpl @Inject constructor(
     private val api: PlexApiService,
     private val settingsDataStore: SettingsDataStore,

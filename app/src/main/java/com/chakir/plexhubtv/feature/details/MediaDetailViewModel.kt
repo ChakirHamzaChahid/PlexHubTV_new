@@ -17,6 +17,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel gérant les détails d'un média.
+ * Charge les métadonnées, gère les favoris, le statut vu/non-vu, et initie la lecture.
+ * Gère une logique complexe de "Smart Start" pour reprendre la lecture ou lancer le prochain épisode.
+ */
 @HiltViewModel
 class MediaDetailViewModel @Inject constructor(
     private val getMediaDetailUseCase: GetMediaDetailUseCase,
@@ -27,6 +32,7 @@ class MediaDetailViewModel @Inject constructor(
     private val toggleFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.ToggleFavoriteUseCase,
     private val isFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.IsFavoriteUseCase,
     private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
+    private val getSimilarMediaUseCase: com.chakir.plexhubtv.domain.usecase.GetSimilarMediaUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val ratingKey: String = checkNotNull(savedStateHandle["ratingKey"])
@@ -94,6 +100,11 @@ class MediaDetailViewModel @Inject constructor(
             is MediaDetailEvent.OpenSeason -> {
                 viewModelScope.launch {
                     _navigationEvents.send(MediaDetailNavigationEvent.NavigateToSeason(event.season.ratingKey, event.season.serverId))
+                }
+            }
+            is MediaDetailEvent.OpenMediaDetail -> {
+                viewModelScope.launch {
+                    _navigationEvents.send(MediaDetailNavigationEvent.NavigateToMediaDetail(event.media.ratingKey, event.media.serverId))
                 }
             }
             is MediaDetailEvent.Back -> {
@@ -183,6 +194,8 @@ class MediaDetailViewModel @Inject constructor(
                                 seasons = detail.children
                             )
                         }
+                        // Secondary fetch for similar items
+                        loadSimilarItems()
                     },
                     onFailure = { error ->
                         android.util.Log.e("METRICS", "SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
@@ -192,10 +205,19 @@ class MediaDetailViewModel @Inject constructor(
             }
         }
     }
+
+    private fun loadSimilarItems() {
+        viewModelScope.launch {
+            getSimilarMediaUseCase(ratingKey, serverId).onSuccess { items ->
+                _uiState.update { it.copy(similarItems = items) }
+            }
+        }
+    }
 }
 
 sealed interface MediaDetailNavigationEvent {
     data class NavigateToPlayer(val ratingKey: String, val serverId: String) : MediaDetailNavigationEvent
+    data class NavigateToMediaDetail(val ratingKey: String, val serverId: String) : MediaDetailNavigationEvent
     data class NavigateToSeason(val ratingKey: String, val serverId: String) : MediaDetailNavigationEvent
     data object NavigateBack : MediaDetailNavigationEvent
 }

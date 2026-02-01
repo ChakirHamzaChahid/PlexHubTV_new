@@ -8,6 +8,11 @@ import com.google.gson.reflect.TypeToken
 import com.chakir.plexhubtv.domain.model.MediaPart
 import com.chakir.plexhubtv.domain.model.MediaStream
 
+/**
+ * Convertisseurs de types pour Room.
+ * Gère la sérialisation/désérialisation des objets complexes (Listes, Streams) en JSON via Gson
+ * pour pouvoir les stocker dans les colonnes TEXT de SQLite.
+ */
 class Converters {
     private val gson = GsonBuilder()
         .registerTypeAdapter(MediaStream::class.java, MediaStreamAdapter())

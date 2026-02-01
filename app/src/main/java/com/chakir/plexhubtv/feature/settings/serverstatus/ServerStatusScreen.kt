@@ -25,6 +25,10 @@ import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.BorderStroke
 
+/**
+ * Écran affichant l'état des serveurs configurés (En ligne/Hors ligne, Latence).
+ * Permet de rafraîchir manuellement le statut.
+ */
 @Composable
 fun ServerStatusRoute(
     viewModel: ServerStatusViewModel = hiltViewModel(),

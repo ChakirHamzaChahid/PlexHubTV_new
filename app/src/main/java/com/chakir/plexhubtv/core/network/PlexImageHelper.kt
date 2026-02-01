@@ -10,6 +10,12 @@ enum class ImageType {
     POSTER, ART, THUMB, LOGO, AVATAR
 }
 
+/**
+ * Utilitaire pour la construction d'URLs d'images Plex optimisées.
+ *
+ * Gère le Transcodage d'images (redimensionnement côté serveur) pour économiser la bande passante
+ * et améliorer les performances de chargement sur Android TV.
+ */
 object PlexImageHelper {
     private const val WIDTH_ROUNDING_FACTOR = 40
     private const val HEIGHT_ROUNDING_FACTOR = 60

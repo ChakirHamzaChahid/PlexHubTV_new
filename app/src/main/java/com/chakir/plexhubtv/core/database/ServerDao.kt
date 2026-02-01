@@ -6,6 +6,9 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * DAO pour la gestion des serveurs Plex enregistrés.
+ */
 @Dao
 interface ServerDao {
     @Query("SELECT * FROM servers")

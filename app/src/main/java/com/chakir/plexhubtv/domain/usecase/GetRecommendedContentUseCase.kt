@@ -11,6 +11,12 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
+/**
+ * Récupère les recommandations unifiées (Hubs).
+ *
+ * Transforme le flux de Hubs du repository en un Resource (Loading/Success/Error)
+ * pour consommation facile par l'UI.
+ */
 class GetRecommendedContentUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {

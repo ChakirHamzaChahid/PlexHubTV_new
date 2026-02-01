@@ -13,6 +13,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel pour gérer les contenus téléchargés.
+ * Interagit avec [DownloadsRepository] pour récupérer et supprimer des téléchargements.
+ */
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
     private val downloadsRepository: DownloadsRepository

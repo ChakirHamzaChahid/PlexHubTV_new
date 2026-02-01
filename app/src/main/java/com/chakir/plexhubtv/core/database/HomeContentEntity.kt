@@ -3,6 +3,11 @@ package com.chakir.plexhubtv.core.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/**
+ * Entité de liaison pour l'écran d'accueil.
+ * Ne stocke pas les données du média, mais une référence (ServerID + RatingKey)
+ * qui permet de faire une jointure avec la table `media`.
+ */
 @Entity(tableName = "home_content", primaryKeys = ["type", "hubIdentifier", "itemServerId", "itemRatingKey"])
 data class HomeContentEntity(
     val type: String, // "onDeck" or "hub"

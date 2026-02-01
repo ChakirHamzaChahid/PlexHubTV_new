@@ -23,6 +23,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 
+/**
+ * Classe Application personnalisée pour PlexHubTV.
+ * 
+ * Responsabilités :
+ * - Configuration Hilt (Injection de dépendances)
+ * - Configuration Coil (Chargement d'images avec cache optimisé pour TV)
+ * - Configuration WorkManager (Workers Hilt-compatibles)
+ * - Lancement de la synchronisation périodique en arrière-plan
+ */
 @HiltAndroidApp
 class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Provider {
 
@@ -40,6 +49,15 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
             .setWorkerFactory(workerFactory)
             .build()
             
+    /**
+     * Configure la synchronisation périodique des bibliothèques.
+     * 
+     * Stratégie :
+     * 1. Synchronisation initiale immédiate (OneTime) si jamais effectuée.
+     * 2. Synchronisation périodique toutes les 6 heures (PeriodicWork).
+     * 
+     * Contraintes : Nécessite une connexion réseau active.
+     */
     private fun setupBackgroundSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)

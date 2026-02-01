@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel pour la gestion des profils (Plex Home).
+ * Gère le chargement des utilisateurs et le basculement (Switch User) avec ou sans PIN.
+ */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository

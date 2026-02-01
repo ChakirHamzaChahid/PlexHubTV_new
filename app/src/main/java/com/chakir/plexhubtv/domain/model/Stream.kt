@@ -1,5 +1,17 @@
 package com.chakir.plexhubtv.domain.model
 
+/**
+ * Représente un flux élémentaire (Stream) au sein d'un fichier média.
+ *
+ * @property id ID unique du flux.
+ * @property index Index séquentiel dans le conteneur.
+ * @property language Langue (ex: "English").
+ * @property languageCode Code ISO langue (ex: "eng").
+ * @property title Titre ou label (ex: "Commentary track").
+ * @property displayTitle Titre formaté pour l'affichage.
+ * @property codec Codec utilisé (h264, aac, srt...).
+ * @property selected Indique si ce flux est sélectionné par défaut.
+ */
 sealed class MediaStream {
     abstract val id: String
     abstract val index: Int?

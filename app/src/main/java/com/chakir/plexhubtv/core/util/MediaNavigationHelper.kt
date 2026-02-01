@@ -11,7 +11,12 @@ enum class MediaNavigationResult {
 }
 
 /**
- * Navigates to the appropriate screen based on media item type
+ * Logique de routage centralisée pour les éléments médias.
+ * Détermine l'écran de destination (Player, Détails, Saison) en fonction du type de média.
+ * 
+ * @param navController Le contrôleur de navigation Jetpack Navigation.
+ * @param item L'élément média cliqué.
+ * @param playDirectly Si vrai, tente de lancer la lecture directement (e.g. "Reprendre").
  */
 fun navigateToMediaItem(
     navController: NavController,

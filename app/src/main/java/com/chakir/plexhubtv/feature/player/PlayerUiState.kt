@@ -4,6 +4,10 @@ import com.chakir.plexhubtv.domain.model.AudioTrack
 import com.chakir.plexhubtv.domain.model.MediaItem
 import com.chakir.plexhubtv.domain.model.SubtitleTrack
 
+/**
+ * État de l'UI pour le lecteur vidéo.
+ * Contient les informations de lecture (position, durée, buffering), les pistes audio/sous-titres et les métadonnées.
+ */
 data class PlayerUiState(
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
@@ -35,7 +39,7 @@ data class PlayerUiState(
     val showSubtitleSelection: Boolean = false,
 
     val error: String? = null,
-    val isMpvFallback: Boolean = false
+    val isMpvMode: Boolean = false
 )
 
 data class VideoQuality(
@@ -61,4 +65,5 @@ sealed interface PlayerAction {
     data object SeekToNextChapter : PlayerAction
     data object SeekToPreviousChapter : PlayerAction
     data object ToggleSettings : PlayerAction
+    data object DismissDialog : PlayerAction // Close any open dialog without stopping playback
 }

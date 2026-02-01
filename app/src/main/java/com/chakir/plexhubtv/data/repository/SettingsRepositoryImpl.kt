@@ -5,6 +5,10 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
+/**
+ * Implémentation du repository des paramètres.
+ * Agit comme une façade sur le DataStore [SettingsDataStore] et le [CacheManager].
+ */
 class SettingsRepositoryImpl @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val cacheManager: com.chakir.plexhubtv.core.util.CacheManager

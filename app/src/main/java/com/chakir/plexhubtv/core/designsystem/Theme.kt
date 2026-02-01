@@ -79,6 +79,14 @@ private val MonoLightColorScheme = lightColorScheme(
     onSurfaceVariant = MonoLightTextMuted
 )
 
+/**
+ * Thème principal de l'application basé sur Material3.
+ *
+ * Supporte :
+ * - Mode sombre (Force l'application en mode sombre par défaut pour l'expérience TV).
+ * - Couleurs dynamiques (Android 12+).
+ * - Thèmes personnalisés ("Plex" par défaut, "Mono" options).
+ */
 @Composable
 fun PlexHubTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

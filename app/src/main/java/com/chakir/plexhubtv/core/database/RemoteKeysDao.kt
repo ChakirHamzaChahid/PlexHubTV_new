@@ -5,6 +5,10 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
+/**
+ * DAO pour accéder aux clés de pagination (RemoteKeys).
+ * Critique pour le bon fonctionnement du chargement infini (Infinite Scroll).
+ */
 @Dao
 interface RemoteKeysDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)

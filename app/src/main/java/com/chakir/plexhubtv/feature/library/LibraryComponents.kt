@@ -9,11 +9,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 // -- New Composables for LibrariesScreen.kt --
 
+
+/**
+ * Barre d'application en mode Recherche.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchAppBar(
@@ -21,6 +26,12 @@ fun SearchAppBar(
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit
 ) {
+    val focusRequester = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
     TopAppBar(
         title = {
             androidx.compose.material3.TextField(
@@ -36,7 +47,9 @@ fun SearchAppBar(
                     unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
                 ),
                 textStyle = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
             )
         },
         navigationIcon = {

@@ -19,6 +19,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.tv.material3.*
 import com.chakir.plexhubtv.core.navigation.Screen
 
+/**
+ * Barre de navigation latérale (Drawer) pour TV.
+ * S'adapte à l'état de connexion (Online/Offline).
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun AppSidebar(
@@ -34,7 +38,6 @@ fun AppSidebar(
         NavigationItem.Home,
         NavigationItem.Movies,
         NavigationItem.TVShows,
-        NavigationItem.Search,
         NavigationItem.Favorites,
         NavigationItem.History,
         NavigationItem.Downloads,

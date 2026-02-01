@@ -22,6 +22,10 @@ import coil.compose.AsyncImage
 import com.chakir.plexhubtv.domain.model.MediaItem
 import com.chakir.plexhubtv.domain.model.MediaType
 
+/**
+ * Écran de gestion des téléchargements.
+ * Affiche la liste des contenus synchronisés localement pour une lcture hors-ligne.
+ */
 @Composable
 fun DownloadsRoute(
     viewModel: DownloadsViewModel = hiltViewModel(),

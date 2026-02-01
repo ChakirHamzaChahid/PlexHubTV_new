@@ -3,6 +3,10 @@ package com.chakir.plexhubtv.domain.usecase
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import javax.inject.Inject
 
+/**
+ * Cas d'utilisation pour l'index alphabétique (Fast Scroller).
+ * Permet de sauter directement à une lettre (A, B, C...) dans une grande bibliothèque.
+ */
 class GetLibraryIndexUseCase @Inject constructor(
     private val libraryRepository: LibraryRepository
 ) {
@@ -11,12 +15,14 @@ class GetLibraryIndexUseCase @Inject constructor(
         letter: String,
         filter: String?,
         sort: String?,
-        genre: String?,
+        genre: List<String>?,
         serverId: String?,
-        libraryKey: String?
+        selectedServerId: String?,
+        libraryKey: String?,
+        query: String?
     ): Int {
         // If sorting is NOT alphabetical, this index lookup makes no sense (or behaves differently).
         // For now, assume UI only calls this when sort is "Title".
-        return libraryRepository.getIndexOfFirstItem(type, letter, filter, sort, genre, serverId, libraryKey)
+        return libraryRepository.getIndexOfFirstItem(type, letter, filter, sort, genre, serverId, selectedServerId, libraryKey, query)
     }
 }

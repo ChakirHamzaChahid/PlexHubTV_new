@@ -2,6 +2,9 @@ package com.chakir.plexhubtv.data.model
 
 import com.google.gson.annotations.SerializedName
 
+/**
+ * DTO représentant la réponse lors d'une demande de PIN (Plex.tv/api/v2/pins).
+ */
 data class PinResponse(
     val id: Int,
     val code: String,
@@ -35,6 +38,10 @@ data class Location(
     val coordinates: String
 )
 
+/**
+ * DTO représentant une ressource Plex (Serveur, Client, etc.) récupérée via /api/v2/resources.
+ * Contient la liste des connexions possibles.
+ */
 data class PlexResource(
     val name: String,
     val product: String,

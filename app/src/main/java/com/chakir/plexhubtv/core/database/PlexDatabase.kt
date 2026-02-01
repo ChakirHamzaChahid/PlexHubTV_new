@@ -4,6 +4,10 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
+/**
+ * Définition principale de la base de données Room.
+ * Version 15 : Inclut les tables Media, Server, Download, Cache, WatchProgress, Home, Favorites, RemoteKeys, LibrarySections.
+ */
 @TypeConverters(Converters::class)
 @Database(
     entities = [
@@ -17,7 +21,7 @@ import androidx.room.TypeConverters
         RemoteKey::class,
         LibrarySectionEntity::class
     ],
-    version = 12,
+    version = 15,
     exportSchema = false
 )
 abstract class PlexDatabase : RoomDatabase() {

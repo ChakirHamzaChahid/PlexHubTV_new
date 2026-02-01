@@ -1,5 +1,15 @@
 package com.chakir.plexhubtv.domain.model
 
+/**
+ * Représente un marqueur temporel spécial dans une vidéo.
+ *
+ * Utilisé principalement pour les fonctionnalités "Skip Intro" et "Skip Credits".
+ *
+ * @property title Titre ou label (ex: "Intro", "Credits").
+ * @property type Type technique (ex: "intro", "credits", "commercial").
+ * @property startTime Début du segment en millisecondes.
+ * @property endTime Fin du segment en millisecondes.
+ */
 data class Marker(
     val title: String = "Marker",
     val type: String, // 'intro' or 'credits'

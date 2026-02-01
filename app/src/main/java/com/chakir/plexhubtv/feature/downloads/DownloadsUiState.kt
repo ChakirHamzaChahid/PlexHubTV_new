@@ -2,6 +2,9 @@ package com.chakir.plexhubtv.feature.downloads
 
 import com.chakir.plexhubtv.domain.model.MediaItem
 
+/**
+ * État de l'UI pour les téléchargements.
+ */
 data class DownloadsUiState(
     val isLoading: Boolean = false,
     val downloads: List<MediaItem> = emptyList(),

@@ -6,6 +6,10 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 
+/**
+ * DAO pour le contenu de l'écran d'accueil mis en cache.
+ * Permet d'afficher l'interface instantanément au démarrage avant le rafraîchissement réseau.
+ */
 @Dao
 interface HomeContentDao {
     

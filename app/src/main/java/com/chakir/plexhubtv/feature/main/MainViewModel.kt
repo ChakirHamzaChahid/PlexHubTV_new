@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel principal de l'application.
+ * Surveille l'état de la connexion (Online/Offline) via [ConnectionManager].
+ */
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val connectionManager: ConnectionManager

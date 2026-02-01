@@ -16,6 +16,11 @@ data class ConnectionResult(
     val errorCode: Int? = null
 )
 
+/**
+ * Interface pour tester la connectivité d'une URL de serveur.
+ * Utilise un client OkHttp dédié avec des timeouts courts (5s) pour
+ * accélérer la découverte des serveurs.
+ */
 interface ServerConnectionTester {
     suspend fun testConnection(url: String, token: String): ConnectionResult
 }

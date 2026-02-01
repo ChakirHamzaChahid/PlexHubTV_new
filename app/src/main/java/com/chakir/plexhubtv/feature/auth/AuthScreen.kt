@@ -21,6 +21,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
 
+/**
+ * Écran d'authentification principal.
+ * Affiche l'état courant de l'authentification (PIN, Loading, Error, Success).
+ */
 @Composable
 fun AuthRoute(
     viewModel: AuthViewModel = hiltViewModel(),

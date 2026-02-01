@@ -5,6 +5,12 @@ import com.chakir.plexhubtv.domain.model.MediaType
 import com.chakir.plexhubtv.domain.repository.MediaRepository
 import javax.inject.Inject
 
+/**
+ * Cas d'utilisation pour construire la file de lecture (PlayQueue).
+ *
+ * Pour un épisode donné, génère une liste contenant cet épisode et tous les suivants
+ * de la même saison, permettant le "Binge Watching" automatique.
+ */
 class GetPlayQueueUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {

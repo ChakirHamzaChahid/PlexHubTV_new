@@ -21,21 +21,19 @@ data class TrackSelectionResult<T>(
 )
 
 /**
- * Use case for intelligent track selection based on user preferences and context.
+ * Cas d'utilisation pour la sélection intelligente des pistes (Audio / Sous-titres).
  * 
- * Implements Plezy's sophisticated 6-priority selection algorithm:
- * 1. Navigation - Continues user's manual selections between episodes
- * 2. Plex Selected - Respects server-side selected tracks
- * 3. Per-Media - Uses metadata-level language overrides
- * 4. Profile - Applies user profile language preferences
- * 5. Default - Falls back to default/first track
- * 6. Off - No subtitles (subtitle-specific fallback)
+ * Implémente l'algorithme "Smart Select" de Plezy avec 6 niveaux de priorité :
+ * 1. **Navigation** : Reprend le choix manuel de l'épisode précédent.
+ * 2. **Plex Selected** : Respecte la piste marquée comme "Selected" par le serveur.
+ * 3. **Per-Media** : Préférence spécifique forcée pour ce média (si disponible).
+ * 4. **Profile** : Préférences globales de l'utilisateur (Langue préférée).
+ * 5. **Default** : Piste marquée "Default" ou la première piste.
+ * 6. **Off** : Pas de sous-titres (si aucune condition n'est remplie).
  */
 class TrackSelectionUseCase @Inject constructor() {
-
-    /**
-     * Select the best audio track
-     */
+    
+    /** Sélectionne la meilleure piste audio selon les priorités. */
     fun selectAudioTrack(
         availableTracks: List<AudioTrack>,
         preferredTrack: AudioTrack? = null,

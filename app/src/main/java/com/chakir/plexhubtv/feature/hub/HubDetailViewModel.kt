@@ -29,6 +29,10 @@ sealed interface HubDetailEvent {
     data class ToggleViewMode(val mode: ViewMode) : HubDetailEvent
 }
 
+/**
+ * ViewModel pour l'écran détail d'un Hub spécifique (ex: "Récemment ajoutés").
+ * Charge la liste complète des éléments du Hub et gère les modes d'affichage (Grid/List).
+ */
 @HiltViewModel
 class HubDetailViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,

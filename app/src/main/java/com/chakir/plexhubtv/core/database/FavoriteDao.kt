@@ -6,6 +6,9 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * DAO pour accéder aux favoris stockés localement.
+ */
 @Dao
 interface FavoriteDao {
     @Query("SELECT * FROM favorites ORDER BY addedAt DESC")

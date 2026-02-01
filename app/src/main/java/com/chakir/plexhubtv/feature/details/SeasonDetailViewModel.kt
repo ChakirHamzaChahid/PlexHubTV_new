@@ -37,6 +37,10 @@ sealed interface SeasonDetailEvent {
     data object Back : SeasonDetailEvent
 }
 
+/**
+ * ViewModel pour le détail d'une Saison.
+ * Gère le chargement des épisodes.
+ */
 @HiltViewModel
 class SeasonDetailViewModel @Inject constructor(
     private val getMediaDetailUseCase: GetMediaDetailUseCase,

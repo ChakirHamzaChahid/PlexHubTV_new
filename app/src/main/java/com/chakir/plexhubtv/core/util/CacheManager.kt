@@ -8,6 +8,10 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Gestionnaire de cache stocké sur le système de fichiers.
+ * Fournit des méthodes pour calculer la taille et vider le répertoire cache de l'application.
+ */
 @Singleton
 class CacheManager @Inject constructor(
     @ApplicationContext private val context: Context

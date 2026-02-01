@@ -18,6 +18,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.feature.home.MediaCard
 
+/**
+ * Écran affichant les favoris de l'utilisateur.
+ */
 @Composable
 fun FavoritesRoute(
     viewModel: FavoritesViewModel = hiltViewModel(),
@@ -64,7 +67,7 @@ fun FavoritesScreen(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 160.dp),
+                columns = GridCells.Adaptive(minSize = 100.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -75,7 +78,11 @@ fun FavoritesScreen(
                         media = media,
                         onClick = { onMediaClick(media) },
                         onPlay = { /* Optional direct play */ },
-                        onFocus = {}
+                        onFocus = {},
+                        width = 100.dp,
+                        height = 150.dp,
+                        titleStyle = MaterialTheme.typography.labelMedium,
+                        subtitleStyle = MaterialTheme.typography.labelSmall
                     )
                 }
             }

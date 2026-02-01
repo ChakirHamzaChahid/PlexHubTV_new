@@ -8,6 +8,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
+/**
+ * Implémentation du repository de téléchargements.
+ * Gère le statut et l'accès aux médias téléchargés localement (Feature future/partielle).
+ */
 class DownloadsRepositoryImpl @Inject constructor(
     private val downloadDao: DownloadDao
 ) : DownloadsRepository {

@@ -50,6 +50,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import android.view.KeyEvent as NativeKeyEvent
 
+/**
+ * Route principale pour l'écran de lecture vidéo.
+ * Initialise le ViewModel, les gestionnaires de cycle de vie et le BackHandler.
+ */
 @OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerRoute(
@@ -58,7 +62,7 @@ fun VideoPlayerRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     
-    // Collect Chapter Logic
+    // Collecte des Chapitres et Marqueurs
     val chapters by viewModel.chapterMarkerManager.chapters.collectAsState()
     val markers by viewModel.chapterMarkerManager.markers.collectAsState()
     val visibleMarkers by viewModel.chapterMarkerManager.visibleMarkers.collectAsState()
@@ -66,15 +70,15 @@ fun VideoPlayerRoute(
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     
-    // Attach MPV to lifecycle if initialized
+    // Attache le joueur MPV au cycle de vie (Resume/Pause)
     LaunchedEffect(viewModel.mpvPlayer) {
         viewModel.mpvPlayer?.attach(lifecycleOwner)
     }
     
-    // Lock orientation or handle PIP here
+    // Gestion du PIP ou de l'orientation ici si nécessaire
     DisposableEffect(Unit) {
         onDispose {
-            // Exit full screen / cleanup
+            // Nettoyage sortie écran plein
         }
     }
     
@@ -96,6 +100,15 @@ fun VideoPlayerRoute(
     )
 }
 
+/**
+ * Écran principal du lecteur vidéo.
+ *
+ * Caractéristiques :
+ * - Mode Hybride : Supporte ExoPlayer (Media3) ET MPV (pour les codecs exotiques).
+ * - UI Overlay : Contrôles personnalisés (PlezyPlayerControls) avec auto-hide.
+ * - Gestion Focus : Support complet du D-Pad (Android TV).
+ * - Clavier/Télécommande : Interception des KeyEvents (Play, Pause, Seek).
+ */
 @OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerScreen(
@@ -137,8 +150,8 @@ fun VideoPlayerScreen(
     
     BackHandler(enabled = true) {
         if (isDialogVisible) {
-            // Close any open dialog
-            onAction(PlayerAction.Close)
+            // Close any open dialog without stopping playback
+            onAction(PlayerAction.DismissDialog)
         } else if (controlsVisible) {
             controlsVisible = false
         } else {
@@ -207,7 +220,7 @@ fun VideoPlayerScreen(
             }
     ) {
         // Hybrid Player Rendering
-        if (uiState.isMpvFallback && mpvPlayer != null) {
+        if (uiState.isMpvMode && mpvPlayer != null) {
             AndroidView(
                 factory = { context ->
                     FrameLayout(context).apply {
@@ -297,7 +310,7 @@ fun VideoPlayerScreen(
                 tracks = uiState.audioTracks,
                 selectedTrack = uiState.selectedAudio,
                 onSelect = { onAction(PlayerAction.SelectAudioTrack(it)) },
-                onDismiss = { onAction(PlayerAction.Close) } // Close just calls Close action which handles state
+                onDismiss = { onAction(PlayerAction.DismissDialog) }
             )
         }
 
@@ -307,7 +320,7 @@ fun VideoPlayerScreen(
                 tracks = uiState.subtitleTracks,
                 selectedTrack = uiState.selectedSubtitle,
                 onSelect = { onAction(PlayerAction.SelectSubtitleTrack(it)) },
-                onDismiss = { onAction(PlayerAction.Close) }
+                onDismiss = { onAction(PlayerAction.DismissDialog) }
             )
         }
     }

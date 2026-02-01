@@ -22,6 +22,10 @@ sealed interface ProfileEvent {
     data object RefreshProfiles : ProfileEvent
 }
 
+/**
+ * ViewModel gérant la liste des profils utilisateurs (Plex Home Users).
+ * Permet de lister les utilisateurs et de basculer de session active via [AccountRepository].
+ */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val accountRepository: AccountRepository

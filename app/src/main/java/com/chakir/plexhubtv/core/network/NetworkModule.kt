@@ -13,6 +13,15 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
+/**
+ * Module Dagger Hilt pour la configuration réseau.
+ *
+ * Fournit :
+ * - [OkHttpClient] : Configuré avec logging et TrustManager permissif (pour serveurs locaux HTTPS auto-signés).
+ * - [Retrofit] : Point d'entrée pour l'API Plex.
+ * - [PlexApiService] : Interface Retrofit.
+ * - [Gson] : Sérialisation JSON.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
@@ -29,7 +38,7 @@ object NetworkModule {
         return HttpLoggingInterceptor().apply {
             // PERFORMANCE FIX: Level.BODY was causing 100-500ms overhead per request
             level = if (com.chakir.plexhubtv.BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.HEADERS
+                HttpLoggingInterceptor.Level.BODY
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }

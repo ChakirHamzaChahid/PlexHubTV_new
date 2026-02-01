@@ -3,6 +3,10 @@ package com.chakir.plexhubtv.domain.usecase
 import com.chakir.plexhubtv.domain.repository.DownloadsRepository
 import javax.inject.Inject
 
+/**
+ * Déclenche la synchronisation du contenu hors-ligne (Vérifie les téléchargements en attente).
+ * Actuellement un placeholder pour l'intégration future avec WorkManager.
+ */
 class SyncOfflineContentUseCase @Inject constructor(
     private val downloadsRepository: DownloadsRepository
 ) {

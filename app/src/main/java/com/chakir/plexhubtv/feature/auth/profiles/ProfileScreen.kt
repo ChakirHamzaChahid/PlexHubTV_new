@@ -24,6 +24,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.chakir.plexhubtv.domain.model.PlexHomeUser
 
+/**
+ * Écran de sélection de profil (Plex Home).
+ * Permet de choisir quel utilisateur regarde (User Switching).
+ */
 @Composable
 fun ProfileRoute(
     viewModel: ProfileViewModel = hiltViewModel(),

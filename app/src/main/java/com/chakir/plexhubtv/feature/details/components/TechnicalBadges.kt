@@ -17,6 +17,11 @@ import com.chakir.plexhubtv.domain.model.AudioStream
 import com.chakir.plexhubtv.domain.model.MediaItem
 import com.chakir.plexhubtv.domain.model.VideoStream
 
+/**
+ * Composant UI affichant les badges techniques (4K, HDR, Dolby Vision, Audio).
+ * Extrait les informations des MediaParts et Streams pour afficher les capacités du média.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun TechnicalBadges(
     media: MediaItem,
@@ -30,10 +35,11 @@ fun TechnicalBadges(
     val videoStream = part.streams.filterIsInstance<VideoStream>().firstOrNull()
     val audioStream = part.streams.filterIsInstance<AudioStream>().firstOrNull()
 
-    Row(
+    androidx.compose.foundation.layout.FlowRow(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        maxItemsInEachRow = 4
     ) {
         // Resolution Badge
         videoStream?.let { video ->

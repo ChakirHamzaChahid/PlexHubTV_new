@@ -15,6 +15,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel gérant le flux d'authentification.
+ * Responsabilités :
+ * - Initialiser le Login via PIN (Polling).
+ * - Login via Token (Dev/Test).
+ * - Vérifier l'état d'authentification au démarrage.
+ */
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository

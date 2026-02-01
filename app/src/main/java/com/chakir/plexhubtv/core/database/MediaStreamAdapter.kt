@@ -4,6 +4,11 @@ import com.chakir.plexhubtv.domain.model.*
 import com.google.gson.*
 import java.lang.reflect.Type
 
+/**
+ * Adaptateur Gson polymorphique pour la classe `MediaStream`.
+ * Permet de sérialiser/désérialiser correctement les sous-classes (Audio, Video, Subtitle)
+ * en ajoutant un champ discriminant `stream_type_key` dans le JSON stocké.
+ */
 class MediaStreamAdapter : JsonSerializer<MediaStream>, JsonDeserializer<MediaStream> {
     override fun serialize(src: MediaStream, typeOfSrc: Type, context: JsonSerializationContext): JsonElement {
         val jsonObject = context.serialize(src).asJsonObject

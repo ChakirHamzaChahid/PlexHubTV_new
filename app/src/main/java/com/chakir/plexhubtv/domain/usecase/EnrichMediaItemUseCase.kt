@@ -10,10 +10,27 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
+/**
+ * Cas d'utilisation pour enrichir un MediaItem avec des sources externes (autres serveurs).
+ *
+ * Scénario :
+ * L'utilisateur a un film sur le serveur A. Ce UseCase va chercher si ce même film
+ * existe sur le serveur B ou C pour offrir plus d'options de lecture (fallback).
+ *
+ * Algorithme de Matching :
+ * 1. Recherche via GUID (IMDB/TMDB) -> Match parfait.
+ * 2. Fallback sur "Titre + Année" si les GUIDs manquent.
+ * 3. Vérification de la hiérarchie pour les épisodes (Saison + Index).
+ */
 class EnrichMediaItemUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val searchRepository: SearchRepository
 ) {
+    /**
+     * Exécute l'enrichissement en parallèle sur tous les serveurs connectés.
+     * @param item L'élément de référence à enrichir.
+     * @return Une copie de [item] avec la liste [MediaItem.remoteSources] remplie.
+     */
     suspend operator fun invoke(item: MediaItem): MediaItem = coroutineScope {
         val serversResult = authRepository.getServers()
         val allServers = serversResult.getOrNull() ?: return@coroutineScope item

@@ -22,7 +22,17 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+import kotlinx.coroutines.launch
 
+/**
+ * Implémentation du dépôt central pour les données multimédias.
+ *
+ * Stratégie de données :
+ * 1. Cache-First : On renvoie toujours onDeck/OnDeck localement en premier pour la réactivité.
+ * 2. Network-Refresh : On lance ensuite un appel réseau pour mettre à jour la BDD locale.
+ * 3. Aggregation : On fusionne les données de multiples serveurs Plex.
+ * 4. Deduplication : On regroupe les médias identiques (même film sur 2 serveurs) via [deduplicateMediaItems].
+ */
 class MediaRepositoryImpl @Inject constructor(
     private val api: PlexApiService,
     private val mediaDao: MediaDao,
@@ -31,11 +41,21 @@ class MediaRepositoryImpl @Inject constructor(
     private val mapper: MediaMapper,
     private val authRepository: com.chakir.plexhubtv.domain.repository.AuthRepository,
     private val connectionManager: com.chakir.plexhubtv.core.network.ConnectionManager,
-    private val favoriteDao: com.chakir.plexhubtv.core.database.FavoriteDao
+    private val favoriteDao: com.chakir.plexhubtv.core.database.FavoriteDao,
+    private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore
 ) : MediaRepository {
 
     private val gson = com.google.gson.Gson()
 
+    /**
+     * Récupère la section "On Deck" (En cours / À voir) unifiée.
+     *
+     * Logique :
+     * 1. Émet immédiatement le cache local (rapide).
+     * 2. Lance en parallèle les requêtes vers tous les serveurs connectés.
+     * 3. Met à jour la BDD locale (MediaDao + HomeContentDao).
+     * 4. Émet la nouvelle liste dédoublonnée une fois le réseau terminé.
+     */
     override fun getUnifiedOnDeck(): Flow<List<MediaItem>> = flow {
         // 1. Emit Cache First (Fast Path)
         val cachedItems = getCachedOnDeck()
@@ -288,8 +308,16 @@ class MediaRepositoryImpl @Inject constructor(
         return aggregateHubs(allHubs, ownedServerIds, servers)
     }
 
+    /**
+     * Récupère les détails d'un média spécifique.
+     *
+     * Gestion d'erreur & Fallback :
+     * - Si le serveur principal échoue (404/Offline), on tente le **Fallback**.
+     * - Fallback : On utilise le GUID du média (ex: plex://movie/...) pour trouver
+     *   une copie de ce même média sur un AUTRE serveur accessible.
+     */
     override suspend fun getMediaDetail(ratingKey: String, serverId: String): Result<MediaItem> {
-        // 1. Attempt Primary Fetch
+        // 1. Tentative sur le serveur principal
         try {
             val client = getClient(serverId)
             if (client != null) {
@@ -308,15 +336,15 @@ class MediaRepositoryImpl @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            // Ignore primary failure, proceed to fallback
+            // Ignorer l'échec primaire, procéder au fallback
         }
 
-        // 2. Fallback: Search for duplicates via GUID
-        // We need the local item to get its GUID
+        // 2. Fallback: Recherche de doublons via GUID
+        // On a besoin de l'élément local pour récupérer son GUID
         val local = mediaDao.getMedia(ratingKey, serverId) ?: return Result.failure(Exception("Item not found and no local cache to enable fallback."))
         val guid = local.guid ?: return Result.failure(Exception("Item failed to load and has no GUID for fallback."))
 
-        // Find alternatives on other servers
+        // Trouver des alternatives sur d'autres serveurs
         val alternatives = mediaDao.getMediaByGuid(guid, excludeServerId = serverId)
         
         for (alt in alternatives) {
@@ -395,6 +423,34 @@ class MediaRepositoryImpl @Inject constructor(
         return getSeasonEpisodes(ratingKey, serverId) // Same endpoint logically for children
     }
 
+    override suspend fun getSimilarMedia(ratingKey: String, serverId: String): Result<List<MediaItem>> {
+        try {
+            val client = getClient(serverId) ?: return Result.failure(Exception("Server not found"))
+            val response = client.getRelated(ratingKey)
+            if (response.isSuccessful) {
+                val body = response.body() ?: return Result.success(emptyList())
+                val hubs = body.mediaContainer?.hubs ?: emptyList()
+                
+                // Usually the first hub is "Similar" or "More like this"
+                // We'll flatten all hubs for now or pick the most relevant one
+                val similarHub = hubs.find { it.hubIdentifier == "similar" } ?: hubs.firstOrNull()
+                val metadata = similarHub?.metadata ?: hubs.flatMap { it.metadata ?: emptyList() }
+                
+                if (metadata.isNotEmpty()) {
+                    val servers = authRepository.getServers().getOrNull() ?: emptyList()
+                    val items = metadata.filter { mapper.isQualityMetadata(it) }.map {
+                        mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
+                    }
+                    val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
+                    return Result.success(deduplicateMediaItems(items, ownedServerIds, servers))
+                }
+            }
+            return Result.success(emptyList())
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+    }
+
     override suspend fun toggleWatchStatus(media: MediaItem, isWatched: Boolean): Result<Unit> {
         val client = getClient(media.serverId) ?: return Result.failure(Exception("Server not found"))
         val response = if (isWatched) client.scrobble(media.ratingKey) else client.unscrobble(media.ratingKey)
@@ -428,9 +484,14 @@ class MediaRepositoryImpl @Inject constructor(
 
     override fun getFavorites(): kotlinx.coroutines.flow.Flow<List<MediaItem>> {
         return favoriteDao.getAllFavorites().map { entities ->
+             val servers = authRepository.getServers().getOrNull() ?: emptyList()
              entities.map { entity ->
+                 val server = servers.find { it.clientIdentifier == entity.serverId }
+                 val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
+                 val token = server?.accessToken
+
                  val mediaEntity = mediaDao.getMedia(entity.ratingKey, entity.serverId)
-                 if (mediaEntity != null) {
+                 val domain = if (mediaEntity != null) {
                      mapper.mapEntityToDomain(mediaEntity)
                  } else {
                       MediaItem(
@@ -443,6 +504,26 @@ class MediaRepositoryImpl @Inject constructor(
                              artUrl = entity.artUrl,
                              year = entity.year
                         )
+                 }
+                 
+                 if (server != null && baseUrl != null) {
+                        val fullThumb = if (domain.thumbUrl != null && !domain.thumbUrl.startsWith("http")) 
+                            "$baseUrl${domain.thumbUrl}?X-Plex-Token=$token" else domain.thumbUrl
+                        val fullArt = if (domain.artUrl != null && !domain.artUrl.startsWith("http")) 
+                            "$baseUrl${domain.artUrl}?X-Plex-Token=$token" else domain.artUrl
+                        
+                        // Optimized images
+                        val optimizedThumb = getOptimizedImageUrl(fullThumb, 300, 450) ?: fullThumb
+                        val optimizedArt = getOptimizedImageUrl(fullArt, 1280, 720) ?: fullArt
+
+                        domain.copy(
+                            baseUrl = baseUrl,
+                            accessToken = token,
+                            thumbUrl = optimizedThumb,
+                            artUrl = optimizedArt
+                        )
+                 } else {
+                     domain
                  }
              }
         }
@@ -457,6 +538,18 @@ class MediaRepositoryImpl @Inject constructor(
             val isFav = favoriteDao.isFavorite(media.ratingKey, media.serverId).first()
             if (isFav) {
                 favoriteDao.deleteFavorite(media.ratingKey, media.serverId)
+                // Sync removal to Plex watchlist in background
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
+                    try {
+                        val token = settingsDataStore.plexToken.first()
+                        val clientId = settingsDataStore.clientId.first()
+                        if (token != null && clientId != null) {
+                            api.removeFromWatchlist(media.ratingKey, token, clientId)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.w("MediaRepository", "Failed to sync removal to Plex: ${e.message}")
+                    }
+                }
                 Result.success(false)
             } else {
                 favoriteDao.insertFavorite(com.chakir.plexhubtv.core.database.FavoriteEntity(
@@ -468,6 +561,18 @@ class MediaRepositoryImpl @Inject constructor(
                     artUrl = media.artUrl,
                     year = media.year
                 ))
+                // Sync addition to Plex watchlist in background
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
+                    try {
+                        val token = settingsDataStore.plexToken.first()
+                        val clientId = settingsDataStore.clientId.first()
+                        if (token != null && clientId != null) {
+                            api.addToWatchlist(media.ratingKey, token, clientId)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.w("MediaRepository", "Failed to sync addition to Plex: ${e.message}")
+                    }
+                }
                 Result.success(true)
             }
         } catch (e: Exception) {
@@ -526,6 +631,17 @@ class MediaRepositoryImpl @Inject constructor(
         return com.chakir.plexhubtv.core.network.PlexClient(server, api, baseUrl)
     }
 
+    /**
+     * Dédoublonne les éléments provenant de plusieurs serveurs.
+     *
+     * Algorithme de dédoublonnage :
+     * 1. Groupement par ID unique externe (IMDB, TMDB).
+     * 2. Si pas d'ID externe, fallback sur "Titre + Année" normalisé.
+     * 3. Sélection du "meilleur" candidat dans chaque groupe :
+     *    - Priorité au serveur "Propriétaire" (Owned) vs Partagé.
+     *    - Puis au plus récemment mis à jour.
+     * 4. Fusion des métadonnées (Note moyenne) et des sources (MediaSource) pour le lecteur.
+     */
     private suspend fun deduplicateMediaItems(items: List<MediaItem>, ownedServerIds: Set<String>, servers: List<Server>): List<MediaItem> = withContext(Dispatchers.Default) {
         // Advanced Grouping Logic (Matching Python Script Strictly)
         // Priority: IMDB ID -> TMDB ID -> Title+Year
@@ -672,5 +788,45 @@ class MediaRepositoryImpl @Inject constructor(
                 )
             }
         }.awaitAll().sortedBy { it.title } // Or use a predefined order for hubs
+    }
+    override suspend fun searchMedia(query: String): Result<List<MediaItem>> = coroutineScope {
+        try {
+            // Search Movies
+            val movies = async { mediaDao.searchMedia(query, "movie") }
+            // Search Shows
+            val shows = async { mediaDao.searchMedia(query, "show") }
+            
+            val allEntities = movies.await() + shows.await()
+            
+            val servers = authRepository.getServers().getOrNull() ?: emptyList()
+            
+            val items = allEntities.map { entity ->
+                 val server = servers.find { it.clientIdentifier == entity.serverId }
+                 val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
+                 
+                 val domain = mapper.mapEntityToDomain(entity)
+                 if (server != null && baseUrl != null) {
+                     val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) 
+                         "$baseUrl${entity.thumbUrl}?X-Plex-Token=${server.accessToken}" else entity.thumbUrl
+                     val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) 
+                         "$baseUrl${entity.artUrl}?X-Plex-Token=${server.accessToken}" else entity.artUrl
+                     
+                     val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                     val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+
+                     domain.copy(
+                        baseUrl = baseUrl,
+                        accessToken = server.accessToken,
+                        thumbUrl = fullThumb,
+                        artUrl = fullArt
+                     )
+                 } else {
+                     domain
+                 }
+            }
+            Result.success(items)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

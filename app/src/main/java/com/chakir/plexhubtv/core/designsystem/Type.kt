@@ -6,6 +6,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+/**
+ * Définition de la typographie de l'application.
+ * Configure les styles de texte par défaut (Police, Poids, Taille) pour Material3.
+ */
 val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,

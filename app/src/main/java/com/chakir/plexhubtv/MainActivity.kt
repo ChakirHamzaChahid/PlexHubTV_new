@@ -29,6 +29,11 @@ import com.chakir.plexhubtv.feature.settings.SettingsRoute
 import com.chakir.plexhubtv.feature.auth.profiles.ProfileRoute
 import dagger.hilt.android.AndroidEntryPoint
 
+/**
+ * Activité principale de PlexHubTV.
+ * Point d'entrée de l'application, configure le thème et le système de navigation.
+ * Utilise Jetpack Compose pour l'UI et Hilt pour l'injection de dépendances.
+ */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -55,6 +60,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Composable racine de l'application PlexHub.
+ * Configure le NavHost et définit le graphe de navigation entre les écrans :
+ * - Login/Auth
+ * - Profiles (Plex Home)
+ * - Main (Conteneur avec BottomBar)
+ * - MediaDetail, SeasonDetail
+ * - VideoPlayer (avec DeepLink support)
+ */
 @Composable
 fun PlexHubApp() {
     val navController = rememberNavController()
@@ -114,6 +128,9 @@ fun PlexHubApp() {
                 onNavigateToPlayer = { ratingKey, serverId ->
                     navController.navigate(Screen.VideoPlayer.createRoute(ratingKey, serverId))
                 },
+                onNavigateToDetail = { ratingKey, serverId ->
+                    navController.navigate(Screen.MediaDetail.createRoute(ratingKey, serverId))
+                },
                 onNavigateToSeason = { ratingKey, serverId ->
                     navController.navigate(Screen.SeasonDetail.createRoute(ratingKey, serverId))
                 },
@@ -151,6 +168,9 @@ fun PlexHubApp() {
                     type = NavType.LongType 
                     defaultValue = 0L
                 }
+            ),
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink { uriPattern = "plexhub://play/{ratingKey}?serverId={serverId}" }
             )
         ) {
             VideoPlayerRoute(

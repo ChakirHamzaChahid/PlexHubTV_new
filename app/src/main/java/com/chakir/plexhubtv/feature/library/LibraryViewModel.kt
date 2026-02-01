@@ -31,6 +31,17 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.ExistingWorkPolicy
 
 @HiltViewModel
+/**
+ * ViewModel principal pour l'écran de bibliothèque (Library).
+ *
+ * Responsabilités :
+ * - Gérer l'état de l'interface (LibraryUiState).
+ * - Charger les métadonnées (serveurs, genres).
+ * - Exposer le flux de données paginées (pagedItems).
+ * - Gérer les événements utilisateur (Filtres, Tri, Navigation).
+ *
+ * Pattern : MVVM avec StateFlow pour l'état et Channel pour les événements uniques.
+ */
 class LibraryViewModel @Inject constructor(
     private val getLibraryContentUseCase: GetLibraryContentUseCase,
     private val getRecommendedContentUseCase: com.chakir.plexhubtv.domain.usecase.GetRecommendedContentUseCase,
@@ -46,35 +57,50 @@ class LibraryViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    // État de l'UI exposé de manière immuable (StateFlow)
     private val _uiState = MutableStateFlow(LibraryUiState(isLoading = true))
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
     
+    // Canal pour les événements de navigation (Effets uniques, ex: Toast, Navigation)
     private val _navigationEvents = Channel<LibraryNavigationEvent>()
     val navigationEvents = _navigationEvents.receiveAsFlow()
 
+
+    /**
+     * Flux réactif PAGINÉ des médias.
+     * 
+     * Logique :
+     * 1. Observe les changements de _uiState (filtres, tri, bibliothèque).
+     * 2. Transforme l'état UI en paramètres de requête (FilterParams).
+     * 3. Utilise `distinctUntilChanged` pour éviter de recharger si les paramètres clés n'ont pas changé.
+     * 4. `flatMapLatest` annule la requête précédente et lance la nouvelle via le UseCase.
+     * 5. `cachedIn` maintient le cache Paging dans le scope du ViewModel pour survivre aux changements de config.
+     */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val pagedItems: kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<MediaItem>> = _uiState
         .map { state -> 
             val serverFilterId = state.availableServersMap[state.selectedServerFilter]
             
-            // Map UI Genre to database genre keyword
+            // Map UI Genre to database genre keyword list
             val genreQuery = if (state.selectedGenre != null && state.selectedGenre != "All") {
-                com.chakir.plexhubtv.domain.model.GenreGrouping.GROUPS[state.selectedGenre]?.firstOrNull() ?: state.selectedGenre
+                com.chakir.plexhubtv.domain.model.GenreGrouping.GROUPS[state.selectedGenre] ?: listOf(state.selectedGenre)
             } else null
 
             FilterParams(
                 filter = state.currentFilter,
                 sort = state.currentSort,
+                isDescending = state.isSortDescending,
                 libraryId = state.selectedLibraryId ?: "default",
                 mediaType = state.mediaType,
                 genre = genreQuery,
                 serverId = state.selectedServerId ?: "all",
                 serverFilterId = serverFilterId,
-                initialScrollIndex = state.initialScrollIndex
+                initialScrollIndex = state.initialScrollIndex,
+                query = state.searchQuery.ifBlank { null }
             )
         }
         .distinctUntilChanged { old, new ->
-             // Custom equals check to include initialScrollIndex
+             // Custom equals check pour inclure initialScrollIndex et éviter les rechargements inutiles
              old == new
         }
         .flatMapLatest { params ->
@@ -84,9 +110,11 @@ class LibraryViewModel @Inject constructor(
                  mediaType = params.mediaType,
                  filter = params.filter,
                  sort = params.sort,
+                 isDescending = params.isDescending,
                  genre = params.genre,
                  selectedServerId = params.serverFilterId,
-                 initialKey = params.initialScrollIndex
+                 initialKey = params.initialScrollIndex,
+                 query = params.query
             )
         }
         .cachedIn(viewModelScope)
@@ -94,13 +122,15 @@ class LibraryViewModel @Inject constructor(
     data class FilterParams(
         val filter: String,
         val sort: String,
+        val isDescending: Boolean,
         val libraryId: String,
         val mediaType: MediaType,
-        val genre: String?,
+        val genre: List<String>?,
 
         val serverId: String,
         val serverFilterId: String?,
-        val initialScrollIndex: Int? = null
+        val initialScrollIndex: Int? = null,
+        val query: String? = null
     )
 
     init {
@@ -124,21 +154,29 @@ class LibraryViewModel @Inject constructor(
         }
     }
     
+    /**
+     * Charge les métadonnées globales (non paginées) :
+     * - Liste des serveurs
+     * - Genres disponibles
+     * - Statistiques (nombre total d'éléments)
+     *
+     * @param mediaType Type de média (Film/Série) pour adapter les requêtes.
+     */
     private suspend fun loadMetadata(mediaType: MediaType) {
         val startTime = System.currentTimeMillis()
         android.util.Log.d("METRICS", "SCREEN [Library]: Loading metadata start for $mediaType")
         try {
             val typeFilter = if (mediaType == MediaType.Movie) "movie" else "show"
             
-            // Get servers from auth repository
+            // Récupérations des serveurs depuis le repo Auth
             val servers = authRepository.getServers().getOrNull() ?: emptyList()
             val serverNames = servers.map { it.name }
             val serverMap = servers.associate { it.name to it.clientIdentifier }
             
-            // Use GenreGrouping UI labels instead of raw genres from DB
+            // Utilisation des groupes de genres définis statiquement (UI_LABELS)
             val allGenres = com.chakir.plexhubtv.domain.model.GenreGrouping.UI_LABELS
             
-            // Get total unique count from database
+            // Récupération des compteurs depuis la BDD Room
             val totalCount = mediaDao.getUniqueCountByType(typeFilter)
             val rawCount = mediaDao.getRawCountByType(typeFilter)
             
@@ -160,7 +198,7 @@ class LibraryViewModel @Inject constructor(
                 )
             }
 
-            // If library is empty or suspiciously low (bad sync state), trigger a sync
+            // Si la bibliothèque semble vide ou corrompue, déclencher une synchro arrière-plan
             if (totalCount < 100 && _uiState.value.selectedServerId == "all") {
                 android.util.Log.i("LibraryVM", "Low item count ($totalCount), triggering background sync...")
                 triggerBackgroundSync()
@@ -175,6 +213,10 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Lance une synchronisation complète via WorkManager.
+     * Utilise une contrainte réseau (CONNECTED).
+     */
     private fun triggerBackgroundSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -191,6 +233,9 @@ class LibraryViewModel @Inject constructor(
         )
     }
 
+    /**
+     * Traite les actions de l'interface utilisateur (MVI-like).
+     */
     fun onAction(action: LibraryAction) {
         when (action) {
             is LibraryAction.SelectTab -> {
@@ -252,7 +297,7 @@ class LibraryViewModel @Inject constructor(
                     // Calculate filter params similarly to pagedItems
                     val serverFilterId = state.availableServersMap[state.selectedServerFilter]
                     val genreQuery = if (state.selectedGenre != null && state.selectedGenre != "All") {
-                        com.chakir.plexhubtv.domain.model.GenreGrouping.GROUPS[state.selectedGenre]?.firstOrNull() ?: state.selectedGenre
+                        com.chakir.plexhubtv.domain.model.GenreGrouping.GROUPS[state.selectedGenre] ?: listOf(state.selectedGenre)
                     } else null
                     
                     val idx = getLibraryIndexUseCase(
@@ -262,7 +307,9 @@ class LibraryViewModel @Inject constructor(
                         sort = state.currentSort,
                         genre = genreQuery,
                         serverId = state.selectedServerId,
-                        libraryKey = state.selectedLibraryId
+                        selectedServerId = serverFilterId,
+                        libraryKey = state.selectedLibraryId,
+                        query = state.searchQuery.ifBlank { null }
                     )
                     
                     android.util.Log.d("LibraryViewModel", "Calculated index for ${action.letter}: $idx")
@@ -270,7 +317,8 @@ class LibraryViewModel @Inject constructor(
                     if (idx >= 0) {
                         // Force reload with new initial Key
                         _uiState.update { it.copy(initialScrollIndex = idx) }
-                         android.util.Log.d("LibraryViewModel", "Updated initialScrollIndex to $idx. Triggering reload.")
+                         android.util.Log.d("LibraryViewModel", "Updated initialScrollIndex to $idx. Triggering reload and scroll.")
+                         _navigationEvents.send(LibraryNavigationEvent.ScrollToItem(idx))
                     } else {
                          android.util.Log.w("LibraryViewModel", "Index < 0, ignoring scroll")
                     }

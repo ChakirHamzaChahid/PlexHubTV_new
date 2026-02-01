@@ -20,11 +20,26 @@ data class MediaDetail(
     val children: List<MediaItem> = emptyList() // Seasons or Episodes
 )
 
+/**
+ * Cas d'utilisation complexe pour récupérer TOUS les détails d'un média.
+ * 
+ * Orchestration Parallèle :
+ * 1. Récupère les métadonnées principales depuis le serveur source.
+ * 2. En parallèle, récupère les enfants (Saisons/Épisodes si applicable).
+ * 3. En parallèle, lance une recherche sur TOUS les autres serveurs connectés
+ *    pour trouver des doublons (Sources alternatives).
+ * 4. Enrichit les sources trouvées avec leurs détails techniques (Résolution, Codecs).
+ * 5. Fusionne le tout dans un [MediaDetail] prêt pour l'affichage.
+ */
 class GetMediaDetailUseCase @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val authRepository: AuthRepository,
     private val searchRepository: SearchRepository
 ) {
+    /**
+     * @param ratingKey ID de l'élément sur le serveur principal.
+     * @param serverId ID du serveur principal.
+     */
     operator fun invoke(ratingKey: String, serverId: String): Flow<Result<MediaDetail>> = flow {
         coroutineScope {
             // 1. Start fetching servers immediately (independent of media detail)

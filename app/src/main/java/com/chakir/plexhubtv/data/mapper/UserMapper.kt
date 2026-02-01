@@ -4,6 +4,9 @@ import com.chakir.plexhubtv.data.model.PlexHomeUserDto
 import com.chakir.plexhubtv.domain.model.PlexHomeUser
 import javax.inject.Inject
 
+/**
+ * Mapper pour les utilisateurs Plex Home.
+ */
 class UserMapper @Inject constructor() {
     fun mapDtoToDomain(dto: PlexHomeUserDto): PlexHomeUser {
         return PlexHomeUser(

@@ -7,6 +7,15 @@ import androidx.paging.PagingSource
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * DAO principal encapsulant toute la logique d'accès aux médias.
+ *
+ * Contient :
+ * - Requêtes basiques (Get, Insert, Delete).
+ * - requêtes complexes d'agrégation (pour la vue Unifiée).
+ * - PagingSources optimisées pour la performance UI.
+ * - Logique de filtrage et de tri dynamique.
+ */
 @Dao
 interface MediaDao {
     @Query("SELECT * FROM media WHERE ratingKey = :ratingKey AND serverId = :serverId LIMIT 1")
@@ -26,8 +35,8 @@ interface MediaDao {
     fun getLibraryItems(serverId: String, libraryId: String): Flow<List<MediaEntity>>
     
     // Paging Source (O(1) Ordered Query using Index)
-    @Query("SELECT * FROM media WHERE librarySectionId = :libraryId AND filter = :filter AND sortOrder = :sortOrder ORDER BY pageOffset ASC")
-    fun pagingSource(libraryId: String, filter: String, sortOrder: String): androidx.paging.PagingSource<Int, MediaEntity>
+    @Query("SELECT * FROM media WHERE librarySectionId = :libraryId AND filter = :filter AND sortOrder = :sortOrder AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') AND (:query IS NULL OR title LIKE '%' || :query || '%') ORDER BY pageOffset ASC")
+    fun pagingSource(libraryId: String, filter: String, sortOrder: String, genre: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
     
     @Query("DELETE FROM media WHERE librarySectionId = :libraryId AND filter = :filter AND sortOrder = :sortOrder")
     suspend fun clearByLibraryFilterSort(libraryId: String, filter: String, sortOrder: String)
@@ -89,8 +98,9 @@ interface MediaDao {
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
             "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY addedAt DESC")
-    fun aggregatedPagingSourceByDate(type: String, genre: String? = null, serverId: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
+    fun aggregatedPagingSourceByDateDesc(type: String, genre: String? = null, serverId: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
 
     @Query("SELECT *, MAX(addedAt) as addedAt, " +
             "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
@@ -99,8 +109,20 @@ interface MediaDao {
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
+            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY addedAt ASC")
+    fun aggregatedPagingSourceByDateAsc(type: String, genre: String? = null, serverId: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
+
+    @Query("SELECT *, MAX(addedAt) as addedAt, " +
+            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
+            "WHERE type = :type " +
+            "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
+            "AND (:serverId IS NULL OR serverId = :serverId) " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
             "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY title ASC")
-    fun aggregatedPagingSourceByTitle(type: String, genre: String? = null, serverId: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
+    fun aggregatedPagingSourceByTitleAsc(type: String, genre: String? = null, serverId: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
 
     @Query("SELECT *, MAX(addedAt) as addedAt, " +
             "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
@@ -109,8 +131,20 @@ interface MediaDao {
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
+            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY title DESC")
+    fun aggregatedPagingSourceByTitleDesc(type: String, genre: String? = null, serverId: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
+
+    @Query("SELECT *, MAX(addedAt) as addedAt, " +
+            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
+            "WHERE type = :type " +
+            "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
+            "AND (:serverId IS NULL OR serverId = :serverId) " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
             "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY year DESC, title ASC")
-    fun aggregatedPagingSourceByYear(type: String, genre: String? = null, serverId: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
+    fun aggregatedPagingSourceByYearDesc(type: String, genre: String? = null, serverId: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
 
     @Query("SELECT *, MAX(addedAt) as addedAt, " +
             "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
@@ -119,9 +153,33 @@ interface MediaDao {
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
+            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY year ASC, title ASC")
+    fun aggregatedPagingSourceByYearAsc(type: String, genre: String? = null, serverId: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
+
+    @Query("SELECT *, MAX(addedAt) as addedAt, " +
+            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
+            "WHERE type = :type " +
+            "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
+            "AND (:serverId IS NULL OR serverId = :serverId) " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
             "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END " +
             "ORDER BY (COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) DESC, title ASC")
-    fun aggregatedPagingSourceByRating(type: String, genre: String? = null, serverId: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
+    fun aggregatedPagingSourceByRatingDesc(type: String, genre: String? = null, serverId: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
+
+    @Query("SELECT *, MAX(addedAt) as addedAt, " +
+            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
+            "WHERE type = :type " +
+            "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
+            "AND (:serverId IS NULL OR serverId = :serverId) " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
+            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END " +
+            "ORDER BY (COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) ASC, title ASC")
+    fun aggregatedPagingSourceByRatingAsc(type: String, genre: String? = null, serverId: String? = null, query: String? = null): androidx.paging.PagingSource<Int, MediaEntity>
 
     // Incremental Sync: Get latest updatedAt for a library
     @Query("SELECT MAX(updatedAt) FROM media WHERE serverId = :serverId AND librarySectionId = :libraryId")
@@ -132,12 +190,24 @@ interface MediaDao {
             "FROM media WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
-            "AND title < :letter")
-    suspend fun getUnifiedCountBeforeTitle(type: String, letter: String, genre: String? = null, serverId: String? = null): Int
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
+            "AND UPPER(title) < UPPER(:letter)")
+    suspend fun getUnifiedCountBeforeTitle(type: String, letter: String, genre: String? = null, serverId: String? = null, query: String? = null): Int
 
     // Alphabet Scroll Helper: Single Library View
     @Query("SELECT COUNT(*) FROM media WHERE librarySectionId = :libraryId " +
             "AND filter = :filter AND sortOrder = :sortOrder " +
-            "AND title < :letter")
-    suspend fun getLibraryCountBeforeTitle(libraryId: String, filter: String, sortOrder: String, letter: String): Int
+            "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
+            "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
+            "AND UPPER(title) < UPPER(:letter)")
+    suspend fun getLibraryCountBeforeTitle(libraryId: String, filter: String, sortOrder: String, letter: String, genre: String? = null, query: String? = null): Int
+
+    // Dynamic Query for Paging
+    @androidx.room.RawQuery(observedEntities = [MediaEntity::class])
+    fun getMediaPagedRaw(query: androidx.sqlite.db.SupportSQLiteQuery): androidx.paging.PagingSource<Int, MediaEntity>
+    
+    // Dynamic Query for Index/Count
+    @androidx.room.RawQuery
+    suspend fun getMediaCountRaw(query: androidx.sqlite.db.SupportSQLiteQuery): Int
 }

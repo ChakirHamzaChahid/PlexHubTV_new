@@ -20,11 +20,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel pour l'écran des paramètres.
+ * Gère le chargement et la modification des préférences utilisateur via [SettingsRepository].
+ * Gère également les actions de synchronisation manuelle et de déconnexion.
+ */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val authRepository: AuthRepository,
-    private val workManager: WorkManager
+    private val workManager: WorkManager,
+    private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -89,6 +95,8 @@ class SettingsViewModel @Inject constructor(
                 viewModelScope.launch { _navigationEvents.send(SettingsNavigationEvent.NavigateToProfiles) }
             }
             is SettingsAction.ForceSync -> {
+                _uiState.update { it.copy(isSyncing = true, syncMessage = null, syncError = null) }
+                
                 val constraints = Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
                     .build()
@@ -102,6 +110,42 @@ class SettingsViewModel @Inject constructor(
                     ExistingWorkPolicy.REPLACE,
                     syncRequest
                 )
+                
+                // Show immediate feedback
+                _uiState.update { it.copy(isSyncing = false, syncMessage = "Library sync started...") }
+                
+                // Clear message after 3 seconds
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(3000)
+                    _uiState.update { it.copy(syncMessage = null) }
+                }
+            }
+            is SettingsAction.SyncWatchlist -> {
+                _uiState.update { it.copy(isSyncing = true, syncMessage = null, syncError = null) }
+                
+                viewModelScope.launch {
+                    val result = syncWatchlistUseCase()
+                    if (result.isSuccess) {
+                        val count = result.getOrNull() ?: 0
+                        _uiState.update { it.copy(
+                            isSyncing = false,
+                            syncMessage = "Synced $count watchlist items successfully",
+                            syncError = null
+                        ) }
+                        android.util.Log.d("SettingsViewModel", "Synced $count watchlist items")
+                    } else {
+                        _uiState.update { it.copy(
+                            isSyncing = false,
+                            syncMessage = null,
+                            syncError = "Failed to sync watchlist: ${result.exceptionOrNull()?.message}"
+                        ) }
+                        android.util.Log.e("SettingsViewModel", "Failed to sync watchlist", result.exceptionOrNull())
+                    }
+                    
+                    // Clear message after 5 seconds
+                    kotlinx.coroutines.delay(5000)
+                    _uiState.update { it.copy(syncMessage = null, syncError = null) }
+                }
             }
         }
     }

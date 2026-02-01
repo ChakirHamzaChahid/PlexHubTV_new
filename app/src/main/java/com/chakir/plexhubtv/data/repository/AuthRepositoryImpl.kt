@@ -15,6 +15,15 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Implémentation du repository d'authentification.
+ * Gère le Login (via PIN code), la persistance du Token, et la découverte des serveurs.
+ *
+ * Utilise une stratégie de cache à 3 niveaux pour les serveurs :
+ * 1. Cache mémoire (pour la rapidité immédiate).
+ * 2. Cache base de données (pour le hors-ligne et le démarrage rapide).
+ * 3. Rafraîchissement API (pour la mise à jour des IPs/Tokens).
+ */
 class AuthRepositoryImpl @Inject constructor(
     private val api: PlexApiService,
     private val settingsDataStore: SettingsDataStore,
@@ -149,7 +158,7 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     private var cachedServers: List<Server>? = null
-
+ 
     override suspend fun getServers(forceRefresh: Boolean): Result<List<Server>> {
         // 1. Memory Cache
         if (!forceRefresh && cachedServers != null) {
@@ -165,34 +174,44 @@ class AuthRepositoryImpl @Inject constructor(
                 return Result.success(domainServers)
             }
         } catch (e: Exception) {
-            // Log and continue to API
             android.util.Log.e("AuthRepository", "DB Cache failed: ${e.message}")
         }
 
         // 3. API Refresh
         return try {
-            val token = settingsDataStore.plexToken.first() ?: return Result.failure(Exception("Not authenticated"))
-            val clientId = settingsDataStore.clientId.first() ?: return Result.failure(Exception("Client ID not found"))
+            val token = settingsDataStore.plexToken.first()
+            if (token.isNullOrBlank()) return Result.failure(Exception("Not authenticated"))
+
+            val clientId = settingsDataStore.clientId.first()
+            if (clientId.isNullOrBlank()) return Result.failure(Exception("Client ID not found"))
             
             val response = api.getResources(token = token, clientId = clientId)
             val body = response.body()
             
             if (response.isSuccessful && body != null) {
-                val servers = body.mapNotNull { serverMapper.mapDtoToDomain(it) }
+                val servers = body.mapNotNull { resource ->
+                    serverMapper.mapDtoToDomain(resource)
+                }
                 
                 // Update Cache in background
                 CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                    servers.forEach { domainServer ->
-                        database.serverDao().insertServer(serverMapper.mapDomainToEntity(domainServer))
+                    try {
+                        servers.forEach { domainServer ->
+                            database.serverDao().insertServer(serverMapper.mapDomainToEntity(domainServer))
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("AuthRepository", "Failed to update DB cache: ${e.message}")
                     }
                 }
                 
                 cachedServers = servers
                 Result.success(servers)
             } else {
-                 Result.failure(Exception("Failed to get servers: ${response.code()}"))
+                android.util.Log.e("AuthRepository", "API Error: ${response.code()}")
+                Result.failure(Exception("Failed to get servers: ${response.code()}"))
             }
         } catch (e: Exception) {
+            android.util.Log.e("AuthRepository", "API Exception: ${e.message}")
             Result.failure(e)
         }
     }

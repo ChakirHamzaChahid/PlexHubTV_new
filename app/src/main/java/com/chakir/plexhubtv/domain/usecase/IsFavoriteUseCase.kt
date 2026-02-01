@@ -4,6 +4,9 @@ import com.chakir.plexhubtv.domain.repository.MediaRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
+/**
+ * Vérifie si un média est dans la Watchlist (Favoris).
+ */
 class IsFavoriteUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {

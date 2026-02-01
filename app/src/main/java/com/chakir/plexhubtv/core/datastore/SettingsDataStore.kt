@@ -8,6 +8,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
+/**
+ * Wrapper autour de DataStore Preferences pour un accès typé aux paramètres de l'application.
+ *
+ * Gère :
+ * - Authentification (Plex Token, Client ID)
+ * - Préférences UI (Thème, Affichage Hero)
+ * - Configuration Lecture (Qualité, Moteur)
+ * - État de synchro (Dernière synchro)
+ */
 class SettingsDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
@@ -45,7 +54,7 @@ class SettingsDataStore @Inject constructor(
         .map { preferences -> preferences[EPISODE_POSTER_MODE] ?: "series" }
 
     val appTheme: Flow<String> = dataStore.data
-        .map { preferences -> preferences[APP_THEME] ?: "Plex" }
+        .map { preferences -> preferences[APP_THEME] ?: "MonoDark" }
 
     val videoQuality: Flow<String> = dataStore.data
         .map { preferences -> preferences[SERVER_QUALITY] ?: "Original" }

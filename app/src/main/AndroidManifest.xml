@@ -17,25 +17,32 @@
     <application
         android:name=".PlexHubApplication"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher_tv"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.PlexHubTV"
-        android:banner="@drawable/app_icon_your_company"
+        android:banner="@drawable/tv_banner"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
-            android:banner="@drawable/app_icon_your_company"
+            android:banner="@drawable/tv_banner"
             android:exported="true"
-            android:icon="@drawable/app_icon_your_company"
+            android:icon="@drawable/ic_launcher_tv"
             android:label="@string/app_name"
-            android:logo="@drawable/app_icon_your_company"
+            android:logo="@drawable/ic_launcher_tv"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="plexhub" android:host="play" />
             </intent-filter>
         </activity>
         <activity
@@ -47,6 +54,13 @@
         <activity
             android:name=".BrowseErrorActivity"
             android:exported="false" />
+
+        <!-- WorkManager Foreground Service for Android 12+ -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+            tools:replace="android:foregroundServiceType" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"

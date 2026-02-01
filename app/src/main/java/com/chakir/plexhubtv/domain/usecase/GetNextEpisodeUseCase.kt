@@ -5,6 +5,14 @@ import com.chakir.plexhubtv.domain.model.MediaType
 import com.chakir.plexhubtv.domain.repository.MediaRepository
 import javax.inject.Inject
 
+/**
+ * Cas d'utilisation pour déterminer le prochain épisode à lire ("Smart Play").
+ *
+ * Logique :
+ * 1. Si on clique sur une Série (Show) : Cherche le premier épisode non vu ("On Deck").
+ * 2. Si on clique sur une Saison : Idem, premier non vu de la saison.
+ * 3. Si on clique sur un Épisode déjà vu (fin > 90%) : Tente de lancer le suivant.
+ */
 class GetNextEpisodeUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {

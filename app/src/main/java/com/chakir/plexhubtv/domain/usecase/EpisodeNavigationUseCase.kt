@@ -14,13 +14,21 @@ data class AdjacentEpisodes(
 /**
  * Use case for loading adjacent episodes (next/previous) for TV show navigation.
  */
+/**
+ * Cas d'utilisation pour la navigation entre épisodes (Précédent / Suivant).
+ *
+ * Logique de navigation :
+ * 1. Vérifie d'abord la file d'attente de lecture (PlayQueue) active.
+ * 2. Si la file est vide, bascule sur la navigation séquentielle classique (Saison en cours).
+ */
 class EpisodeNavigationUseCase @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val playbackManager: PlaybackManager
 ) {
 
     /**
-     * Load the next and previous episodes for a given episode
+     * Charge l'épisode précédent et suivant par rapport à l'épisode courant.
+     * @return [AdjacentEpisodes] contenant les items ou null s'ils n'existent pas.
      */
     suspend fun loadAdjacentEpisodes(
         currentEpisode: MediaItem

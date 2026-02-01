@@ -7,6 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -45,10 +48,17 @@ import com.chakir.plexhubtv.domain.model.MediaItem
 import com.chakir.plexhubtv.domain.model.MediaType
 import com.chakir.plexhubtv.feature.home.MediaCard
 
+/**
+ * Écran de détail principal pour les médias (Films, Séries).
+ * Affiche les métadonnées riches, le casting, et les options de lecture.
+ * Pour les séries, affiche la liste des saisons.
+ * Gère aussi la sélection de source (résolution de conflits multi-serveurs).
+ */
 @Composable
 fun MediaDetailRoute(
     viewModel: MediaDetailViewModel = hiltViewModel(),
     onNavigateToPlayer: (String, String) -> Unit,
+    onNavigateToDetail: (String, String) -> Unit,
     onNavigateToSeason: (String, String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
@@ -59,6 +69,7 @@ fun MediaDetailRoute(
         events.collect { event ->
             when (event) {
                 is MediaDetailNavigationEvent.NavigateToPlayer -> onNavigateToPlayer(event.ratingKey, event.serverId)
+                is MediaDetailNavigationEvent.NavigateToMediaDetail -> onNavigateToDetail(event.ratingKey, event.serverId)
                 is MediaDetailNavigationEvent.NavigateToSeason -> onNavigateToSeason(event.ratingKey, event.serverId)
                 is MediaDetailNavigationEvent.NavigateBack -> onNavigateBack()
             }
@@ -96,6 +107,7 @@ fun MediaDetailScreen(
                 MediaDetailContent(
                     media = state.media,
                     seasons = state.seasons,
+                    similarItems = state.similarItems,
                     onAction = onAction
                 )
             }
@@ -118,215 +130,382 @@ fun MediaDetailScreen(
 fun MediaDetailContent(
     media: MediaItem,
     seasons: List<MediaItem>,
+    similarItems: List<MediaItem>,
     onAction: (MediaDetailEvent) -> Unit
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item {
-            // Header Image with Back Button
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(media.artUrl ?: media.thumbUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 1. Background Backdrop
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(media.artUrl ?: media.thumbUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        // Dark Overlay with Gradient for better readability
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Black,
+                            Color.Black.copy(alpha = 0.8f),
+                            Color.Black.copy(alpha = 0.4f)
+                        ),
+                        startX = 0f,
+                        endX = Float.POSITIVE_INFINITY
+                    )
                 )
-                
-                // Gradient Scrim
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
-                                startY = 300f
-                            )
-                        )
-                )
+        )
 
-                IconButton(
-                    onClick = { onAction(MediaDetailEvent.Back) },
-                    modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
+        // 2. Main Content Scrollable
+        val scrollState = rememberScrollState()
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(start = 64.dp, end = 32.dp, top = 24.dp, bottom = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(32.dp)
+        ) {
+            // Left Column: Poster + Ratings
+            Column(
+                modifier = Modifier
+                    .width(200.dp) // Reduced from 240dp to make poster shorter
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(2f/3f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(media.thumbUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
-            }
-        }
-
-        item {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = media.title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    media.year?.let {
-                        Text(text = it.toString(), style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.width(16.dp))
-                    }
-                    media.durationMs?.let {
-                         val minutes = it / 1000 / 60
-                         Text(text = "${minutes} min", style = MaterialTheme.typography.bodyMedium)
-                         Spacer(modifier = Modifier.width(16.dp))
-                    }
-                    // Metadata Row
-                    if (!media.contentRating.isNullOrEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)),
-                            color = Color.Transparent
-                        ) {
-                            Text(
-                                text = media.contentRating.uppercase(),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                    }
+                
+                Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer
+                
+                // Ratings Badges
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
                     if (media.rating != null && media.rating > 0) {
-                        Icon(Icons.Default.Star, contentDescription = "Rating", tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = String.format("%.1f", media.rating), style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.width(16.dp))
+                        DetailRatingItem(
+                            label = "Critics",
+                            value = media.rating,
+                            icon = Icons.Default.Star,
+                            color = Color(0xFFFFD700)
+                        )
                     }
                     if (media.audienceRating != null && media.audienceRating > 0) {
-                        Icon(Icons.Default.Star, contentDescription = "Audience Rating", tint = Color(0xFFCD7F32), modifier = Modifier.size(16.dp)) // Bronze color for audience
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = String.format("%.1f", media.audienceRating), style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.width(16.dp))
+                        DetailRatingItem(
+                            label = "Audience",
+                            value = media.audienceRating,
+                            icon = Icons.Default.Star,
+                            color = Color(0xFFFF9800)
+                        )
                     }
                 }
                 
-                // IDs Row
-                Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (!media.imdbId.isNullOrEmpty()) {
-                        Text(text = "IMDB: ${media.imdbId}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.width(16.dp))
-                    }
-                    if (!media.tmdbId.isNullOrEmpty()) {
-                        Text(text = "TMDB: ${media.tmdbId}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+                Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer
                 
                 // Technical Badges
                 com.chakir.plexhubtv.feature.details.components.TechnicalBadges(
                     media = media,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            // Right Column: Info details
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+                // Title
+                Text(
+                    text = media.title,
+                    style = MaterialTheme.typography.headlineSmall, // Reduced from displaySmall
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
                 
-                // Action Buttons
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    var playFocused by remember { mutableStateOf(false) }
-                    Button(
-                        onClick = { 
-                            if (media.remoteSources.size > 1) {
-                                onAction(MediaDetailEvent.ShowSourceSelection)
-                            } else {
-                                onAction(MediaDetailEvent.PlayClicked)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (playFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.2f),
-                            contentColor = if (playFocused) MaterialTheme.colorScheme.onPrimary else Color.White
-                        ),
-                        modifier = Modifier
-                            .onFocusChanged { playFocused = it.isFocused }
-                            .scale(if (playFocused) 1.1f else 1f)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Play")
+                // Metadata Row
+                Row(
+                    modifier = Modifier.padding(vertical = 8.dp), // Reduced vertical padding
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    media.year?.let { 
+                        Text(text = "$it", style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f))
+                        Spacer(Modifier.width(16.dp))
                     }
                     
-                    var watchFocused by remember { mutableStateOf(false) }
-                    OutlinedButton(
-                        onClick = { onAction(MediaDetailEvent.ToggleWatchStatus) },
-                        modifier = Modifier
-                            .onFocusChanged { watchFocused = it.isFocused }
-                            .scale(if (watchFocused) 1.1f else 1f),
-                        border = BorderStroke(1.dp, if (watchFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f))
-                    ) {
-                        Icon(if (media.isWatched) Icons.Default.Check else Icons.Default.Check, contentDescription = null, tint = Color.White)
-                    }
-                    
-                    var favFocused by remember { mutableStateOf(false) }
-                    OutlinedButton(
-                        onClick = { onAction(MediaDetailEvent.ToggleFavorite) },
-                        modifier = Modifier
-                            .onFocusChanged { favFocused = it.isFocused }
-                            .scale(if (favFocused) 1.1f else 1f),
-                        border = BorderStroke(1.dp, if (favFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f))
-                    ) {
-                         Icon(
-                             imageVector = if (media.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                             contentDescription = null, 
-                             tint = if (media.isFavorite) Color.Red else Color.White
-                         )
+                    media.durationMs?.let { 
+                        val mins = it / 60000
+                        Text(text = "${mins} min", style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f))
+                        Spacer(Modifier.width(16.dp))
                     }
 
-                    var dlFocused by remember { mutableStateOf(false) }
-                    OutlinedButton(
-                        onClick = { onAction(MediaDetailEvent.DownloadClicked) },
-                        modifier = Modifier
-                            .onFocusChanged { dlFocused = it.isFocused }
-                            .scale(if (dlFocused) 1.1f else 1f),
-                        border = BorderStroke(1.dp, if (dlFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f))
-                    ) {
-                         Icon(Icons.Default.Download, contentDescription = null, tint = Color.White)
+                    if (!media.contentRating.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color.White.copy(alpha = 0.1f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = media.contentRating.uppercase(),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                    }
+                    
+                    if (!media.studio.isNullOrBlank()) {
+                         Text(text = media.studio, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f), maxLines = 1)
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // IDs in Top Right (Subtle)
+                    if (!media.imdbId.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color.White.copy(alpha = 0.1f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = "IMDB: ${media.imdbId}",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    if (!media.tmdbId.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color.White.copy(alpha = 0.1f),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = "TMDB: ${media.tmdbId}",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(text = "Synopsis", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
+
+                Spacer(modifier = Modifier.height(8.dp)) // Reduced spacer
+
+                // Action Buttons
+                ActionButtonsRow(media = media, onAction = onAction)
+
+                Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer
+
+                // Synopsis
+                Text(
+                    text = "Synopsis", 
+                    style = MaterialTheme.typography.titleMedium, // Reduced from titleLarge
+                    fontWeight = FontWeight.Bold, 
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp)) // Reduced spacer
                 Text(
                     text = media.summary ?: "No summary available.",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium, // Reduced from bodyLarge
+                    color = Color.White.copy(alpha = 0.8f),
+                    maxLines = 4, // More compact
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-            }
-        }
 
-        // Seasons Section
-        if (seasons.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Seasons",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-            item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(seasons) { season ->
-                        MediaCard(
-                            media = season,
-                            onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
-                            onPlay = { /* Play season logic if needed */ },
-                            onFocus = { /* Background update if needed */ }
-                        )
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Content specific rows (Seasons for TV)
+                if (media.type == MediaType.Show && seasons.isNotEmpty()) {
+                    Text(
+                        text = "Seasons", 
+                        style = MaterialTheme.typography.titleMedium, 
+                        fontWeight = FontWeight.Bold, 
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(seasons) { season ->
+                            MediaCard(
+                                media = season,
+                                onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
+                                onPlay = {},
+                                onFocus = {},
+                                width = 100.dp,
+                                height = 150.dp,
+                                titleStyle = MaterialTheme.typography.labelMedium,
+                                subtitleStyle = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 }
-                Spacer(Modifier.height(32.dp))
+
+                // Similar Items Row (More Like This)
+                if (similarItems.isNotEmpty()) {
+                    if (media.type == MediaType.Show && seasons.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    Text(
+                        text = "More Like This", 
+                        style = MaterialTheme.typography.titleMedium, 
+                        fontWeight = FontWeight.Bold, 
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(similarItems) { item ->
+                            MediaCard(
+                                media = item,
+                                onClick = { onAction(MediaDetailEvent.OpenMediaDetail(item)) },
+                                onPlay = {},
+                                onFocus = {},
+                                width = 100.dp,
+                                height = 150.dp,
+                                titleStyle = MaterialTheme.typography.labelMedium,
+                                subtitleStyle = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
             }
+        }
+        
+        // Back Button
+        IconButton(
+            onClick = { onAction(MediaDetailEvent.Back) },
+            modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
+        ) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+        }
+    }
+}
+
+@Composable
+fun DetailRatingItem(label: String, value: Double, icon: ImageVector, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = String.format("%.1f", value),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
+    }
+}
+
+@Composable
+fun ActionButtonsRow(media: MediaItem, onAction: (MediaDetailEvent) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { // Slightly tighter spacing
+        val playFocusRequester = remember { FocusRequester() }
+        
+        LaunchedEffect(Unit) {
+            try { playFocusRequester.requestFocus() } catch (e: Exception) {}
+        }
+
+        var playFocused by remember { mutableStateOf(false) }
+        Button(
+            onClick = { 
+                if (media.remoteSources.size > 1) {
+                    onAction(MediaDetailEvent.ShowSourceSelection)
+                } else {
+                    onAction(MediaDetailEvent.PlayClicked)
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (playFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f),
+                contentColor = if (playFocused) MaterialTheme.colorScheme.onPrimary else Color.White
+            ),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), // Compact padding
+            modifier = Modifier
+                .focusRequester(playFocusRequester)
+                .onFocusChanged { playFocused = it.isFocused }
+                .height(40.dp) // Fixed height to match IconButtons
+                .scale(if (playFocused) 1.05f else 1f)
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Play", style = MaterialTheme.typography.labelLarge)
+        }
+        
+        // Watch Status
+        var watchFocused by remember { mutableStateOf(false) }
+        IconButton(
+            onClick = { onAction(MediaDetailEvent.ToggleWatchStatus) },
+            modifier = Modifier
+                .size(40.dp) // Smaller from 48dp
+                .onFocusChanged { watchFocused = it.isFocused }
+                .background(
+                    if (watchFocused) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.1f),
+                    CircleShape
+                )
+                .scale(if (watchFocused) 1.1f else 1f)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "Watch Status",
+                tint = if (media.isWatched) MaterialTheme.colorScheme.primary else Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        
+        // Favorite
+        var favFocused by remember { mutableStateOf(false) }
+        IconButton(
+            onClick = { onAction(MediaDetailEvent.ToggleFavorite) },
+            modifier = Modifier
+                .size(40.dp) // Smaller
+                .onFocusChanged { favFocused = it.isFocused }
+                .background(
+                    if (favFocused) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.1f),
+                    CircleShape
+                )
+                .scale(if (favFocused) 1.1f else 1f)
+        ) {
+             Icon(
+                 imageVector = if (media.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                 contentDescription = "Favorite", 
+                 tint = if (media.isFavorite) Color.Red else Color.White,
+                 modifier = Modifier.size(20.dp)
+             )
         }
     }
 }
@@ -438,12 +617,13 @@ fun SourceSelectionDialog(
     )
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, device = "spec:width=1280dp,height=720dp,dpi=72")
 @Composable
 fun PreviewMediaDetailMovie() {
     val movie = MediaItem(
         id = "1", ratingKey = "1", serverId = "s1", title = "Inception", type = MediaType.Movie, 
-        year = 2010, summary = "A thief who steals corporate secrets through the use of dream-sharing technology...", durationMs = 8880000
+        year = 2010, summary = "A thief who steals corporate secrets through the use of dream-sharing technology...", 
+        durationMs = 8880000, rating = 8.8, audienceRating = 9.1, contentRating = "PG-13", studio = "Warner Bros."
     )
     MediaDetailScreen(
         state = MediaDetailUiState(media = movie),
@@ -451,12 +631,13 @@ fun PreviewMediaDetailMovie() {
     )
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, device = "spec:width=1280dp,height=720dp,dpi=72")
 @Composable
 fun PreviewMediaDetailShow() {
     val show = MediaItem(
         id = "2", ratingKey = "2", serverId = "s1", title = "Breaking Bad", type = MediaType.Show, 
-        year = 2008, summary = "A high school chemistry teacher diagnosed with inoperable lung cancer..."
+        year = 2008, summary = "A high school chemistry teacher diagnosed with inoperable lung cancer...",
+        rating = 9.5, audienceRating = 9.8, contentRating = "TV-MA", studio = "AMC"
     )
     val seasons = listOf(
         MediaItem(id = "s1", ratingKey = "s1", serverId = "s1", title = "Season 1", type = MediaType.Season, thumbUrl = ""),

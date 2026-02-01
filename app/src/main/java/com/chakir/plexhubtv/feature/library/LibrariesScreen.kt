@@ -73,6 +73,11 @@ import com.chakir.plexhubtv.domain.model.MediaType
 import com.chakir.plexhubtv.feature.home.MediaCard
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 
+/**
+ * Écran principal de la bibliothèque (Films ou Séries).
+ * Affiche une grille ou liste de médias avec pagination, filtres (Genre, Serveur) et tri.
+ * Gère également la navigation latérale alphabétique.
+ */
 @Composable
 fun LibraryRoute(
     viewModel: LibraryViewModel = hiltViewModel(),
@@ -115,12 +120,32 @@ fun LibrariesScreen(
 
     LaunchedEffect(scrollRequest) {
         scrollRequest?.let { index ->
-            if (state.viewMode == LibraryViewMode.Grid) {
-                gridState.scrollToItem(index)
-            } else {
-                listState.scrollToItem(index)
+            try {
+                // Determine which state to use
+                val targetState = if (state.viewMode == LibraryViewMode.Grid) gridState else listState
+                
+                // Wait for itemCount to be valid for this index
+                // This handles the race condition where Paging 3 is resetting/loading
+                androidx.compose.runtime.snapshotFlow { pagedItems.itemCount }
+                    .collect { count ->
+                        if (count > index) {
+                            android.util.Log.d("LibraryContent", "Scrolling to $index (ItemCount: $count)")
+                            if (state.viewMode == LibraryViewMode.Grid) {
+                                gridState.scrollToItem(index)
+                            } else {
+                                listState.scrollToItem(index)
+                            }
+                            onScrollConsumed()
+                            // Cancel this collector once scrolled
+                            throw java.util.concurrent.CancellationException("Scrolled") 
+                        }
+                    }
+            } catch (e: java.util.concurrent.CancellationException) {
+                // Expected flow exit
+            } catch (e: Exception) {
+                android.util.Log.e("LibraryContent", "Error scrolling to $index", e)
+                onScrollConsumed() // Consume anyway to avoid stuck loop
             }
-            onScrollConsumed()
         }
     }
     Scaffold(
@@ -187,7 +212,7 @@ fun LibrariesScreen(
                     edgePadding = 14.dp,
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.height(36.dp), // Reduced height
+                    modifier = Modifier.height(32.dp), // Reduced height further
                     indicator = { tabPositions ->
                         if (selectedTabIndex < tabPositions.size) {
                             TabRowDefaults.SecondaryIndicator(
@@ -203,7 +228,7 @@ fun LibrariesScreen(
                         Tab(
                             selected = index == selectedTabIndex,
                             onClick = { onAction(LibraryAction.SelectTab(tab)) },
-                            modifier = Modifier.height(36.dp), // Match height
+                            modifier = Modifier.height(32.dp), // Match height
                             text = { 
                                 Text(
                                     text = tab.title,
@@ -218,7 +243,7 @@ fun LibrariesScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Server Filter Button
@@ -344,12 +369,13 @@ fun FilterButton(text: String, isActive: Boolean = false, onClick: () -> Unit) {
 
     OutlinedButton(
         onClick = onClick,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = containerColor,
             contentColor = contentColor
         ),
-        border = borderStroke
+        border = borderStroke,
+        modifier = Modifier.height(32.dp)
     ) {
         Text(text = text, style = MaterialTheme.typography.labelMedium)
         Spacer(modifier = Modifier.width(4.dp))
@@ -374,30 +400,14 @@ fun LibraryContent(
     onScrollConsumed: () -> Unit = {}
 ) {
     // Handle scroll request
-    LaunchedEffect(scrollRequest) {
-        scrollRequest?.let { index ->
-            try {
-                android.util.Log.d("LibraryContent", "Processing scrollRequest: $index. ViewMode: $viewMode")
-                if (viewMode == LibraryViewMode.Grid) {
-                    gridState.scrollToItem(index)
-                    android.util.Log.d("LibraryContent", "Scrolled grid to $index")
-                } else {
-                    listState.scrollToItem(index)
-                    android.util.Log.d("LibraryContent", "Scrolled list to $index")
-                }
-                onScrollConsumed()
-            } catch (e: Exception) {
-                android.util.Log.e("LibraryContent", "Error scrolling to index $index", e)
-                onScrollConsumed()
-            }
-        }
-    }
+    // Handle scroll request - REMOVED (Handled by parent LibrariesScreen)
+
     
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             if (viewMode == LibraryViewMode.Grid) {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 120.dp),
+                    columns = GridCells.Adaptive(minSize = 100.dp),
                     state = gridState,
                     contentPadding = PaddingValues(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -415,11 +425,15 @@ fun LibraryContent(
                                 media = item,
                                 onClick = { onItemClick(item) },
                                 onPlay = { },
-                                onFocus = { onAction(LibraryAction.OnItemFocused(item)) }
+                                onFocus = { onAction(LibraryAction.OnItemFocused(item)) },
+                                width = 100.dp,
+                                height = 150.dp,
+                                titleStyle = MaterialTheme.typography.labelMedium,
+                                subtitleStyle = MaterialTheme.typography.labelSmall
                             )
                         } else {
                             // Placeholder
-                            Box(modifier = Modifier.height(180.dp).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)))
+                            Box(modifier = Modifier.height(150.dp).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)))
                         }
                     }
                     
@@ -530,7 +544,11 @@ fun RecommendedContent(
                             media = item,
                             onClick = { onItemClick(item) },
                             onPlay = { /* Play */ },
-                            onFocus = { }
+                            onFocus = { },
+                            width = 100.dp,
+                            height = 150.dp,
+                            titleStyle = MaterialTheme.typography.labelMedium,
+                            subtitleStyle = MaterialTheme.typography.labelSmall
                         )
                     }
                 }

@@ -42,10 +42,15 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.domain.model.Hub
-import com.chakir.plexhubtv.domain.model.MediaItem
 import com.chakir.plexhubtv.domain.model.MediaType
+import com.chakir.plexhubtv.domain.model.MediaItem
 import kotlinx.coroutines.delay
 
+/**
+ * Écran d'accueil principal (Discover).
+ * Affiche le contenu "On Deck" (en cours) et les "Hubs" (sections recommandées, récemment ajoutés, etc.).
+ * Gère l'affichage de l'état de synchronisation initiale.
+ */
 @Composable
 fun HomeRoute(
     viewModel: HomeViewModel = hiltViewModel(),
@@ -158,7 +163,7 @@ fun ContentState(
         if (onDeck.isNotEmpty()) {
             item {
                 // PERFORMANCE FIX: Memoize sorting/filtering to avoid Main Thread work on every frame
-                val heroItems = remember(onDeck) { onDeck.take(5) }
+                val heroItems = remember(onDeck) { onDeck.take(25) }
                 
                 HeroCarousel(
                     items = heroItems, // Top 5 for Hero
@@ -211,7 +216,11 @@ fun MediaCard(
     onClick: () -> Unit,
     onPlay: () -> Unit,
     onFocus: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    width: androidx.compose.ui.unit.Dp = 140.dp,
+    height: androidx.compose.ui.unit.Dp = 210.dp,
+    titleStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
+    subtitleStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodySmall
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.1f else 1f, label = "scale")
@@ -220,9 +229,6 @@ fun MediaCard(
         label = "border"
     )
 
-    val width = 140.dp
-    val height = 210.dp
-    
     Column(
         modifier = modifier
             .width(width)
@@ -243,8 +249,21 @@ fun MediaCard(
                     2.dp, borderColor, RoundedCornerShape(12.dp)
                 )
         ) {
+            // For episodes, prioritize series poster (grandparentThumb) over episode thumbnail
             val thumbUrls = remember(media.ratingKey) {
-                listOfNotNull(media.thumbUrl) + media.remoteSources.mapNotNull { it.thumbUrl }
+                when (media.type) {
+                    MediaType.Episode -> {
+                        // For episodes: grandparentThumb (series poster) > parentThumb (season poster) > thumbUrl (episode thumbnail)
+                        listOfNotNull(
+                            media.grandparentThumb,
+                            media.parentThumb,
+                            media.thumbUrl
+                        ) + media.remoteSources.mapNotNull { it.thumbUrl }
+                    }
+                    else -> {
+                        listOfNotNull(media.thumbUrl) + media.remoteSources.mapNotNull { it.thumbUrl }
+                    }
+                }
             }
             var currentUrlIndex by remember { mutableStateOf(0) }
             val currentUrl = thumbUrls.getOrNull(currentUrlIndex)
@@ -264,7 +283,10 @@ fun MediaCard(
                         .build(),
                     contentDescription = media.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    error = coil.compose.rememberAsyncImagePainter(
+                        model = android.R.drawable.ic_menu_gallery // Built-in fallback
+                    )
                 )
             }
 
@@ -359,7 +381,7 @@ fun MediaCard(
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = media.title,
-            style = MaterialTheme.typography.bodyMedium,
+            style = titleStyle,
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -370,7 +392,7 @@ fun MediaCard(
         if (secondaryText != null) {
             Text(
                 text = secondaryText,
-                style = MaterialTheme.typography.bodySmall,
+                style = subtitleStyle,
                 color = if (isFocused) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -457,24 +479,25 @@ fun HeroCarousel(
 ) {
     if (items.isEmpty()) return
     
-    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { items.size })
-    
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        androidx.compose.foundation.pager.HorizontalPager(
-            state = pagerState,
-            contentPadding = PaddingValues(horizontal = 48.dp),
-            pageSpacing = 16.dp
-        ) { page ->
-            val item = items[page]
-            MediaCard(
-                media = item,
-                onClick = { onDetails(item) },
-                onPlay = { onPlay(item) },
-                onFocus = { onFocus(item) }
-            )
+        SectionHeader("Continue Watching")
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(
+                items, 
+                key = { it.ratingKey }
+            ) { item ->
+                MediaCard(
+                    media = item,
+                    onClick = { onDetails(item) },
+                    onPlay = { onPlay(item) },
+                    onFocus = { onFocus(item) }
+                )
+            }
         }
     }
 }
@@ -486,14 +509,31 @@ fun AnimatedBackground(
 ) {
     // Simple placeholder
     if (targetUrl != null) {
-        AsyncImage(
-            model = coil.request.ImageRequest.Builder(LocalContext.current)
-                .data(targetUrl)
-                .crossfade(true)
-                .build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = modifier.fillMaxSize().graphicsLayer { alpha = 0.3f }
-        )
+        Box(modifier = modifier.fillMaxSize()) {
+            AsyncImage(
+                model = coil.request.ImageRequest.Builder(LocalContext.current)
+                    .data(targetUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.15f }
+            )
+            // Gradient Scrim for better readability
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.background
+                            ),
+                            startY = 0f,
+                            endY = 1000f // Approximate
+                        )
+                    )
+            )
+        }
     }
 }

@@ -15,6 +15,14 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+/**
+ * Implémentation de la synchronisation complète des bibliothèques.
+ *
+ * Stratégie de Sync :
+ * - **Semi-Parallèle** : Synchronise 2 bibliothèques à la fois pour équilibrer charge réseau et écriture DB.
+ * - **Batching** : Récupère les items par pages de 500 pour éviter les OOM.
+ * - **Logs Métriques** : Tracking précis des temps API vs DB pour le debugging de performance.
+ */
 class SyncRepositoryImpl @Inject constructor(
     private val api: PlexApiService,
     private val connectionManager: ConnectionManager,

@@ -2,6 +2,9 @@ package com.chakir.plexhubtv.core.util
 
 import com.chakir.plexhubtv.domain.model.MediaType
 
+/**
+ * Constantes et aides pour la classification des types de contenu Plex.
+ */
 object ContentTypes {
     const val MOVIE = "movie"
     const val SHOW = "show"

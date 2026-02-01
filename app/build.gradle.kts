@@ -89,6 +89,7 @@ dependencies {
     implementation("androidx.tv:tv-foundation:1.0.0-alpha12")
     implementation("androidx.tv:tv-material:1.0.1")
     implementation(libs.androidx.leanback)
+    implementation(libs.androidx.tv.provider)
     implementation("androidx.compose.material3:material3")
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.foundation)

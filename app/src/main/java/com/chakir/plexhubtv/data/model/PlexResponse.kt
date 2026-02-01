@@ -2,6 +2,9 @@ package com.chakir.plexhubtv.data.model
 
 import com.google.gson.annotations.SerializedName
 
+/**
+ * Wrapper racine pour une réponse Plex standard contenant un MediaContainer.
+ */
 data class PlexResponse(
     @SerializedName("MediaContainer") val mediaContainer: MediaContainer?
 )
@@ -10,6 +13,10 @@ data class GenreDTO(
     @SerializedName("tag") val tag: String
 )
 
+/**
+ * Conteneur principal des métadonnées renvoyées par Plex (PMS).
+ * Peut contenir des métadonnées, des Hubs, des Serveurs, ou des Répertoires (Sections).
+ */
 data class MediaContainer(
     val size: Int = 0,
     val totalSize: Int = 0,
@@ -75,7 +82,11 @@ data class MetadataDTO(
     @SerializedName("Role") val roles: List<RoleDTO>? = null,
     @SerializedName("Chapter") val chapters: List<ChapterDTO>? = null,
     @SerializedName("Marker") val markers: List<MarkerDTO>? = null,
-    @SerializedName("Genre") val genres: List<GenreDTO>? = null
+    @SerializedName("Genre") val genres: List<GenreDTO>? = null,
+    val status: String? = null,
+    @SerializedName("Status") val statusAlt: String? = null,
+    val seriesStatus: String? = null,
+    val originallyAvailableAt: String? = null
 )
 
 data class ChapterDTO(

@@ -2,6 +2,11 @@ package com.chakir.plexhubtv.core.util
 
 import java.util.Locale
 
+/**
+ * Utilitaires pour la construction des libellés de pistes Audio et Sous-titres.
+ * Combine les informations techniques (Codec, Canaux, Langue) en une chaîne lisible par l'utilisateur.
+ * Exemple : "Français · AAC · 5.1ch"
+ */
 object TrackUtils {
 
     /**

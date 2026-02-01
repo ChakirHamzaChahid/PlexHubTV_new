@@ -2,6 +2,10 @@ package com.chakir.plexhubtv.core.util
 
 import java.util.Locale
 
+/**
+ * Utilitaires pour le formatage des noms de Codecs (Audio, Vidéo, Sous-titres).
+ * Convertit les codes techniques (e.g., "hevc", "dca") en noms affichables ("HEVC", "DTS").
+ */
 object CodecUtils {
 
     fun formatVideoCodec(codec: String): String {

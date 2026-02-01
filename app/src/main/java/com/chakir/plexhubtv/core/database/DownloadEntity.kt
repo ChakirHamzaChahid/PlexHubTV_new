@@ -3,6 +3,10 @@ package com.chakir.plexhubtv.core.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/**
+ * Entité représentant un média téléchargé ou en cours de téléchargement.
+ * Contient le chemin du fichier local et l'état de la tâche.
+ */
 @Entity(tableName = "downloads")
 data class DownloadEntity(
     @PrimaryKey

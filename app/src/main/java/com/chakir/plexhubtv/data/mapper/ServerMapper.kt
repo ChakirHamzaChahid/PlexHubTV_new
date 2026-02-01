@@ -4,6 +4,10 @@ import com.chakir.plexhubtv.core.database.ServerEntity
 import com.chakir.plexhubtv.domain.model.Server
 import javax.inject.Inject
 
+/**
+ * Mapper pour les objets Serveur.
+ * Convertit les ressources Plex.tv (xml/json) en modèle de domaine et entités persistantes.
+ */
 class ServerMapper @Inject constructor() {
 
     fun mapEntityToDomain(entity: ServerEntity): Server {

@@ -6,6 +6,10 @@ enum class SearchState {
     Idle, Searching, Results, NoResults, Error
 }
 
+/**
+ * État de l'interface de Recherche.
+ * Gère la requête en cours, l'état de la recherche (Idle, Searching, Results, etc.) et les résultats.
+ */
 data class SearchUiState(
     val query: String = "",
     val searchState: SearchState = SearchState.Idle,

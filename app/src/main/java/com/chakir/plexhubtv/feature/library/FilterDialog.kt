@@ -15,6 +15,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 
+
+/**
+ * Dialogue pour filtrer par Serveur.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ServerFilterDialog(

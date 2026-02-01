@@ -7,13 +7,24 @@ import com.chakir.plexhubtv.data.model.PlexResponse
 import com.chakir.plexhubtv.data.model.PlexHomeUserDto
 import com.chakir.plexhubtv.data.model.UserSwitchResponseDto
 import retrofit2.Response
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url
 
+/**
+ * Interface Retrofit définissant l'API brute de Plex.
+ *
+ * Couvre deux types d'endpoints :
+ * 1. **Plex.tv (Cloud)** : Authentification, découverte de ressources, synchronisation Watchlist.
+ *    URL de base : `https://plex.tv/`
+ * 2. **Plex Media Server (Local/Remote)** : Métadonnées, streaming, recherche.
+ *    URL dynamique (injectée via `@Url` dans chaque appel).
+ */
 interface PlexApiService {
 
     // --- Authentication (plex.tv) ---
@@ -42,6 +53,31 @@ interface PlexApiService {
         @Header("X-Plex-Token") token: String,
         @Header("X-Plex-Client-Identifier") clientId: String
     ): Response<List<PlexResource>>
+
+    @GET("https://discover.provider.plex.tv/library/sections/watchlist/all")
+    suspend fun getWatchlist(
+        @Header("X-Plex-Token") token: String,
+        @Header("X-Plex-Client-Identifier") clientId: String,
+        @Query("sort") sort: String = "addedAt:desc",
+        @Query("includeExternalMedia") includeExternalMedia: Int = 1,
+        @Query("includeCollections") includeCollections: Int = 1,
+        @Query("X-Plex-Container-Start") start: Int = 0,
+        @Query("X-Plex-Container-Size") size: Int = 100
+    ): Response<GenericPlexResponse>
+
+    @PUT("https://metadata.provider.plex.tv/actions/addToWatchlist")
+    suspend fun addToWatchlist(
+        @Query("ratingKey") ratingKey: String,
+        @Header("X-Plex-Token") token: String,
+        @Header("X-Plex-Client-Identifier") clientId: String
+    ): Response<Unit>
+
+    @DELETE("https://metadata.provider.plex.tv/actions/removeFromWatchlist")
+    suspend fun removeFromWatchlist(
+        @Query("ratingKey") ratingKey: String,
+        @Header("X-Plex-Token") token: String,
+        @Header("X-Plex-Client-Identifier") clientId: String
+    ): Response<Unit>
 
     // --- Media / Library (Dynamic Server URL) ---
 

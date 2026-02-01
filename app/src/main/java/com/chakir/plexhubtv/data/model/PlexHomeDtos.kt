@@ -1,5 +1,8 @@
 package com.chakir.plexhubtv.data.model
 
+/**
+ * DTO pour un utilisateur d'une "Maison Plex" (Plex Home).
+ */
 data class PlexHomeUserDto(
     val id: Int,
     val uuid: String,
@@ -15,6 +18,9 @@ data class PlexHomeUserDto(
     val protected: Boolean
 )
 
+/**
+ * Réponse lors du changement d'utilisateur (User Switch).
+ */
 data class UserSwitchResponseDto(
     val authToken: String,
     val user: PlexHomeUserDto?

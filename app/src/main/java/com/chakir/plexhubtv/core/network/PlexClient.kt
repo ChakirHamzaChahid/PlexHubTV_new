@@ -6,8 +6,14 @@ import com.chakir.plexhubtv.domain.model.Server
 import retrofit2.Response
 
 /**
- * Android equivalent of Plezy's PlexClient.
- * Encapsulates a specific server's connection info and provides type-safe API access.
+ * Client haut-niveau pour interagir avec UN serveur Plex spécifique.
+ *
+ * Encapsule :
+ * - L'URL de base du serveur trouvée via connection testing.
+ * - Le token d'accès spécifique au serveur (si différent du token compte).
+ * - La construction des URLs complexes (Transcodage, Playback).
+ *
+ * Agit comme une façade sur [PlexApiService] en fixant l'URL et le Token.
  */
 class PlexClient(
     val server: Server,
@@ -63,7 +69,7 @@ class PlexClient(
     }
 
     suspend fun getMetadata(ratingKey: String, includeChildren: Boolean = false): Response<PlexResponse> {
-        var path = "/library/metadata/$ratingKey?includeGuids=1&includeMeta=1&includeChapters=1&includeMarkers=1"
+        var path = "/library/metadata/$ratingKey?includeGuids=1&includeMeta=1&includeChapters=1&includeMarkers=1&includeAdvanced=1&includeExtras=1&includeExternalMedia=1"
         if (includeChildren) {
             path += "&includeChildren=1"
         }
@@ -71,11 +77,15 @@ class PlexClient(
     }
     
     suspend fun getOnDeck(): Response<PlexResponse> {
-        return api.getMetadata(buildUrl("/library/onDeck?includeGuids=1&includeMeta=1"))
+        return api.getMetadata(buildUrl("/library/onDeck?includeGuids=1&includeMeta=1&X-Plex-Container-Size=50"))
     }
 
     suspend fun getChildren(ratingKey: String): Response<PlexResponse> {
         return api.getMetadata(buildUrl("/library/metadata/$ratingKey/children?includeGuids=1&includeMeta=1"))
+    }
+
+    suspend fun getRelated(ratingKey: String): Response<PlexResponse> {
+        return api.getMetadata(buildUrl("/library/metadata/$ratingKey/related?includeGuids=1&includeMeta=1&includeRelated=1"))
     }
 
     suspend fun getSections(): Response<GenericPlexResponse> {

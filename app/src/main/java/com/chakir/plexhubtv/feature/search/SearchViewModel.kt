@@ -15,6 +15,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel pour la Recherche Globale.
+ * Exécute les recherches via [SearchAcrossServersUseCase] avec un mécanisme de "debounce" pour éviter les appels excessifs.
+ */
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val searchAcrossServersUseCase: SearchAcrossServersUseCase

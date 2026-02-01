@@ -15,6 +15,11 @@ enum class LibraryViewMode {
     Grid, List
 }
 
+/**
+ * État UI de la bibliothèque.
+ * Contient tout l'état nécessaire : filtres, tri, mode d'affichage, search query, etc.
+ * Note: La liste des médias est gérée séparément via PagingData.
+ */
 data class LibraryUiState(
     val isLoading: Boolean = false,
     val isLoadingMore: Boolean = false,

@@ -22,6 +22,10 @@ import com.chakir.plexhubtv.domain.model.UserProfile
 /**
  * Profile Switch Screen - Allows switching between Plex Home Users
  */
+/**
+ * Écran de changement de profil utilisateur (Plex Home).
+ * Permet de basculer entre les utilisateurs gérés (ex: Admin, Enfant, Invité).
+ */
 @Composable
 fun ProfileSwitchRoute(
     viewModel: ProfileViewModel = hiltViewModel(),

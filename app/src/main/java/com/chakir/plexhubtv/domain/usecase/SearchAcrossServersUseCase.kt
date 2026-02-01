@@ -6,6 +6,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
+/**
+ * Recherche centralisée multi-serveurs.
+ * Délègue au repository mais gère le cas des requêtes vides.
+ */
 class SearchAcrossServersUseCase @Inject constructor(
     private val searchRepository: SearchRepository
 ) {

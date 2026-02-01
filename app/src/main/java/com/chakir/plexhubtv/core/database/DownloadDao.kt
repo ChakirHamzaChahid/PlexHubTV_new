@@ -6,6 +6,9 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * DAO pour la gestion des téléchargements hors-ligne.
+ */
 @Dao
 interface DownloadDao {
     @Query("SELECT * FROM downloads")

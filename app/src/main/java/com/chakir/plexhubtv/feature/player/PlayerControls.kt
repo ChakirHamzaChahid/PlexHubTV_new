@@ -27,6 +27,10 @@ import androidx.compose.ui.unit.dp
 import com.chakir.plexhubtv.domain.model.AudioTrack
 import com.chakir.plexhubtv.domain.model.SubtitleTrack
 
+/**
+ * Interface utilisateur des contrôles du lecteur vidéo (Overlay).
+ * Gère l'affichage des boutons Lecture, Pause, Suivant/Précédent, Seekbar et Options.
+ */
 @Composable
 fun PlayerControls(
     uiState: PlayerUiState,

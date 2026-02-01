@@ -2,6 +2,9 @@ package com.chakir.plexhubtv.feature.auth.profiles
 
 import com.chakir.plexhubtv.domain.model.PlexHomeUser
 
+/**
+ * État de l'UI pour l'écran de changement de profil.
+ */
 data class ProfileUiState(
     val isLoading: Boolean = false,
     val users: List<PlexHomeUser> = emptyList(),

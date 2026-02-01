@@ -10,6 +10,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * Module Dagger Hilt pour DataStore.
+ * Fournit l'instance unique de [DataStore<Preferences>] à l'application.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object DataStoreModule {

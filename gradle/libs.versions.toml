@@ -18,6 +18,7 @@ retrofitGson = "2.9.0"
 glide = "4.16.0"
 composeUiTooling = "1.7.8"
 foundation = "1.10.1"
+tvprovider = "1.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -37,6 +38,7 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
 tv-material = { group = "androidx.tv", name = "tv-material", version.ref = "tvMaterialVersion" }
 androidx-leanback = { group = "androidx.leanback", name = "leanback", version.ref = "leanback" }
+androidx-tv-provider = { group = "androidx.tvprovider", name = "tvprovider", version.ref = "tvprovider" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }

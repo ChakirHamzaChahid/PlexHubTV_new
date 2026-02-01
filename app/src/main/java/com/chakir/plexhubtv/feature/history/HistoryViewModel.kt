@@ -18,6 +18,10 @@ data class HistoryUiState(
     val error: String? = null
 )
 
+/**
+ * ViewModel pour l'historique de visionnage.
+ * Utilise [GetWatchHistoryUseCase].
+ */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val getWatchHistoryUseCase: GetWatchHistoryUseCase

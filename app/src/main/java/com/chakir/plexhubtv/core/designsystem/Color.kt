@@ -2,6 +2,11 @@ package com.chakir.plexhubtv.core.designsystem
 
 import androidx.compose.ui.graphics.Color
 
+/**
+ * Définition des constantes de couleur de l'application.
+ * Contient la palette Material3 standard ainsi que les couleurs personnalisées Plex.
+ */
+
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
 val Pink80 = Color(0xFFEFB8C8)

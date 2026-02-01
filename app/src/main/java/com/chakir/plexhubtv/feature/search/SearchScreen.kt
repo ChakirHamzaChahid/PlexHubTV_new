@@ -27,6 +27,10 @@ import coil.compose.AsyncImage
 import com.chakir.plexhubtv.domain.model.MediaItem
 import com.chakir.plexhubtv.domain.model.MediaType
 
+/**
+ * Écran de recherche global.
+ * Permet de rechercher des médias sur tous les serveurs disponibles.
+ */
 @Composable
 fun SearchRoute(
     viewModel: SearchViewModel = hiltViewModel(),

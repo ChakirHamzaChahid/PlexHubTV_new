@@ -3,6 +3,9 @@ package com.chakir.plexhubtv.core.database
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * DAO pour accéder aux métadonnées des bibliothèques (Sections) mises en cache.
+ */
 @Dao
 interface LibrarySectionDao {
     @Query("SELECT * FROM library_sections WHERE serverId = :serverId")

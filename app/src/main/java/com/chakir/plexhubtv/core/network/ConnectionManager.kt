@@ -16,6 +16,15 @@ import kotlinx.coroutines.selects.select
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Gestionnaire central des connexions aux serveurs Plex.
+ *
+ * Responsabilités :
+ * - Détermine la meilleure URL de connexion pour chaque serveur (Local vs Distant).
+ * - Utilise une logique de "Course" (Race) pour tester les connexions candidates en parallèle.
+ * - Gère le mode Hors-ligne global de l'application.
+ * - Cache les URLs valides pour éviter de re-tester à chaque appel.
+ */
 @Singleton
 class ConnectionManager @Inject constructor(
     private val connectionTester: ServerConnectionTester

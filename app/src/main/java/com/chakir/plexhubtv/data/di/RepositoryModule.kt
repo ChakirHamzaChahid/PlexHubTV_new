@@ -18,6 +18,11 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * Module Dagger Hilt pour l'injection des Repositories.
+ * Lie les interfaces du domaine (ex: [AuthRepository]) à leurs implémentations concrètes (ex: [AuthRepositoryImpl]).
+ * Scope: Singleton (Une seule instance pour toute l'application).
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
@@ -69,4 +74,10 @@ abstract class RepositoryModule {
     abstract fun bindSyncRepository(
         impl: com.chakir.plexhubtv.data.repository.SyncRepositoryImpl
     ): com.chakir.plexhubtv.domain.repository.SyncRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWatchlistRepository(
+        impl: com.chakir.plexhubtv.data.repository.WatchlistRepositoryImpl
+    ): com.chakir.plexhubtv.domain.repository.WatchlistRepository
 }

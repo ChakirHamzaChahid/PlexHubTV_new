@@ -3,6 +3,10 @@ package com.chakir.plexhubtv.core.util
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
+/**
+ * Utilitaires de formatage pour l'affichage UI.
+ * Gère les durées (timestamp ou textuel), les tailles de fichier et les débits binaires.
+ */
 object FormatUtils {
 
     /**

@@ -14,6 +14,15 @@ import com.chakir.plexhubtv.core.util.Resource
 import retrofit2.HttpException
 import java.io.IOException
 
+/**
+ * Médiateur Paging 3 pour la synchronisation Réseau -> DB.
+ *
+ * Responsabilités :
+ * - Détermine si les données locales sont périmées (via [initialize]).
+ * - Charge les pages depuis l'API Plex (/library/sections/all).
+ * - Insère les données dans la DB et gère les clés de pagination ([RemoteKey]).
+ * - Enregistre des métriques de performance sur les temps de réponse API vs DB.
+ */
 @OptIn(ExperimentalPagingApi::class)
 class MediaRemoteMediator(
     private val libraryKey: String, // Likely the section ID

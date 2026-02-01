@@ -35,6 +35,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.tooling.preview.Preview
 import com.chakir.plexhubtv.domain.model.MediaType
 
+/**
+ * Écran de détail pour une Saison.
+ * Affiche la liste des épisodes avec leur statut de lecture et de téléchargement.
+ * Permet de lancer la lecture d'un épisode spécifique.
+ */
 @Composable
 fun SeasonDetailRoute(
     viewModel: SeasonDetailViewModel = hiltViewModel(),

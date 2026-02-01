@@ -1,32 +1,52 @@
 package com.chakir.plexhubtv.domain.model
 
 /**
- * Utility object defining genre grouping for UI.
- * Ported from AggregatorHubPlex.
+ * Objet utilitaire définissant le regroupement des genres pour l'UI.
+ * Porté depuis l'ancien code AggregatorHubPlex.
+ *
+ * Permet de réduire la liste de 200+ genres Plex en 15 catégories principales
+ * claires pour l'utilisateur (ex: "Action & Aventure", "Animation", etc.).
  */
 object GenreGrouping {
-    // UI Label -> List of Keywords
+    // Label UI -> Liste de mots-clés de genres Plex associés
     val GROUPS = mapOf(
-        "All" to emptyList(), // "Tout"
-        "Animation" to listOf("Animation", "Anime", "Japanimé", "Kaï", "Short"),
-        "Action & Adventure" to listOf(
-            "Action", "Adventure", "Aventure", "Martial Arts", "Action/Aventure"
-        ), // "Action & Aventure"
-        "Sci-Fi & Fantasy" to listOf(
-             "Sci-Fi", "Science Fiction", "Fantasy", "Sci-Fi & Fantasy"
-        ), // "Sci-Fi & Fantastique"
-        "Family & Kids" to listOf("Familial", "Family", "Children", "Enfants"), // "Famille & Animaux"
-        "Comedy" to listOf("Comedy"), // "Comédie"
-        "Drama & Romance" to listOf("Drama", "Romance", "Soap", "Adult"), // "Drame & Romance"
-        "Thriller & Horror" to listOf(
-             "Thriller", "Horror", "Suspense", "Crime", "Mystery", "Film-Noir"
-        ), // "Thriller & Horreur"
-        "War & History" to listOf("War", "History", "Western", "Biography"), // "Guerre & Histoire"
-        "Documentary & TV" to listOf(
-             "Documentary", "Reality", "Game Show", "Talk", "News", 
-             "Home And Garden", "Food", "Travel", "Sport", 
-             "Music", "Musical", "Indie"
-        ) // "Documentaire & TV"
+        "Toutes" to emptyList(),
+        "Action & Aventure" to listOf(
+            "Action", "Adventure", "Aventure", "Action & Adventure", "Action/Adventure", 
+            "Action/Aventure", "Aventure;Action", "Martial Arts"
+        ),
+        "Animation & Anime" to listOf(
+            "Animation", "Anime", "Japanimé", "Kaï", "Short", "Japanime"
+        ),
+        "Sci-Fi & Fantastique" to listOf(
+            "Sci-Fi", "Science Fiction", "Science-Fiction", "Fantasy", "Fantastique", 
+            "Sci-Fi & Fantasy", "Science-Fiction & Fantastique"
+        ),
+        "Comédie" to listOf("Comedy", "Comédie"),
+        "Drame & Romance" to listOf(
+            "Drama", "Drame", "Romance", "Soap", "Adult", "Mini-Series", "TV Movie", "Téléfilm"
+        ),
+        "Thriller & Mystère" to listOf(
+            "Thriller", "Suspense", "Crime", "Mystery", "Mystère", "Film-Noir"
+        ),
+        "Horreur" to listOf("Horror", "Horreur"),
+        "Famille & Enfants" to listOf(
+            "Family", "Familial", "Children", "Enfants", "Enfants et famille", 
+            "Enfants;International;Bonne humeur;Amusant", "Animation;Enfants"
+        ),
+        "Documentaire & Histoire" to listOf(
+            "Documentary", "Documentaire", "History", "Histoire", "Biography", "War", "Guerre", "War & Politics"
+        ),
+        "Réalité & Talk" to listOf(
+            "Reality", "Game Show", "Talk", "Talk Show", "Awards Show", "News"
+        ),
+        "Musique & Spectacles" to listOf("Music", "Musique", "Musical"),
+        "Loisirs & Sports" to listOf(
+            "Food", "Travel", "Sport", "Home and Garden"
+        ),
+        "Western & Divers" to listOf(
+            "Western", "Indie", "3d", "faith based"
+        )
     )
 
     val UI_LABELS = GROUPS.keys.toList()

@@ -30,6 +30,10 @@ data class ServerStatusUiModel(
     val isLoading: Boolean = false
 )
 
+/**
+ * ViewModel pour l'écran d'état des serveurs.
+ * Vérifie la connectivité de chaque serveur en parallèle via [ConnectionManager].
+ */
 @HiltViewModel
 class ServerStatusViewModel @Inject constructor(
     private val authRepository: AuthRepository,

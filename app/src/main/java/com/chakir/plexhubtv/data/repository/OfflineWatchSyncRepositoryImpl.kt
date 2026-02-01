@@ -16,6 +16,14 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Repository gérant la synchronisation de l'état de lecture (Watch Status) hors-ligne.
+ *
+ * Scrobbling différé :
+ * - Stocke localement les actions "Vu", "Non vu", et "Progression" quand le serveur est inaccessible.
+ * - Tente de rejouer ces actions vers le serveur Plex une fois la connexion rétablie.
+ * - Gère la détection de conflit et les limites de tentatives (Retry Policy).
+ */
 @Singleton
 class OfflineWatchSyncRepositoryImpl @Inject constructor(
     private val offlineWatchDao: OfflineWatchProgressDao,

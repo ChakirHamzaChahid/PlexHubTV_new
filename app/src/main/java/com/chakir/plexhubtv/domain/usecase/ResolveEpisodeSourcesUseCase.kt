@@ -17,6 +17,21 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
+/**
+ * Algorithme sophistiqué pour trouver les sources d'un épisode sur d'autres serveurs.
+ *
+ * Problème : La recherche Plex standard sur un serveur secondaire retourne souvent
+ * des résultats incomplets pour les épisodes (pas de parentIndex/index).
+ *
+ * Stratégies utilisées :
+ * 1. **Recherche Directe** : Tente une correspondance GUID (IMDB/TMDB) immédiate.
+ *    C'est rapide mais dépend de la qualité des métadonnées du serveur.
+ * 2. **Traversée d'Arbre (Tree Traversal)** : Si la recherche directe échoue ou est ambiguë :
+ *    - Recherche la SÉRIE par titre.
+ *    - Explore les enfants de la série pour trouver la SAISON correspondante (par index).
+ *    - Explore les enfants de la saison pour trouver l'ÉPISODE correspondant (par index).
+ *    C'est plus lent (plusieurs appels API) mais extrêmement fiable (garantit le bon épisode).
+ */
 class ResolveEpisodeSourcesUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val searchRepository: SearchRepository,
@@ -24,6 +39,10 @@ class ResolveEpisodeSourcesUseCase @Inject constructor(
     private val api: PlexApiService,
     private val mapper: MediaMapper
 ) {
+    /**
+     * @param episode L'épisode source.
+     * @return Liste de [MediaSource] pointant vers les fichiers correspondants sur les autres serveurs.
+     */
     suspend operator fun invoke(episode: MediaItem): List<MediaSource> = coroutineScope {
         val serversResult = authRepository.getServers()
         val allServers = serversResult.getOrNull() ?: return@coroutineScope emptyList()

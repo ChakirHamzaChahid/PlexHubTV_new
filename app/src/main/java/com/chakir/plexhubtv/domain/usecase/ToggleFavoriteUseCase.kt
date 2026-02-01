@@ -4,6 +4,9 @@ import com.chakir.plexhubtv.domain.model.MediaItem
 import com.chakir.plexhubtv.domain.repository.MediaRepository
 import javax.inject.Inject
 
+/**
+ * Ajoute ou retire un élément des favoris locaux.
+ */
 class ToggleFavoriteUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {

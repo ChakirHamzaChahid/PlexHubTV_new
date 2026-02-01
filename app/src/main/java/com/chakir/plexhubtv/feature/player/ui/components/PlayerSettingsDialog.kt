@@ -94,9 +94,7 @@ fun SubtitleSelectionDialog(
     onDismiss: () -> Unit
 ) {
     // Add "Off" option to the list effectively
-    val allItems = listOf(
-        SubtitleTrack("no", "Off", "", "", false, false)
-    ) + tracks
+    val allItems = listOf(SubtitleTrack.OFF) + tracks
 
     SelectionDialog(
         title = "Select Subtitles",

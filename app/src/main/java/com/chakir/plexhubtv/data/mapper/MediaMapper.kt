@@ -9,6 +9,15 @@ import javax.inject.Inject
 import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.core.util.ContentRatingHelper
 
+/**
+ * Mapper central pour les objets Média.
+ * Assure la conversion bidirectionnelle entre :
+ * - DTO (API Network)
+ * - Entity (Base de données Room)
+ * - Domain Model (Utilisé par l'UI)
+ *
+ * Gère aussi la normalisation des URLs d'images (ajout du token, optimisation).
+ */
 class MediaMapper @Inject constructor() {
 
     // --- Network to Domain ---
@@ -182,7 +191,10 @@ class MediaMapper @Inject constructor() {
             audienceRating = dto.audienceRating,
             contentRating = ContentRatingHelper.normalize(dto.contentRating),
             genres = dto.genres?.joinToString(",") { it.tag },
-            updatedAt = dto.updatedAt ?: 0
+            addedAt = dto.addedAt ?: 0,
+            updatedAt = dto.updatedAt ?: 0,
+            parentThumb = dto.parentThumb,
+            grandparentThumb = dto.grandparentThumb
         )
     }
 
@@ -239,7 +251,10 @@ class MediaMapper @Inject constructor() {
             audienceRating = item.audienceRating,
             contentRating = ContentRatingHelper.normalize(item.contentRating),
             genres = item.genres.joinToString(","),
-            updatedAt = item.updatedAt ?: 0
+            addedAt = item.addedAt ?: 0,
+            updatedAt = item.updatedAt ?: 0,
+            parentThumb = item.parentThumb,
+            grandparentThumb = item.grandparentThumb
         )
     }
 
@@ -272,26 +287,30 @@ class MediaMapper @Inject constructor() {
             audienceRating = entity.audienceRating,
             contentRating = ContentRatingHelper.normalize(entity.contentRating),
             genres = entity.genres?.split(",") ?: emptyList(),
-            updatedAt = entity.updatedAt
+            updatedAt = entity.updatedAt,
+            parentThumb = entity.parentThumb,
+            grandparentThumb = entity.grandparentThumb
         )
     }
 
     fun isQualityMetadata(dto: MetadataDTO): Boolean {
-        if (dto.type != "movie" && dto.type != "show") return true 
-
-        val imdbId = extractImdbId(dto)
-        val tmdbId = extractTmdbId(dto)
-
-        return !imdbId.isNullOrEmpty() || !tmdbId.isNullOrEmpty()
+        // Relaxed Filter: Allow any movie/show with a title. 
+        if (dto.type == "movie" || dto.type == "show") {
+            return !dto.title.isNullOrBlank()
+        }
+        return true 
     }
 
     fun isQualityEntity(entity: MediaEntity): Boolean {
-        if (entity.type != "movie" && entity.type != "show") return true
-        return !entity.imdbId.isNullOrEmpty() || !entity.tmdbId.isNullOrEmpty()
+        // Relaxed Filter
+        if (entity.type == "movie" || entity.type == "show") {
+            return !entity.title.isNullOrBlank()
+        }
+        return true
     }
 
-    private fun mapType(type: String): MediaType {
-        return when (type) {
+    private fun mapType(type: String?): MediaType {
+        return when (type?.lowercase()) {
             "movie" -> MediaType.Movie
             "show" -> MediaType.Show
             "episode" -> MediaType.Episode

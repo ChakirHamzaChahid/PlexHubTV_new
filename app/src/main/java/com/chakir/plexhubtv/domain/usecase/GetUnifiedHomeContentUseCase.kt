@@ -15,6 +15,13 @@ data class HomeContent(
     val hubs: List<Hub>
 )
 
+/**
+ * Agrégateur principal pour l'écran d'accueil (Home).
+ *
+ * Combine deux sources de données parallèles :
+ * 1. "On Deck" Unifié (Reprise de lecture / Prochains épisodes).
+ * 2. "Hubs" Unifiés (Récemment ajoutés, Trending).
+ */
 class GetUnifiedHomeContentUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {

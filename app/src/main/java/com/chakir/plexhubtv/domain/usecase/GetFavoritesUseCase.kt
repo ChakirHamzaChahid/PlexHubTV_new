@@ -5,6 +5,9 @@ import com.chakir.plexhubtv.domain.repository.MediaRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
+/**
+ * Récupère le flux des favoris (Watchlist locale).
+ */
 class GetFavoritesUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {

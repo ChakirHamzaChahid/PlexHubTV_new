@@ -3,6 +3,14 @@ package com.chakir.plexhubtv.core.util
 import android.net.Uri
 
 /**
+ * Utilitaires pour la manipulation des images Plex.
+ *
+ * Fournit des méthodes pour générer les URLs des endpoints de transcodage d'images de Plex.
+ * Cela permet de demander au serveur de redimensionner et d'optimiser les images pour
+ * réduire la consommation de données et améliorer les performances de rendu.
+ */
+
+/**
  * Transforms a direct Plex image URL into a transcoded/optimized version.
  *
  * @param originalUrl The full URL to the original image (e.g., http://1.2.3.4:32400/library/metadata/123/thumb?X-Plex-Token=...)

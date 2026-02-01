@@ -5,6 +5,10 @@ import com.chakir.plexhubtv.domain.repository.MediaRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
+/**
+ * Récupère l'historique de visionnage local.
+ * Utile pour la section "Récemment regardés" ou pour reprendre une lecture.
+ */
 class GetWatchHistoryUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {

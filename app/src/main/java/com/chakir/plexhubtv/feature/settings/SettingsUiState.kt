@@ -1,14 +1,21 @@
 package com.chakir.plexhubtv.feature.settings
 
+/**
+ * État UI des paramètres.
+ * Contient les préférences utilisateur (Thème, Qualité Vidéo, Moteur de lecture) et l'état de la synchronisation.
+ */
 data class SettingsUiState(
-    val theme: AppTheme = AppTheme.Plex,
+    val theme: AppTheme = AppTheme.MonoDark,
     val videoQuality: String = "Original",
     val isCacheEnabled: Boolean = true,
     val cacheSize: String = "0 MB",
     val defaultServer: String = "MyServer",
     val availableServers: List<String> = listOf("MyServer"),
     val playerEngine: String = "ExoPlayer",
-    val appVersion: String = "1.0.0"
+    val appVersion: String = "1.0.1",
+    val isSyncing: Boolean = false,
+    val syncMessage: String? = null,
+    val syncError: String? = null
 )
 
 enum class AppTheme {
@@ -27,4 +34,5 @@ sealed interface SettingsAction {
     data object CheckServerStatus : SettingsAction
     data object SwitchProfile : SettingsAction
     data object ForceSync : SettingsAction
+    data object SyncWatchlist : SettingsAction
 }

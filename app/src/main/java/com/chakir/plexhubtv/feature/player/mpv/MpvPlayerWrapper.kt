@@ -50,9 +50,13 @@ class MpvPlayerWrapper(
     
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+    
+    private var pendingUrl: String? = null
+    private var pendingPosition: Long? = null
 
     fun initialize(viewGroup: ViewGroup) {
         if (isInitialized) return
+        Log.d(TAG, "Initializing MPV...")
 
         try {
             MPVLib.create(context)
@@ -84,6 +88,21 @@ class MpvPlayerWrapper(
             // copyAssets()
 
             isInitialized = true
+            Log.d(TAG, "MPV Initialized successfully")
+            
+            // Play pending URL if any
+            pendingUrl?.let { url ->
+                Log.d(TAG, "Playing pending URL: $url")
+                play(url)
+                pendingUrl = null
+            }
+            
+            // Apply pending seek if any
+            pendingPosition?.let { pos ->
+                Log.d(TAG, "Applying pending seek: $pos ms")
+                seekTo(pos)
+                pendingPosition = null
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize MPV", e)
             _error.update { e.message }
@@ -91,7 +110,12 @@ class MpvPlayerWrapper(
     }
 
     fun play(url: String) {
-        if (!isInitialized) return
+        Log.d(TAG, "play() called with URL: $url (isInitialized=$isInitialized)")
+        if (!isInitialized) {
+            Log.w(TAG, "Player not initialized, queuing URL: $url")
+            pendingUrl = url
+            return
+        }
         MPVLib.command(arrayOf("loadfile", url))
         MPVLib.setPropertyBoolean("pause", false)
     }
@@ -107,7 +131,11 @@ class MpvPlayerWrapper(
     }
 
     fun seekTo(positionMs: Long) {
-        if (!isInitialized) return
+        if (!isInitialized) {
+            Log.w(TAG, "Player not initialized, queuing seek: $positionMs ms")
+            pendingPosition = positionMs
+            return
+        }
         val position = positionMs / 1000.0
         MPVLib.command(arrayOf("seek", position.toString(), "absolute"))
     }

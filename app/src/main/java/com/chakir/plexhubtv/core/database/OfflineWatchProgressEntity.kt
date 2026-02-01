@@ -3,6 +3,11 @@ package com.chakir.plexhubtv.core.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/**
+ * Entité représentant une action de visionnage "Différée".
+ * Si l'utilisateur marque un film comme "Vu" alors qu'il est hors-ligne,
+ * cette action est stockée ici pour être synchronisée plus tard.
+ */
 @Entity(tableName = "offline_watch_progress")
 data class OfflineWatchProgressEntity(
     @PrimaryKey(autoGenerate = true)

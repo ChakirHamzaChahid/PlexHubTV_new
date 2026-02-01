@@ -2,8 +2,14 @@ package com.chakir.plexhubtv.feature.auth
 
 import com.chakir.plexhubtv.domain.model.Server
 
+/**
+ * États de l'interface d'authentification.
+ */
 sealed interface AuthUiState {
     data object Idle : AuthUiState
+    /**
+     * En cours d'authentification (affichage du PIN code à saisir sur plex.tv/link).
+     */
     data class Authenticating(
         val pinCode: String,
         val pinId: String,

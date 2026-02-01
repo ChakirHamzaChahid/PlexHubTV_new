@@ -16,6 +16,15 @@ data class PlaybackData(
  * Use case for initializing playback by determining the best video source.
  * Handles both online streaming and offline downloaded content.
  */
+/**
+ * Cas d'utilisation critique pour l'initialisation de la lecture.
+ *
+ * Responsabilités :
+ * 1. Vérifie si le média est disponible en local (téléchargement terminé).
+ *    Si oui, force la lecture locale (Mode Offline).
+ * 2. Sinon, génère l'URL de streaming direct vers le serveur Plex,
+ *    en incluant le token d'authentification (X-Plex-Token).
+ */
 class PlaybackInitializationUseCase @Inject constructor(
     private val downloadsRepository: DownloadsRepository,
     private val mediaRepository: MediaRepository

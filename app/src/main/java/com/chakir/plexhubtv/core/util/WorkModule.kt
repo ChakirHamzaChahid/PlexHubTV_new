@@ -9,6 +9,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * Module Dagger Hilt pour WorkManager.
+ * Utilisé pour l'injection du WorkManager dans les repositories (Synchronisation en arrière-plan).
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object WorkModule {

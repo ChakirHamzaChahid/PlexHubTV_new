@@ -37,6 +37,10 @@ import com.chakir.plexhubtv.feature.library.LibraryRoute
 import com.chakir.plexhubtv.feature.search.SearchRoute
 import com.chakir.plexhubtv.feature.settings.SettingsRoute
 
+/**
+ * Écran principal contenant le NavHost et la Sidebar.
+ * Gère la navigation globale et les redirections en mode hors-ligne.
+ */
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel(),

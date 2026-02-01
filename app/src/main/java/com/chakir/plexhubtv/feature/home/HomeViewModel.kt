@@ -15,6 +15,11 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import androidx.work.WorkInfo
 
+/**
+ * ViewModel pour l'écran d'accueil.
+ * Récupère le contenu unifié (On Deck + Hubs) via [GetUnifiedHomeContentUseCase].
+ * Gère également le suivi de la synchronisation initiale via WorkManager.
+ */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase,
@@ -35,10 +40,7 @@ class HomeViewModel @Inject constructor(
     private fun checkInitialSync() {
         viewModelScope.launch {
             val isFirstSyncComplete = settingsDataStore.isFirstSyncComplete.firstOrNull() ?: false
-            android.util.Log.d("InitialSync", "Checking sync status. isFirstSyncComplete: $isFirstSyncComplete")
-            
             if (!isFirstSyncComplete) {
-                android.util.Log.d("InitialSync", "Starting initial sync observation")
                 _uiState.update { it.copy(isInitialSync = true, isLoading = false) }
                 
                 // Observe WorkManager for "LibrarySync_Initial"
@@ -103,11 +105,17 @@ class HomeViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { content ->
                         android.util.Log.i("METRICS", "SCREEN [Home] PROGRESS: Duration=${duration}ms | OnDeck=${content.onDeck.size} | Hubs=${content.hubs.size}")
+                        
+                        // FIX: Filter empty hubs and deduplicate by title to reduce UI clutter
+                        val filteredHubs = content.hubs
+                            .filter { it.items.isNotEmpty() }
+                            .distinctBy { it.title }
+                            
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
                                 onDeck = content.onDeck,
-                                hubs = content.hubs
+                                hubs = filteredHubs
                             )
                         }
                     },

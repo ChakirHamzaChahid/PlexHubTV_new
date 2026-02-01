@@ -3,6 +3,18 @@ package com.chakir.plexhubtv.core.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/**
+ * Cœur de la persistance locale : Représente un élément Média (Film, Épisode, Série).
+ *
+ * Cette table est massivement indexée pour garantir des performances d'interface fluides
+ * (60fps) même avec des milliers d'éléments.
+ *
+ * Concepts Clés :
+ * - **Paging Context** (`filter`, `sortOrder`, `pageOffset`) : Permet de stocker l'ordre exact
+ *   des listes retournées par Plex, rendant la pagination locale O(1).
+ * - **Unification** (`unificationId`) : Permet de regrouper visuellement le même film
+ *   présent sur plusieurs serveurs.
+ */
 @Entity(
     tableName = "media", 
     primaryKeys = ["ratingKey", "serverId", "filter", "sortOrder"],
@@ -73,5 +85,8 @@ data class MediaEntity(
 
     // AGGREGATION FIELDS (Used only by GROUP_CONCAT queries in Unified View)
     val serverIds: String? = null,
-    val ratingKeys: String? = null
+    val ratingKeys: String? = null,
+    
+    val parentThumb: String? = null,
+    val grandparentThumb: String? = null
 )

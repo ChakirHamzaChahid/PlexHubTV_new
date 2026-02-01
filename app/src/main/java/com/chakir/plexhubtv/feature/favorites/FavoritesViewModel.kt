@@ -18,6 +18,10 @@ data class FavoritesUiState(
     val error: String? = null
 )
 
+/**
+ * ViewModel pour les favoris.
+ * Utilise [GetFavoritesUseCase].
+ */
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
     private val getFavoritesUseCase: GetFavoritesUseCase

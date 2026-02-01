@@ -7,6 +7,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+/**
+ * État vide affiché lorsqu'aucun contenu n'est disponible.
+ */
 @Composable
 fun EmptyState(onRetry: () -> Unit) {
     Column(

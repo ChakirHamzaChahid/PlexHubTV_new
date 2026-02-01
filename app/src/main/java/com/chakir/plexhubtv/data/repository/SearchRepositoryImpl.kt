@@ -12,6 +12,13 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 
+/**
+ * Implémentation de la recherche globale.
+ *
+ * Fonctionnalité majeure :
+ * - **Recherche Fédérée** : Lance des requêtes de recherche en parallèle (Async/Await) sur TOUS les serveurs enregistrés.
+ * - Agrège et trie les résultats avant de les retourner à l'UI.
+ */
 class SearchRepositoryImpl @Inject constructor(
     private val api: PlexApiService,
     private val connectionManager: ConnectionManager,

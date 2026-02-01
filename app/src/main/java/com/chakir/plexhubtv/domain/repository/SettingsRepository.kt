@@ -2,30 +2,36 @@ package com.chakir.plexhubtv.domain.repository
 
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Interface de gestion des préférences utilisateur (stockées localement via DataStore).
+ */
 interface SettingsRepository {
+    // --- UI Preferences ---
     val showHeroSection: Flow<Boolean>
-    val episodePosterMode: Flow<String>
-    val appTheme: Flow<String>
+    val episodePosterMode: Flow<String> // "poster" vs "thumb"
+    val appTheme: Flow<String> // "dark", "oled", "light"
     
     suspend fun setShowHeroSection(show: Boolean)
     suspend fun setEpisodePosterMode(mode: String)
     suspend fun setAppTheme(theme: String)
     
+    // --- Player Preferences ---
     fun getVideoQuality(): Flow<String>
-    suspend fun setVideoQuality(quality: String)
+    suspend fun setVideoQuality(quality: String) 
     
+    val playerEngine: Flow<String> // "exo" vs "mpv"
+    suspend fun setPlayerEngine(engine: String)
+
+    // --- System ---
     val isCacheEnabled: Flow<Boolean>
     suspend fun setCacheEnabled(enabled: Boolean)
     
-    val defaultServer: Flow<String>
+    val defaultServer: Flow<String> // ID du serveur préféré
     suspend fun setDefaultServer(server: String)
 
-    val playerEngine: Flow<String>
-    suspend fun setPlayerEngine(engine: String)
-
-    val clientId: Flow<String?>
+    val clientId: Flow<String?> // Identifiant unique local de l'application
     
-    suspend fun clearSession()
+    suspend fun clearSession() // Reset complet au logout
     
     suspend fun getCacheSize(): Long
     suspend fun clearCache()
