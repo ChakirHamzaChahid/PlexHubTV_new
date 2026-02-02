@@ -34,13 +34,8 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun checkAuthentication(): Boolean {
         val currentToken = settingsDataStore.plexToken.first()
-        val validToken = "91E6EobKrRGyEzGCJkAi"
-        
-        if (currentToken != validToken) {
-             // Bypass: Force update provided token
-             settingsDataStore.saveToken(validToken)
-             // Force refresh currentToken local var to return true immediately
-             return true
+        if (currentToken.isNullOrBlank()) {
+             return false
         }
 
         // Ensure Client ID exists

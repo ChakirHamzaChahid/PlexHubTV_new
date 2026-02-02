@@ -23,6 +23,12 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_15_16 = object : androidx.room.migration.Migration(15, 16) {
+        override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+             database.execSQL("CREATE TABLE IF NOT EXISTS `track_preferences` (`ratingKey` TEXT NOT NULL, `serverId` TEXT NOT NULL, `audioStreamId` TEXT, `subtitleStreamId` TEXT, `lastUpdated` INTEGER NOT NULL, PRIMARY KEY(`ratingKey`, `serverId`))")
+        }
+    }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -45,7 +51,7 @@ object DatabaseModule {
                 db.execSQL("PRAGMA cache_size = -8000") // 8MB cache
             }
         })
-        .addMigrations(MIGRATION_11_12)
+        .addMigrations(MIGRATION_11_12, MIGRATION_15_16)
         .fallbackToDestructiveMigration()
         .build()
     }
@@ -84,5 +90,10 @@ object DatabaseModule {
     @Provides
     fun provideRemoteKeysDao(database: PlexDatabase): RemoteKeysDao {
         return database.remoteKeysDao()
+    }
+    
+    @Provides
+    fun provideTrackPreferenceDao(database: PlexDatabase): TrackPreferenceDao {
+        return database.trackPreferenceDao()
     }
 }

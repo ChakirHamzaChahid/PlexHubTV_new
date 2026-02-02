@@ -146,7 +146,7 @@ fun VideoPlayerScreen(
     }
     
     // Unified Back Handler
-    val isDialogVisible = uiState.showSettings || uiState.showAudioSelection || uiState.showSubtitleSelection || uiState.showAutoNextPopup
+    val isDialogVisible = uiState.showSettings || uiState.showAudioSelection || uiState.showSubtitleSelection || uiState.showSpeedSelection || uiState.showAudioSyncDialog || uiState.showSubtitleSyncDialog || uiState.showAutoNextPopup
     
     BackHandler(enabled = true) {
         if (isDialogVisible) {
@@ -154,6 +154,9 @@ fun VideoPlayerScreen(
             onAction(PlayerAction.DismissDialog)
         } else if (controlsVisible) {
             controlsVisible = false
+        } else if (!uiState.isPlaying && !uiState.isBuffering && !uiState.error.isNullOrBlank().not()) {
+            // If Paused (and not buffering/error), Back should Resume
+            onAction(PlayerAction.Play)
         } else {
             onAction(PlayerAction.Close)
         }
@@ -252,8 +255,11 @@ fun VideoPlayerScreen(
         }
 
         // Overlay Controls (Plezy Style)
+        // Show controls if manually toggled OR if paused (but NOT if just buffering/loading)
+        val shouldShowControls = controlsVisible || (!uiState.isPlaying && !uiState.isBuffering)
+        
         AnimatedVisibility(
-            visible = controlsVisible || !uiState.isPlaying,
+            visible = shouldShowControls,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
@@ -271,6 +277,14 @@ fun VideoPlayerScreen(
         
         if (uiState.isBuffering) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+
+        // Performance Overlay
+        if (uiState.showPerformanceOverlay && uiState.playerStats != null) {
+            com.chakir.plexhubtv.feature.player.ui.components.PerformanceOverlay(
+                stats = uiState.playerStats!!,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 16.dp)
+            )
         }
         
         if (uiState.error != null) {
@@ -300,6 +314,7 @@ fun VideoPlayerScreen(
             com.chakir.plexhubtv.feature.player.ui.components.PlayerSettingsDialog(
                 uiState = uiState,
                 onSelectQuality = { onAction(PlayerAction.SelectQuality(it)) },
+                onToggleStats = { onAction(PlayerAction.TogglePerformanceOverlay) },
                 onDismiss = { onAction(PlayerAction.ToggleSettings) }
             )
         }
@@ -320,6 +335,34 @@ fun VideoPlayerScreen(
                 tracks = uiState.subtitleTracks,
                 selectedTrack = uiState.selectedSubtitle,
                 onSelect = { onAction(PlayerAction.SelectSubtitleTrack(it)) },
+                onDismiss = { onAction(PlayerAction.DismissDialog) }
+            )
+        }
+
+        if (uiState.showSpeedSelection) {
+            com.chakir.plexhubtv.feature.player.ui.components.SpeedSelectionDialog(
+                currentSpeed = uiState.playbackSpeed,
+                onSelect = { onAction(PlayerAction.SetPlaybackSpeed(it)) },
+                onDismiss = { onAction(PlayerAction.DismissDialog) }
+            )
+        }
+        
+        // Audio Sync Dialog
+        if (uiState.showAudioSyncDialog) {
+            com.chakir.plexhubtv.feature.player.ui.components.SyncSettingsDialog(
+                title = "Audio Sync",
+                currentDelayMs = uiState.audioDelay,
+                onDelayChanged = { onAction(PlayerAction.SetAudioDelay(it)) },
+                onDismiss = { onAction(PlayerAction.DismissDialog) }
+            )
+        }
+        
+        // Subtitle Sync Dialog
+        if (uiState.showSubtitleSyncDialog) {
+            com.chakir.plexhubtv.feature.player.ui.components.SyncSettingsDialog(
+                title = "Subtitle Sync",
+                currentDelayMs = uiState.subtitleDelay,
+                onDelayChanged = { onAction(PlayerAction.SetSubtitleDelay(it)) },
                 onDismiss = { onAction(PlayerAction.DismissDialog) }
             )
         }

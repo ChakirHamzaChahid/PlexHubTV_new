@@ -147,6 +147,14 @@ class SettingsViewModel @Inject constructor(
                     _uiState.update { it.copy(syncMessage = null, syncError = null) }
                 }
             }
+            is SettingsAction.ChangePreferredAudioLanguage -> {
+                _uiState.update { it.copy(preferredAudioLanguage = action.language) }
+                viewModelScope.launch { settingsRepository.setPreferredAudioLanguage(action.language) }
+            }
+            is SettingsAction.ChangePreferredSubtitleLanguage -> {
+                _uiState.update { it.copy(preferredSubtitleLanguage = action.language) }
+                viewModelScope.launch { settingsRepository.setPreferredSubtitleLanguage(action.language) }
+            }
         }
     }
 
@@ -190,6 +198,17 @@ class SettingsViewModel @Inject constructor(
                  serversResult.getOrNull()?.let { servers ->
                      val serverNames = servers.map { it.name }
                      _uiState.update { it.copy(availableServers = serverNames) }
+                 }
+             }
+
+             launch {
+                 settingsRepository.preferredAudioLanguage.collect { lang ->
+                     _uiState.update { it.copy(preferredAudioLanguage = lang) }
+                 }
+             }
+             launch {
+                 settingsRepository.preferredSubtitleLanguage.collect { lang ->
+                     _uiState.update { it.copy(preferredSubtitleLanguage = lang) }
                  }
              }
         }

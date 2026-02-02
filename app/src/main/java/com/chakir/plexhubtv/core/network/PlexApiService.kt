@@ -141,6 +141,17 @@ interface PlexApiService {
         @Query("X-Plex-Token") token: String
     ): Response<Unit>
 
+    // --- Stream Selection ---
+
+    @PUT
+    suspend fun putStreamSelection(
+        @Url url: String,
+        @Query("audioStreamID") audioStreamID: String? = null,
+        @Query("subtitleStreamID") subtitleStreamID: String? = null,
+        @Query("allParts") allParts: Int = 1,
+        @Header("X-Plex-Token") token: String
+    ): Response<Unit>
+
     // --- Plex Home / Users ---
 
     @GET("https://plex.tv/api/home/users")

@@ -20,6 +20,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.ImeAction
+import com.chakir.plexhubtv.BuildConfig
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 
 /**
  * Écran d'authentification principal.
@@ -67,16 +70,16 @@ fun AuthScreen(
 }
 
 // TODO: Replace with your actual token for testing
-private const val TEST_PLEX_TOKEN = "91E6EobKrRGyEzGCJkAi" 
+// private const val TEST_PLEX_TOKEN = BuildConfig.PLEX_TOKEN 
 
 @Composable
 fun IdleState(onAction: (AuthEvent) -> Unit) {
-    var token by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(TEST_PLEX_TOKEN) }
+    var token by remember { mutableStateOf(BuildConfig.PLEX_TOKEN) }
     
     // Auto-login if test token is set
     LaunchedEffect(Unit) {
-        if (TEST_PLEX_TOKEN.isNotBlank()) {
-            onAction(AuthEvent.SubmitToken(TEST_PLEX_TOKEN))
+        if (BuildConfig.PLEX_TOKEN.isNotBlank()) {
+            onAction(AuthEvent.SubmitToken(BuildConfig.PLEX_TOKEN))
         }
     }
 

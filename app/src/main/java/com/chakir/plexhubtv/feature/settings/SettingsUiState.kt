@@ -12,10 +12,12 @@ data class SettingsUiState(
     val defaultServer: String = "MyServer",
     val availableServers: List<String> = listOf("MyServer"),
     val playerEngine: String = "ExoPlayer",
-    val appVersion: String = "1.0.1",
+    val appVersion: String = "0.4.1",
     val isSyncing: Boolean = false,
     val syncMessage: String? = null,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val preferredAudioLanguage: String? = null,
+    val preferredSubtitleLanguage: String? = null
 )
 
 enum class AppTheme {
@@ -35,4 +37,6 @@ sealed interface SettingsAction {
     data object SwitchProfile : SettingsAction
     data object ForceSync : SettingsAction
     data object SyncWatchlist : SettingsAction
+    data class ChangePreferredAudioLanguage(val language: String?) : SettingsAction
+    data class ChangePreferredSubtitleLanguage(val language: String?) : SettingsAction
 }

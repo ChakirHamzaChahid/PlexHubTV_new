@@ -21,6 +21,13 @@ interface SettingsRepository {
     
     val playerEngine: Flow<String> // "exo" vs "mpv"
     suspend fun setPlayerEngine(engine: String)
+    
+    // --- Audio/Subtitle Preferences ---
+    val preferredAudioLanguage: Flow<String?> // "fr", "en", etc.
+    suspend fun setPreferredAudioLanguage(lang: String?)
+
+    val preferredSubtitleLanguage: Flow<String?> // "fr", "en", or "forced", "none"
+    suspend fun setPreferredSubtitleLanguage(lang: String?)
 
     // --- System ---
     val isCacheEnabled: Flow<Boolean>

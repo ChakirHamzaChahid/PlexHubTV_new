@@ -1,0 +1,5 @@
+Keystore: plexhubtv-release.jks
+Alias: plexhubtv
+Password keystore: HamzaChahid10/\
+Password key: HamzaChahid10/\
+Créé le: 2026-02-01

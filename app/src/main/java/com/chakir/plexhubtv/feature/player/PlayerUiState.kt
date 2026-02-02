@@ -37,9 +37,28 @@ data class PlayerUiState(
     val showSettings: Boolean = false,
     val showAudioSelection: Boolean = false,
     val showSubtitleSelection: Boolean = false,
+    val showSpeedSelection: Boolean = false,
+    val playbackSpeed: Float = 1.0f,
+    val audioDelay: Long = 0L,
+    val subtitleDelay: Long = 0L,
+    val showAudioSyncDialog: Boolean = false,
+    val showSubtitleSyncDialog: Boolean = false,
+    
+    val showPerformanceOverlay: Boolean = false,
+    val playerStats: PlayerStats? = null,
 
     val error: String? = null,
     val isMpvMode: Boolean = false
+)
+
+data class PlayerStats(
+    val bitrate: String = "0 kbps",
+    val resolution: String = "Unknown",
+    val videoCodec: String = "Unknown",
+    val audioCodec: String = "Unknown",
+    val droppedFrames: Long = 0,
+    val fps: Double = 0.0,
+    val cacheDuration: Long = 0L
 )
 
 data class VideoQuality(
@@ -56,8 +75,14 @@ sealed interface PlayerAction {
     data class SelectAudioTrack(val track: AudioTrack) : PlayerAction
     data class SelectSubtitleTrack(val track: SubtitleTrack) : PlayerAction
     data class SelectQuality(val quality: VideoQuality) : PlayerAction
+    data class SetPlaybackSpeed(val speed: Float) : PlayerAction
+    data class SetAudioDelay(val delayMs: Long) : PlayerAction
+    data class SetSubtitleDelay(val delayMs: Long) : PlayerAction
     data object ShowAudioSelector : PlayerAction
     data object ShowSubtitleSelector : PlayerAction
+    data object ShowAudioSyncSelector : PlayerAction
+    data object ShowSubtitleSyncSelector : PlayerAction
+    data object ToggleSpeedSelection : PlayerAction
     data object Close : PlayerAction
     data class SkipMarker(val marker: com.chakir.plexhubtv.domain.model.Marker) : PlayerAction
     data object PlayNext : PlayerAction
@@ -65,5 +90,6 @@ sealed interface PlayerAction {
     data object SeekToNextChapter : PlayerAction
     data object SeekToPreviousChapter : PlayerAction
     data object ToggleSettings : PlayerAction
+    data object TogglePerformanceOverlay : PlayerAction
     data object DismissDialog : PlayerAction // Close any open dialog without stopping playback
 }

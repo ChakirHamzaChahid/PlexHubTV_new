@@ -51,6 +51,31 @@ class MpvPlayerWrapper(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     
+    // Stats Flows
+    private val _videoBitrate = MutableStateFlow(0.0)
+    val videoBitrate: StateFlow<Double> = _videoBitrate.asStateFlow()
+    
+    private val _fps = MutableStateFlow(0.0)
+    val fps: StateFlow<Double> = _fps.asStateFlow()
+    
+    private val _droppedFrames = MutableStateFlow(0L)
+    val droppedFrames: StateFlow<Long> = _droppedFrames.asStateFlow()
+    
+    private val _videoCodec = MutableStateFlow("Unknown")
+    val videoCodec: StateFlow<String> = _videoCodec.asStateFlow()
+    
+    private val _audioCodec = MutableStateFlow("Unknown")
+    val audioCodec: StateFlow<String> = _audioCodec.asStateFlow()
+    
+    private val _videoWidth = MutableStateFlow(0L)
+    val videoWidth: StateFlow<Long> = _videoWidth.asStateFlow()
+    
+    private val _videoHeight = MutableStateFlow(0L)
+    val videoHeight: StateFlow<Long> = _videoHeight.asStateFlow()
+    
+    private val _cacheDuration = MutableStateFlow(0.0)
+    val cacheDuration: StateFlow<Double> = _cacheDuration.asStateFlow()
+    
     private var pendingUrl: String? = null
     private var pendingPosition: Long? = null
 
@@ -73,6 +98,22 @@ class MpvPlayerWrapper(
 
             MPVLib.addObserver(this)
             MPVLib.addLogObserver(this)
+
+            MPVLib.observeProperty("time-pos", MPVLib.MPV_FORMAT_DOUBLE)
+            MPVLib.observeProperty("duration", MPVLib.MPV_FORMAT_DOUBLE)
+            MPVLib.observeProperty("pause", MPVLib.MPV_FORMAT_FLAG)
+            MPVLib.observeProperty("pause", MPVLib.MPV_FORMAT_FLAG)
+            MPVLib.observeProperty("paused-for-cache", MPVLib.MPV_FORMAT_FLAG)
+            
+            // Stats
+            MPVLib.observeProperty("video-bitrate", MPVLib.MPV_FORMAT_DOUBLE)
+            MPVLib.observeProperty("estimated-vf-fps", MPVLib.MPV_FORMAT_DOUBLE)
+            MPVLib.observeProperty("drop-frame-count", MPVLib.MPV_FORMAT_DOUBLE)
+            MPVLib.observeProperty("video-format", MPVLib.MPV_FORMAT_STRING) // Codec
+            MPVLib.observeProperty("audio-codec-name", MPVLib.MPV_FORMAT_STRING)
+            MPVLib.observeProperty("demuxer-cache-duration", MPVLib.MPV_FORMAT_DOUBLE)
+            MPVLib.observeProperty("video-w", MPVLib.MPV_FORMAT_DOUBLE)
+            MPVLib.observeProperty("video-h", MPVLib.MPV_FORMAT_DOUBLE)
 
             surfaceView = SurfaceView(context).apply {
                 layoutParams = FrameLayout.LayoutParams(
@@ -145,6 +186,36 @@ class MpvPlayerWrapper(
          MPVLib.setPropertyDouble("volume", (volume * 100).toDouble())
     }
 
+    fun setSpeed(speed: Double) {
+        if (!isInitialized) return
+        MPVLib.setPropertyDouble("speed", speed)
+    }
+
+    fun setAudioId(aid: String) {
+        if (!isInitialized) return
+        Log.d(TAG, "Setting Audio ID: $aid")
+        MPVLib.setPropertyString("aid", aid)
+    }
+
+    fun setSubtitleId(sid: String) {
+        if (!isInitialized) return
+        Log.d(TAG, "Setting Subtitle ID: $sid")
+        val result = MPVLib.setPropertyString("sid", sid)
+        Log.d(TAG, "MPV setPropertyString('sid', $sid) returned: $result")
+    }
+
+    fun setAudioDelay(delayMs: Long) {
+        if (!isInitialized) return
+        // MPV audio-delay is in seconds
+        MPVLib.setPropertyDouble("audio-delay", delayMs / 1000.0)
+    }
+
+    fun setSubtitleDelay(delayMs: Long) {
+        if (!isInitialized) return
+        // MPV sub-delay is in seconds
+        MPVLib.setPropertyDouble("sub-delay", delayMs / 1000.0)
+    }
+
     fun attach(lifecycleOwner: LifecycleOwner) {
         lifecycleOwner.lifecycle.addObserver(this)
     }
@@ -191,7 +262,27 @@ class MpvPlayerWrapper(
              _position.update { (value * 1000).toLong() }
          } else if (property == "duration") {
              _duration.update { (value * 1000).toLong() }
+         } else if (property == "video-bitrate") {
+             _videoBitrate.update { value }
+         } else if (property == "estimated-vf-fps") {
+             _fps.update { value }
+         } else if (property == "demuxer-cache-duration") {
+             _cacheDuration.update { value }
+         } else if (property == "drop-frame-count") {
+             _droppedFrames.update { value.toLong() }
+         } else if (property == "video-w") {
+             _videoWidth.update { value.toLong() }
+         } else if (property == "video-h") {
+             _videoHeight.update { value.toLong() }
          }
+    }
+    
+    override fun eventProperty(property: String, value: String) {
+        if (property == "video-format") {
+            _videoCodec.update { value }
+        } else if (property == "audio-codec-name") {
+            _audioCodec.update { value }
+        }
     }
 
     override fun eventProperty(property: String, value: Boolean) {
@@ -201,8 +292,6 @@ class MpvPlayerWrapper(
             _isBuffering.update { value }
         }
     }
-
-    override fun eventProperty(property: String, value: String) {}
 
     override fun event(eventId: Int) {
         when (eventId) {

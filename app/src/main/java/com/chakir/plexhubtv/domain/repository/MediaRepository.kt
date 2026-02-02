@@ -79,4 +79,14 @@ interface MediaRepository {
 
     /** Recherche globale multi-serveurs. */
     suspend fun searchMedia(query: String): Result<List<MediaItem>>
+
+    // --- Lecteur ---
+
+    /** Met à jour la sélection des pistes (audio/sous-titres) sur le serveur. */
+    suspend fun updateStreamSelection(
+        serverId: String,
+        partId: String,
+        audioStreamId: String? = null,
+        subtitleStreamId: String? = null
+    ): Result<Unit>
 }

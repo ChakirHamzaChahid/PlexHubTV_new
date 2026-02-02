@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
 @HiltViewModel
+@OptIn(UnstableApi::class)
 /**
  * ViewModel principal pour le lecteur vidéo.
  * Gère ExoPlayer et MPV, la sélection des pistes (Audio/Sous-titres), la qualité vidéo, et le suivi de progression (Scrobbling).
@@ -30,6 +31,7 @@ class PlayerViewModel @Inject constructor(
     private val mediaRepository: MediaRepository,
     private val playbackManager: com.chakir.plexhubtv.core.playback.PlaybackManager,
     private val settingsRepository: SettingsRepository,
+    private val trackPreferenceDao: com.chakir.plexhubtv.core.database.TrackPreferenceDao,
     private val watchNextHelper: com.chakir.plexhubtv.core.util.WatchNextHelper,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
@@ -50,12 +52,23 @@ class PlayerViewModel @Inject constructor(
     private var positionTrackerJob: Job? = null
     private var scrobbleJob: Job? = null
     private var isMpvMode = false
+    private var isDirectPlay = false
 
     init {
         initializePlayer(application)
         loadMedia(ratingKey, serverId)
         startPositionTracking()
         startScrobbling()
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        stopStatsTracking()
+        player?.release()
+        player = null
+        mpvPlayer?.release()
+        positionTrackerJob?.cancel()
+        scrobbleJob?.cancel()
     }
     
     private fun switchToMpv() {
@@ -123,7 +136,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private fun loadMedia(rKey: String, sId: String, bitrateOverride: Int? = null, audioIndex: Int? = null, subtitleIndex: Int? = null) {
+    private fun loadMedia(rKey: String, sId: String, bitrateOverride: Int? = null, audioIndex: Int? = null, subtitleIndex: Int? = null, audioStreamId: String? = null, subtitleStreamId: String? = null) {
         viewModelScope.launch {
             // Get Settings
             val qualityPref = settingsRepository.getVideoQuality().first()
@@ -183,52 +196,141 @@ class PlayerViewModel @Inject constructor(
                     val clientId = settingsRepository.clientId.first() ?: "PlexHubTV-Client"
                     
                     val uriStartTime = System.currentTimeMillis()
+                    val part = media.mediaParts.firstOrNull()
+                    
+                    this@PlayerViewModel.isDirectPlay = bitrate >= 200000 && part?.key != null
+                    val isDirectPlay = this@PlayerViewModel.isDirectPlay
+                    
+                    // --- TRACK SELECTION LOGIC ---
+                    // Priority 1: Navigation/Arguments (passed as args to loadMedia)
+                    // Priority 2: Per-Media Preference (Local DB)
+                    // Priority 3: Plex Metadata Selection (Server)
+                    // Priority 4: Global Language Profile (Settings)
+                    // Priority 5: Default (First Track)
+                    
+                    var finalAudioStreamId: String? = audioStreamId // Level 1
+                    var finalSubtitleStreamId: String? = subtitleStreamId // Level 1
+                    
+                    if (finalAudioStreamId == null || finalSubtitleStreamId == null) {
+                        // Level 2: DB
+                        val dbPref = trackPreferenceDao.getPreferenceSync(rKey, sId)
+                        
+                        // Audio
+                        if (finalAudioStreamId == null) {
+                            finalAudioStreamId = dbPref?.audioStreamId
+                        }
+                        
+                        // Subtitle
+                        if (finalSubtitleStreamId == null) {
+                            finalSubtitleStreamId = dbPref?.subtitleStreamId
+                        }
+                        
+                        // Level 3 & 4: Metadata / Profile
+                        if (finalAudioStreamId == null) {
+                            val preferredAudioLang = settingsRepository.preferredAudioLanguage.first()
+                            
+                            val bestAudio = if (preferredAudioLang != null) {
+                                // Level 4: Profile Match
+                                part?.streams?.filterIsInstance<AudioStream>()?.find { 
+                                     areLanguagesEqual(it.language, preferredAudioLang)
+                                } ?: part?.streams?.filterIsInstance<AudioStream>()?.find { it.selected } // Fallback to Level 3
+                            } else {
+                                // Level 3: Plex Default
+                                part?.streams?.filterIsInstance<AudioStream>()?.find { it.selected }
+                            }
+                            finalAudioStreamId = bestAudio?.id
+                        }
+                        
+                        if (finalSubtitleStreamId == null) {
+                             val preferredSubLang = settingsRepository.preferredSubtitleLanguage.first()
+                             
+                             val bestSub = if (preferredSubLang != null) {
+                                 // Level 4: Profile Match
+                                 part?.streams?.filterIsInstance<SubtitleStream>()?.find { 
+                                      areLanguagesEqual(it.language, preferredSubLang)
+                                 } ?: part?.streams?.filterIsInstance<SubtitleStream>()?.find { it.selected } // Fallback Level 3
+                             } else {
+                                 // Level 3: Plex Default
+                                 part?.streams?.filterIsInstance<SubtitleStream>()?.find { it.selected }
+                             }
+                             finalSubtitleStreamId = bestSub?.id
+                        }
+                    }
+
+                    // Resolve Stream IDs to Indices/Objects if needed
+                    val aIndex = part?.streams?.filterIsInstance<AudioStream>()?.find { it.id == finalAudioStreamId }?.index
+                    val sIndex = part?.streams?.filterIsInstance<SubtitleStream>()?.find { it.id == finalSubtitleStreamId }?.index
+                    
                     val streamUri = if (media.baseUrl != null) {
                         val baseUrl = media.baseUrl!!
                         val cleanBase = baseUrl.trimEnd('/')
-                        val path = "/library/metadata/$rKey"
-                        val encodedPath = java.net.URLEncoder.encode(path, "UTF-8")
+                        val token = media.accessToken ?: ""
                         
-                        // Use provided indices or fall back to metadata selection
-                        // Note: subtitleIndex = -1 means "None"
-                        val sIndex = subtitleIndex ?: media.mediaParts.firstOrNull()?.streams?.find { it is SubtitleStream && it.selected }?.index
-                        val aIndex = audioIndex ?: media.mediaParts.firstOrNull()?.streams?.find { it is AudioStream && it.selected }?.index
+                        if (isDirectPlay) {
+                             // Direct Play Strategy: Use the file key directly
+                             val partKey = part!!.key
+                             Uri.parse("$cleanBase$partKey?X-Plex-Token=$token")
+                        } else {
+                            // Transcoding Strategy
+                            val path = "/library/metadata/$rKey"
+                            val encodedPath = java.net.URLEncoder.encode(path, "UTF-8")
+                            
+                            // Use resolved IDs
+                            val aStreamId = finalAudioStreamId
+                            val sStreamId = finalSubtitleStreamId
 
-                        // Universal Transcode URL with full Plex headers to avoid 400 error
-                        val transcodeUrlBuilder = StringBuilder("$cleanBase/video/:/transcode/universal/start.m3u8?")
-                        transcodeUrlBuilder.append("path=$encodedPath")
-                        transcodeUrlBuilder.append("&mediaIndex=0")
-                        transcodeUrlBuilder.append("&partIndex=0")
-                        transcodeUrlBuilder.append("&protocol=hls")
-                        transcodeUrlBuilder.append("&fastSeek=1")
-                        transcodeUrlBuilder.append("&directPlay=0")
-                        transcodeUrlBuilder.append("&directStream=1")
-                        transcodeUrlBuilder.append("&subtitleSize=100")
-                        transcodeUrlBuilder.append("&audioBoost=100")
-                        transcodeUrlBuilder.append("&location=lan")
-                        transcodeUrlBuilder.append("&addDebugOverlay=0")
-                        transcodeUrlBuilder.append("&autoAdjustQuality=0")
-                        transcodeUrlBuilder.append("&videoQuality=100")
-                        transcodeUrlBuilder.append("&maxVideoBitrate=$bitrate")
-                        
-                        if (aIndex != null) {
-                            transcodeUrlBuilder.append("&audioIndex=$aIndex")
-                        }
-                        if (sIndex != null) {
-                            // If index is -1, we omit or set to null? Plex usually uses negative or omission for none.
-                            if (sIndex >= 0) {
-                                transcodeUrlBuilder.append("&subtitleIndex=$sIndex")
+                            val transcodeUrlBuilder = StringBuilder("$cleanBase/video/:/transcode/universal/start.m3u8?")
+                            transcodeUrlBuilder.append("path=$encodedPath")
+                            transcodeUrlBuilder.append("&mediaIndex=0")
+                            transcodeUrlBuilder.append("&partIndex=0")
+                            transcodeUrlBuilder.append("&protocol=hls")
+                            transcodeUrlBuilder.append("&fastSeek=1")
+                            transcodeUrlBuilder.append("&directPlay=0")
+                            // Force FULL transcoding (directStream=0) to ensure the server burns subtitles 
+                            // and sends ONLY the selected audio track. This fixes multi-track HLS issues.
+                            transcodeUrlBuilder.append("&directStream=0")
+                            transcodeUrlBuilder.append("&subtitleSize=100")
+                            transcodeUrlBuilder.append("&audioBoost=100")
+                            transcodeUrlBuilder.append("&location=lan")
+                            transcodeUrlBuilder.append("&addDebugOverlay=0")
+                            transcodeUrlBuilder.append("&autoAdjustQuality=0")
+                            transcodeUrlBuilder.append("&videoQuality=100")
+                            transcodeUrlBuilder.append("&maxVideoBitrate=$bitrate")
+                            
+                            // Send BOTH ID and Index to ensure Plex respects the selection
+                            if (aStreamId != null) {
+                                transcodeUrlBuilder.append("&audioStreamID=$aStreamId")
                             }
+                            if (aIndex != null) {
+                                transcodeUrlBuilder.append("&audioIndex=$aIndex")
+                            }
+                            
+                            if (sStreamId != null) {
+                                transcodeUrlBuilder.append("&subtitleStreamID=$sStreamId")
+                            }
+                            if (sIndex != null) {
+                                if (sIndex >= 0) {
+                                    transcodeUrlBuilder.append("&subtitleIndex=$sIndex")
+                                }
+                            }
+    
+                            transcodeUrlBuilder.append("&X-Plex-Token=$token")
+                            transcodeUrlBuilder.append("&X-Plex-Client-Identifier=$clientId")
+                            transcodeUrlBuilder.append("&X-Plex-Platform=Android")
+                            transcodeUrlBuilder.append("&X-Plex-Platform-Version=${android.os.Build.VERSION.RELEASE}")
+                            transcodeUrlBuilder.append("&X-Plex-Product=PlexHubTV")
+                            transcodeUrlBuilder.append("&X-Plex-Device=${java.net.URLEncoder.encode(android.os.Build.MODEL, "UTF-8")}")
+                            
+                            // Important: Generate a unique session ID for this playback request
+                            // This forces Plex to start a new transcoding session with the selected audio/subtitles
+                            // instead of reusing an existing session where the old audio might be stuck.
+                            val session = java.util.UUID.randomUUID().toString()
+                            transcodeUrlBuilder.append("&session=$session")
+                                    
+                            val finalUri = Uri.parse(transcodeUrlBuilder.toString())
+                            android.util.Log.d("PlayerViewModel", "loadMedia (Transcoding): Generated URL = $finalUri")
+                            finalUri
                         }
-
-                        transcodeUrlBuilder.append("&X-Plex-Token=$token")
-                        transcodeUrlBuilder.append("&X-Plex-Client-Identifier=$clientId")
-                        transcodeUrlBuilder.append("&X-Plex-Platform=Android")
-                        transcodeUrlBuilder.append("&X-Plex-Platform-Version=${android.os.Build.VERSION.RELEASE}")
-                        transcodeUrlBuilder.append("&X-Plex-Product=PlexHubTV")
-                        transcodeUrlBuilder.append("&X-Plex-Device=${java.net.URLEncoder.encode(android.os.Build.MODEL, "UTF-8")}")
-                                
-                        Uri.parse(transcodeUrlBuilder.toString())
                     } else {
                         null
                     }
@@ -261,11 +363,16 @@ class PlayerViewModel @Inject constructor(
                         android.util.Log.i("METRICS", "SCREEN [Player] SUCCESS: MPV Start duration=${System.currentTimeMillis() - playerStartTime}ms")
                     } else {
                         // ExoPlayer Logic
-                        val mediaItem = ExoMediaItem.Builder()
+                        val mediaItemBuilder = ExoMediaItem.Builder()
                             .setUri(streamUri)
-                            .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
                             .setMediaId(rKey)
-                            .build()
+                            
+                        // ONLY force M3U8 for Transcoding
+                        if (!isDirectPlay) {
+                            mediaItemBuilder.setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
+                        }
+                            
+                        val mediaItem = mediaItemBuilder.build()
     
                         player?.apply {
                             setMediaItem(mediaItem)
@@ -301,7 +408,8 @@ class PlayerViewModel @Inject constructor(
                 codec = stream.codec,
                 channels = stream.channels,
                 index = stream.index,
-                isSelected = stream.selected
+                isSelected = stream.selected,
+                streamId = stream.id
             )
         }
         val subtitles = mutableListOf<SubtitleTrack>()
@@ -315,7 +423,8 @@ class PlayerViewModel @Inject constructor(
                 codec = stream.codec,
                 index = stream.index,
                 isSelected = stream.selected,
-                isExternal = stream.isExternal
+                isExternal = stream.isExternal,
+                streamId = stream.id
             )
         })
 
@@ -344,43 +453,27 @@ class PlayerViewModel @Inject constructor(
             
             for (i in 0 until group.length) {
                 val format = group.getTrackFormat(i)
+                // Match based on Language and/or Codec/MimeType since IDs don't match
                 val isSelected = group.isTrackSelected(i)
-                
-                // Deterministic ID: "groupIndex:trackIndex"
-                val groupIndex = currentTracks.groups.indexOf(group)
-                val id = "$groupIndex:$i"
-                
-                // Improved language display logic
-                val trackLang = format.language
-                val language = trackLang ?: "und"
-                val displayTitle = when {
-                    !format.label.isNullOrEmpty() -> format.label
-                    !trackLang.isNullOrEmpty() && trackLang != "und" -> {
-                        try {
-                            val locale = java.util.Locale.forLanguageTag(trackLang)
-                            locale.displayLanguage.takeIf { it.isNotEmpty() } ?: trackLang.uppercase()
-                        } catch (e: Exception) {
-                            trackLang.uppercase()
-                        }
-                    }
-                    else -> "Track ${i + 1}" // Numbered fallback for undefined tracks
-                }
-                
-                android.util.Log.d("PlayerViewModel", "Track $i (Group $groupIndex): id=$id, lang=$language, title=$displayTitle, selected=$isSelected")
-                
-                // If using ExoPlayer native tracks, we map them too. 
-                // But for Transcoding, we prioritize Plex Metadata tracks populated in loadMedia.
-                // We only update track selection state here if they match.
+                val language = format.language ?: "und"
                 
                 if (isSelected) {
                     _uiState.update { state ->
                         when (type) {
                             androidx.media3.common.C.TRACK_TYPE_AUDIO -> {
-                                val plexTrack = state.audioTracks.find { it.index != null && id.endsWith(":${it.index}") } // Heuristic match if needed
-                                state.copy(selectedAudio = state.audioTracks.find { it.id == id } ?: state.selectedAudio)
+                                // Find matching UI track by language and attempt codec/channel match
+                                val matchingTrack = state.audioTracks.find { uiTrack -> 
+                                     areLanguagesEqual(uiTrack.language, language)
+                                     // Optional: Check MimeType/Channels if available and reliable
+                                } ?: state.selectedAudio
+                                
+                                state.copy(selectedAudio = matchingTrack)
                             }
                             androidx.media3.common.C.TRACK_TYPE_TEXT -> {
-                                state.copy(selectedSubtitle = state.subtitleTracks.find { it.id == id } ?: state.selectedSubtitle)
+                                val matchingTrack = state.subtitleTracks.find { uiTrack -> 
+                                     areLanguagesEqual(uiTrack.language, language)
+                                } ?: state.selectedSubtitle
+                                state.copy(selectedSubtitle = matchingTrack)
                             }
                             else -> state
                         }
@@ -506,13 +599,13 @@ class PlayerViewModel @Inject constructor(
             }
             is PlayerAction.DismissDialog -> {
                 // Close any open dialog without stopping playback
-                _uiState.update { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false) }
+                _uiState.update { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false) }
             }
             is PlayerAction.Close -> {
                 // If any dialog is open, close it first. Otherwise, navigate back.
                 val state = _uiState.value
-                if (state.showSettings || state.showAudioSelection || state.showSubtitleSelection || state.showAutoNextPopup) {
-                    _uiState.update { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false) }
+                if (state.showSettings || state.showAudioSelection || state.showSubtitleSelection || state.showAutoNextPopup || state.showAudioSyncDialog || state.showSubtitleSyncDialog || state.showSpeedSelection) {
+                    _uiState.update { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false) }
                 } else {
                    // This action is typically handled by the UI (onClose callback), but we can clear state here too.
                 }
@@ -577,7 +670,119 @@ class PlayerViewModel @Inject constructor(
                     }
                 }
             }
+            is PlayerAction.SetPlaybackSpeed -> {
+                val speed = action.speed
+                _uiState.update { it.copy(playbackSpeed = speed, showSpeedSelection = false) }
+                mpvPlayer?.setSpeed(speed.toDouble())
+                player?.setPlaybackParameters(androidx.media3.common.PlaybackParameters(speed))
+            }
+            is PlayerAction.ToggleSpeedSelection -> {
+                 _uiState.update { it.copy(showSpeedSelection = !it.showSpeedSelection, showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false) }
+            }
+            is PlayerAction.SetAudioDelay -> {
+                val delay = action.delayMs
+                _uiState.update { it.copy(audioDelay = delay) }
+                mpvPlayer?.setAudioDelay(delay)
+            }
+            is PlayerAction.SetSubtitleDelay -> {
+                val delay = action.delayMs
+                _uiState.update { it.copy(subtitleDelay = delay) }
+                mpvPlayer?.setSubtitleDelay(delay)
+            }
+            is PlayerAction.ShowAudioSyncSelector -> {
+                 _uiState.update { it.copy(showAudioSyncDialog = true, showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showSpeedSelection = false, showSubtitleSyncDialog = false) }
+            }
+            is PlayerAction.ShowSubtitleSyncSelector -> {
+                 _uiState.update { it.copy(showSubtitleSyncDialog = true, showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showSpeedSelection = false, showAudioSyncDialog = false) }
+            }
+            is PlayerAction.TogglePerformanceOverlay -> {
+                val newState = !_uiState.value.showPerformanceOverlay
+                _uiState.update { it.copy(showPerformanceOverlay = newState) }
+                if (newState) {
+                    startStatsTracking()
+                } else {
+                    stopStatsTracking()
+                }
+            }
         }
+    }
+    
+    private var statsJob: Job? = null
+
+    private fun startStatsTracking() {
+        if (statsJob?.isActive == true) return
+        statsJob = viewModelScope.launch {
+            while (isActive) {
+                if (!_uiState.value.showPerformanceOverlay) {
+                    break
+                }
+                
+                val stats = if (isMpvMode) {
+                    val mpv = mpvPlayer
+                    if (mpv != null) {
+                        PlayerStats(
+                            bitrate = "${(mpv.videoBitrate.value / 1000).toInt()} kbps",
+                            resolution = "${mpv.videoWidth.value}x${mpv.videoHeight.value}",
+                            videoCodec = mpv.videoCodec.value,
+                            audioCodec = mpv.audioCodec.value,
+                            droppedFrames = mpv.droppedFrames.value,
+                            fps = mpv.fps.value,
+                            cacheDuration = mpv.cacheDuration.value.toLong()
+                        )
+                    } else null
+                } else {
+                    val p = player
+                    if (p != null) {
+                        val videoSize = p.videoSize
+                        
+                        var vFormat: androidx.media3.common.Format? = null
+                        var aFormat: androidx.media3.common.Format? = null
+                        
+                        // Find currently selected formats
+                        val groups = p.currentTracks.groups
+                        for (i in 0 until groups.size) {
+                            val group = groups[i]
+                            if (group.isSelected) {
+                                for (j in 0 until group.length) {
+                                    if (group.isTrackSelected(j)) {
+                                        val format = group.getTrackFormat(j)
+                                        if (group.type == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
+                                            vFormat = format
+                                        } else if (group.type == androidx.media3.common.C.TRACK_TYPE_AUDIO) {
+                                            aFormat = format
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // DecoderCounters not guaranteed to be accessible on all ExoPlayer versions/interfaces directly
+                        val dropped = 0L 
+                        
+                         PlayerStats(
+                            bitrate = "${(vFormat?.bitrate ?: 0) / 1000} kbps",
+                            resolution = "${videoSize.width}x${videoSize.height}",
+                            videoCodec = vFormat?.sampleMimeType ?: "Unknown",
+                            audioCodec = aFormat?.sampleMimeType ?: "Unknown",
+                            droppedFrames = dropped,
+                            fps = vFormat?.frameRate?.toDouble() ?: 0.0,
+                            cacheDuration = (p.bufferedPosition - p.currentPosition).coerceAtLeast(0) / 1000
+                        )
+                    } else null
+                }
+                
+                if (stats != null) {
+                    _uiState.update { it.copy(playerStats = stats) }
+                }
+                delay(1000)
+            }
+        }
+    }
+    
+    private fun stopStatsTracking() {
+        statsJob?.cancel()
+        statsJob = null
+        _uiState.update { it.copy(playerStats = null) }
     }
     
     private fun skipMarker(marker: com.chakir.plexhubtv.domain.model.Marker) {
@@ -586,91 +791,311 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun selectTrack(track: AudioTrack) {
-        // If it's a plex track (has index), we reload to let the server change audio
-        val current = _uiState.value.currentItem
-        if (current != null) {
-            _uiState.update { it.copy(selectedAudio = track) }
-            // Use current quality, current subtitle index, and NEW audio index
-            val sIndex = _uiState.value.selectedSubtitle?.index
-            loadMedia(current.ratingKey, current.serverId, _uiState.value.selectedQuality.bitrate, track.index, sIndex)
+        _uiState.update { it.copy(selectedAudio = track) }
+        
+        // 1. Persist to Local DB (Priority 2: Per-Media)
+        viewModelScope.launch {
+            try {
+                val currentFn = _uiState.value.currentItem
+                if (currentFn != null) {
+                   var pref = trackPreferenceDao.getPreferenceSync(currentFn.ratingKey, currentFn.serverId)
+                   if (pref == null) {
+                       pref = com.chakir.plexhubtv.core.database.TrackPreferenceEntity(
+                           currentFn.ratingKey, 
+                           currentFn.serverId, 
+                           audioStreamId = track.streamId, 
+                           subtitleStreamId = _uiState.value.selectedSubtitle?.streamId
+                       )
+                   } else {
+                       pref = pref.copy(audioStreamId = track.streamId, lastUpdated = System.currentTimeMillis())
+                   }
+                   trackPreferenceDao.upsertPreference(pref)
+                   android.util.Log.i("PlayerViewModel", "Persisted Audio Preference: ${track.streamId}")
+                }
+            } catch (e: Exception) {
+               android.util.Log.e("PlayerViewModel", "Failed to persist audio preference", e)
+            }
+        }
+        
+        // 2. Sync Selection to Plex Server (Priority 3: Plex Metadata)
+        viewModelScope.launch {
+            val item = _uiState.value.currentItem
+            val part = item?.mediaParts?.firstOrNull()
+            if (item != null && part != null) {
+                try {
+                    mediaRepository.updateStreamSelection(
+                        serverId = item.serverId,
+                        partId = part.id,
+                        audioStreamId = track.streamId
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("PlayerViewModel", "Failed to sync audio selection: ${e.message}")
+                }
+            }
+        }
+        
+        if (isMpvMode && isDirectPlay) {
+            // MPV uses 1-based relative index for "aid" property
+            // We find the index of the track in our UI list + 1
+            val index = _uiState.value.audioTracks.indexOf(track) + 1
+            if (index > 0) {
+                 mpvPlayer?.setAudioId(index.toString())
+                 android.util.Log.i("PlayerViewModel", "MPV: Switched to Audio Track $index")
+            }
             return
         }
 
-        if (isMpvMode) return
-        
-        player?.let { p ->
-             try {
-                 val parts = track.id.split(":")
-                 if (parts.size == 2) {
-                     val groupIndex = parts[0].toInt()
-                     val trackIndex = parts[1].toInt()
-                     
-                     val groups = p.currentTracks.groups
-                     if (groupIndex < groups.size) {
-                         val group = groups[groupIndex]
-                         val builder = p.trackSelectionParameters.buildUpon()
-                         builder.setOverrideForType(
-                             androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, trackIndex)
-                         )
-                         p.trackSelectionParameters = builder.build()
-                         android.util.Log.i("PlayerViewModel", "Selected audio track: $groupIndex:$trackIndex")
+        if (isDirectPlay) {
+            val p = player ?: return
+            
+            // Try to find matching group in ExoPlayer
+            val groups = p.currentTracks.groups
+            var selectedGroupIndex = -1
+            var selectedTrackIndex = -1
+            
+            // Strategy 1: Match loosely by Language and Type
+            for (i in 0 until groups.size) {
+                 val group = groups[i]
+                 if (group.type == androidx.media3.common.C.TRACK_TYPE_AUDIO) {
+                     for (j in 0 until group.length) {
+                         val format = group.getTrackFormat(j)
+                         if (areLanguagesEqual(format.language, track.language)) {
+                             selectedGroupIndex = i
+                             selectedTrackIndex = j
+                             break
+                         }
                      }
                  }
-             } catch (e: Exception) {
-                 android.util.Log.e("PlayerViewModel", "Failed to select audio track", e)
-             }
+                 if (selectedGroupIndex != -1) break
+            }
+            
+            // Strategy 2: Fallback to Order Match
+            if (selectedGroupIndex == -1) {
+                 val audioTracksInUI = _uiState.value.audioTracks
+                 val uiIndex = audioTracksInUI.indexOf(track)
+                 
+                 var audioGroupCounter = 0
+                 for (i in 0 until groups.size) {
+                     if (groups[i].type == androidx.media3.common.C.TRACK_TYPE_AUDIO) {
+                         if (audioGroupCounter == uiIndex) {
+                             selectedGroupIndex = i
+                             selectedTrackIndex = 0 
+                             break
+                         }
+                         audioGroupCounter++
+                     }
+                 }
+            }
+
+            if (selectedGroupIndex != -1) {
+                val builder = p.trackSelectionParameters.buildUpon()
+                builder.setOverrideForType(
+                    androidx.media3.common.TrackSelectionOverride(groups[selectedGroupIndex].mediaTrackGroup, selectedTrackIndex)
+                )
+                p.trackSelectionParameters = builder.build()
+                android.util.Log.i("PlayerViewModel", "Direct Play: Switched Audio to Group=$selectedGroupIndex Track=$selectedTrackIndex")
+            } else {
+                 android.util.Log.w("PlayerViewModel", "Direct Play: Could not find matching audio track for ${track.language}")
+            }
+            
+        } else {
+            // Transcoding: Reload with new index
+            val current = _uiState.value.currentItem
+            android.util.Log.d("PlayerViewModel", "selectTrack (Transcoding): CurrentItem=${current?.ratingKey}, TrackIndex=${track.index}, StreamId=${track.streamId}")
+            
+            // CRITICAL: Update ExoPlayer preferences even for Transcoding.
+            // If directStream=1 is active, Plex sends an HLS with multiple audio tracks.
+            // We must tell ExoPlayer which one to pick to avoid it reverting to default.
+            player?.let { p ->
+                val builder = p.trackSelectionParameters.buildUpon()
+                if (track.language != null) {
+                    builder.setPreferredAudioLanguage(track.language)
+                }
+                p.trackSelectionParameters = builder.build()
+            }
+            
+            if (current != null) {
+                val sIndex = _uiState.value.selectedSubtitle?.index
+                val sStreamId = _uiState.value.selectedSubtitle?.streamId
+                android.util.Log.d("PlayerViewModel", "selectTrack (Transcoding): Calling loadMedia with audioStreamId=${track.streamId}, subtitleStreamId=$sStreamId")
+                loadMedia(current.ratingKey, current.serverId, _uiState.value.selectedQuality.bitrate, track.index, sIndex, track.streamId, sStreamId)
+            } else {
+                android.util.Log.e("PlayerViewModel", "selectTrack (Transcoding): CurrentItem is NULL")
+            }
         }
     }
 
     private fun selectSubtitle(track: SubtitleTrack) {
-        // If it's a plex track (has index), we reload to let the server burn/mux different subtitles
-        val current = _uiState.value.currentItem
-        if (current != null) {
-            _uiState.update { it.copy(selectedSubtitle = track) }
-            // Use current quality, NEW subtitle index, and current audio index
-            val aIndex = _uiState.value.selectedAudio?.index
-            loadMedia(current.ratingKey, current.serverId, _uiState.value.selectedQuality.bitrate, aIndex, track.index)
-            return
+         _uiState.update { it.copy(selectedSubtitle = track) }
+         
+        // 1. Persist to Local DB (Priority 2: Per-Media)
+        viewModelScope.launch {
+            try {
+                val currentFn = _uiState.value.currentItem
+                if (currentFn != null) {
+                   var pref = trackPreferenceDao.getPreferenceSync(currentFn.ratingKey, currentFn.serverId)
+                   // Use "0" as sentinel for "Subtitle Off" because streamId is null for OFF track
+                   val subStreamIdToSave = if (track.id == "no") "0" else track.streamId
+                   
+                   if (pref == null) {
+                       pref = com.chakir.plexhubtv.core.database.TrackPreferenceEntity(
+                           currentFn.ratingKey, 
+                           currentFn.serverId, 
+                           audioStreamId = _uiState.value.selectedAudio?.streamId,
+                           subtitleStreamId = subStreamIdToSave
+                       )
+                   } else {
+                       pref = pref.copy(subtitleStreamId = subStreamIdToSave, lastUpdated = System.currentTimeMillis())
+                   }
+                   trackPreferenceDao.upsertPreference(pref)
+                   android.util.Log.i("PlayerViewModel", "Persisted Subtitle Preference: $subStreamIdToSave")
+                }
+            } catch (e: Exception) {
+               android.util.Log.e("PlayerViewModel", "Failed to persist subtitle preference", e)
+            }
         }
-
-        player?.let { p ->
-             val builder = p.trackSelectionParameters.buildUpon()
-             
+         
+        // 2. Sync Selection to Plex Server
+        viewModelScope.launch {
+            val item = _uiState.value.currentItem
+            val part = item?.mediaParts?.firstOrNull()
+            if (item != null && part != null) {
+                try {
+                    // Send "0" if disabling subtitles
+                    val streamId = if (track.id == "no" || track.streamId == null) "0" else track.streamId
+                    mediaRepository.updateStreamSelection(
+                        serverId = item.serverId,
+                        partId = part.id,
+                        subtitleStreamId = streamId
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("PlayerViewModel", "Failed to sync subtitle selection: ${e.message}")
+                }
+            }
+        }
+         
+         if (isMpvMode && isDirectPlay) {
              if (track.id == "no") {
-                 builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
-                 android.util.Log.i("PlayerViewModel", "Subtitles disabled")
+                 mpvPlayer?.setSubtitleId("no")
+                 android.util.Log.i("PlayerViewModel", "MPV: Subtitles Disabled")
              } else {
-                 try {
-                     builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
-                     val parts = track.id.split(":")
-                     if (parts.size == 2) {
-                         val groupIndex = parts[0].toInt()
-                         val trackIndex = parts[1].toInt()
-                         
-                         val groups = p.currentTracks.groups
-                         if (groupIndex < groups.size) {
-                             val group = groups[groupIndex]
-                             builder.setOverrideForType(
-                                 androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, trackIndex)
-                             )
-                             android.util.Log.i("PlayerViewModel", "Selected subtitle track: $groupIndex:$trackIndex")
-                         }
-                     }
-                 } catch (e: Exception) {
-                     android.util.Log.e("PlayerViewModel", "Failed to select subtitle track", e)
+                 // Filter out 'OFF' option to get correct index
+                 val validTracks = _uiState.value.subtitleTracks.filter { it.id != "no" }
+                 val index = validTracks.indexOf(track) + 1
+                 if (index > 0) {
+                     mpvPlayer?.setSubtitleId(index.toString())
+                     android.util.Log.i("PlayerViewModel", "MPV: Switched to Subtitle Track $index")
                  }
              }
+             return
+         }
+         
+         if (isDirectPlay) {
+             val p = player ?: return
+             val builder = p.trackSelectionParameters.buildUpon()
+
+             if (track.id == "no") {
+                 builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
+                 android.util.Log.i("PlayerViewModel", "Direct Play: Subtitles Disabled")
+             } else {
+                 builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
+                 
+                val groups = p.currentTracks.groups
+                var selectedGroupIndex = -1
+                var selectedTrackIndex = -1
+                
+                // Strategy 1: Match by Language
+                for (i in 0 until groups.size) {
+                     val group = groups[i]
+                     if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                         for (j in 0 until group.length) {
+                             val format = group.getTrackFormat(j)
+                             if (areLanguagesEqual(format.language, track.language)) {
+                                 selectedGroupIndex = i
+                                 selectedTrackIndex = j
+                                 break
+                             }
+                         }
+                     }
+                     if (selectedGroupIndex != -1) break
+                }
+                
+                // Strategy 2: Order Match
+                if (selectedGroupIndex == -1) {
+                     val subtitleTracksInUI = _uiState.value.subtitleTracks.filter { it.id != "no" }
+                     val uiIndex = subtitleTracksInUI.indexOf(track)
+                     
+                     var textGroupCounter = 0
+                     for (i in 0 until groups.size) {
+                         if (groups[i].type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                             if (textGroupCounter == uiIndex) {
+                                 selectedGroupIndex = i
+                                 selectedTrackIndex = 0
+                                 break
+                             }
+                             textGroupCounter++
+                         }
+                     }
+                }
+
+                if (selectedGroupIndex != -1) {
+                     builder.setOverrideForType(
+                         androidx.media3.common.TrackSelectionOverride(groups[selectedGroupIndex].mediaTrackGroup, selectedTrackIndex)
+                     )
+                     android.util.Log.i("PlayerViewModel", "Direct Play: Switched Subtitle to Group=$selectedGroupIndex Track=$selectedTrackIndex")
+                } else {
+                    android.util.Log.w("PlayerViewModel", "Direct Play: Could not find matching subtitle track for ${track.language}")
+                }
+             }
              p.trackSelectionParameters = builder.build()
-        }
+             
+         } else {
+             // Transcoding: Reload
+            val current = _uiState.value.currentItem
+            android.util.Log.d("PlayerViewModel", "selectSubtitle (Transcoding): CurrentItem=${current?.ratingKey}, TrackIndex=${track.index}, StreamId=${track.streamId}")
+            
+            // CRITICAL: Update ExoPlayer preferences even for Transcoding.
+            player?.let { p ->
+                val builder = p.trackSelectionParameters.buildUpon()
+                if (track.id == "no") {
+                     builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
+                } else {
+                     builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
+                     if (track.language != null) {
+                         builder.setPreferredTextLanguage(track.language)
+                     }
+                }
+                p.trackSelectionParameters = builder.build()
+            }
+            
+            if (current != null) {
+                val aIndex = _uiState.value.selectedAudio?.index
+                val aStreamId = _uiState.value.selectedAudio?.streamId
+                 android.util.Log.d("PlayerViewModel", "selectSubtitle (Transcoding): Calling loadMedia with audioStreamId=$aStreamId, subtitleStreamId=${track.streamId}")
+                loadMedia(current.ratingKey, current.serverId, _uiState.value.selectedQuality.bitrate, aIndex, track.index, aStreamId, track.streamId)
+            } else {
+                 android.util.Log.e("PlayerViewModel", "selectSubtitle (Transcoding): CurrentItem is NULL")
+            }
+         }
     }
     
     fun getExoPlayer(): ExoPlayer? = player
 
-    override fun onCleared() {
-        super.onCleared()
-        player?.release()
-        player = null
-        positionTrackerJob?.cancel()
-        scrobbleJob?.cancel()
+
+
+    private fun areLanguagesEqual(lang1: String?, lang2: String?): Boolean {
+        if (lang1 == lang2) return true
+        if (lang1.isNullOrEmpty() || lang1 == "und") {
+            return lang2.isNullOrEmpty() || lang2 == "und"
+        }
+        if (lang2.isNullOrEmpty() || lang2 == "und") return false
+        
+        return try {
+            val l1 = java.util.Locale(lang1).getISO3Language()
+            val l2 = java.util.Locale(lang2).getISO3Language()
+            l1 == l2
+        } catch (e: Exception) {
+            lang1.equals(lang2, ignoreCase = true)
+        }
     }
 }

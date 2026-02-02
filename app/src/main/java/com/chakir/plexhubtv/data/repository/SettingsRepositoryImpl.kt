@@ -21,6 +21,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override val defaultServer: Flow<String> = settingsDataStore.defaultServer
     override val playerEngine: Flow<String> = settingsDataStore.playerEngine
     override val clientId: Flow<String?> = settingsDataStore.clientId
+    
+    override val preferredAudioLanguage: Flow<String?> = settingsDataStore.preferredAudioLanguage
+    override val preferredSubtitleLanguage: Flow<String?> = settingsDataStore.preferredSubtitleLanguage
 
     override suspend fun setShowHeroSection(show: Boolean) {
         settingsDataStore.saveShowHeroSection(show)
@@ -50,6 +53,14 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setPlayerEngine(engine: String) {
         settingsDataStore.savePlayerEngine(engine)
+    }
+
+    override suspend fun setPreferredAudioLanguage(lang: String?) {
+        settingsDataStore.savePreferredAudioLanguage(lang)
+    }
+
+    override suspend fun setPreferredSubtitleLanguage(lang: String?) {
+        settingsDataStore.savePreferredSubtitleLanguage(lang)
     }
 
     override suspend fun clearSession() {

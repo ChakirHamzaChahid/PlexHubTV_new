@@ -130,6 +130,33 @@ fun SettingsScreen(
                 }
             }
 
+            // --- Languages Section ---
+            item {
+                SettingsGroup("Languages") {
+                    // Audio
+                    SettingsOptionSelector(
+                        title = "Preferred Audio Language",
+                        currentValue = state.preferredAudioLanguage ?: "Original",
+                        options = listOf("Original", "English", "French", "German", "Spanish", "Italian", "Japanese", "Korean", "Russian", "Portuguese"),
+                         onSelect = { lang ->
+                             val value = if (lang == "Original") null else lang
+                             onAction(SettingsAction.ChangePreferredAudioLanguage(value)) 
+                         }
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    // Subtitle
+                    SettingsOptionSelector(
+                        title = "Preferred Subtitle Language",
+                        currentValue = state.preferredSubtitleLanguage ?: "None",
+                        options = listOf("None", "English", "French", "German", "Spanish", "Italian", "Japanese", "Korean", "Russian", "Portuguese"),
+                         onSelect = { lang ->
+                             val value = if (lang == "None") null else lang
+                             onAction(SettingsAction.ChangePreferredSubtitleLanguage(value))
+                         }
+                    )
+                }
+            }
+
             // --- Server Section ---
             item {
                 SettingsGroup("Server") {

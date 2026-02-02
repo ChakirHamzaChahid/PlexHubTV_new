@@ -160,6 +160,35 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
+    private val PREF_AUDIO_LANG = stringPreferencesKey("pref_audio_lang")
+    private val PREF_SUBTITLE_LANG = stringPreferencesKey("pref_subtitle_lang")
+
+    val preferredAudioLanguage: Flow<String?> = dataStore.data
+        .map { preferences -> preferences[PREF_AUDIO_LANG] }
+
+    val preferredSubtitleLanguage: Flow<String?> = dataStore.data
+        .map { preferences -> preferences[PREF_SUBTITLE_LANG] }
+
+    suspend fun savePreferredAudioLanguage(lang: String?) {
+        dataStore.edit { preferences ->
+            if (lang != null) {
+                preferences[PREF_AUDIO_LANG] = lang
+            } else {
+                preferences.remove(PREF_AUDIO_LANG)
+            }
+        }
+    }
+
+    suspend fun savePreferredSubtitleLanguage(lang: String?) {
+        dataStore.edit { preferences ->
+            if (lang != null) {
+                preferences[PREF_SUBTITLE_LANG] = lang
+            } else {
+                preferences.remove(PREF_SUBTITLE_LANG)
+            }
+        }
+    }
+
     suspend fun clearAll() {
         dataStore.edit { it.clear() }
     }

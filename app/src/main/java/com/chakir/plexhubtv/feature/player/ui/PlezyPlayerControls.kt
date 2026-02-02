@@ -66,6 +66,16 @@ fun PlezyPlayerControls(
             
             Row {
                 CircularControlButton(
+                    icon = Icons.Default.SyncAlt, // Audio Sync
+                    onClick = { onAction(PlayerAction.ShowAudioSyncSelector) },
+                    size = 40
+                )
+                CircularControlButton(
+                    icon = Icons.Default.ClosedCaptionDisabled, // Subtitle Sync (using similar icon to subs but distinct if possible, or just Sync)
+                    onClick = { onAction(PlayerAction.ShowSubtitleSyncSelector) },
+                    size = 40
+                )
+                CircularControlButton(
                     icon = Icons.Default.Audiotrack,
                     onClick = { onAction(PlayerAction.ShowAudioSelector) },
                     size = 40
@@ -73,6 +83,11 @@ fun PlezyPlayerControls(
                 CircularControlButton(
                     icon = Icons.Default.Subtitles,
                     onClick = { onAction(PlayerAction.ShowSubtitleSelector) },
+                    size = 40
+                )
+                CircularControlButton(
+                    icon = Icons.Default.Speed,
+                    onClick = { onAction(PlayerAction.ToggleSpeedSelection) },
                     size = 40
                 )
                 CircularControlButton(

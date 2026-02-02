@@ -19,9 +19,10 @@ import androidx.room.TypeConverters
         HomeContentEntity::class, 
         FavoriteEntity::class,
         RemoteKey::class,
-        LibrarySectionEntity::class
+        LibrarySectionEntity::class,
+        TrackPreferenceEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -34,4 +35,5 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
     abstract fun remoteKeysDao(): RemoteKeysDao
     abstract fun librarySectionDao(): LibrarySectionDao
+    abstract fun trackPreferenceDao(): TrackPreferenceDao
 }

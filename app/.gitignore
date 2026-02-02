@@ -1,1 +1,6 @@
 /build
+# Keystore (SÉCURITÉ)
+keystore/
+*.jks
+*.keystore
+keystore.properties

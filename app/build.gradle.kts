@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -16,12 +19,19 @@ android {
         minSdk = 27
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.4.1"
     }
 
     buildTypes {
         debug {
             buildConfigField("String", "API_BASE_URL", "\"http://192.168.0.175:8186/\"")
+            val localProperties = Properties()
+            val localPropertiesFile = rootProject.file("local.properties")
+            if (localPropertiesFile.exists()) {
+                localProperties.load(FileInputStream(localPropertiesFile))
+            }
+            val plexToken = localProperties.getProperty("PLEX_TOKEN") ?: ""
+            buildConfigField("String", "PLEX_TOKEN", "\"$plexToken\"")
         }
         release {
             isMinifyEnabled = true
@@ -46,8 +56,6 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        // Utiliser @OptIn au niveau du fichier est une meilleure pratique
-        // freeCompilerArgs += "-opt-in=androidx.media3.common.util.UnstableApi"
     }
 
     packaging {

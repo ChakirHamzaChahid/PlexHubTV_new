@@ -45,15 +45,6 @@
                 <data android:scheme="plexhub" android:host="play" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".DetailsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".PlaybackActivity"
-            android:exported="false" />
-        <activity
-            android:name=".BrowseErrorActivity"
-            android:exported="false" />
 
         <!-- WorkManager Foreground Service for Android 12+ -->
         <service

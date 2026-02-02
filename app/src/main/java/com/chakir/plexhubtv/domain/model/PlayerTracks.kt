@@ -12,7 +12,8 @@ data class AudioTrack(
     val index: Int? = null,
     val isDefault: Boolean = false,
     val isForced: Boolean = false,
-    val isSelected: Boolean = false
+    val isSelected: Boolean = false,
+    val streamId: String? = null
 ) {
     val displayName: String get() = title ?: language ?: "Track $id"
 }
@@ -31,7 +32,8 @@ data class SubtitleTrack(
     val isDefault: Boolean = false,
     val isForced: Boolean = false,
     val isExternal: Boolean = false,
-    val isSelected: Boolean = false
+    val isSelected: Boolean = false,
+    val streamId: String? = null
 ) {
     val displayName: String get() = title ?: language ?: if (isExternal) "External" else "Track $id"
     

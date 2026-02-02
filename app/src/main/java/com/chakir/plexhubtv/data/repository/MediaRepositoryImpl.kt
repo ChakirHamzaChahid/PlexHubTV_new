@@ -803,28 +803,50 @@ class MediaRepositoryImpl @Inject constructor(
             val items = allEntities.map { entity ->
                  val server = servers.find { it.clientIdentifier == entity.serverId }
                  val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
-                 
+                 val token = server?.accessToken
+
                  val domain = mapper.mapEntityToDomain(entity)
                  if (server != null && baseUrl != null) {
-                     val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) 
-                         "$baseUrl${entity.thumbUrl}?X-Plex-Token=${server.accessToken}" else entity.thumbUrl
-                     val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) 
-                         "$baseUrl${entity.artUrl}?X-Plex-Token=${server.accessToken}" else entity.artUrl
-                     
-                     val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
-                     val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                        val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) 
+                            "$baseUrl${entity.thumbUrl}?X-Plex-Token=$token" else entity.thumbUrl
+                        val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) 
+                            "$baseUrl${entity.artUrl}?X-Plex-Token=$token" else entity.artUrl
+                        
+                        val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                        val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
 
-                     domain.copy(
-                        baseUrl = baseUrl,
-                        accessToken = server.accessToken,
-                        thumbUrl = fullThumb,
-                        artUrl = fullArt
-                     )
+                        domain.copy(
+                            baseUrl = baseUrl,
+                            accessToken = token,
+                            thumbUrl = fullThumb,
+                            artUrl = fullArt
+                        )
                  } else {
                      domain
                  }
             }
             Result.success(items)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateStreamSelection(
+        serverId: String,
+        partId: String,
+        audioStreamId: String?,
+        subtitleStreamId: String?
+    ): Result<Unit> {
+        return try {
+            val client = getClient(serverId) ?: return Result.failure(Exception("Server not found"))
+            val url = "${client.baseUrl}library/parts/$partId"
+            val response = api.putStreamSelection(
+                url = url,
+                audioStreamID = audioStreamId,
+                subtitleStreamID = subtitleStreamId,
+                token = client.server.accessToken ?: ""
+            )
+            if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("API Error: ${response.code()}"))
         } catch (e: Exception) {
             Result.failure(e)
         }
