@@ -32,6 +32,10 @@ class SearchViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
+    init {
+        android.util.Log.d("METRICS", "SCREEN [Search]: Opened")
+    }
+
     fun onAction(action: SearchAction) {
         when (action) {
             is SearchAction.QueryChange -> {

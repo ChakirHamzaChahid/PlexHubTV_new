@@ -24,27 +24,30 @@ import androidx.work.WorkInfo
 class HomeViewModel @Inject constructor(
     private val getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase,
     private val workManager: androidx.work.WorkManager,
-    private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore
+    private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
+    private val imagePrefetchManager: com.chakir.plexhubtv.core.image.ImagePrefetchManager,
+    private val savedStateHandle: androidx.lifecycle.SavedStateHandle
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
+    private val _uiState = MutableStateFlow(savedStateHandle["home_state"] ?: HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private val _navigationEvents = Channel<HomeNavigationEvent>()
     val navigationEvents = _navigationEvents.receiveAsFlow()
 
     init {
+        // PERFORMANCE: Load content immediately to unblock UI (Cold Start Optimization)
+        loadContent()
         checkInitialSync()
     }
 
     private fun checkInitialSync() {
         viewModelScope.launch {
+            // Monitor sync progress in background without blocking UI unless absolutely necessary (handled in UI layer)
             val isFirstSyncComplete = settingsDataStore.isFirstSyncComplete.firstOrNull() ?: false
             if (!isFirstSyncComplete) {
-                _uiState.update { it.copy(isInitialSync = true, isLoading = false) }
+                _uiState.update { it.copy(isInitialSync = true) }
                 
-                // Observe WorkManager for "LibrarySync_Initial"
-                // We use getWorkInfosForUniqueWorkFlow to react to changes
                 workManager.getWorkInfosForUniqueWorkFlow("LibrarySync_Initial")
                     .collect { workInfos ->
                         val initialSyncWork = workInfos.firstOrNull()
@@ -61,17 +64,10 @@ class HomeViewModel @Inject constructor(
                             }
                             
                             if (state == WorkInfo.State.SUCCEEDED || state == WorkInfo.State.FAILED || state == WorkInfo.State.CANCELLED) {
-                                // Sync done (Success or Failure)
-                                // We trust the worker to update "isFirstSyncComplete" on success.
-                                // If failed, we might want to retry or just let the user in.
-                                // For now, let's assume if it finished, we proceed.
-                                _uiState.update { it.copy(isInitialSync = false, isLoading = true) }
-                                loadContent()
+                                _uiState.update { it.copy(isInitialSync = false) }
                             }
                         }
                     }
-            } else {
-                loadContent()
             }
         }
     }
@@ -111,24 +107,46 @@ class HomeViewModel @Inject constructor(
                             .filter { it.items.isNotEmpty() }
                             .distinctBy { it.title }
                             
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                onDeck = content.onDeck,
-                                hubs = filteredHubs
-                            )
+                        // PERFORMANCE: Prefetch images for On Deck and the first few hubs
+                        // REDUCED: Prefetch only immediate viewport items to prevent network saturation/UI jank
+                        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            val urlsToPrefetch = content.onDeck.take(5).flatMap { listOfNotNull(it.thumbUrl, it.artUrl) } +
+                                    filteredHubs.take(1).flatMap { hub -> 
+                                        hub.items.take(5).flatMap { listOfNotNull(it.thumbUrl, it.artUrl) }
+                                    }
+                            if (urlsToPrefetch.isNotEmpty()) {
+                                android.util.Log.d("METRICS", "Prefetching ${urlsToPrefetch.size} images for Home")
+                                imagePrefetchManager.prefetchImages(urlsToPrefetch)
+                            }
                         }
+                            
+                        val newState = _uiState.value.copy(
+                            isLoading = false,
+                            onDeck = content.onDeck,
+                            hubs = filteredHubs
+                        )
+                        
+                        // Save to SavedStateHandle for persistence
+                        savedStateHandle["home_state"] = newState
+                        
+                        _uiState.update { newState }
                     },
                     onFailure = { error ->
                         android.util.Log.e("METRICS", "SCREEN [Home] FAILED: duration=${duration}ms error=${error.message}")
                         // Only show error message if no content is displayed
-                        _uiState.update {
-                            if (it.onDeck.isEmpty() && it.hubs.isEmpty()) {
-                                it.copy(isLoading = false, error = error.message ?: "Unknown error occurred")
-                            } else {
-                                it.copy(isLoading = false) // Silently fail update if we have cache
-                            }
+                        val newState = if (_uiState.value.onDeck.isEmpty() && _uiState.value.hubs.isEmpty()) {
+                            _uiState.value.copy(
+                                isLoading = false,
+                                error = error.message ?: "Unknown error occurred"
+                            )
+                        } else {
+                            _uiState.value.copy(isLoading = false) // Silently fail update if we have cache
                         }
+                        
+                        // Save to SavedStateHandle
+                        savedStateHandle["home_state"] = newState
+                        
+                        _uiState.update { newState }
                     }
                 )
             }

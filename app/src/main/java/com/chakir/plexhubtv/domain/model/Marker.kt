@@ -10,9 +10,13 @@ package com.chakir.plexhubtv.domain.model
  * @property startTime Début du segment en millisecondes.
  * @property endTime Fin du segment en millisecondes.
  */
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+@Parcelize
 data class Marker(
     val title: String = "Marker",
     val type: String, // 'intro' or 'credits'
     val startTime: Long,
     val endTime: Long
-)
+) : Parcelable

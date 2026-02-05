@@ -6,6 +6,13 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
+import android.util.Log
 
 import androidx.work.Configuration
 import androidx.work.WorkManager
@@ -38,10 +45,97 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var okHttpClient: okhttp3.OkHttpClient
     @Inject lateinit var settingsDataStore: SettingsDataStore
+    @Inject lateinit var imageLoader: ImageLoader
+
+    // AJOUTER CES LIGNES :
+    private val _appReady = MutableStateFlow(false)
+    val appReady: StateFlow<Boolean> = _appReady.asStateFlow()
 
     override fun onCreate() {
         super.onCreate()
+        
+        // Launch parallel initialization
+        initializeAppInParallel()
+        
         setupBackgroundSync()
+    }
+
+    /**
+     * Initialize app services in parallel for faster cold start.
+     * Inspired by Plezy's Future.wait() pattern.
+     */
+    private fun initializeAppInParallel() {
+        CoroutineScope(Dispatchers.Default).launch {
+            val startTime = System.currentTimeMillis()
+            Log.d("PlexHubApp", "Starting parallel initialization...")
+            
+            try {
+                val jobs = listOf(
+                    // Job 1: Warm up Settings DataStore
+                    async(Dispatchers.IO) {
+                        try {
+                            Log.d("PlexHubApp", "Init: Loading settings...")
+                            settingsDataStore.isFirstSyncComplete.first()
+                            Log.d("PlexHubApp", "Init: Settings loaded")
+                        } catch (e: Exception) {
+                            Log.e("PlexHubApp", "Init: Settings failed - ${e.message}")
+                        }
+                    },
+                    
+                    // Job 2: Pre-warm ImageLoader (triggers Coil initialization)
+                    async(Dispatchers.Default) {
+                        try {
+                            Log.d("PlexHubApp", "Init: Warming image cache...")
+                            // Access imageLoader to trigger Coil setup
+                            imageLoader.memoryCache
+                            imageLoader.diskCache
+                            Log.d("PlexHubApp", "Init: Image cache ready")
+                        } catch (e: Exception) {
+                            Log.e("PlexHubApp", "Init: Image cache failed - ${e.message}")
+                        }
+                    },
+                    
+                    // Job 3: Pre-warm WorkManager (ensure ready for sync)
+                    async(Dispatchers.Default) {
+                        try {
+                            Log.d("PlexHubApp", "Init: Warming WorkManager...")
+                            // Access workerFactory to ensure DI ready
+                            workerFactory
+                            delay(50)  // Small delay to ensure init complete
+                            Log.d("PlexHubApp", "Init: WorkManager ready")
+                        } catch (e: Exception) {
+                            Log.e("PlexHubApp", "Init: WorkManager failed - ${e.message}")
+                        }
+                    },
+                    
+                    // Job 4: Pre-warm OkHttpClient connection pool
+                    async(Dispatchers.IO) {
+                        try {
+                            Log.d("PlexHubApp", "Init: Warming network stack...")
+                            // Access okHttpClient to trigger connection pool setup
+                            okHttpClient.connectionPool
+                            Log.d("PlexHubApp", "Init: Network ready")
+                        } catch (e: Exception) {
+                            Log.e("PlexHubApp", "Init: Network failed - ${e.message}")
+                        }
+                    }
+                )
+                
+                // Wait for ALL jobs to complete
+                jobs.awaitAll()
+                
+                val duration = System.currentTimeMillis() - startTime
+                Log.i("PlexHubApp", "✅ Parallel init complete in ${duration}ms")
+                
+                // Signal that app is ready
+                _appReady.value = true
+                
+            } catch (e: Exception) {
+                Log.e("PlexHubApp", "Parallel init failed: ${e.message}")
+                // Set ready anyway to not block app
+                _appReady.value = true
+            }
+        }
     }
     
     override val workManagerConfiguration: Configuration
@@ -92,23 +186,6 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
     }
     
     override fun newImageLoader(): ImageLoader {
-        return ImageLoader.Builder(this)
-            .okHttpClient(okHttpClient) // Use Hilt-provided authenticated/trusting client
-            .memoryCache {
-                MemoryCache.Builder(this)
-                    .maxSizePercent(0.15) // Reduced from 0.25 for TV devices (2-4GB RAM)
-                    .build()
-            }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(this.cacheDir.resolve("image_cache"))
-                    .maxSizePercent(0.10) // Use 10% of free disk
-                    .build()
-            }
-            .allowHardware(true) // Critical for TV RAM
-            .precision(coil.size.Precision.INEXACT) // Allow inexact scaling to avoid load failures
-            .respectCacheHeaders(false) // Cache images regardless of server headers (Plex sometimes sends no-cache)
-            .crossfade(true)
-            .build()
+        return imageLoader
     }
 }

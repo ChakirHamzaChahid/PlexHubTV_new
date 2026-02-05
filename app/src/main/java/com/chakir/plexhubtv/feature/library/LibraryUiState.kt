@@ -61,7 +61,9 @@ data class LibraryUiState(
     val initialScrollIndex: Int? = null,
     
     // Focus Restoration
-    val lastFocusedId: String? = null
+    val lastFocusedId: String? = null,
+    
+    val excludedServerIds: Set<String> = emptySet()
 )
 
 sealed interface LibraryAction {

@@ -13,6 +13,10 @@ package com.chakir.plexhubtv.domain.model
  * @property container Format conteneur (ex: "mkv", "mp4").
  * @property streams Liste des flux audio/vidéo/sous-titres contenus dans ce fichier.
  */
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+@Parcelize
 data class MediaPart(
     val id: String,
     val key: String,
@@ -21,4 +25,4 @@ data class MediaPart(
     val size: Long?,
     val container: String?,
     val streams: List<MediaStream> = emptyList()
-)
+) : Parcelable

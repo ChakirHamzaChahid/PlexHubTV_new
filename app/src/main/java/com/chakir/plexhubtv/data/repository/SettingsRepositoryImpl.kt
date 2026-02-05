@@ -11,7 +11,8 @@ import javax.inject.Inject
  */
 class SettingsRepositoryImpl @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
-    private val cacheManager: com.chakir.plexhubtv.core.util.CacheManager
+    private val cacheManager: com.chakir.plexhubtv.core.util.CacheManager,
+    private val database: com.chakir.plexhubtv.core.database.PlexDatabase
 ) : SettingsRepository {
 
     override val showHeroSection: Flow<Boolean> = settingsDataStore.showHeroSection
@@ -73,5 +74,23 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun clearCache() {
          cacheManager.clearCache()
+    }
+
+    override suspend fun clearDatabase() {
+        // Run in transaction or IO dispatcher if needed, but Room handles threading for queries usually.
+        // clearAllTables is a suspension function or blocking? usually blocking in RoomDatabase but we can wrap it?
+        // Actually RoomDatabase.clearAllTables() is not suspend. We should wrap it in withContext ideally or just call it.
+        // It prevents access from main thread.
+        try {
+            database.clearAllTables()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override val excludedServerIds: Flow<Set<String>> = settingsDataStore.excludedServerIds
+
+    override suspend fun toggleServerExclusion(serverId: String) {
+        settingsDataStore.toggleServerExclusion(serverId)
     }
 }

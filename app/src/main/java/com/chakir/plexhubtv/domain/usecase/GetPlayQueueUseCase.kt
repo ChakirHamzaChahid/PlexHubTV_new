@@ -14,23 +14,23 @@ import javax.inject.Inject
 class GetPlayQueueUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {
-    suspend operator fun invoke(startEpisode: MediaItem): Result<List<MediaItem>> {
+    suspend operator fun invoke(startEpisode: MediaItem): Result<List<MediaItem>> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         if (startEpisode.type != MediaType.Episode) {
-            return Result.success(listOf(startEpisode)) // Single item queue for Movies/Others
+            return@withContext Result.success(listOf(startEpisode)) // Single item queue for Movies/Others
         }
 
-        return try {
+        try {
             val parentKey = startEpisode.parentRatingKey
-            if (parentKey == null) return Result.success(listOf(startEpisode))
+            if (parentKey == null) return@withContext Result.success(listOf(startEpisode))
 
             // Get all episodes of the season
             val seasonEpisodes = mediaRepository.getSeasonEpisodes(parentKey, startEpisode.serverId).getOrNull()
-                ?: return Result.success(listOf(startEpisode))
+                ?: return@withContext Result.success(listOf(startEpisode))
 
             // Find index of start episode
             val startIndex = seasonEpisodes.indexOfFirst { it.ratingKey == startEpisode.ratingKey }
             
-            if (startIndex == -1) return Result.success(listOf(startEpisode))
+            if (startIndex == -1) return@withContext Result.success(listOf(startEpisode))
 
             // Queue is startEpisode + everything after it
             // We include the start item at position 0 of queue? Yes, PlaybackManager expects full queue?

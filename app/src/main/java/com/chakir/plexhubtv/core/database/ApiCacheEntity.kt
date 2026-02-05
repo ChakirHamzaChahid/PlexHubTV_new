@@ -13,5 +13,12 @@ data class ApiCacheEntity(
     val cacheKey: String, // serverId:endpoint
     val data: String, // Raw JSON
     val cachedAt: Long = System.currentTimeMillis(),
-    val pinned: Boolean = false
-)
+    val pinned: Boolean = false,
+    val ttlSeconds: Int = 3600 // Default 1h
+) {
+    fun isExpired(): Boolean {
+        val now = System.currentTimeMillis()
+        val expirationTime = cachedAt + (ttlSeconds * 1000L)
+        return now > expirationTime
+    }
+}

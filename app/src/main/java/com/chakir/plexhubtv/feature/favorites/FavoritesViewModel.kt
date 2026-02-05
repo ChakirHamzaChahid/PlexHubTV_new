@@ -31,13 +31,18 @@ class FavoritesViewModel @Inject constructor(
     val uiState: StateFlow<FavoritesUiState> = _uiState.asStateFlow()
 
     init {
+        android.util.Log.d("METRICS", "SCREEN [Favorites]: Opened")
         loadFavorites()
     }
 
     private fun loadFavorites() {
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            android.util.Log.d("METRICS", "SCREEN [Favorites]: Loading start")
             getFavoritesUseCase()
                 .collect { items ->
+                    val duration = System.currentTimeMillis() - startTime
+                    android.util.Log.i("METRICS", "SCREEN [Favorites] SUCCESS: duration=${duration}ms | items=${items.size}")
                     _uiState.update { 
                         it.copy(
                             isLoading = false,

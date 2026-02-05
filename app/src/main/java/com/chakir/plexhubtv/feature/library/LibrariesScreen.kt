@@ -1,6 +1,9 @@
 package com.chakir.plexhubtv.feature.library
 
 import androidx.compose.foundation.background
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,6 +91,34 @@ fun LibraryRoute(
     val events = viewModel.navigationEvents
     var scrollRequest by remember { mutableStateOf<Int?>(null) }
 
+    // Track previous filter values to detect actual changes
+    var previousFilters by remember { 
+        mutableStateOf<FilterSnapshot?>(null)
+    }
+    
+    // CRITICAL FIX: Force instant refresh ONLY when filter parameters actually change
+    LaunchedEffect(
+        uiState.selectedGenre,
+        uiState.selectedServerFilter,
+        uiState.currentSort,
+        uiState.isSortDescending,
+        uiState.searchQuery
+    ) {
+        val currentSnapshot = FilterSnapshot(
+            genre = uiState.selectedGenre,
+            server = uiState.selectedServerFilter,
+            sort = uiState.currentSort,
+            isDescending = uiState.isSortDescending,
+            query = uiState.searchQuery
+        )
+        
+        // Only refresh if this is NOT the first composition AND values changed
+        if (previousFilters != null && previousFilters != currentSnapshot) {
+            pagedItems.refresh()
+        }
+        previousFilters = currentSnapshot
+    }
+
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
@@ -106,6 +137,7 @@ fun LibraryRoute(
     )
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibrariesScreen(
@@ -115,8 +147,12 @@ fun LibrariesScreen(
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {}
 ) {
-    val gridState = rememberLazyGridState()
-    val listState = rememberLazyListState()
+    val gridState = rememberSaveable(saver = LazyGridState.Saver) {
+        LazyGridState()
+    }
+    val listState = rememberSaveable(saver = LazyListState.Saver) {
+        LazyListState()
+    }
 
     LaunchedEffect(scrollRequest) {
         scrollRequest?.let { index ->
@@ -564,7 +600,7 @@ fun Thumbnail(url: String?, modifier: Modifier = Modifier) {
               AsyncImage(
                   model = coil.request.ImageRequest.Builder(LocalContext.current)
                       .data(url)
-                      .crossfade(true)
+                      .crossfade(true) // Performance: Disable crossfade for smoother scrolling
                       .build(),
                   contentDescription = null,
                   contentScale = ContentScale.Crop,

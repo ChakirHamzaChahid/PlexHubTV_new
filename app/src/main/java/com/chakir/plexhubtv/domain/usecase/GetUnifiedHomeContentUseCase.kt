@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 data class HomeContent(
@@ -32,4 +33,5 @@ class GetUnifiedHomeContentUseCase @Inject constructor(
         ) { onDeck, hubs ->
             Result.success(HomeContent(onDeck = onDeck, hubs = hubs))
         }
+        .flowOn(kotlinx.coroutines.Dispatchers.IO)
 }

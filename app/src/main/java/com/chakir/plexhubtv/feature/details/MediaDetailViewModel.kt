@@ -61,8 +61,9 @@ class MediaDetailViewModel @Inject constructor(
     }
 
     fun onEvent(event: MediaDetailEvent) {
+        android.util.Log.d("METRICS", "ACTION [Detail] Event=${event.javaClass.simpleName}")
         when (event) {
-             is MediaDetailEvent.PlayClicked -> {
+            is MediaDetailEvent.PlayClicked -> {
                 val media = _uiState.value.media ?: return
                 viewModelScope.launch {
                     try {
@@ -80,8 +81,14 @@ class MediaDetailViewModel @Inject constructor(
                             }
                         }
                         
-                        // 2. Enrich with Remote Sources (Find Duplicates)
-                        val enrichedItem = enrichMediaItemUseCase(startItem)
+                        // 2. CHECK: If we are playing the MAIN media (Movie) and we already have sources enriched, reuse them.
+                        // Optimization: Avoid re-running EnrichMediaItemUseCase if loadAvailableServers already did it.
+                        val enrichedItem = if (startItem.ratingKey == media.ratingKey && media.remoteSources.size > 1) {
+                             media // Already enriched by background job
+                        } else {
+                             // Either a different item (Next Episode) or background job not finished yet.
+                             enrichMediaItemUseCase(startItem)
+                        }
                         
                         _uiState.update { it.copy(selectedPlaybackItem = enrichedItem) }
 
@@ -196,12 +203,33 @@ class MediaDetailViewModel @Inject constructor(
                         }
                         // Secondary fetch for similar items
                         loadSimilarItems()
+                        
+                        // Secondary fetch for other servers (Available Sources)
+                        loadAvailableServers(detail.item)
                     },
                     onFailure = { error ->
                         android.util.Log.e("METRICS", "SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
                         _uiState.update { it.copy(isLoading = false, error = error.message) }
                     }
                 )
+            }
+        }
+    }
+
+    private fun loadAvailableServers(item: MediaItem) {
+        viewModelScope.launch {
+            try {
+                // Determine remote sources (other servers having this media)
+                val enriched = enrichMediaItemUseCase(item)
+                
+                // Update UI state if new sources found (and if we are still looking at the same media)
+                _uiState.update { currentState ->
+                    if (currentState.media?.ratingKey == item.ratingKey) {
+                         currentState.copy(media = enriched)
+                    } else currentState
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("MediaDetailViewModel", "Failed to enrich media: ${e.message}")
             }
         }
     }

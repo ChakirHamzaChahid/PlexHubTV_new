@@ -31,13 +31,18 @@ class HistoryViewModel @Inject constructor(
     val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
     init {
+        android.util.Log.d("METRICS", "SCREEN [History]: Opened")
         loadHistory()
     }
 
     private fun loadHistory() {
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            android.util.Log.d("METRICS", "SCREEN [History]: Loading start")
             getWatchHistoryUseCase()
                 .collect { items ->
+                    val duration = System.currentTimeMillis() - startTime
+                    android.util.Log.i("METRICS", "SCREEN [History] SUCCESS: duration=${duration}ms | items=${items.size}")
                     _uiState.update { 
                         it.copy(
                             isLoading = false,

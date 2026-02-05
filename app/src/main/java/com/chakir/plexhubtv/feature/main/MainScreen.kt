@@ -46,7 +46,6 @@ fun MainScreen(
     viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onNavigateToPlayer: (String, String) -> Unit,
     onNavigateToDetails: (String, String) -> Unit,
-    onNavigateToProfiles: () -> Unit,
     onLogout: () -> Unit
 ) {
     val navController = rememberNavController()
@@ -135,8 +134,7 @@ fun MainScreen(
                     SettingsRoute(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToLogin = onLogout,
-                        onNavigateToServerStatus = { navController.navigate(Screen.ServerStatus.route) },
-                        onNavigateToProfiles = onNavigateToProfiles
+                        onNavigateToServerStatus = { navController.navigate(Screen.ServerStatus.route) }
                     )
                 }
                 composable(Screen.ServerStatus.route) {

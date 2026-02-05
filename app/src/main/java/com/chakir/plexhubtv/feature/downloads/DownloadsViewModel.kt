@@ -29,6 +29,7 @@ class DownloadsViewModel @Inject constructor(
     val navigationEvents = _navigationEvents.receiveAsFlow()
 
     init {
+        android.util.Log.d("METRICS", "SCREEN [Downloads]: Opened")
         loadDownloads()
     }
 
@@ -61,8 +62,12 @@ class DownloadsViewModel @Inject constructor(
 
     private fun loadDownloads() {
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            android.util.Log.d("METRICS", "SCREEN [Downloads]: Loading start")
             _uiState.update { it.copy(isLoading = true) }
             downloadsRepository.getAllDownloads().collect { items ->
+                val duration = System.currentTimeMillis() - startTime
+                android.util.Log.i("METRICS", "SCREEN [Downloads] SUCCESS: duration=${duration}ms | items=${items.size}")
                 _uiState.update { 
                     it.copy(
                         isLoading = false,

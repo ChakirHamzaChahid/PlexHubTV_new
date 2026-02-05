@@ -5,20 +5,21 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
-/**
- * DAO pour accéder au cache API.
- */
 @Dao
 interface ApiCacheDao {
+
     @Query("SELECT * FROM api_cache WHERE cacheKey = :key")
-    suspend fun getCache(key: String): ApiCacheEntity?
+    suspend fun getEntry(key: String): ApiCacheEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCache(cache: ApiCacheEntity)
+    suspend fun insertCache(entry: ApiCacheEntity)
 
-    @Query("DELETE FROM api_cache WHERE cacheKey LIKE :prefix")
-    suspend fun deleteForServer(prefix: String)
+    @Query("DELETE FROM api_cache WHERE cacheKey = :key")
+    suspend fun deleteEntry(key: String)
 
-    @Query("SELECT * FROM api_cache WHERE pinned = 1")
-    suspend fun getPinnedItems(): List<ApiCacheEntity>
+    @Query("DELETE FROM api_cache WHERE cachedAt + (ttlSeconds * 1000) < :currentTimeMillis")
+    suspend fun purgeExpired(currentTimeMillis: Long)
+
+    @Query("DELETE FROM api_cache")
+    suspend fun clearAll()
 }

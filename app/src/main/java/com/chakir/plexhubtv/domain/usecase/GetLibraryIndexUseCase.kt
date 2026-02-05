@@ -18,11 +18,12 @@ class GetLibraryIndexUseCase @Inject constructor(
         genre: List<String>?,
         serverId: String?,
         selectedServerId: String?,
+        excludedServerIds: List<String> = emptyList(),
         libraryKey: String?,
         query: String?
     ): Int {
         // If sorting is NOT alphabetical, this index lookup makes no sense (or behaves differently).
         // For now, assume UI only calls this when sort is "Title".
-        return libraryRepository.getIndexOfFirstItem(type, letter, filter, sort, genre, serverId, selectedServerId, libraryKey, query)
+        return libraryRepository.getIndexOfFirstItem(type, letter, filter, sort, genre, serverId, selectedServerId, excludedServerIds, libraryKey, query)
     }
 }

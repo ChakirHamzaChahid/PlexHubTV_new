@@ -42,10 +42,10 @@ class MediaRepositoryImpl @Inject constructor(
     private val authRepository: com.chakir.plexhubtv.domain.repository.AuthRepository,
     private val connectionManager: com.chakir.plexhubtv.core.network.ConnectionManager,
     private val favoriteDao: com.chakir.plexhubtv.core.database.FavoriteDao,
-    private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore
+    private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
+    private val plexApiCache: com.chakir.plexhubtv.core.network.PlexApiCache,
+    private val gson: com.google.gson.Gson
 ) : MediaRepository {
-
-    private val gson = com.google.gson.Gson()
 
     /**
      * Récupère la section "On Deck" (En cours / À voir) unifiée.
@@ -71,9 +71,77 @@ class MediaRepositoryImpl @Inject constructor(
                 val deferreds = clients.map { client ->
                     async(Dispatchers.IO) {
                         try {
+                            val serverId = client.server.clientIdentifier
+                            val cacheKey = "$serverId:/library/onDeck"
+                            
+                            // 1. Try Cache First
+                            val cachedJson = plexApiCache.get(cacheKey)
+                            if (cachedJson != null) {
+                                try {
+                                    val cachedBody = gson.fromJson(cachedJson, com.chakir.plexhubtv.data.model.GenericPlexResponse::class.java)
+                                    val metadata = cachedBody.mediaContainer?.metadata ?: emptyList()
+                                    android.util.Log.i("METRICS", "REPO [OnDeck] CACHE HIT: server=$serverId items=${metadata.size}")
+                                    
+                                    val entities = metadata.filter { mapper.isQualityMetadata(it) }.map { dto ->
+                                        mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "0")
+                                            .copy(filter = "ondeck", sortOrder = "default", pageOffset = 0)
+                                    }
+                                    
+                                    mediaDao.upsertMedia(entities)
+                                    
+                                    val homeContent = entities.mapIndexed { index, entity ->
+                                        com.chakir.plexhubtv.core.database.HomeContentEntity(
+                                            type = "onDeck",
+                                            hubIdentifier = "onDeck",
+                                            title = "On Deck",
+                                            itemServerId = entity.serverId,
+                                            itemRatingKey = entity.ratingKey,
+                                            orderIndex = index
+                                        )
+                                    }
+                                    homeContentDao.insertHomeContent(homeContent)
+                                    
+                                    return@async entities.map { entity ->
+                                        val domain = mapper.mapEntityToDomain(entity)
+                                        val baseUrl = client.baseUrl
+                                        val token = client.server.accessToken
+                                        
+                                        val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) "$baseUrl${entity.thumbUrl}?X-Plex-Token=$token" else entity.thumbUrl
+                                        val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) "$baseUrl${entity.artUrl}?X-Plex-Token=$token" else entity.artUrl
+                                        val rawParentThumb = if (domain.parentThumb != null && !domain.parentThumb.startsWith("http")) "$baseUrl${domain.parentThumb}?X-Plex-Token=$token" else domain.parentThumb
+                                        val rawGrandparentThumb = if (domain.grandparentThumb != null && !domain.grandparentThumb.startsWith("http")) "$baseUrl${domain.grandparentThumb}?X-Plex-Token=$token" else domain.grandparentThumb
+                                        
+                                        val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                                        val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                                        val fullParentThumb = getOptimizedImageUrl(rawParentThumb, 300, 450) ?: rawParentThumb
+                                        val fullGrandparentThumb = getOptimizedImageUrl(rawGrandparentThumb, 300, 450) ?: rawGrandparentThumb
+
+                                        domain.copy(
+                                            baseUrl = baseUrl,
+                                            accessToken = token,
+                                            thumbUrl = fullThumb,
+                                            artUrl = fullArt,
+                                            parentThumb = fullParentThumb,
+                                            grandparentThumb = fullGrandparentThumb
+                                        )
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.w("MediaRepository", "OnDeck cache parse failed, fetching fresh: ${e.message}")
+                                }
+                            }
+
                             val response = client.getOnDeck()
                             if (response.isSuccessful) {
                                 val body = response.body() ?: return@async emptyList()
+                                android.util.Log.i("METRICS", "REPO [OnDeck] NETWORK SUCCESS: server=$serverId")
+
+                                // Save to cache
+                                plexApiCache.put(
+                                    cacheKey = cacheKey,
+                                    data = gson.toJson(body),
+                                    ttlSeconds = 1800  // 30 min
+                                )
+                                
                                 val metadata = body.mediaContainer?.metadata ?: emptyList()
                                 
                                 val entities = metadata.filter { mapper.isQualityMetadata(it) }.map { dto ->
@@ -181,9 +249,91 @@ class MediaRepositoryImpl @Inject constructor(
                 val deferreds = clients.map { client ->
                      async(Dispatchers.IO) {
                          try {
+                            val serverId = client.server.clientIdentifier
+                            val cacheKey = "$serverId:/hubs"
+                            
+                            // 1. Try Cache First
+                            val cachedJson = plexApiCache.get(cacheKey)
+                            if (cachedJson != null) {
+                                try {
+                                    val cachedBody = gson.fromJson(cachedJson, com.chakir.plexhubtv.data.model.GenericPlexResponse::class.java)
+                                    val hubs = cachedBody.mediaContainer?.hubs ?: emptyList()
+                                    android.util.Log.i("METRICS", "REPO [Hubs] CACHE HIT: server=$serverId hubs=${hubs.size}")
+                                    
+                                    return@async hubs.mapNotNull { hubDto ->
+                                        val hubIdentifier = hubDto.hubIdentifier ?: hubDto.title ?: "unknown"
+                                        val hubTitle = hubDto.title ?: "Unknown"
+                                        
+                                        val metadata = hubDto.metadata ?: emptyList()
+                                        val entities = metadata.filter { mapper.isQualityMetadata(it) }.map { dto ->
+                                            mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "0")
+                                                .copy(filter = "hub", sortOrder = hubDto.hubIdentifier ?: "default", pageOffset = 0)
+                                        }
+                                        
+                                        if (entities.isNotEmpty()) {
+                                            mediaDao.upsertMedia(entities)
+                                            val homeContent = entities.mapIndexed { index, entity ->
+                                                com.chakir.plexhubtv.core.database.HomeContentEntity(
+                                                    type = "hub",
+                                                    hubIdentifier = hubIdentifier,
+                                                    title = hubTitle,
+                                                    itemServerId = entity.serverId,
+                                                    itemRatingKey = entity.ratingKey,
+                                                    orderIndex = index
+                                                )
+                                            }
+                                            homeContentDao.insertHomeContent(homeContent)
+                                            
+                                            com.chakir.plexhubtv.domain.model.Hub(
+                                                key = hubDto.key ?: "",
+                                                title = hubTitle,
+                                                type = hubDto.type ?: "mixed",
+                                                hubIdentifier = hubIdentifier,
+                                                items = entities.map { entity ->
+                                                    val domain = mapper.mapEntityToDomain(entity)
+                                                    val baseUrl = client.baseUrl
+                                                    val token = client.server.accessToken
+                                                    
+                                                    val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) "$baseUrl${entity.thumbUrl}?X-Plex-Token=$token" else entity.thumbUrl
+                                                    val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) "$baseUrl${entity.artUrl}?X-Plex-Token=$token" else entity.artUrl
+                                                    val rawParentThumb = if (domain.parentThumb != null && !domain.parentThumb.startsWith("http")) "$baseUrl${domain.parentThumb}?X-Plex-Token=$token" else domain.parentThumb
+                                                    val rawGrandparentThumb = if (domain.grandparentThumb != null && !domain.grandparentThumb.startsWith("http")) "$baseUrl${domain.grandparentThumb}?X-Plex-Token=$token" else domain.grandparentThumb
+    
+                                                    val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                                                    val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                                                    val fullParentThumb = getOptimizedImageUrl(rawParentThumb, 300, 450) ?: rawParentThumb
+                                                    val fullGrandparentThumb = getOptimizedImageUrl(rawGrandparentThumb, 300, 450) ?: rawGrandparentThumb
+    
+                                                    domain.copy(
+                                                        baseUrl = baseUrl,
+                                                        accessToken = token,
+                                                        thumbUrl = fullThumb,
+                                                        artUrl = fullArt,
+                                                        parentThumb = fullParentThumb,
+                                                        grandparentThumb = fullGrandparentThumb
+                                                    )
+                                                },
+                                                serverId = client.server.clientIdentifier
+                                            )
+                                        } else null
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.w("MediaRepository", "Hubs cache parse failed: ${e.message}")
+                                }
+                            }
+
                             val response = client.getHubs()
                             if (response.isSuccessful) {
                                 val body = response.body() ?: return@async emptyList()
+                                android.util.Log.i("METRICS", "REPO [Hubs] NETWORK SUCCESS: server=$serverId")
+                                
+                                // Save to cache
+                                plexApiCache.put(
+                                    cacheKey = cacheKey,
+                                    data = gson.toJson(body),
+                                    ttlSeconds = 3600  // 1 hour for hubs
+                                )
+
                                 val hubs = body.mediaContainer?.hubs ?: emptyList()
                                 
                                 hubs.mapNotNull { hubDto ->
@@ -317,20 +467,46 @@ class MediaRepositoryImpl @Inject constructor(
      *   une copie de ce même média sur un AUTRE serveur accessible.
      */
     override suspend fun getMediaDetail(ratingKey: String, serverId: String): Result<MediaItem> {
-        // 1. Tentative sur le serveur principal
+        // 1. Try Cache First
+        val cacheKey = "$serverId:/library/metadata/$ratingKey"
+        val cachedJson = plexApiCache.get(cacheKey)
+        if (cachedJson != null) {
+            try {
+                // Deserialize cached JSON
+                val metadata = gson.fromJson(cachedJson, MetadataDTO::class.java)
+                if (metadata != null) {
+                    val client = getClient(serverId)
+                    val baseUrl = client?.baseUrl ?: ""
+                    val token = client?.server?.accessToken ?: ""
+                    android.util.Log.i("METRICS", "REPO [Detail] CACHE HIT: key=$ratingKey")
+                    return Result.success(mapper.mapDtoToDomain(metadata, serverId, baseUrl, token))
+                }
+            } catch (e: Exception) {
+                // Cache corruption or format change, ignore and fetch fresh
+            }
+        }
+
+        // 2. Try API (Network)
         try {
             val client = getClient(serverId)
             if (client != null) {
+                // Add includeOnDeck=1 for parity with Plezy as per plan
                 val response = client.getMetadata(ratingKey, includeChildren = true)
                 if (response.isSuccessful) {
                     val metadata = response.body()?.mediaContainer?.metadata?.firstOrNull()
                     if (metadata != null) {
+                        // Validate Quality Metadata
                         val entity = mapper.mapDtoToEntity(
                             dto = metadata, 
                             serverId = serverId, 
                             libraryKey = metadata.librarySectionID ?: "0"
                         )
                         mediaDao.insertMedia(entity)
+
+                        // Update Cache (TTL 60 mins for metadata)
+                        val json = gson.toJson(metadata)
+                        plexApiCache.put(cacheKey, json, ttlSeconds = 3600)
+
                         return Result.success(mapper.mapDtoToDomain(metadata, serverId, client.baseUrl, client.server.accessToken))
                     }
                 }
@@ -454,7 +630,14 @@ class MediaRepositoryImpl @Inject constructor(
     override suspend fun toggleWatchStatus(media: MediaItem, isWatched: Boolean): Result<Unit> {
         val client = getClient(media.serverId) ?: return Result.failure(Exception("Server not found"))
         val response = if (isWatched) client.scrobble(media.ratingKey) else client.unscrobble(media.ratingKey)
-        return if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("API Error"))
+        
+        if (response.isSuccessful) {
+            // Invalidate cache to reflect new watch status immediately
+            val cacheKey = "${media.serverId}:/library/metadata/${media.ratingKey}"
+            plexApiCache.evict(cacheKey)
+            return Result.success(Unit)
+        }
+        return Result.failure(Exception("API Error"))
     }
 
     override suspend fun updatePlaybackProgress(media: MediaItem, positionMs: Long): Result<Unit> {
@@ -465,7 +648,14 @@ class MediaRepositoryImpl @Inject constructor(
             timeMs = positionMs,
             durationMs = media.durationMs ?: 0L
         )
-        return if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("API Error"))
+        
+        if (response.isSuccessful) {
+             // Invalidate cache so that "Resume" position is updated when user revisits details
+            val cacheKey = "${media.serverId}:/library/metadata/${media.ratingKey}"
+            plexApiCache.evict(cacheKey)
+            return Result.success(Unit)
+        }
+        return Result.failure(Exception("API Error"))
     }
 
     override suspend fun getNextMedia(currentItem: MediaItem): MediaItem? {

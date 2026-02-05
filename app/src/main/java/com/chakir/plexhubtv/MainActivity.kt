@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        android.util.Log.i("METRICS", "APP STARTUP: Launching PlexHubTV")
         enableEdgeToEdge()
         setContent {
             val appThemeState = settingsDataStore.appTheme.collectAsState(initial = "Plex")
@@ -104,9 +105,6 @@ fun PlexHubApp() {
                 },
                 onNavigateToPlayer = { ratingKey, serverId ->
                     navController.navigate(Screen.VideoPlayer.createRoute(ratingKey, serverId))
-                },
-                onNavigateToProfiles = {
-                    navController.navigate(Screen.Profiles.route)
                 },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {

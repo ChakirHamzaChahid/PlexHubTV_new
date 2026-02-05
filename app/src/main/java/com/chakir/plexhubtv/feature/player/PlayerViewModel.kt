@@ -10,6 +10,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import android.net.Uri
+import android.media.MediaCodecList
 import com.chakir.plexhubtv.domain.model.*
 import com.chakir.plexhubtv.domain.repository.*
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
@@ -197,6 +198,21 @@ class PlayerViewModel @Inject constructor(
                     
                     val uriStartTime = System.currentTimeMillis()
                     val part = media.mediaParts.firstOrNull()
+                    
+                    // HEVC Detection & Fallback
+                    // Check if the video is HEVC and if we lack hardware support
+                    val videoStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.domain.model.VideoStream>()?.firstOrNull()
+                    val isHevc = videoStream?.codec?.equals("hevc", ignoreCase = true) == true || 
+                                 videoStream?.codec?.equals("h265", ignoreCase = true) == true
+                                 
+                    if (isHevc && !hasHardwareHEVCDecoder() && !isMpvMode) {
+                        android.util.Log.w("METRICS", "PLAYER: HEVC detected without hardware support. Switching to MPV.")
+                        switchToMpv()
+                        // switchToMpv re-triggered loadMedia, so we stop here to avoid double processing or race conditions
+                        // However, we are in a coroutine collect block. 
+                        // Returning from onSuccess blocks the rest of this specific collection emission processing.
+                        return@onSuccess
+                    }
                     
                     this@PlayerViewModel.isDirectPlay = bitrate >= 200000 && part?.key != null
                     val isDirectPlay = this@PlayerViewModel.isDirectPlay
@@ -571,6 +587,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onAction(action: PlayerAction) {
+        android.util.Log.d("METRICS", "ACTION [Player] Action=${action.javaClass.simpleName}")
         when (action) {
             is PlayerAction.Play -> if (isMpvMode) mpvPlayer?.resume() else player?.play()
             is PlayerAction.Pause -> if (isMpvMode) mpvPlayer?.pause() else player?.pause()
@@ -788,6 +805,15 @@ class PlayerViewModel @Inject constructor(
     private fun skipMarker(marker: com.chakir.plexhubtv.domain.model.Marker) {
          val position = marker.endTime
          if (isMpvMode) mpvPlayer?.seekTo(position) else player?.seekTo(position)
+    }
+
+    private fun hasHardwareHEVCDecoder(): Boolean {
+        val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
+        return codecList.codecInfos.any { info ->
+            !info.isEncoder &&
+            info.isHardwareAccelerated &&
+            info.supportedTypes.any { it.equals("video/hevc", ignoreCase = true) }
+        }
     }
 
     private fun selectTrack(track: AudioTrack) {
@@ -1090,12 +1116,27 @@ class PlayerViewModel @Inject constructor(
         }
         if (lang2.isNullOrEmpty() || lang2 == "und") return false
         
+        val normalized1 = lang1.lowercase().trim()
+        val normalized2 = lang2.lowercase().trim()
+        
+        if (normalized1 == normalized2) return true
+        
         return try {
-            val l1 = java.util.Locale(lang1).getISO3Language()
-            val l2 = java.util.Locale(lang2).getISO3Language()
-            l1 == l2
+            val l1 = if (normalized1.length == 3) java.util.Locale.forLanguageTag(normalized1) else java.util.Locale(normalized1)
+            val l2 = if (normalized2.length == 3) java.util.Locale.forLanguageTag(normalized2) else java.util.Locale(normalized2)
+            
+            // Compare ISO3 language codes (e.g. fre == fra, eng == eng)
+            l1.isO3Language.equals(l2.isO3Language, ignoreCase = true)
         } catch (e: Exception) {
-            lang1.equals(lang2, ignoreCase = true)
+            // Fallback for names vs codes (e.g. "French" vs "fra")
+            // This is approximate but helps if legacy data exists
+             try {
+                val l1 = java.util.Locale(normalized1)
+                val l2 = java.util.Locale(normalized2)
+                l1.isO3Language.equals(l2.isO3Language, ignoreCase = true)
+            } catch (e2: Exception) {
+                 normalized1 == normalized2
+            }
         }
     }
 }

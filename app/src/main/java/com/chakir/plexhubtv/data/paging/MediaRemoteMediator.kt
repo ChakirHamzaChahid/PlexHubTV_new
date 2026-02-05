@@ -38,7 +38,7 @@ class MediaRemoteMediator(
 
     private val remoteKeysDao = database.remoteKeysDao()
     private val mediaDao = database.mediaDao()
-
+    
     override suspend fun initialize(): InitializeAction {
         // Check if we have cached data for this specific filter/sort combination
         val cachedKey = remoteKeysDao.getFirstKey(libraryKey, filter, sortOrder)

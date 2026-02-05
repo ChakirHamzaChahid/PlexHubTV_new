@@ -45,9 +45,10 @@ class GetLibraryContentUseCase @Inject constructor(
         isDescending: Boolean = false,
         genre: List<String>? = null,
         selectedServerId: String? = null,
+        excludedServerIds: List<String> = emptyList(),
         initialKey: Int? = null,
         query: String? = null
     ): Flow<androidx.paging.PagingData<MediaItem>> = libraryRepository.getLibraryContent(
-        serverId, libraryKey, mediaType, filter, sort, isDescending, genre, selectedServerId, initialKey, query
+        serverId, libraryKey, mediaType, filter, sort, isDescending, genre, selectedServerId, excludedServerIds, initialKey, query
     )
 }

@@ -12,6 +12,10 @@ package com.chakir.plexhubtv.domain.model
  * @property items Liste des médias contenus dans ce hub (généralement limitée aux 10-20 premiers).
  * @property serverId ID du serveur source (si le hub est spécifique à un serveur).
  */
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+@Parcelize
 data class Hub(
     val key: String,
     val title: String,
@@ -19,4 +23,4 @@ data class Hub(
     val hubIdentifier: String? = null,
     val items: List<MediaItem>,
     val serverId: String? = null
-)
+) : Parcelable

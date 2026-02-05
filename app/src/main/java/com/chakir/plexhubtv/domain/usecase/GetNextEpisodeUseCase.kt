@@ -16,8 +16,8 @@ import javax.inject.Inject
 class GetNextEpisodeUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {
-    suspend operator fun invoke(media: MediaItem): Result<MediaItem> {
-        return try {
+    suspend operator fun invoke(media: MediaItem): Result<MediaItem> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
             when (media.type) {
                 MediaType.Episode -> {
                     if (isFinished(media)) {
@@ -29,7 +29,7 @@ class GetNextEpisodeUseCase @Inject constructor(
                 
                 MediaType.Season -> {
                     val episodes = mediaRepository.getSeasonEpisodes(media.ratingKey, media.serverId).getOrNull() 
-                        ?: return Result.failure(Exception("Failed to fetch episodes"))
+                        ?: return@withContext Result.failure(Exception("Failed to fetch episodes"))
                     
                     val firstUnwatched = episodes.find { !isFinished(it) }
                         ?: episodes.firstOrNull()
@@ -40,15 +40,15 @@ class GetNextEpisodeUseCase @Inject constructor(
                 
                 MediaType.Show -> {
                     val seasons = mediaRepository.getShowSeasons(media.ratingKey, media.serverId).getOrNull()
-                        ?: return Result.failure(Exception("Failed to fetch seasons"))
+                        ?: return@withContext Result.failure(Exception("Failed to fetch seasons"))
                         
                     for (season in seasons) {
                         val episodes = mediaRepository.getSeasonEpisodes(season.ratingKey, media.serverId).getOrNull() ?: continue
                         val unwatched = episodes.find { !isFinished(it) }
-                        if (unwatched != null) return Result.success(unwatched)
+                        if (unwatched != null) return@withContext Result.success(unwatched)
                     }
                     
-                    val firstSeason = seasons.firstOrNull() ?: return Result.failure(Exception("No seasons found"))
+                    val firstSeason = seasons.firstOrNull() ?: return@withContext Result.failure(Exception("No seasons found"))
                     val firstEp = mediaRepository.getSeasonEpisodes(firstSeason.ratingKey, media.serverId).getOrNull()?.firstOrNull()
                     
                     if (firstEp != null) Result.success(firstEp)

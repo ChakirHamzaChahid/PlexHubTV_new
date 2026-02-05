@@ -24,6 +24,7 @@ class ProfileViewModel @Inject constructor(
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
+        android.util.Log.d("METRICS", "SCREEN [Profile]: Opened")
         onAction(ProfileAction.LoadUsers)
     }
 
@@ -61,12 +62,18 @@ class ProfileViewModel @Inject constructor(
 
     private fun loadUsers() {
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            android.util.Log.d("METRICS", "SCREEN [Profile]: Loading users start")
             _uiState.update { it.copy(isLoading = true, error = null) }
             authRepository.getHomeUsers()
                 .onSuccess { users ->
+                    val duration = System.currentTimeMillis() - startTime
+                    android.util.Log.i("METRICS", "SCREEN [Profile] SUCCESS: duration=${duration}ms | users=${users.size}")
                     _uiState.update { it.copy(isLoading = false, users = users) }
                 }
                 .onFailure { error ->
+                    val duration = System.currentTimeMillis() - startTime
+                    android.util.Log.e("METRICS", "SCREEN [Profile] FAILED: duration=${duration}ms error=${error.message}")
                     _uiState.update { it.copy(isLoading = false, error = error.message) }
                 }
         }

@@ -104,9 +104,13 @@ class SyncRepositoryImpl @Inject constructor(
                     totalSize = container?.totalSize ?: 0
 
                     if (metadata.isNotEmpty()) {
-                        // 2. Mapping & DB Insert
+                        // 2. Filter, Mapping & DB Insert
                         val dbStartTime = System.currentTimeMillis()
-                        val entities = metadata.mapIndexed { index, dto ->
+                        
+                        // FILTER: Only keep quality metadata (Movies MUST have IMDb/TMDB)
+                        val validMetadata = metadata.filter { mediaMapper.isQualityMetadata(it) }
+                        
+                        val entities = validMetadata.mapIndexed { index, dto ->
                             val dtoWithLib = dto.copy(librarySectionID = libraryKey)
                             mediaMapper.mapDtoToEntity(dtoWithLib, server.clientIdentifier, libraryKey)
                                 .copy(
@@ -115,11 +119,15 @@ class SyncRepositoryImpl @Inject constructor(
                                     pageOffset = start + index
                                 )
                         }
-                        mediaDao.upsertMedia(entities)
+                        
+                        if (entities.isNotEmpty()) {
+                            mediaDao.upsertMedia(entities)
+                        }
                         val dbDuration = System.currentTimeMillis() - dbStartTime
+                        val skippedCount = metadata.size - entities.size
                         
                         val totalIterationDuration = System.currentTimeMillis() - startTime
-                        android.util.Log.i("METRICS", "SYNC SUCCESS: lib=$libraryName items=${entities.size}")
+                        android.util.Log.i("METRICS", "SYNC SUCCESS: lib=$libraryName items=${entities.size} (skipped=$skippedCount)")
                         android.util.Log.i("METRICS", " -> API Latency: ${apiDuration}ms")
                         android.util.Log.i("METRICS", " -> DB Ingestion: ${dbDuration}ms")
                         android.util.Log.i("METRICS", " -> Total Page Process: ${totalIterationDuration}ms")

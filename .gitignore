@@ -13,3 +13,14 @@
 .externalNativeBuild
 .cxx
 local.properties
+build_errors_ascii.txt
+build_errors_final.txt
+build_errors_hilt.txt
+build_errors.txt
+build_fail_log.txt
+build_errors.txt
+build_log_2.txt
+build_log_3.txt
+build_log.txt
+build_errors.txt
+build_log.txt

@@ -34,6 +34,7 @@ class SettingsDataStore @Inject constructor(
     private val PLAYER_ENGINE = stringPreferencesKey("player_engine")
     private val LAST_SYNC_TIME = stringPreferencesKey("last_sync_time")
     private val FIRST_SYNC_COMPLETE = stringPreferencesKey("first_sync_complete")
+    private val EXCLUDED_SERVER_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("excluded_server_ids")
 
     val plexToken: Flow<String?> = dataStore.data
         .map { preferences -> preferences[PLEX_TOKEN] }
@@ -73,6 +74,9 @@ class SettingsDataStore @Inject constructor(
 
     val isFirstSyncComplete: Flow<Boolean> = dataStore.data
         .map { preferences -> preferences[FIRST_SYNC_COMPLETE]?.toBoolean() ?: false }
+
+    val excludedServerIds: Flow<Set<String>> = dataStore.data
+        .map { preferences -> preferences[EXCLUDED_SERVER_IDS] ?: emptySet() }
 
     suspend fun saveToken(token: String) {
         dataStore.edit { preferences ->
@@ -157,6 +161,17 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveFirstSyncComplete(complete: Boolean) {
         dataStore.edit { preferences ->
             preferences[FIRST_SYNC_COMPLETE] = complete.toString()
+        }
+    }
+
+    suspend fun toggleServerExclusion(serverId: String) {
+        dataStore.edit { preferences ->
+            val current = preferences[EXCLUDED_SERVER_IDS] ?: emptySet()
+            if (current.contains(serverId)) {
+                preferences[EXCLUDED_SERVER_IDS] = current - serverId
+            } else {
+                preferences[EXCLUDED_SERVER_IDS] = current + serverId
+            }
         }
     }
 

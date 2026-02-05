@@ -1,6 +1,8 @@
 package com.chakir.plexhubtv.feature.home
 
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
@@ -94,7 +96,7 @@ fun DiscoverScreen(
             AnimatedBackground(targetUrl = backgroundUrl ?: state.onDeck.firstOrNull()?.artUrl)
 
             when {
-                state.isInitialSync -> InitialSyncState(state.syncProgress, state.syncMessage)
+                state.isInitialSync && state.onDeck.isEmpty() && state.hubs.isEmpty() -> InitialSyncState(state.syncProgress, state.syncMessage)
                 state.isLoading -> LoadingState()
                 state.error != null -> ErrorState(state.error) { onAction(HomeAction.Refresh) }
                 state.onDeck.isEmpty() && state.hubs.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
@@ -148,6 +150,7 @@ fun InitialSyncState(progress: Float, message: String) {
     }
 }
 
+
 @Composable
 fun ContentState(
     onDeck: List<MediaItem>,
@@ -155,7 +158,12 @@ fun ContentState(
     onAction: (HomeAction) -> Unit,
     onFocusMedia: (MediaItem) -> Unit
 ) {
+    val listState = rememberSaveable(saver = LazyListState.Saver) {
+        LazyListState()
+    }
+    
     LazyColumn(
+        state = listState,
         contentPadding = PaddingValues(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
@@ -272,7 +280,7 @@ fun MediaCard(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(currentUrl)
-                        .crossfade(true)
+                        .crossfade(false) // Performance: Disable crossfade
                         .listener(
                             onError = { _, _ ->
                                 if (currentUrlIndex < thumbUrls.size - 1) {

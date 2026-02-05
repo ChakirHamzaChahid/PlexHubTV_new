@@ -40,10 +40,12 @@ class SettingsViewModel @Inject constructor(
     val navigationEvents = _navigationEvents.receiveAsFlow()
 
     init {
+        android.util.Log.d("METRICS", "SCREEN [Settings]: Opened")
         loadSettings()
     }
 
     fun onAction(action: SettingsAction) {
+        android.util.Log.d("METRICS", "ACTION [Settings] Action=${action.javaClass.simpleName}")
         when (action) {
             is SettingsAction.ChangeTheme -> {
                 _uiState.update { it.copy(theme = action.theme) }
@@ -57,16 +59,11 @@ class SettingsViewModel @Inject constructor(
                     settingsRepository.setVideoQuality(action.quality)
                 }
             }
-            is SettingsAction.ToggleCache -> {
-                _uiState.update { it.copy(isCacheEnabled = action.enabled) }
-                viewModelScope.launch {
-                    settingsRepository.setCacheEnabled(action.enabled)
-                }
-            }
             is SettingsAction.ClearCache -> {
                  viewModelScope.launch {
                     settingsRepository.clearCache()
-                    _uiState.update { it.copy(cacheSize = "0 MB") }
+                    settingsRepository.clearDatabase()
+                    _uiState.update { it.copy(cacheSize = formatFileSize(0)) }
                  }
             }
             is SettingsAction.SelectDefaultServer -> {
@@ -91,8 +88,8 @@ class SettingsViewModel @Inject constructor(
             is SettingsAction.CheckServerStatus -> {
                 viewModelScope.launch { _navigationEvents.send(SettingsNavigationEvent.NavigateToServerStatus) }
             }
-            is SettingsAction.SwitchProfile -> {
-                viewModelScope.launch { _navigationEvents.send(SettingsNavigationEvent.NavigateToProfiles) }
+            is SettingsAction.CheckServerStatus -> {
+                viewModelScope.launch { _navigationEvents.send(SettingsNavigationEvent.NavigateToServerStatus) }
             }
             is SettingsAction.ForceSync -> {
                 _uiState.update { it.copy(isSyncing = true, syncMessage = null, syncError = null) }
@@ -155,11 +152,20 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(preferredSubtitleLanguage = action.language) }
                 viewModelScope.launch { settingsRepository.setPreferredSubtitleLanguage(action.language) }
             }
+            is SettingsAction.ToggleServerExclusion -> {
+                viewModelScope.launch { settingsRepository.toggleServerExclusion(action.serverId) }
+            }
         }
     }
 
     private fun loadSettings() {
         viewModelScope.launch {
+            // Calculate cache size
+            launch {
+                val size = settingsRepository.getCacheSize()
+                _uiState.update { it.copy(cacheSize = formatFileSize(size)) }
+            }
+
             // Load settings
             launch {
                 settingsRepository.appTheme.collect { themeName ->
@@ -194,10 +200,15 @@ class SettingsViewModel @Inject constructor(
              
              // Fetch Servers
              launch {
+                 val serverStart = System.currentTimeMillis()
                  val serversResult = authRepository.getServers()
+                 val duration = System.currentTimeMillis() - serverStart
+                 
                  serversResult.getOrNull()?.let { servers ->
+                     android.util.Log.i("METRICS", "SCREEN [Settings] SUCCESS: Servers loaded in ${duration}ms | Count=${servers.size}")
                      val serverNames = servers.map { it.name }
-                     _uiState.update { it.copy(availableServers = serverNames) }
+                     val serverMap = servers.associate { it.name to it.clientIdentifier }
+                     _uiState.update { it.copy(availableServers = serverNames, availableServersMap = serverMap) }
                  }
              }
 
@@ -211,6 +222,20 @@ class SettingsViewModel @Inject constructor(
                      _uiState.update { it.copy(preferredSubtitleLanguage = lang) }
                  }
              }
+             launch {
+                 settingsRepository.excludedServerIds.collect { excluded ->
+                     _uiState.update { it.copy(excludedServerIds = excluded) }
+                 }
+             }
+        }
+    }
+
+    private fun formatFileSize(size: Long): String {
+        return when {
+            size < 1024 -> "$size B"
+            size < 1024 * 1024 -> "${size / 1024} KB"
+            size < 1024 * 1024 * 1024 -> String.format("%.1f MB", size / (1024.0 * 1024.0))
+            else -> String.format("%.1f GB", size / (1024.0 * 1024.0 * 1024.0))
         }
     }
 }
@@ -219,5 +244,4 @@ sealed interface SettingsNavigationEvent {
     data object NavigateBack : SettingsNavigationEvent
     data object NavigateToLogin : SettingsNavigationEvent
     data object NavigateToServerStatus : SettingsNavigationEvent
-    data object NavigateToProfiles : SettingsNavigationEvent
 }

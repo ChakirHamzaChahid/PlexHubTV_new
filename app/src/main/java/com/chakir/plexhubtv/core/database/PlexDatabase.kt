@@ -22,7 +22,7 @@ import androidx.room.TypeConverters
         LibrarySectionEntity::class,
         TrackPreferenceEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 abstract class PlexDatabase : RoomDatabase() {

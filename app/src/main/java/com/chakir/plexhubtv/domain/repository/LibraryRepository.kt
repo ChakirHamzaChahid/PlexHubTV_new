@@ -36,6 +36,7 @@ interface LibraryRepository {
         isDescending: Boolean = false,
         genre: List<String>?,
         selectedServerId: String? = null,
+        excludedServerIds: List<String> = emptyList(),
         initialKey: Int? = null,
         query: String? = null
     ): Flow<androidx.paging.PagingData<MediaItem>>
@@ -52,6 +53,7 @@ interface LibraryRepository {
         genre: List<String>?,
         serverId: String?,
         selectedServerId: String? = null,
+        excludedServerIds: List<String> = emptyList(),
         libraryKey: String?, // Optional, for context
         query: String?
     ): Int

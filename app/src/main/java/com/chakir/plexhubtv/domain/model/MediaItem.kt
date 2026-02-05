@@ -21,6 +21,10 @@ package com.chakir.plexhubtv.domain.model
  * @property unificationId ID utilisé pour le dédoublonnage (IMDB/TMDB/GUID).
  * @property remoteSources Liste des serveurs alternatifs proposant ce même média.
  */
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+@Parcelize
 data class MediaItem(
     val id: String, // serverId + ratingKey
     val ratingKey: String,
@@ -80,19 +84,9 @@ data class MediaItem(
     
     // Agrégation
     val remoteSources: List<MediaSource> = emptyList()
-)
+) : Parcelable
 
-/**
- * Représente une source alternative pour un média unifié.
- *
- * Si un film est disponible sur 3 serveurs, un [MediaItem] aura 3 [MediaSource]s.
- * Le lecteur utilisera ces infos pour basculer en cas d'erreur (Fallback).
- *
- * @property serverName Nom convivial du serveur.
- * @property resolution Résolution vidéo (ex: "4k", "1080p").
- * @property container Format fichier (mkv, mp4).
- * @property bitrate Débit global en kbps.
- */
+@Parcelize
 data class MediaSource(
     val serverId: String,
     val ratingKey: String,
@@ -109,18 +103,18 @@ data class MediaSource(
     val languages: List<String> = emptyList(),
     val thumbUrl: String? = null,
     val artUrl: String? = null
-)
+) : Parcelable
 
-/** Acteur ou membre de l'équipe technique. */
+@Parcelize
 data class CastMember(
     val id: String?,
     val filter: String?,
     val role: String?,
     val tag: String?,
     val thumb: String?
-)
+) : Parcelable
 
-/** Type de média supporté par l'application. */
-enum class MediaType {
+@Parcelize
+enum class MediaType : Parcelable {
     Movie, Show, Season, Episode, Collection, Playlist, Artist, Album, Track, Clip, Photo, Unknown
 }

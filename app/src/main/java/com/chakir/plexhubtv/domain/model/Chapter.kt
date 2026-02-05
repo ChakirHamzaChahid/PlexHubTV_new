@@ -10,9 +10,13 @@ package com.chakir.plexhubtv.domain.model
  * @property endTime Temps de fin en millisecondes.
  * @property thumbUrl URL de l'image d'aperçu du chapitre (optionnel).
  */
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
+@Parcelize
 data class Chapter(
     val title: String,
     val startTime: Long,
     val endTime: Long,
     val thumbUrl: String? = null
-)
+) : Parcelable

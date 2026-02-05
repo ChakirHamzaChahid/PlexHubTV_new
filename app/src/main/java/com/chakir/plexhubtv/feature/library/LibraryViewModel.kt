@@ -22,6 +22,7 @@ import com.chakir.plexhubtv.domain.model.Server
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import androidx.work.WorkManager
@@ -54,7 +55,7 @@ class LibraryViewModel @Inject constructor(
     private val connectionManager: com.chakir.plexhubtv.core.network.ConnectionManager,
     private val workManager: WorkManager,
     private val getLibraryIndexUseCase: com.chakir.plexhubtv.domain.usecase.GetLibraryIndexUseCase,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     // État de l'UI exposé de manière immuable (StateFlow)
@@ -95,14 +96,16 @@ class LibraryViewModel @Inject constructor(
                 genre = genreQuery,
                 serverId = state.selectedServerId ?: "all",
                 serverFilterId = serverFilterId,
+                excludedServerIds = state.excludedServerIds.toList(),
                 initialScrollIndex = state.initialScrollIndex,
                 query = state.searchQuery.ifBlank { null }
             )
         }
         .distinctUntilChanged { old, new ->
-             // Custom equals check pour inclure initialScrollIndex et éviter les rechargements inutiles
+             // Custom equals check
              old == new
         }
+        // Debounce removed: refresh is now explicitly triggered in UI via LaunchedEffect
         .flatMapLatest { params ->
             getLibraryContentUseCase(
                  serverId = params.serverId,
@@ -113,9 +116,12 @@ class LibraryViewModel @Inject constructor(
                  isDescending = params.isDescending,
                  genre = params.genre,
                  selectedServerId = params.serverFilterId,
+                 excludedServerIds = params.excludedServerIds,
                  initialKey = params.initialScrollIndex,
                  query = params.query
-            )
+            ).also {
+                 android.util.Log.d("METRICS", "DATA [Library] Loading content: Library=${params.libraryId} Type=${params.mediaType} Filter=${params.filter} Sort=${params.sort} Server=${params.serverId}")
+            }
         }
         .cachedIn(viewModelScope)
 
@@ -129,6 +135,7 @@ class LibraryViewModel @Inject constructor(
 
         val serverId: String,
         val serverFilterId: String?,
+        val excludedServerIds: List<String> = emptyList(),
         val initialScrollIndex: Int? = null,
         val query: String? = null
     )
@@ -137,12 +144,32 @@ class LibraryViewModel @Inject constructor(
         val typeArg = savedStateHandle.get<String>("mediaType") ?: "movie"
         val initialMediaType = MediaType.values().find { it.name.equals(typeArg, ignoreCase = true) } ?: MediaType.Movie
         
-        _uiState.update { it.copy(mediaType = initialMediaType, isLoading = true) }
+        // RESTORE STATE
+        val restoredLibraryId = savedStateHandle.get<String>("selectedLibraryId")
+        val restoredItemIndex = savedStateHandle.get<Int>("initialScrollIndex")
+        val restoredFocusId = savedStateHandle.get<String>("lastFocusedId")
+        
+        _uiState.update { 
+            it.copy(
+                mediaType = initialMediaType, 
+                isLoading = true,
+                selectedLibraryId = restoredLibraryId,
+                initialScrollIndex = restoredItemIndex,
+                lastFocusedId = restoredFocusId
+            ) 
+        }
         
         // Load metadata (servers, genres, counts) - separate from Paging data
         viewModelScope.launch {
             loadMetadata(initialMediaType)
             
+            // Collect excluded servers
+            launch {
+                settingsRepository.excludedServerIds.collect { excluded ->
+                    _uiState.update { it.copy(excludedServerIds = excluded) }
+                }
+            }
+
             // Apply Default Server Preference after metadata (to ensure map is ready or concurrently)
             val defaultServer = settingsRepository.defaultServer.firstOrNull()
             if (!defaultServer.isNullOrEmpty() && defaultServer != "all") {
@@ -237,6 +264,7 @@ class LibraryViewModel @Inject constructor(
      * Traite les actions de l'interface utilisateur (MVI-like).
      */
     fun onAction(action: LibraryAction) {
+        android.util.Log.d("METRICS", "ACTION [Library] Action=${action.javaClass.simpleName}")
         when (action) {
             is LibraryAction.SelectTab -> {
                 _uiState.update { it.copy(selectedTab = action.tab) }
@@ -256,6 +284,7 @@ class LibraryViewModel @Inject constructor(
                 }
             }
             is LibraryAction.SelectLibrary -> {
+                 savedStateHandle["selectedLibraryId"] = action.libraryId
                  _uiState.update { it.copy(selectedLibraryId = action.libraryId) }
             }
             is LibraryAction.ApplyFilter -> {
@@ -287,6 +316,7 @@ class LibraryViewModel @Inject constructor(
                 _uiState.update { it.copy(selectedServerFilter = action.serverId) }
             }
             is LibraryAction.OnItemFocused -> {
+                savedStateHandle["lastFocusedId"] = action.item.ratingKey
                 _uiState.update { it.copy(lastFocusedId = action.item.ratingKey) }
             }
             is LibraryAction.JumpToLetter -> {
@@ -308,6 +338,7 @@ class LibraryViewModel @Inject constructor(
                         genre = genreQuery,
                         serverId = state.selectedServerId,
                         selectedServerId = serverFilterId,
+                        excludedServerIds = state.excludedServerIds.toList(),
                         libraryKey = state.selectedLibraryId,
                         query = state.searchQuery.ifBlank { null }
                     )
@@ -316,6 +347,7 @@ class LibraryViewModel @Inject constructor(
                     
                     if (idx >= 0) {
                         // Force reload with new initial Key
+                        savedStateHandle["initialScrollIndex"] = idx
                         _uiState.update { it.copy(initialScrollIndex = idx) }
                          android.util.Log.d("LibraryViewModel", "Updated initialScrollIndex to $idx. Triggering reload and scroll.")
                          _navigationEvents.send(LibraryNavigationEvent.ScrollToItem(idx))

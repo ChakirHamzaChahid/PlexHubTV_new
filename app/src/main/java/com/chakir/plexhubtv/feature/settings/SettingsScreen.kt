@@ -37,8 +37,7 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToLogin: () -> Unit,
-    onNavigateToServerStatus: () -> Unit,
-    onNavigateToProfiles: () -> Unit
+    onNavigateToServerStatus: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -49,7 +48,6 @@ fun SettingsRoute(
                 is SettingsNavigationEvent.NavigateBack -> onNavigateBack()
                 is SettingsNavigationEvent.NavigateToLogin -> onNavigateToLogin()
                 is SettingsNavigationEvent.NavigateToServerStatus -> onNavigateToServerStatus()
-                is SettingsNavigationEvent.NavigateToProfiles -> onNavigateToProfiles()
             }
         }
     }
@@ -95,12 +93,6 @@ fun SettingsScreen(
             item {
                 SettingsGroup("Account") {
                     SettingsButton(
-                        title = "Switch Profile",
-                        icon = Icons.Filled.Cached,
-                        onClick = { onAction(SettingsAction.SwitchProfile) }
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    SettingsButton(
                         title = "Logout",
                         icon = Icons.Filled.Logout,
                         isDestructive = true,
@@ -134,25 +126,61 @@ fun SettingsScreen(
             item {
                 SettingsGroup("Languages") {
                     // Audio
+                    val audioOptions = listOf(
+                        "Original" to null,
+                        "English" to "eng",
+                        "French" to "fra",
+                        "German" to "deu",
+                        "Spanish" to "spa",
+                        "Italian" to "ita",
+                        "Japanese" to "jpn",
+                        "Korean" to "kor",
+                        "Russian" to "rus",
+                        "Portuguese" to "por"
+                    )
+
+                    // Find display name for stored code, or fallback
+                    val currentAudioDisplay = audioOptions.find { it.second == state.preferredAudioLanguage }?.first
+                        ?: state.preferredAudioLanguage // Fallback for legacy data (e.g. "English")
+                        ?: "Original"
+
                     SettingsOptionSelector(
                         title = "Preferred Audio Language",
-                        currentValue = state.preferredAudioLanguage ?: "Original",
-                        options = listOf("Original", "English", "French", "German", "Spanish", "Italian", "Japanese", "Korean", "Russian", "Portuguese"),
-                         onSelect = { lang ->
-                             val value = if (lang == "Original") null else lang
-                             onAction(SettingsAction.ChangePreferredAudioLanguage(value)) 
-                         }
+                        currentValue = currentAudioDisplay,
+                        options = audioOptions.map { it.first },
+                        onSelect = { selectedName ->
+                            val isoCode = audioOptions.find { it.first == selectedName }?.second
+                            onAction(SettingsAction.ChangePreferredAudioLanguage(isoCode))
+                        }
                     )
                     Spacer(Modifier.height(16.dp))
+
                     // Subtitle
+                    val subtitleOptions = listOf(
+                        "None" to null,
+                        "English" to "eng",
+                        "French" to "fra",
+                        "German" to "deu",
+                        "Spanish" to "spa",
+                        "Italian" to "ita",
+                        "Japanese" to "jpn",
+                        "Korean" to "kor",
+                        "Russian" to "rus",
+                        "Portuguese" to "por"
+                    )
+
+                    val currentSubtitleDisplay = subtitleOptions.find { it.second == state.preferredSubtitleLanguage }?.first
+                        ?: state.preferredSubtitleLanguage // Fallback
+                        ?: "None"
+
                     SettingsOptionSelector(
                         title = "Preferred Subtitle Language",
-                        currentValue = state.preferredSubtitleLanguage ?: "None",
-                        options = listOf("None", "English", "French", "German", "Spanish", "Italian", "Japanese", "Korean", "Russian", "Portuguese"),
-                         onSelect = { lang ->
-                             val value = if (lang == "None") null else lang
-                             onAction(SettingsAction.ChangePreferredSubtitleLanguage(value))
-                         }
+                        currentValue = currentSubtitleDisplay,
+                        options = subtitleOptions.map { it.first },
+                        onSelect = { selectedName ->
+                            val isoCode = subtitleOptions.find { it.first == selectedName }?.second
+                            onAction(SettingsAction.ChangePreferredSubtitleLanguage(isoCode))
+                        }
                     )
                 }
             }
@@ -174,6 +202,35 @@ fun SettingsScreen(
                     )
                 }
             }
+            
+            // --- Server Visibility ---
+            item {
+                SettingsGroup("Server Visibility") {
+                    Text(
+                        text = "Uncheck to hide servers from unified library",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                    )
+                    
+                    state.availableServersMap.entries.forEach { (name, id) ->
+                        SettingsToggle(
+                            title = name,
+                            isChecked = !state.excludedServerIds.contains(id),
+                            onCheckChanged = { onAction(SettingsAction.ToggleServerExclusion(id)) }
+                        )
+                    }
+                    
+                    if (state.availableServersMap.isEmpty()) {
+                         Text(
+                            text = "No servers found",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+            }
 
             // --- Appearance ---
             item {
@@ -190,13 +247,12 @@ fun SettingsScreen(
             // --- Storage & Cache ---
             item {
                 SettingsGroup("Storage & Sync") {
-                    SettingsToggle(
-                        title = "Enable Cache",
-                        subtitle = "${state.cacheSize} used",
-                        isChecked = state.isCacheEnabled,
-                        onCheckChanged = { onAction(SettingsAction.ToggleCache(it)) }
+                    Text(
+                         text = "Cache Used: ${state.cacheSize}",
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                         modifier = Modifier.padding(bottom = 16.dp, start = 4.dp)
                     )
-                    Spacer(Modifier.height(16.dp))
                     SettingsButton(
                         title = "Synchronise Now",
                         icon = Icons.Filled.Cached,
@@ -247,7 +303,7 @@ fun SettingsScreen(
                     
                     Spacer(Modifier.height(8.dp))
                     SettingsButton(
-                        title = "Clear Cache",
+                        title = "Clear Cache & Data",
                         icon = Icons.Filled.Delete,
                         isDestructive = true,
                         onClick = { onAction(SettingsAction.ClearCache) }

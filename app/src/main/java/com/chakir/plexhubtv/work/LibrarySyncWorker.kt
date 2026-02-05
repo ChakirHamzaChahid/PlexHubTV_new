@@ -86,23 +86,29 @@ class LibrarySyncWorker @AssistedInject constructor(
             }
 
             // Set up progress callback
+            var lastNotificationTime = 0L
             syncRepository.onProgressUpdate = { current, total, libraryName ->
-                try {
-                    updateNotification("Syncing $libraryName: $current / $total")
-                } catch (e: Exception) {
-                    android.util.Log.e("SyncWorker", "Failed to update notification: ${e.message}")
-                }
-                
-                // Report progress to UI
-                try {
-                    setProgressAsync(
-                        workDataOf(
-                            "progress" to (if (total > 0) (current.toFloat() / total) * 100 else 0f),
-                            "message" to "Syncing $libraryName ($current/$total)"
+                val now = System.currentTimeMillis()
+                // Throttle: Update only if 1 second has passed OR if finished
+                if (now - lastNotificationTime >= 1000 || current == total) {
+                    lastNotificationTime = now
+                    try {
+                        updateNotification("Syncing $libraryName: $current / $total")
+                    } catch (e: Exception) {
+                        android.util.Log.e("SyncWorker", "Failed to update notification: ${e.message}")
+                    }
+                    
+                    // Report progress to UI
+                    try {
+                        setProgressAsync(
+                            workDataOf(
+                                "progress" to (if (total > 0) (current.toFloat() / total) * 100 else 0f),
+                                "message" to "Syncing $libraryName ($current/$total)"
+                            )
                         )
-                    )
-                } catch (e: Exception) {
-                    android.util.Log.e("SyncWorker", "Failed to set progress: ${e.message}")
+                    } catch (e: Exception) {
+                        android.util.Log.e("SyncWorker", "Failed to set progress: ${e.message}")
+                    }
                 }
             }
 

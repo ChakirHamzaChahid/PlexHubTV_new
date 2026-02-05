@@ -319,6 +319,17 @@ fun MediaDetailContent(
                     }
                 }
 
+                // Available Servers (Discrete)
+                if (media.remoteSources.isNotEmpty()) {
+                    val uniqueServers = media.remoteSources.map { it.serverName }.distinct().sorted()
+                    Text(
+                        text = "Available on: " + uniqueServers.joinToString(" • "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(8.dp)) // Reduced spacer
 
                 // Action Buttons

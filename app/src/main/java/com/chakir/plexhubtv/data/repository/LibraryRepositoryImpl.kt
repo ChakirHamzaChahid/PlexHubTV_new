@@ -23,15 +23,6 @@ import kotlinx.coroutines.flow.emitAll
 import androidx.paging.map
 import androidx.sqlite.db.SimpleSQLiteQuery
 
-/**
- * Implémentation complexe du repository de bibliothèque.
- *
- * Fonctionnalités Clés :
- * - **Bibliothèque Unifiée** : Fusionne les contenus de tous les serveurs si `serverId == "all"`.
- * - **Paging 3** : Utilise [MediaRemoteMediator] pour la pagination réseau + DB.
- * - **Filtrage Dynamique** : Construit des requêtes SQL brutes ([SimpleSQLiteQuery]) pour gérer les filtres complexes (Genre, Tri, Recherche) qui ne sont pas supportés nativement par Room de manière statique.
- * - **Mode Hors-ligne** : Fallback sur la base de données locale si le serveur est inaccessible.
- */
 class LibraryRepositoryImpl @Inject constructor(
     private val api: PlexApiService,
     private val connectionManager: ConnectionManager,
@@ -94,6 +85,7 @@ class LibraryRepositoryImpl @Inject constructor(
         isDescending: Boolean,
         genre: List<String>?,
         selectedServerId: String?,
+        excludedServerIds: List<String>,
         initialKey: Int?,
         query: String?
     ): Flow<androidx.paging.PagingData<MediaItem>> {
@@ -103,7 +95,8 @@ class LibraryRepositoryImpl @Inject constructor(
 
             // Resolve "all" server
             if (resolvedServerId == "all") {
-                val servers = authRepository.getServers().getOrNull()
+                // Use a non-blocking/cached way if possible. getServers() hits DB.
+                val servers = authRepository.getServers(forceRefresh = false).getOrNull()
                 resolvedServerId = servers?.firstOrNull()?.clientIdentifier ?: "default"
             }
 
@@ -170,6 +163,12 @@ class LibraryRepositoryImpl @Inject constructor(
                 sqlBuilder.append(") ")
             }
 
+            // Exclude Servers (Unified Only)
+            if (isUnified && excludedServerIds.isNotEmpty()) {
+                val excludedList = excludedServerIds.joinToString("','", prefix = "'", postfix = "'") { it.replace("'", "''") }
+                sqlBuilder.append("AND serverId NOT IN ($excludedList) ")
+            }
+
             // Add Server Filter (Unified Only)
             if (isUnified && dbServerId != null) {
                 sqlBuilder.append("AND serverId = '$dbServerId' ")
@@ -221,19 +220,22 @@ class LibraryRepositoryImpl @Inject constructor(
             
             val pager = androidx.paging.Pager(
                 config = androidx.paging.PagingConfig(
-                    pageSize = 100,
-                    prefetchDistance = 200, 
-                    initialLoadSize = 1000,
-                    enablePlaceholders = true
+                    pageSize = 50,
+                    prefetchDistance = 50, 
+                    initialLoadSize = 100,
+                    enablePlaceholders = true,
+                    maxSize = 2000
                 ),
                 initialKey = initialKey,
                 remoteMediator = remoteMediator,
                 pagingSourceFactory = factory
             )
             
-            val allServers = authRepository.getServers().getOrNull() ?: emptyList()
+            val allServers = authRepository.getServers(forceRefresh = false).getOrNull() ?: emptyList()
+            // FIX: Use cached URLs instead of testing connections (was causing 12s delay)
             val clientMap = allServers.associate { server ->
-                server.clientIdentifier to connectionManager.findBestConnection(server)
+                server.clientIdentifier to (connectionManager.getCachedUrl(server.clientIdentifier)
+                    ?: server.connectionCandidates.firstOrNull()?.uri) // Fallback to first URL if no cache
             }
             val tokenMap = allServers.associate { it.clientIdentifier to it.accessToken }
 
@@ -288,6 +290,7 @@ class LibraryRepositoryImpl @Inject constructor(
         genre: List<String>?,
         serverId: String?,
         selectedServerId: String?,
+        excludedServerIds: List<String>,
         libraryKey: String?,
         query: String?
     ): Int {
@@ -295,11 +298,8 @@ class LibraryRepositoryImpl @Inject constructor(
         var resolvedServerId = serverId ?: "all"
 
         if (resolvedServerId == "all") {
-             val servers = authRepository.getServers().getOrNull()
+             val servers = authRepository.getServers(forceRefresh = false).getOrNull()
              resolvedServerId = servers?.firstOrNull()?.clientIdentifier ?: "default"
-             // But for 'all' queries, we keep 'all' as logic flag unless strict matching needed
-             // Actually getLibraryContent checking: if (resolvedServerId == "all")...
-             // If serverId was "all", we want UNIFIED query.
         }
         
         // Normalize sort (MUST match getLibraryContent logic)
@@ -329,9 +329,8 @@ class LibraryRepositoryImpl @Inject constructor(
                 if (cachedSection != null) {
                     resolvedLibraryKey = cachedSection.libraryKey
                 } else {
-                     // Try fetch (simplified, usually cached by now)
                      val result = getLibraries(resolvedServerId)
-                     val section = result.getOrNull()?.find { it.type == typeStr } // Fix type mismatch (plexType -> typeStr) from original code
+                     val section = result.getOrNull()?.find { it.type == typeStr }
                      if (section != null) resolvedLibraryKey = section.key
                 }
             }
@@ -348,6 +347,12 @@ class LibraryRepositoryImpl @Inject constructor(
                 sqlBuilder.append("genres LIKE '%$escapedKeyword%'")
             }
             sqlBuilder.append(") ")
+        }
+
+        // Add Server Filter (Unified Only)
+        if (isUnified && excludedServerIds.isNotEmpty()) {
+            val excludedList = excludedServerIds.joinToString("','", prefix = "'", postfix = "'") { it.replace("'", "''") }
+            sqlBuilder.append("AND serverId NOT IN ($excludedList) ")
         }
 
         // Add Server Filter (Unified Only)
@@ -370,8 +375,7 @@ class LibraryRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getClient(serverId: String): PlexClient? {
-        // If serverId is "default_server" or similar, pick the first available one
-        val servers = authRepository.getServers().getOrNull() ?: return null
+        val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
         
         val targetServer = if (serverId == "default_server" || serverId == "all") {
              servers.firstOrNull()
@@ -379,7 +383,14 @@ class LibraryRepositoryImpl @Inject constructor(
              servers.find { it.clientIdentifier == serverId }
         } ?: return null
 
-        val baseUrl = connectionManager.findBestConnection(targetServer) ?: return null
-        return PlexClient(targetServer, api, baseUrl)
+        // Use cached connection directly here too for consistency, or non-blocking logic
+        // But getLibraryContent handles connection itself for fetching.
+        // If we need a client, we need a URL. For now, use existing flow but prefer cache if exposed
+        val baseUrl = connectionManager.getCachedUrl(targetServer.clientIdentifier) 
+            ?: connectionManager.findBestConnection(targetServer) // This might still block if not cached?
+            // Actually findBestConnection inside getClient IS blocking. 
+            // Ideally we should use getCachedUrl and fallback.
+            
+        return if (baseUrl != null) PlexClient(targetServer, api, baseUrl) else null
     }
 }

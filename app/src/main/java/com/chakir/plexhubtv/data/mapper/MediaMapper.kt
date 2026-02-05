@@ -294,8 +294,14 @@ class MediaMapper @Inject constructor() {
     }
 
     fun isQualityMetadata(dto: MetadataDTO): Boolean {
-        // Relaxed Filter: Allow any movie/show with a title. 
-        if (dto.type == "movie" || dto.type == "show") {
+        if (dto.type == "movie") {
+             // Strict filter for movies: MUST have IMDb or TMDB ID
+             val imdbId = extractImdbId(dto)
+             val tmdbId = extractTmdbId(dto)
+             return !dto.title.isNullOrBlank() && (!imdbId.isNullOrBlank() || !tmdbId.isNullOrBlank())
+        }
+        // Relaxed Filter for shows: Allow any show with a title. 
+        if (dto.type == "show") {
             return !dto.title.isNullOrBlank()
         }
         return true 

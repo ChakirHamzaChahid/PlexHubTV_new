@@ -42,4 +42,9 @@ interface SettingsRepository {
     
     suspend fun getCacheSize(): Long
     suspend fun clearCache()
+
+    suspend fun clearDatabase()
+
+    val excludedServerIds: Flow<Set<String>>
+    suspend fun toggleServerExclusion(serverId: String)
 }
