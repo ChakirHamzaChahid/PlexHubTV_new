@@ -86,12 +86,14 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("PlexHubTV", style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(32.dp))
+        /*
         Button(onClick = { onAction(AuthEvent.StartAuth) }) {
             Text("Login with PIN")
         }
         Spacer(Modifier.height(16.dp))
         Text("OR")
         Spacer(Modifier.height(16.dp))
+        */
         OutlinedTextField(
             value = token,
             onValueChange = { token = it },

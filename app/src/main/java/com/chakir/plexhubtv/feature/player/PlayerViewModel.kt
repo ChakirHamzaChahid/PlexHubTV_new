@@ -810,9 +810,19 @@ class PlayerViewModel @Inject constructor(
     private fun hasHardwareHEVCDecoder(): Boolean {
         val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
         return codecList.codecInfos.any { info ->
-            !info.isEncoder &&
-            info.isHardwareAccelerated &&
-            info.supportedTypes.any { it.equals("video/hevc", ignoreCase = true) }
+            if (info.isEncoder) return@any false
+            
+            val isHevc = info.supportedTypes.any { it.equals("video/hevc", ignoreCase = true) }
+            if (!isHevc) return@any false
+
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                info.isHardwareAccelerated
+            } else {
+                // Heuristic for API < 29 (Android 9 and below)
+                // Filter out known software decoders
+                val name = info.name.lowercase()
+                !name.startsWith("omx.google.") && !name.startsWith("c2.android.")
+            }
         }
     }
 

@@ -5,6 +5,7 @@ sealed class Screen(val route: String) {
     data object Login : Screen("login")
     data object PinInput : Screen("pin_input")
     data object Profiles : Screen("profiles")
+    data object Loading : Screen("loading")
 
     // --- Main Graph ---
     data object Main : Screen("main")

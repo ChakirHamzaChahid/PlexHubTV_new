@@ -43,6 +43,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         android.util.Log.i("METRICS", "APP STARTUP: Launching PlexHubTV")
+        
+        // Play Intro Sound
+        try {
+            val mediaPlayer = android.media.MediaPlayer.create(this, R.raw.intro_sound)
+            mediaPlayer.setOnCompletionListener { it.release() }
+            mediaPlayer.start()
+        } catch (e: Exception) {
+            android.util.Log.e("IntroSound", "Failed to play intro: ${e.message}")
+        }
+        
         enableEdgeToEdge()
         setContent {
             val appThemeState = settingsDataStore.appTheme.collectAsState(initial = "Plex")
@@ -78,9 +88,20 @@ fun PlexHubApp() {
         composable(Screen.Login.route) {
             AuthRoute(
                 onAuthSuccess = {
-                    navController.navigate(Screen.Main.route) {
+                    // Redirect to Loading to wait for Sync
+                    navController.navigate(Screen.Loading.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
+                }
+            )
+        }
+
+        composable(Screen.Loading.route) {
+            com.chakir.plexhubtv.feature.loading.LoadingRoute(
+                onNavigateToMain = {
+                     navController.navigate(Screen.Main.route) {
+                         popUpTo(Screen.Loading.route) { inclusive = true }
+                     }
                 }
             )
         }

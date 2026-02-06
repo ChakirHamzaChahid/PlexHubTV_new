@@ -13,7 +13,7 @@ data class SettingsUiState(
     val availableServers: List<String> = listOf("MyServer"),
     val availableServersMap: Map<String, String> = emptyMap(),
     val playerEngine: String = "ExoPlayer",
-    val appVersion: String = "0.6.0",
+    val appVersion: String = "0.6.1",
     val isSyncing: Boolean = false,
     val syncMessage: String? = null,
     val syncError: String? = null,

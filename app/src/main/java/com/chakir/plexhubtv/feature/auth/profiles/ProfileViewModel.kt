@@ -32,11 +32,16 @@ class ProfileViewModel @Inject constructor(
         when (action) {
             ProfileAction.LoadUsers -> loadUsers()
             is ProfileAction.SelectUser -> {
+                // BYPASS PIN: Always switch directly, even if protected
+                switchUser(action.user)
+                
+                /*
                 if (action.user.protected || action.user.hasPassword) {
                     _uiState.update { it.copy(showPinDialog = true, selectedUser = action.user, pinValue = "") }
                 } else {
                     switchUser(action.user)
                 }
+                */
             }
             ProfileAction.CancelPin -> {
                 _uiState.update { it.copy(showPinDialog = false, selectedUser = null, pinValue = "") }
