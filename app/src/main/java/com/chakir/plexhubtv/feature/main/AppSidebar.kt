@@ -41,6 +41,7 @@ fun AppSidebar(
         NavigationItem.Favorites,
         NavigationItem.History,
         NavigationItem.Downloads,
+        NavigationItem.Iptv,
         NavigationItem.Settings
     )
 

@@ -127,6 +127,9 @@ fun PlexHubApp() {
                 onNavigateToPlayer = { ratingKey, serverId ->
                     navController.navigate(Screen.VideoPlayer.createRoute(ratingKey, serverId))
                 },
+                onPlayUrl = { url, title ->
+                    navController.navigate(Screen.VideoPlayer.createRoute("iptv", "iptv", 0L, url, title))
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -153,6 +156,9 @@ fun PlexHubApp() {
                 onNavigateToSeason = { ratingKey, serverId ->
                     navController.navigate(Screen.SeasonDetail.createRoute(ratingKey, serverId))
                 },
+                onNavigateToCollection = { collectionId, serverId ->
+                    navController.navigate(Screen.CollectionDetail.createRoute(collectionId, serverId))
+                },
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -177,7 +183,27 @@ fun PlexHubApp() {
             )
         }
 
-        // Video Player
+        // Collection Details
+        composable(
+            route = Screen.CollectionDetail.route,
+            arguments = listOf(
+                navArgument("collectionId") { type = NavType.StringType },
+                navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType }
+            )
+        ) {
+            com.chakir.plexhubtv.feature.collection.CollectionDetailRoute(
+                onNavigateToDetail = { ratingKey, serverId ->
+                    navController.navigate(Screen.MediaDetail.createRoute(ratingKey, serverId))
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+
+
+        // VideoPlayer
         composable(
             route = Screen.VideoPlayer.route,
             arguments = listOf(
@@ -186,6 +212,16 @@ fun PlexHubApp() {
                 navArgument(Screen.ARG_START_OFFSET) { 
                     type = NavType.LongType 
                     defaultValue = 0L
+                },
+                navArgument(Screen.ARG_URL) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument(Screen.ARG_TITLE) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             ),
             deepLinks = listOf(

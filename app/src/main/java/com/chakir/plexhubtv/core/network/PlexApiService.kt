@@ -113,6 +113,20 @@ interface PlexApiService {
         @Query("sort") sort: String? = null
     ): Response<PlexResponse>
 
+    @GET
+    suspend fun getCollections(
+        @Url url: String,
+        @Query("type") type: Int = 18, // 18 = Collections
+        @Query("X-Plex-Container-Start") start: Int = 0,
+        @Query("X-Plex-Container-Size") size: Int = 1000
+    ): Response<PlexResponse>
+
+    @GET
+    suspend fun getCollectionItems(
+        @Url url: String,
+        @Query("includeGuids") includeGuids: Int = 1
+    ): Response<PlexResponse>
+
     // --- Playback Tracking ---
 
     @GET

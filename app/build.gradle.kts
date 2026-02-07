@@ -33,6 +33,8 @@ android {
             }
             val plexToken = localProperties.getProperty("PLEX_TOKEN") ?: ""
             buildConfigField("String", "PLEX_TOKEN", "\"$plexToken\"")
+            val iptvUrl = localProperties.getProperty("IPTV_PLAYLIST_URL") ?: ""
+            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"$iptvUrl\"")
         }
         release {
             isMinifyEnabled = true
@@ -42,6 +44,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

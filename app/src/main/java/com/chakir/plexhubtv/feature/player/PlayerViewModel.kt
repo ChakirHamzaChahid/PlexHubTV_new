@@ -34,11 +34,12 @@ class PlayerViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val trackPreferenceDao: com.chakir.plexhubtv.core.database.TrackPreferenceDao,
     private val watchNextHelper: com.chakir.plexhubtv.core.util.WatchNextHelper,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
-    private val ratingKey: String = checkNotNull(savedStateHandle["ratingKey"])
-    private val serverId: String = checkNotNull(savedStateHandle["serverId"])
+    private val ratingKey: String? = savedStateHandle["ratingKey"]
+    private val serverId: String? = savedStateHandle["serverId"]
+    private val directUrl: String? = savedStateHandle["url"]
     private val startOffset: Long = savedStateHandle.get<Long>("startOffset") ?: 0L
 
     private val _uiState = MutableStateFlow(PlayerUiState())
@@ -57,9 +58,50 @@ class PlayerViewModel @Inject constructor(
 
     init {
         initializePlayer(application)
-        loadMedia(ratingKey, serverId)
+        if (directUrl != null) {
+            playDirectUrl(directUrl)
+        } else if (ratingKey != null && serverId != null) {
+            loadMedia(ratingKey, serverId)
+            startScrobbling()
+        }
         startPositionTracking()
-        startScrobbling()
+    }
+
+    private fun playDirectUrl(url: String) {
+        val title = savedStateHandle.get<String>("title") ?: "Live Stream"
+        
+        // Create dummy MediaItem
+        val dummyItem = MediaItem(
+            id = "iptv-$url",
+            ratingKey = "iptv",
+            serverId = "iptv",
+            title = title,
+            type = MediaType.Movie, // Treated as movie for player controls
+            mediaParts = emptyList() // No Plex parts
+        )
+
+        _uiState.update {
+            it.copy(
+                currentItem = dummyItem,
+                isPlaying = true,
+                isBuffering = true
+            )
+        }
+        
+        // Play directly via ExoPlayer (or MPV if preferred later)
+        viewModelScope.launch {
+            val streamUri = Uri.parse(url)
+            player?.apply {
+                val mediaItem = ExoMediaItem.Builder()
+                    .setUri(streamUri)
+                    .setMediaId("iptv")
+                    .build()
+                    
+                setMediaItem(mediaItem)
+                prepare()
+                playWhenReady = true
+            }
+        }
     }
     
     override fun onCleared() {
@@ -88,7 +130,15 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(isMpvMode = true, error = null) }
         
         // Reload current media in MPV (Ensures loadMedia continues after transition)
-        loadMedia(ratingKey, serverId)
+        if (directUrl != null) {
+            // Re-trigger direct play logic for MPV
+            // MPV wrapper needs to be told to play
+             viewModelScope.launch {
+                 mpvPlayer?.play(directUrl)
+             }
+        } else if (ratingKey != null && serverId != null) {
+            loadMedia(ratingKey, serverId)
+        }
     }
 
     private fun initializePlayer(context: Application) {

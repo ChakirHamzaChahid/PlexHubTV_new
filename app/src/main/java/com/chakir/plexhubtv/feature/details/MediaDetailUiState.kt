@@ -11,10 +11,12 @@ data class MediaDetailUiState(
     val media: MediaItem? = null,
     val seasons: List<MediaItem> = emptyList(), // Only if media is Show
     val similarItems: List<MediaItem> = emptyList(),
+    val collections: List<com.chakir.plexhubtv.domain.model.Collection> = emptyList(),
     val error: String? = null,
     val showSourceSelection: Boolean = false,
     val selectedPlaybackItem: MediaItem? = null,
-    val isOffline: Boolean = false
+    val isOffline: Boolean = false,
+    val isEnriching: Boolean = false // Indicates if we are currently searching for other servers
 )
 
 sealed interface MediaDetailEvent {

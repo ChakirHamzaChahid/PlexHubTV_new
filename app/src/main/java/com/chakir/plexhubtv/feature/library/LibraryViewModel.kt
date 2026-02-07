@@ -255,7 +255,7 @@ class LibraryViewModel @Inject constructor(
 
         workManager.enqueueUniqueWork(
             "LibrarySync_Initial",
-            ExistingWorkPolicy.REPLACE, // Force new sync if stuck
+            ExistingWorkPolicy.KEEP, // Don't restart if already running
             syncRequest
         )
     }

@@ -43,6 +43,12 @@ interface MediaRepository {
     /** Récupère les suggestions (Similaires, Autres films du réalisateur...). */
     suspend fun getSimilarMedia(ratingKey: String, serverId: String): Result<List<MediaItem>>
 
+    /** Récupère toutes les collections associées au média (multi-serveurs). */
+    fun getMediaCollections(ratingKey: String, serverId: String): Flow<List<com.chakir.plexhubtv.domain.model.Collection>>
+
+    /** Récupère une collection spécifique par son ID et serverId. */
+    fun getCollection(collectionId: String, serverId: String): Flow<com.chakir.plexhubtv.domain.model.Collection?>
+
     // --- Actions Utilisateur ---
 
     /** Marque un élément comme Vu ou Non Vu. */
@@ -79,6 +85,11 @@ interface MediaRepository {
 
     /** Recherche globale multi-serveurs. */
     suspend fun searchMedia(query: String): Result<List<MediaItem>>
+
+    // --- Watchlist ---
+
+    /** Synchronise la Watchlist globale Plex avec les favoris locaux. */
+    suspend fun syncWatchlist(): Result<Unit>
 
     // --- Lecteur ---
 

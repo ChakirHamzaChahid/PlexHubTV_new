@@ -33,6 +33,7 @@ class MediaDetailViewModel @Inject constructor(
     private val isFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.IsFavoriteUseCase,
     private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
     private val getSimilarMediaUseCase: com.chakir.plexhubtv.domain.usecase.GetSimilarMediaUseCase,
+    private val getMediaCollectionsUseCase: com.chakir.plexhubtv.domain.usecase.GetMediaCollectionsUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val ratingKey: String = checkNotNull(savedStateHandle["ratingKey"])
@@ -184,6 +185,12 @@ class MediaDetailViewModel @Inject constructor(
         _navigationEvents.send(MediaDetailNavigationEvent.NavigateToPlayer(finalItem.ratingKey, finalItem.serverId))
     }
 
+    fun onCollectionClicked(collectionId: String, serverId: String) {
+        viewModelScope.launch {
+            _navigationEvents.send(MediaDetailNavigationEvent.NavigateToCollection(collectionId, serverId))
+        }
+    }
+
     private fun loadDetail() {
         viewModelScope.launch {
             val startTime = System.currentTimeMillis()
@@ -198,11 +205,15 @@ class MediaDetailViewModel @Inject constructor(
                             it.copy(
                                 isLoading = false,
                                 media = detail.item,
-                                seasons = detail.children
+                                seasons = detail.children,
+                                isEnriching = true // Start enriching (looking for other servers)
                             )
                         }
                         // Secondary fetch for similar items
                         loadSimilarItems()
+                        
+                        // Secondary fetch for collection
+                        loadCollection()
                         
                         // Secondary fetch for other servers (Available Sources)
                         loadAvailableServers(detail.item)
@@ -225,11 +236,12 @@ class MediaDetailViewModel @Inject constructor(
                 // Update UI state if new sources found (and if we are still looking at the same media)
                 _uiState.update { currentState ->
                     if (currentState.media?.ratingKey == item.ratingKey) {
-                         currentState.copy(media = enriched)
-                    } else currentState
+                         currentState.copy(media = enriched, isEnriching = false)
+                    } else currentState.copy(isEnriching = false)
                 }
             } catch (e: Exception) {
                 android.util.Log.w("MediaDetailViewModel", "Failed to enrich media: ${e.message}")
+                _uiState.update { it.copy(isEnriching = false) }
             }
         }
     }
@@ -241,11 +253,29 @@ class MediaDetailViewModel @Inject constructor(
             }
         }
     }
+
+    private fun loadCollection() {
+        android.util.Log.d("CollectionSync", "VM: Loading ALL collections for ratingKey=$ratingKey serverId=$serverId")
+        viewModelScope.launch {
+            getMediaCollectionsUseCase(ratingKey, serverId).collect { collections ->
+                if (collections.isNotEmpty()) {
+                    android.util.Log.d("CollectionSync", "VM: Received ${collections.size} collection(s)")
+                    collections.forEach { col ->
+                        android.util.Log.d("CollectionSync", "   - '${col.title}' (${col.items.size} items, server=${col.serverId.take(8)})")
+                    }
+                } else {
+                    android.util.Log.d("CollectionSync", "VM: No collections received for $ratingKey")
+                }
+                _uiState.update { it.copy(collections = collections) }
+            }
+        }
+    }
 }
 
 sealed interface MediaDetailNavigationEvent {
     data class NavigateToPlayer(val ratingKey: String, val serverId: String) : MediaDetailNavigationEvent
     data class NavigateToMediaDetail(val ratingKey: String, val serverId: String) : MediaDetailNavigationEvent
     data class NavigateToSeason(val ratingKey: String, val serverId: String) : MediaDetailNavigationEvent
+    data class NavigateToCollection(val collectionId: String, val serverId: String) : MediaDetailNavigationEvent
     data object NavigateBack : MediaDetailNavigationEvent
 }

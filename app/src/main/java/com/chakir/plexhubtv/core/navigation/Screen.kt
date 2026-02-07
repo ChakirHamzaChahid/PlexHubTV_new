@@ -31,14 +31,33 @@ sealed class Screen(val route: String) {
             "season_detail/$ratingKey?serverId=$serverId"
     }
 
-    data object VideoPlayer : Screen("video_player/{ratingKey}?serverId={serverId}&startOffset={startOffset}") {
-        fun createRoute(ratingKey: String, serverId: String, startOffset: Long = 0L) =
-            "video_player/$ratingKey?serverId=$serverId&startOffset=$startOffset"
+    data object CollectionDetail : Screen("collection_detail/{collectionId}?serverId={serverId}") {
+        fun createRoute(collectionId: String, serverId: String) =
+            "collection_detail/$collectionId?serverId=$serverId"
+    }
+
+    data object Iptv : Screen("iptv")
+
+    data object VideoPlayer : Screen("video_player/{ratingKey}?serverId={serverId}&startOffset={startOffset}&url={url}&title={title}") {
+        fun createRoute(
+            ratingKey: String, 
+            serverId: String, 
+            startOffset: Long = 0L,
+            url: String? = null,
+            title: String? = null
+        ): String {
+            val builder = StringBuilder("video_player/$ratingKey?serverId=$serverId&startOffset=$startOffset")
+            if (url != null) builder.append("&url=${java.net.URLEncoder.encode(url, "UTF-8")}")
+            if (title != null) builder.append("&title=${java.net.URLEncoder.encode(title, "UTF-8")}")
+            return builder.toString()
+        }
     }
 
     companion object {
         const val ARG_RATING_KEY = "ratingKey"
         const val ARG_SERVER_ID = "serverId"
         const val ARG_START_OFFSET = "startOffset"
+        const val ARG_URL = "url"
+        const val ARG_TITLE = "title"
     }
 }

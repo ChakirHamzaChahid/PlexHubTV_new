@@ -36,3 +36,10 @@ val MonoLightSurface = Color(0xFFFFFFFF)
 val MonoLightOutline = Color(0x19000000)
 val MonoLightText = Color(0xFF111111)
 val MonoLightTextMuted = Color(0x99111111)
+
+// Morocco Theme Colors
+val MorocRed = Color(0xFFC1272D) // Flag Red
+val MorocGreen = Color(0xFF006233) // Flag Green
+val MorocGold = Color(0xFFFDB913) // Royal Gold Accent
+val MorocBackground = Color(0xFF1A0505) // Deep Dark Red/Brown Background (Night in Marrakech)
+val MorocSurface = Color(0xFF2D0A0A) // Slightly lighter for cards

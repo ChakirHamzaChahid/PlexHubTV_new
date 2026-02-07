@@ -28,10 +28,10 @@ interface ServerConnectionTester {
 @Singleton
 class OkHttpConnectionTester @Inject constructor() : ServerConnectionTester {
 
-    // Dedicated client for testing: short timeouts
+    // Dedicated client for testing: medium timeouts (was 5s, now 15s for reliability)
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS) // Short timeout for race
-        .readTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS) 
+        .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
     override suspend fun testConnection(url: String, token: String): ConnectionResult {

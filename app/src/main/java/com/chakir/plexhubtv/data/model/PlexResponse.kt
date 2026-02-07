@@ -13,6 +13,11 @@ data class GenreDTO(
     @SerializedName("tag") val tag: String
 )
 
+data class CollectionDTO(
+    @SerializedName("tag") val tag: String,
+    val guid: String? = null
+)
+
 /**
  * Conteneur principal des métadonnées renvoyées par Plex (PMS).
  * Peut contenir des métadonnées, des Hubs, des Serveurs, ou des Répertoires (Sections).
@@ -83,6 +88,7 @@ data class MetadataDTO(
     @SerializedName("Chapter") val chapters: List<ChapterDTO>? = null,
     @SerializedName("Marker") val markers: List<MarkerDTO>? = null,
     @SerializedName("Genre") val genres: List<GenreDTO>? = null,
+    @SerializedName("Collection") val collections: List<CollectionDTO>? = null,
     val status: String? = null,
     @SerializedName("Status") val statusAlt: String? = null,
     val seriesStatus: String? = null,

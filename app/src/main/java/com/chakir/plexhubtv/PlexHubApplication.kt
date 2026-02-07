@@ -173,15 +173,29 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
             }
         }
 
+
         // 2. Schedule Periodic Sync (Every 6 hours)
+        // Add delay to prevent conflict with Initial Sync on startup
         val syncRequest = PeriodicWorkRequestBuilder<LibrarySyncWorker>(6, TimeUnit.HOURS)
             .setConstraints(constraints)
+            .setInitialDelay(20, TimeUnit.MINUTES)
             .build()
-
+            
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "LibrarySync",
             ExistingPeriodicWorkPolicy.KEEP,
             syncRequest
+        )
+
+        // 3. Schedule Collection Sync (Every 6 hours)
+        val collectionSyncRequest = PeriodicWorkRequestBuilder<com.chakir.plexhubtv.work.CollectionSyncWorker>(6, TimeUnit.HOURS)
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "CollectionSync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            collectionSyncRequest
         )
     }
     

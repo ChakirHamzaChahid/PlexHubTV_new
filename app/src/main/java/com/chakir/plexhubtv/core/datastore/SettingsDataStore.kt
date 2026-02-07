@@ -35,6 +35,7 @@ class SettingsDataStore @Inject constructor(
     private val LAST_SYNC_TIME = stringPreferencesKey("last_sync_time")
     private val FIRST_SYNC_COMPLETE = stringPreferencesKey("first_sync_complete")
     private val EXCLUDED_SERVER_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("excluded_server_ids")
+    private val IPTV_PLAYLIST_URL = stringPreferencesKey("iptv_playlist_url")
 
     val plexToken: Flow<String?> = dataStore.data
         .map { preferences -> preferences[PLEX_TOKEN] }
@@ -77,6 +78,9 @@ class SettingsDataStore @Inject constructor(
 
     val excludedServerIds: Flow<Set<String>> = dataStore.data
         .map { preferences -> preferences[EXCLUDED_SERVER_IDS] ?: emptySet() }
+
+    val iptvPlaylistUrl: Flow<String?> = dataStore.data
+        .map { preferences -> preferences[IPTV_PLAYLIST_URL] }
 
     suspend fun saveToken(token: String) {
         dataStore.edit { preferences ->
@@ -201,6 +205,12 @@ class SettingsDataStore @Inject constructor(
             } else {
                 preferences.remove(PREF_SUBTITLE_LANG)
             }
+        }
+    }
+
+    suspend fun saveIptvPlaylistUrl(url: String) {
+        dataStore.edit { preferences ->
+            preferences[IPTV_PLAYLIST_URL] = url
         }
     }
 

@@ -233,7 +233,7 @@ fun MediaCard(
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.1f else 1f, label = "scale")
     val borderColor by animateColorAsState(
-        if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent, 
+        if (isFocused) MaterialTheme.colorScheme.secondary else Color.Transparent, 
         label = "border"
     )
 
@@ -326,7 +326,7 @@ fun MediaCard(
             ) {
                 // Rating Overlay
                 val ratingValue = if (media.audienceRating != null && media.audienceRating > 0) media.audienceRating else media.rating
-                val starColor = if (media.audienceRating != null && media.audienceRating > 0) Color(0xFFCD7F32) else Color(0xFFFFD700)
+                val starColor = if (media.audienceRating != null && media.audienceRating > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.tertiary
 
                 if (ratingValue != null && ratingValue > 0) {
                     Row(

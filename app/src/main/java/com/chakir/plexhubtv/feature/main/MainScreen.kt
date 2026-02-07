@@ -46,6 +46,7 @@ fun MainScreen(
     viewModel: MainViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onNavigateToPlayer: (String, String) -> Unit,
     onNavigateToDetails: (String, String) -> Unit,
+    onPlayUrl: (String, String) -> Unit,
     onLogout: () -> Unit
 ) {
     val navController = rememberNavController()
@@ -152,6 +153,15 @@ fun MainScreen(
                         onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) }
                     )
                 }
+                composable(Screen.Iptv.route) {
+                    if (uiState.isOffline) {
+                        OfflinePlaceholder()
+                    } else {
+                        com.chakir.plexhubtv.feature.iptv.IptvRoute(
+                            onPlayChannel = { url, title -> onPlayUrl(url, title) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -196,6 +206,7 @@ sealed class NavigationItem(val screen: Screen, val label: String, val icon: Ima
     data object Favorites : NavigationItem(Screen.Favorites, "Favorites", Icons.Filled.Favorite)
     data object History : NavigationItem(Screen.History, "History", Icons.Filled.History)
     data object Settings : NavigationItem(Screen.Settings, "Settings", Icons.Default.Settings)
+    data object Iptv : NavigationItem(Screen.Iptv, "Live TV", Icons.Default.Tv)
 }
 @Preview(showBackground = true)
 @Composable

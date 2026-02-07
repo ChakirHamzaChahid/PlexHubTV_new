@@ -1,10 +1,7 @@
 package com.chakir.plexhubtv.feature.settings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cached
@@ -12,21 +9,14 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Color
+import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 
 /**
  * Écran principal des paramètres.
@@ -64,6 +54,14 @@ fun SettingsScreen(
     state: SettingsUiState,
     onAction: (SettingsAction) -> Unit
 ) {
+    // Dialog States
+    var showQualityDialog by remember { mutableStateOf(false) }
+    var showPlayerEngineDialog by remember { mutableStateOf(false) }
+    var showAudioLangDialog by remember { mutableStateOf(false) }
+    var showSubtitleLangDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
+    var showServerDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -74,9 +72,9 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                    containerColor = MaterialTheme.colorScheme.background, // Match background for seamless look
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
@@ -86,407 +84,297 @@ fun SettingsScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 16.dp, horizontal = 24.dp), // More horizontal padding
+            contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // --- Account Section ---
+            // --- Appearance ---
             item {
-                SettingsGroup("Account") {
-                    SettingsButton(
-                        title = "Logout",
-                        icon = Icons.Filled.Logout,
-                        isDestructive = true,
-                        onClick = { onAction(SettingsAction.Logout) }
+                SettingsSection("Appearance") {
+                    SettingsTile(
+                        title = "App Theme",
+                        subtitle = state.theme.name,
+                        onClick = { showThemeDialog = true }
                     )
                 }
             }
 
-            // --- Playback Section ---
+            // --- Playback ---
             item {
-                SettingsGroup("Playback") {
-                     // Video Quality
-                     SettingsOptionSelector(
-                         title = "Video Quality",
-                         currentValue = state.videoQuality,
-                         options = listOf("Original", "20 Mbps 1080p", "12 Mbps 1080p", "8 Mbps 1080p", "4 Mbps 720p", "3 Mbps 720p"),
-                         onSelect = { onAction(SettingsAction.ChangeVideoQuality(it)) }
-                     )
-                     Spacer(Modifier.height(16.dp))
-                     // Player Engine
-                     SettingsOptionSelector(
-                         title = "Player Engine",
-                         currentValue = state.playerEngine,
-                         options = listOf("ExoPlayer", "MPV"),
-                         onSelect = { onAction(SettingsAction.ChangePlayerEngine(it)) }
-                     )
+                SettingsSection("Playback") {
+                    SettingsTile(
+                        title = "Video Quality",
+                        subtitle = state.videoQuality,
+                        onClick = { showQualityDialog = true }
+                    )
+                    SettingsTile(
+                        title = "Player Engine",
+                        subtitle = state.playerEngine,
+                        onClick = { showPlayerEngineDialog = true }
+                    )
                 }
             }
 
-            // --- Languages Section ---
+            // --- Languages ---
             item {
-                SettingsGroup("Languages") {
-                    // Audio
-                    val audioOptions = listOf(
-                        "Original" to null,
-                        "English" to "eng",
-                        "French" to "fra",
-                        "German" to "deu",
-                        "Spanish" to "spa",
-                        "Italian" to "ita",
-                        "Japanese" to "jpn",
-                        "Korean" to "kor",
-                        "Russian" to "rus",
-                        "Portuguese" to "por"
-                    )
-
-                    // Find display name for stored code, or fallback
+                SettingsSection("Languages") {
+                    // Find display name for stored code
+                    val audioOptions = getAudioLanguageOptions()
                     val currentAudioDisplay = audioOptions.find { it.second == state.preferredAudioLanguage }?.first
-                        ?: state.preferredAudioLanguage // Fallback for legacy data (e.g. "English")
-                        ?: "Original"
+                        ?: state.preferredAudioLanguage ?: "Original"
 
-                    SettingsOptionSelector(
+                    SettingsTile(
                         title = "Preferred Audio Language",
-                        currentValue = currentAudioDisplay,
-                        options = audioOptions.map { it.first },
-                        onSelect = { selectedName ->
-                            val isoCode = audioOptions.find { it.first == selectedName }?.second
-                            onAction(SettingsAction.ChangePreferredAudioLanguage(isoCode))
-                        }
-                    )
-                    Spacer(Modifier.height(16.dp))
-
-                    // Subtitle
-                    val subtitleOptions = listOf(
-                        "None" to null,
-                        "English" to "eng",
-                        "French" to "fra",
-                        "German" to "deu",
-                        "Spanish" to "spa",
-                        "Italian" to "ita",
-                        "Japanese" to "jpn",
-                        "Korean" to "kor",
-                        "Russian" to "rus",
-                        "Portuguese" to "por"
+                        subtitle = currentAudioDisplay,
+                        onClick = { showAudioLangDialog = true }
                     )
 
+                    val subtitleOptions = getSubtitleLanguageOptions()
                     val currentSubtitleDisplay = subtitleOptions.find { it.second == state.preferredSubtitleLanguage }?.first
-                        ?: state.preferredSubtitleLanguage // Fallback
-                        ?: "None"
+                        ?: state.preferredSubtitleLanguage ?: "None"
 
-                    SettingsOptionSelector(
+                    SettingsTile(
                         title = "Preferred Subtitle Language",
-                        currentValue = currentSubtitleDisplay,
-                        options = subtitleOptions.map { it.first },
-                        onSelect = { selectedName ->
-                            val isoCode = subtitleOptions.find { it.first == selectedName }?.second
-                            onAction(SettingsAction.ChangePreferredSubtitleLanguage(isoCode))
-                        }
+                        subtitle = currentSubtitleDisplay,
+                        onClick = { showSubtitleLangDialog = true }
                     )
                 }
             }
 
-            // --- Server Section ---
+            // --- Server ---
             item {
-                SettingsGroup("Server") {
-                    SettingsOptionSelector(
+                SettingsSection("Server") {
+                    SettingsTile(
                         title = "Default Server",
-                        currentValue = state.defaultServer,
-                        options = state.availableServers,
-                        onSelect = { onAction(SettingsAction.SelectDefaultServer(it)) }
+                        subtitle = state.defaultServer,
+                        onClick = { 
+                            if (state.availableServers.isNotEmpty()) {
+                                showServerDialog = true 
+                            }
+                        },
+                        trailingContent = if (state.availableServers.isEmpty()) { {
+                             Text("Scanning...", style = MaterialTheme.typography.bodySmall)
+                        } } else null
                     )
-                    Spacer(Modifier.height(16.dp))
-                    SettingsButton(
+                    SettingsTile(
                         title = "Check Server Status",
+                        subtitle = "View connection details and latency",
                         icon = Icons.Filled.Info,
                         onClick = { onAction(SettingsAction.CheckServerStatus) }
                     )
                 }
             }
-            
+
             // --- Server Visibility ---
             item {
-                SettingsGroup("Server Visibility") {
-                    Text(
-                        text = "Uncheck to hide servers from unified library",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-                    )
-                    
-                    state.availableServersMap.entries.forEach { (name, id) ->
-                        SettingsToggle(
-                            title = name,
-                            isChecked = !state.excludedServerIds.contains(id),
-                            onCheckChanged = { onAction(SettingsAction.ToggleServerExclusion(id)) }
-                        )
-                    }
-                    
+                 SettingsSection("Server Visibility") {
                     if (state.availableServersMap.isEmpty()) {
                          Text(
                             text = "No servers found",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(8.dp)
+                            modifier = Modifier.padding(16.dp)
                         )
-                    }
-                }
-            }
-
-            // --- Appearance ---
-            item {
-                SettingsGroup("Appearance") {
-                     SettingsOptionSelector(
-                        title = "App Theme",
-                        currentValue = state.theme.name,
-                        options = AppTheme.values().map { it.name },
-                        onSelect = { onAction(SettingsAction.ChangeTheme(AppTheme.valueOf(it))) }
-                    )
-                }
-            }
-
-            // --- Storage & Cache ---
-            item {
-                SettingsGroup("Storage & Sync") {
-                    Text(
-                         text = "Cache Used: ${state.cacheSize}",
-                         style = MaterialTheme.typography.bodyMedium,
-                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                         modifier = Modifier.padding(bottom = 16.dp, start = 4.dp)
-                    )
-                    SettingsButton(
-                        title = "Synchronise Now",
-                        icon = Icons.Filled.Cached,
-                        onClick = { onAction(SettingsAction.ForceSync) },
-                        enabled = !state.isSyncing
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    SettingsButton(
-                        title = "Sync Plex Watchlist",
-                        icon = Icons.Filled.Cached,
-                        onClick = { onAction(SettingsAction.SyncWatchlist) },
-                        enabled = !state.isSyncing
-                    )
-                    
-                    // Sync feedback
-                    if (state.isSyncing) {
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Syncing...", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        state.availableServersMap.entries.forEach { (name, id) ->
+                            SettingsSwitch(
+                                title = name,
+                                isChecked = !state.excludedServerIds.contains(id),
+                                onCheckedChange = { onAction(SettingsAction.ToggleServerExclusion(id)) }
+                            )
                         }
                     }
+                }
+                 Text(
+                    text = "Uncheck servers to hide them from unified libraries.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+            }
+
+            // --- Data & Sync ---
+            item {
+                SettingsSection("Data & Sync") {
+                    SettingsTile(
+                        title = "Synchronise Library",
+                        subtitle = if (state.isSyncing) state.syncMessage ?: "Syncing..." else "Update local database from Plex",
+                        icon = Icons.Filled.Cached,
+                        onClick = { onAction(SettingsAction.ForceSync) },
+                        trailingContent = if (state.isSyncing) { {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        } } else null
+                    )
                     
-                    state.syncMessage?.let { message ->
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                        )
-                    }
-                    
-                    state.syncError?.let { error ->
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = error,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                        )
-                    }
-                    
-                    Spacer(Modifier.height(8.dp))
-                    SettingsButton(
+                    SettingsTile(
+                        title = "Sync Watchlist",
+                        subtitle = "Import Plex watchlist favorites",
+                        icon = Icons.Filled.Cached,
+                        onClick = { onAction(SettingsAction.SyncWatchlist) }
+                    )
+
+                    SettingsTile(
                         title = "Clear Cache & Data",
+                        subtitle = "Used: ${state.cacheSize}",
                         icon = Icons.Filled.Delete,
-                        isDestructive = true,
+                        titleColor = MaterialTheme.colorScheme.error,
                         onClick = { onAction(SettingsAction.ClearCache) }
                     )
                 }
-            }
-            
-            item {
-                Text(
-                    text = "Version ${state.appVersion}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-            }
-        }
-    }
-}
-
-// --- Components ---
-
-@Composable
-fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                .padding(16.dp)
-        ) {
-            content()
-        }
-    }
-}
-
-@Composable
-fun SettingsButton(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    isDestructive: Boolean = false,
-    enabled: Boolean = true,
-    onClick: () -> Unit
-) {
-    var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    
-    val backgroundColor = when {
-        !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-        isFocused -> if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    }
-    
-    val contentColor = when {
-        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-        isFocused -> if (isDestructive) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
-        isDestructive -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .background(backgroundColor)
-            .onFocusChanged { if (enabled) isFocused = it.isFocused }
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null, tint = contentColor)
-        Spacer(Modifier.width(16.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = contentColor,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@Composable
-fun SettingsToggle(
-    title: String,
-    subtitle: String? = null,
-    isChecked: Boolean,
-    onCheckChanged: (Boolean) -> Unit
-) {
-    var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    
-    val backgroundColor = if (isFocused) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent
-    
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .background(backgroundColor)
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable { onCheckChanged(!isChecked) }
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Switch(checked = isChecked, onCheckedChange = null) // Switch handles its own color but we control click
-    }
-}
-
-@Composable
-fun SettingsOptionSelector(
-    title: String,
-    currentValue: String,
-    options: List<String>,
-    onSelect: (String) -> Unit
-) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-        )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp)
-        ) {
-            items(options) { option ->
-                val isSelected = option == currentValue
-                var isFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-                
-                // High contrast focus for chips
-                val containerColor = when {
-                    isFocused -> MaterialTheme.colorScheme.primary // Focus takes precedence
-                    isSelected -> MaterialTheme.colorScheme.primaryContainer
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                }
-                
-                val contentColor = when {
-                    isFocused -> MaterialTheme.colorScheme.onPrimary
-                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
-
-                Box(
-                    modifier = Modifier
-                        .height(36.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
-                        .background(containerColor)
-                        .onFocusChanged { isFocused = it.isFocused }
-                        .clickable { onSelect(option) }
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                 if (state.syncError != null) {
                     Text(
-                        text = option,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = contentColor,
-                        fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal
+                        text = state.syncError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                 }
             }
+
+             // --- Account ---
+            item {
+                SettingsSection("Account") {
+                    SettingsTile(
+                        title = "Logout",
+                        icon = Icons.Filled.Logout,
+                        titleColor = MaterialTheme.colorScheme.error,
+                        onClick = { onAction(SettingsAction.Logout) }
+                    )
+                }
+            }
+
+            item {
+               Box(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Version ${state.appVersion}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+               }
+            }
         }
     }
+
+    // --- Dialogs ---
+
+    if (showQualityDialog) {
+        val options = listOf("Original", "20 Mbps 1080p", "12 Mbps 1080p", "8 Mbps 1080p", "4 Mbps 720p", "3 Mbps 720p")
+        SettingsDialog(
+            title = "Video Quality",
+            options = options,
+            currentValue = state.videoQuality,
+            onDismissRequest = { showQualityDialog = false },
+            onOptionSelected = { 
+                onAction(SettingsAction.ChangeVideoQuality(it))
+                showQualityDialog = false
+            }
+        )
+    }
+
+    if (showPlayerEngineDialog) {
+        val options = listOf("ExoPlayer", "MPV")
+        SettingsDialog(
+            title = "Player Engine",
+            options = options,
+            currentValue = state.playerEngine,
+            onDismissRequest = { showPlayerEngineDialog = false },
+            onOptionSelected = { 
+                onAction(SettingsAction.ChangePlayerEngine(it))
+                showPlayerEngineDialog = false
+            }
+        )
+    }
+
+    if (showThemeDialog) {
+        val options = AppTheme.values().map { it.name }
+        SettingsDialog(
+            title = "App Theme",
+            options = options,
+            currentValue = state.theme.name,
+            onDismissRequest = { showThemeDialog = false },
+            onOptionSelected = { 
+                onAction(SettingsAction.ChangeTheme(AppTheme.valueOf(it)))
+                showThemeDialog = false
+            }
+        )
+    }
+
+    if (showAudioLangDialog) {
+        val audioOptions = getAudioLanguageOptions()
+        SettingsDialog(
+            title = "Preferred Audio Language",
+            options = audioOptions.map { it.first },
+            currentValue = audioOptions.find { it.second == state.preferredAudioLanguage }?.first ?: "Original",
+            onDismissRequest = { showAudioLangDialog = false },
+            onOptionSelected = { selectedName ->
+                val isoCode = audioOptions.find { it.first == selectedName }?.second
+                onAction(SettingsAction.ChangePreferredAudioLanguage(isoCode))
+                showAudioLangDialog = false
+            }
+        )
+    }
+
+    if (showSubtitleLangDialog) {
+         val subtitleOptions = getSubtitleLanguageOptions()
+        SettingsDialog(
+            title = "Preferred Subtitle Language",
+            options = subtitleOptions.map { it.first },
+            currentValue = subtitleOptions.find { it.second == state.preferredSubtitleLanguage }?.first ?: "None",
+            onDismissRequest = { showSubtitleLangDialog = false },
+            onOptionSelected = { selectedName ->
+                val isoCode = subtitleOptions.find { it.first == selectedName }?.second
+                onAction(SettingsAction.ChangePreferredSubtitleLanguage(isoCode))
+                showSubtitleLangDialog = false
+            }
+        )
+    }
+
+     if (showServerDialog) {
+        SettingsDialog(
+            title = "Default Server",
+            options = state.availableServers,
+            currentValue = state.defaultServer,
+            onDismissRequest = { showServerDialog = false },
+            onOptionSelected = { 
+                onAction(SettingsAction.SelectDefaultServer(it))
+                showServerDialog = false
+            }
+        )
+    }
 }
+
+// Helpers for Language Options
+private fun getAudioLanguageOptions() = listOf(
+    "Original" to null,
+    "English" to "eng",
+    "French" to "fra",
+    "German" to "deu",
+    "Spanish" to "spa",
+    "Italian" to "ita",
+    "Japanese" to "jpn",
+    "Korean" to "kor",
+    "Russian" to "rus",
+    "Portuguese" to "por"
+)
+
+private fun getSubtitleLanguageOptions() = listOf(
+    "None" to null,
+    "English" to "eng",
+    "French" to "fra",
+    "German" to "deu",
+    "Spanish" to "spa",
+    "Italian" to "ita",
+    "Japanese" to "jpn",
+    "Korean" to "kor",
+    "Russian" to "rus",
+    "Portuguese" to "por"
+)
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewSettingsScreen() {
-    com.chakir.plexhubtv.core.designsystem.PlexHubTheme {
+    PlexHubTheme {
         SettingsScreen(
-            state = SettingsUiState(videoQuality = "Original", cacheSize = "150 MB"),
+            state = SettingsUiState(videoQuality = "Original", cacheSize = "150 MB", availableServers = listOf("Plex Server 1")),
             onAction = {}
         )
     }

@@ -79,6 +79,23 @@ private val MonoLightColorScheme = lightColorScheme(
     onSurfaceVariant = MonoLightTextMuted
 )
 
+private val MoroccoColorScheme = darkColorScheme(
+    primary = MorocRed,
+    onPrimary = Color.White,
+    secondary = MorocGreen,
+    onSecondary = Color.White,
+    tertiary = MorocGold,
+    onTertiary = Color.Black,
+    background = MorocBackground,
+    surface = MorocSurface,
+    onBackground = Color.White,
+    onSurface = Color.White,
+    error = MorocRed,
+    outline = MorocGold,
+    surfaceVariant = MorocSurface,
+    onSurfaceVariant = Color.LightGray
+)
+
 /**
  * Thème principal de l'application basé sur Material3.
  *
@@ -97,8 +114,9 @@ fun PlexHubTheme(
     val colorScheme = when (appTheme) {
         "MonoDark" -> MonoDarkColorScheme
         "MonoLight" -> MonoLightColorScheme
+        "Morocco" -> MoroccoColorScheme
         "Plex" -> if (darkTheme) DarkColorScheme else LightColorScheme
-        else -> if (darkTheme) DarkColorScheme else LightColorScheme // Default to Plex
+        else -> if (darkTheme) DarkColorScheme else LightColorScheme
     }
     val view = LocalView.current
     if (!view.isInEditMode) {

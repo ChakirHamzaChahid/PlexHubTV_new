@@ -11,6 +11,7 @@ import androidx.room.TypeConverters
 @TypeConverters(Converters::class)
 @Database(
     entities = [
+
         MediaEntity::class, 
         ServerEntity::class, 
         DownloadEntity::class, 
@@ -20,9 +21,11 @@ import androidx.room.TypeConverters
         FavoriteEntity::class,
         RemoteKey::class,
         LibrarySectionEntity::class,
-        TrackPreferenceEntity::class
+        TrackPreferenceEntity::class,
+        CollectionEntity::class,
+        MediaCollectionCrossRef::class
     ],
-    version = 17,
+    version = 19,
     exportSchema = false
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -36,4 +39,5 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun remoteKeysDao(): RemoteKeysDao
     abstract fun librarySectionDao(): LibrarySectionDao
     abstract fun trackPreferenceDao(): TrackPreferenceDao
+    abstract fun collectionDao(): CollectionDao
 }

@@ -91,7 +91,13 @@ class ConnectionManager @Inject constructor(
             }
         }
 
-        val firstUrl = winner.await()
+        // Wait for winner or all to fail
+        val firstUrl = try {
+             winner.await()
+        } catch (e: Exception) {
+             null
+        }
+        
         jobs.forEach { it.cancel() } // Stop other tests
         firstUrl
     }

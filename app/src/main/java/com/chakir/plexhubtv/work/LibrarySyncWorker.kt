@@ -160,6 +160,21 @@ class LibrarySyncWorker @AssistedInject constructor(
                 settingsDataStore.saveLastSyncTime(System.currentTimeMillis())
                 settingsDataStore.saveFirstSyncComplete(true)
                 android.util.Log.i("SyncWorker", "✓ Sync complete! Failures: $failureCount/${servers.size}")
+                
+                // TRIGGER COLLECTION SYNC NOW THAT WE HAVE DATA
+                try {
+                    android.util.Log.d("SyncWorker", "→ Triggering Collection Sync after successful library sync")
+                    val collectionSyncRequest = androidx.work.OneTimeWorkRequestBuilder<CollectionSyncWorker>()
+                        .build()
+                    androidx.work.WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                        "CollectionSync_Initial",
+                        androidx.work.ExistingWorkPolicy.REPLACE,
+                        collectionSyncRequest
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("SyncWorker", "Failed to trigger collection sync: ${e.message}")
+                }
+                
                 Result.success()
             }
         } catch (e: Exception) {

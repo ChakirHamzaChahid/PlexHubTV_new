@@ -80,4 +80,10 @@ abstract class RepositoryModule {
     abstract fun bindWatchlistRepository(
         impl: com.chakir.plexhubtv.data.repository.WatchlistRepositoryImpl
     ): com.chakir.plexhubtv.domain.repository.WatchlistRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindIptvRepository(
+        impl: com.chakir.plexhubtv.data.repository.IptvRepositoryImpl
+    ): com.chakir.plexhubtv.domain.repository.IptvRepository
 }

@@ -19,10 +19,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import kotlinx.coroutines.launch
+import com.chakir.plexhubtv.core.database.CollectionEntity
 
 /**
  * Implémentation du dépôt central pour les données multimédias.
@@ -42,6 +46,7 @@ class MediaRepositoryImpl @Inject constructor(
     private val authRepository: com.chakir.plexhubtv.domain.repository.AuthRepository,
     private val connectionManager: com.chakir.plexhubtv.core.network.ConnectionManager,
     private val favoriteDao: com.chakir.plexhubtv.core.database.FavoriteDao,
+    private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,
     private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
     private val plexApiCache: com.chakir.plexhubtv.core.network.PlexApiCache,
     private val gson: com.google.gson.Gson
@@ -608,9 +613,8 @@ class MediaRepositoryImpl @Inject constructor(
                 val hubs = body.mediaContainer?.hubs ?: emptyList()
                 
                 // Usually the first hub is "Similar" or "More like this"
-                // We'll flatten all hubs for now or pick the most relevant one
                 val similarHub = hubs.find { it.hubIdentifier == "similar" } ?: hubs.firstOrNull()
-                val metadata = similarHub?.metadata ?: hubs.flatMap { it.metadata ?: emptyList() }
+                val metadata = similarHub?.metadata ?: emptyList() // Don't fall back to flatMap here to avoid mixing Collections
                 
                 if (metadata.isNotEmpty()) {
                     val servers = authRepository.getServers().getOrNull() ?: emptyList()
@@ -626,6 +630,133 @@ class MediaRepositoryImpl @Inject constructor(
             return Result.failure(e)
         }
     }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    override fun getMediaCollections(ratingKey: String, serverId: String): Flow<List<com.chakir.plexhubtv.domain.model.Collection>> = flow {
+        android.util.Log.d("CollectionSync", "═══════════════════════════════")
+        android.util.Log.d("CollectionSync", "Repo: Requesting ALL collections for MEDIA")
+        android.util.Log.d("CollectionSync", "  - ratingKey: $ratingKey")
+        android.util.Log.d("CollectionSync", "  - serverId: $serverId")
+        android.util.Log.d("CollectionSync", "═══════════════════════════════")
+        
+        // Step 1: Get unificationId for this media
+        val unificationId = mediaDao.getUnificationId(ratingKey, serverId)
+        if (unificationId.isNullOrEmpty()) {
+            android.util.Log.w("CollectionSync", "❌ No unificationId found for this media")
+            emit(emptyList())
+            return@flow
+        }
+        
+        android.util.Log.d("CollectionSync", "→ UnificationId: $unificationId")
+        
+        // Step 2: Get ALL duplicates across all servers
+        val duplicates = mediaDao.getAllDuplicates(unificationId)
+        android.util.Log.d("CollectionSync", "→ Found ${duplicates.size} duplicate(s) across servers")
+        
+        if (duplicates.isEmpty()) {
+            android.util.Log.w("CollectionSync", "❌ No duplicates found (unusual, should at least include self)")
+            emit(emptyList())
+            return@flow
+        }
+        
+        // Step 3: For each duplicate, retrieve ALL its collections (not just first one)
+        data class CollectionKey(val id: String, val serverId: String)
+        val allCollections = mutableMapOf<CollectionKey, Pair<CollectionEntity, String>>()
+        
+        for (duplicate in duplicates) {
+            val collections = collectionDao.getCollectionsForMedia(duplicate.ratingKey, duplicate.serverId).first()
+            android.util.Log.d("CollectionSync", "  → Server ${duplicate.serverId.take(8)}: Found ${collections.size} collection(s)")
+            
+            collections.forEach { collection ->
+                val key = CollectionKey(collection.id, duplicate.serverId)
+                // Deduplicate: same collection on same server should only appear once
+                if (!allCollections.containsKey(key)) {
+                    allCollections[key] = collection to duplicate.serverId
+                    android.util.Log.d("CollectionSync", "     - '${collection.title}' (id=${collection.id})")
+                }
+            }
+        }
+        
+        if (allCollections.isEmpty()) {
+            android.util.Log.d("CollectionSync", "VM: No collections found across any server (Item not in any collection)")
+            emit(emptyList())
+            return@flow
+        }
+        
+        android.util.Log.i("CollectionSync", "✅ Found ${allCollections.size} unique collection(s) total")
+        
+        // Step 4: Build domain models for ALL collections
+        val result = allCollections.values.map { (collectionEntity, sId) ->
+            // Get items for this collection
+            val entities = collectionDao.getMediaInCollection(collectionEntity.id, sId).first()
+            val client = getClient(sId)
+            val baseUrl = client?.baseUrl
+            val token = client?.server?.accessToken
+            
+            val items = entities.map { entity ->
+                val domain = mapper.mapEntityToDomain(entity)
+                if (baseUrl != null && token != null) {
+                    val rawThumb = if (entity.thumbUrl != null && !entity.thumbUrl.startsWith("http")) "$baseUrl${entity.thumbUrl}?X-Plex-Token=$token" else entity.thumbUrl
+                    val rawArt = if (entity.artUrl != null && !entity.artUrl.startsWith("http")) "$baseUrl${entity.artUrl}?X-Plex-Token=$token" else entity.artUrl
+                    
+                    val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                    val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                    
+                    domain.copy(thumbUrl = fullThumb, artUrl = fullArt, baseUrl = baseUrl, accessToken = token)
+                } else {
+                    domain
+                }
+            }
+            
+            com.chakir.plexhubtv.domain.model.Collection(
+                id = collectionEntity.id,
+                serverId = sId,
+                title = collectionEntity.title,
+                summary = collectionEntity.summary,
+                thumbUrl = collectionEntity.thumbUrl,
+                items = items
+            )
+        }
+        
+        android.util.Log.i("CollectionSync", "→ Returning ${result.size} collection(s)")
+        emit(result)
+    }.flowOn(kotlinx.coroutines.Dispatchers.IO)
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    override fun getCollection(collectionId: String, serverId: String): Flow<com.chakir.plexhubtv.domain.model.Collection?> = 
+        collectionDao.getCollection(collectionId, serverId).flatMapLatest { entity ->
+            if (entity == null) return@flatMapLatest flowOf<com.chakir.plexhubtv.domain.model.Collection?>(null)
+            
+            collectionDao.getMediaInCollection(collectionId, serverId).map { entities ->
+                val client = getClient(serverId)
+                val baseUrl = client?.baseUrl
+                val token = client?.server?.accessToken
+                
+                val items = entities.map { itemEntity ->
+                    val domain = mapper.mapEntityToDomain(itemEntity)
+                    if (baseUrl != null && token != null) {
+                        val rawThumb = if (itemEntity.thumbUrl != null && !itemEntity.thumbUrl.startsWith("http")) "$baseUrl${itemEntity.thumbUrl}?X-Plex-Token=$token" else itemEntity.thumbUrl
+                        val rawArt = if (itemEntity.artUrl != null && !itemEntity.artUrl.startsWith("http")) "$baseUrl${itemEntity.artUrl}?X-Plex-Token=$token" else itemEntity.artUrl
+                        
+                        val fullThumb = getOptimizedImageUrl(rawThumb, 300, 450) ?: rawThumb
+                        val fullArt = getOptimizedImageUrl(rawArt, 1280, 720) ?: rawArt
+                        
+                        domain.copy(thumbUrl = fullThumb, artUrl = fullArt, baseUrl = baseUrl, accessToken = token)
+                    } else {
+                        domain
+                    }
+                }
+                
+                com.chakir.plexhubtv.domain.model.Collection(
+                    id = entity.id,
+                    serverId = serverId,
+                    title = entity.title,
+                    summary = entity.summary,
+                    thumbUrl = entity.thumbUrl,
+                    items = items
+                )
+            }
+        }.flowOn(kotlinx.coroutines.Dispatchers.IO)
 
     override suspend fun toggleWatchStatus(media: MediaItem, isWatched: Boolean): Result<Unit> {
         val client = getClient(media.serverId) ?: return Result.failure(Exception("Server not found"))
@@ -675,7 +806,9 @@ class MediaRepositoryImpl @Inject constructor(
     override fun getFavorites(): kotlinx.coroutines.flow.Flow<List<MediaItem>> {
         return favoriteDao.getAllFavorites().map { entities ->
              val servers = authRepository.getServers().getOrNull() ?: emptyList()
-             entities.map { entity ->
+             val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
+             
+             val items = entities.map { entity ->
                  val server = servers.find { it.clientIdentifier == entity.serverId }
                  val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
                  val token = server?.accessToken
@@ -685,7 +818,7 @@ class MediaRepositoryImpl @Inject constructor(
                      mapper.mapEntityToDomain(mediaEntity)
                  } else {
                       MediaItem(
-                             id = entity.ratingKey,
+                             id = "${entity.serverId}_${entity.ratingKey}",
                              ratingKey = entity.ratingKey,
                              serverId = entity.serverId,
                              title = entity.title,
@@ -716,6 +849,8 @@ class MediaRepositoryImpl @Inject constructor(
                      domain
                  }
              }
+             
+             deduplicateMediaItems(items, ownedServerIds, servers)
         }
     }
 
@@ -733,8 +868,17 @@ class MediaRepositoryImpl @Inject constructor(
                     try {
                         val token = settingsDataStore.plexToken.first()
                         val clientId = settingsDataStore.clientId.first()
+                        // Use GUID for global watchlist sync if available, fallback to ratingKey logic if needed (but usually GUID is safer for Plex Discover)
+                        val idToSync = media.guid ?: media.ratingKey 
+                        
                         if (token != null && clientId != null) {
-                            api.removeFromWatchlist(media.ratingKey, token, clientId)
+                            if (idToSync.startsWith("plex://")) {
+                                api.removeFromWatchlist(idToSync, token, clientId)
+                            } else {
+                                // If no global GUID, we can't reliably sync to Plex Watchlist (which is global)
+                                // But maybe the user wants to remove by ratingKey? Plex API usually expects `ratingKey` param to be the GUID string for Watchlist actions on metadata.provider.plex.tv
+                                android.util.Log.w("MediaRepository", "Skipping Watchlist sync: No valid GUID for ${media.title} ($idToSync)")
+                            }
                         }
                     } catch (e: Exception) {
                         android.util.Log.w("MediaRepository", "Failed to sync removal to Plex: ${e.message}")
@@ -746,7 +890,7 @@ class MediaRepositoryImpl @Inject constructor(
                     ratingKey = media.ratingKey,
                     serverId = media.serverId,
                     title = media.title,
-                    type = media.type.name.lowercase(), // Ensure matching type logic
+                    type = media.type.name.lowercase(),
                     thumbUrl = media.thumbUrl,
                     artUrl = media.artUrl,
                     year = media.year
@@ -756,14 +900,60 @@ class MediaRepositoryImpl @Inject constructor(
                     try {
                         val token = settingsDataStore.plexToken.first()
                         val clientId = settingsDataStore.clientId.first()
+                        val idToSync = media.guid ?: media.ratingKey
+                        
                         if (token != null && clientId != null) {
-                            api.addToWatchlist(media.ratingKey, token, clientId)
+                            if (idToSync.startsWith("plex://")) {
+                                api.addToWatchlist(idToSync, token, clientId)
+                            } else {
+                                android.util.Log.w("MediaRepository", "Skipping Watchlist sync: No valid GUID for ${media.title} ($idToSync)")
+                            }
                         }
                     } catch (e: Exception) {
                         android.util.Log.w("MediaRepository", "Failed to sync addition to Plex: ${e.message}")
                     }
                 }
                 Result.success(true)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun syncWatchlist(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val token = settingsDataStore.plexToken.first() ?: return@withContext Result.failure(Exception("No token"))
+            val clientId = settingsDataStore.clientId.first() ?: return@withContext Result.failure(Exception("No client ID"))
+
+            val response = api.getWatchlist(token, clientId)
+            if (response.isSuccessful) {
+                val metadata = response.body()?.mediaContainer?.metadata ?: emptyList()
+                
+                // For each item in watchlist, check if we have it locally matching by GUID
+                metadata.forEach { item ->
+                    val guid = item.guid // This is the Plex GUID e.g. plex://movie/5d77682...
+                    if (guid != null) {
+                        // Find local item(s) that match this GUID
+                        val localItems = mediaDao.getAllMediaByGuid(guid) // Returns List<MediaEntity>
+                        
+                        // Mark all matching local instances as Favorites
+                        localItems.forEach { local ->
+                             favoriteDao.insertFavorite(com.chakir.plexhubtv.core.database.FavoriteEntity(
+                                ratingKey = local.ratingKey,
+                                serverId = local.serverId,
+                                title = local.title,
+                                type = local.type,
+                                thumbUrl = local.thumbUrl,
+                                artUrl = local.artUrl,
+                                year = local.year,
+                                addedAt = System.currentTimeMillis() // Or use item.addedAt from Plex?
+                            ))
+                        }
+                    }
+                }
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to fetch watchlist: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

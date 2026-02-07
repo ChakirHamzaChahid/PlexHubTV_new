@@ -30,6 +30,10 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE guid = :guid AND serverId != :excludeServerId LIMIT 1")
     suspend fun getMediaByGuid(guid: String, excludeServerId: String): List<MediaEntity>
 
+    // For Watchlist Sync: Get ALL instances of a media across all servers
+    @Query("SELECT * FROM media WHERE guid = :guid")
+    suspend fun getAllMediaByGuid(guid: String): List<MediaEntity>
+
     // Deduplicate for legacy calls
     @Query("SELECT * FROM media WHERE serverId = :serverId AND librarySectionId = :libraryId GROUP BY ratingKey")
     fun getLibraryItems(serverId: String, libraryId: String): Flow<List<MediaEntity>>
@@ -210,4 +214,17 @@ interface MediaDao {
     // Dynamic Query for Index/Count
     @androidx.room.RawQuery
     suspend fun getMediaCountRaw(query: androidx.sqlite.db.SupportSQLiteQuery): Int
+    
+    // COLLECTION AGGREGATION: Get unificationId for a specific media
+    @Query("SELECT unificationId FROM media WHERE ratingKey = :ratingKey AND serverId = :serverId LIMIT 1")
+    suspend fun getUnificationId(ratingKey: String, serverId: String): String?
+    
+    // COLLECTION AGGREGATION: Get all server duplicates with the same unificationId
+    @Query("""
+        SELECT * FROM media 
+        WHERE unificationId = :unificationId 
+        AND unificationId != ''
+        GROUP BY ratingKey, serverId
+    """)
+    suspend fun getAllDuplicates(unificationId: String): List<MediaEntity>
 }

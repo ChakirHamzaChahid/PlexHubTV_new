@@ -29,6 +29,37 @@ object DatabaseModule {
         }
     }
 
+    private val MIGRATION_18_19 = object : androidx.room.migration.Migration(18, 19) {
+        override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+             // 1. Create new table with composite PK (id, serverId)
+             database.execSQL("""
+                CREATE TABLE IF NOT EXISTS `collections_new` (
+                    `id` TEXT NOT NULL, 
+                    `serverId` TEXT NOT NULL, 
+                    `title` TEXT NOT NULL, 
+                    `summary` TEXT, 
+                    `thumbUrl` TEXT, 
+                    `lastSync` INTEGER NOT NULL, 
+                    PRIMARY KEY(`id`, `serverId`)
+                )
+             """)
+
+             // 2. Copy data from old table
+             // Note: If serverId column didn't exist in v18, this would fail. 
+             // We assume it existed but wasn't part of PK.
+             database.execSQL("""
+                INSERT INTO `collections_new` (`id`, `serverId`, `title`, `summary`, `thumbUrl`, `lastSync`)
+                SELECT `id`, `serverId`, `title`, `summary`, `thumbUrl`, `lastSync` FROM `collections`
+             """)
+
+             // 3. Drop old table
+             database.execSQL("DROP TABLE `collections`")
+
+             // 4. Rename new table
+             database.execSQL("ALTER TABLE `collections_new` RENAME TO `collections`")
+        }
+    }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -51,7 +82,7 @@ object DatabaseModule {
                 db.execSQL("PRAGMA cache_size = -8000") // 8MB cache
             }
         })
-        .addMigrations(MIGRATION_11_12, MIGRATION_15_16)
+        .addMigrations(MIGRATION_11_12, MIGRATION_15_16, MIGRATION_18_19)
         .fallbackToDestructiveMigration()
         .build()
     }
@@ -95,5 +126,10 @@ object DatabaseModule {
     @Provides
     fun provideTrackPreferenceDao(database: PlexDatabase): TrackPreferenceDao {
         return database.trackPreferenceDao()
+    }
+
+    @Provides
+    fun provideCollectionDao(database: PlexDatabase): CollectionDao {
+        return database.collectionDao()
     }
 }

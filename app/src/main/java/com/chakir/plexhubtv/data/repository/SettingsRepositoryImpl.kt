@@ -93,4 +93,10 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun toggleServerExclusion(serverId: String) {
         settingsDataStore.toggleServerExclusion(serverId)
     }
+
+    override val iptvPlaylistUrl: Flow<String?> = settingsDataStore.iptvPlaylistUrl
+
+    override suspend fun saveIptvPlaylistUrl(url: String) {
+        settingsDataStore.saveIptvPlaylistUrl(url)
+    }
 }

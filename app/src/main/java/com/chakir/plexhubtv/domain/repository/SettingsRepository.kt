@@ -47,4 +47,7 @@ interface SettingsRepository {
 
     val excludedServerIds: Flow<Set<String>>
     suspend fun toggleServerExclusion(serverId: String)
+
+    val iptvPlaylistUrl: Flow<String?>
+    suspend fun saveIptvPlaylistUrl(url: String)
 }

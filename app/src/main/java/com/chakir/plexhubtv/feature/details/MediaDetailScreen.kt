@@ -46,6 +46,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.chakir.plexhubtv.domain.model.MediaItem
 import com.chakir.plexhubtv.domain.model.MediaType
+import com.chakir.plexhubtv.domain.model.Collection
 import com.chakir.plexhubtv.feature.home.MediaCard
 
 /**
@@ -60,6 +61,7 @@ fun MediaDetailRoute(
     onNavigateToPlayer: (String, String) -> Unit,
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateToSeason: (String, String) -> Unit,
+    onNavigateToCollection: (String, String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -71,6 +73,7 @@ fun MediaDetailRoute(
                 is MediaDetailNavigationEvent.NavigateToPlayer -> onNavigateToPlayer(event.ratingKey, event.serverId)
                 is MediaDetailNavigationEvent.NavigateToMediaDetail -> onNavigateToDetail(event.ratingKey, event.serverId)
                 is MediaDetailNavigationEvent.NavigateToSeason -> onNavigateToSeason(event.ratingKey, event.serverId)
+                is MediaDetailNavigationEvent.NavigateToCollection -> onNavigateToCollection(event.collectionId, event.serverId)
                 is MediaDetailNavigationEvent.NavigateBack -> onNavigateBack()
             }
         }
@@ -78,14 +81,16 @@ fun MediaDetailRoute(
 
     MediaDetailScreen(
         state = uiState,
-        onAction = viewModel::onEvent
+        onAction = viewModel::onEvent,
+        onCollectionClicked = viewModel::onCollectionClicked
     )
 }
 
 @Composable
 fun MediaDetailScreen(
     state: MediaDetailUiState,
-    onAction: (MediaDetailEvent) -> Unit
+    onAction: (MediaDetailEvent) -> Unit,
+    onCollectionClicked: (String, String) -> Unit
 ) {
     Scaffold { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.background)) {
@@ -108,7 +113,9 @@ fun MediaDetailScreen(
                     media = state.media,
                     seasons = state.seasons,
                     similarItems = state.similarItems,
-                    onAction = onAction
+                    state = state, // Pass full state to access collection
+                    onAction = onAction,
+                    onCollectionClicked = onCollectionClicked
                 )
             }
         }
@@ -131,7 +138,9 @@ fun MediaDetailContent(
     media: MediaItem,
     seasons: List<MediaItem>,
     similarItems: List<MediaItem>,
-    onAction: (MediaDetailEvent) -> Unit
+    state: MediaDetailUiState, // Added this
+    onAction: (MediaDetailEvent) -> Unit,
+    onCollectionClicked: (String, String) -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         // 1. Background Backdrop
@@ -162,15 +171,17 @@ fun MediaDetailContent(
                 )
         )
 
-        // 2. Main Content Scrollable
-        val scrollState = rememberScrollState()
-        Row(
+        // 2. Main Content Scrollable (LazyColumn for TV D-pad navigation)
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(start = 64.dp, end = 32.dp, top = 24.dp, bottom = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(32.dp)
+                .padding(start = 64.dp, end = 32.dp, top = 24.dp, bottom = 24.dp)
         ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp)
+                ) {
             // Left Column: Poster + Ratings
             Column(
                 modifier = Modifier
@@ -333,7 +344,7 @@ fun MediaDetailContent(
                 Spacer(modifier = Modifier.height(8.dp)) // Reduced spacer
 
                 // Action Buttons
-                ActionButtonsRow(media = media, onAction = onAction)
+                ActionButtonsRow(media = media, state = state, onAction = onAction)
 
                 Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer
 
@@ -383,6 +394,50 @@ fun MediaDetailContent(
                     }
                 }
 
+                // Collections Section
+                if (state.collections.isNotEmpty()) {
+                    if (media.type == MediaType.Show && seasons.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    Text(
+                        text = "Collections", 
+                        style = MaterialTheme.typography.titleMedium, 
+                        fontWeight = FontWeight.Bold, 
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(state.collections) { collection ->
+                            Surface(
+                                onClick = { onCollectionClicked(collection.id, collection.serverId) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color.White.copy(alpha = 0.1f),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = collection.title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "(${collection.items.size} items)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 // Similar Items Row (More Like This)
                 if (similarItems.isNotEmpty()) {
                     if (media.type == MediaType.Show && seasons.isNotEmpty()) {
@@ -415,15 +470,17 @@ fun MediaDetailContent(
                 }
             }
         }
-        
-        // Back Button
-        IconButton(
-            onClick = { onAction(MediaDetailEvent.Back) },
-            modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
-        ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
         }
     }
+        
+    // Back Button
+    IconButton(
+        onClick = { onAction(MediaDetailEvent.Back) },
+        modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
+    ) {
+        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+    }
+}
 }
 
 @Composable
@@ -444,7 +501,7 @@ fun DetailRatingItem(label: String, value: Double, icon: ImageVector, color: Col
 }
 
 @Composable
-fun ActionButtonsRow(media: MediaItem, onAction: (MediaDetailEvent) -> Unit) {
+fun ActionButtonsRow(media: MediaItem, state: MediaDetailUiState, onAction: (MediaDetailEvent) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { // Slightly tighter spacing
         val playFocusRequester = remember { FocusRequester() }
         
@@ -461,9 +518,12 @@ fun ActionButtonsRow(media: MediaItem, onAction: (MediaDetailEvent) -> Unit) {
                     onAction(MediaDetailEvent.PlayClicked)
                 }
             },
+            enabled = !state.isEnriching, // Disable while enriching
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (playFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f),
-                contentColor = if (playFocused) MaterialTheme.colorScheme.onPrimary else Color.White
+                containerColor = if (playFocused) MaterialTheme.colorScheme.secondary else Color.White.copy(alpha = 0.15f),
+                contentColor = if (playFocused) MaterialTheme.colorScheme.onSecondary else Color.White,
+                disabledContainerColor = Color.White.copy(alpha = 0.1f),
+                disabledContentColor = Color.White.copy(alpha = 0.5f)
             ),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), // Compact padding
             modifier = Modifier
@@ -472,8 +532,18 @@ fun ActionButtonsRow(media: MediaItem, onAction: (MediaDetailEvent) -> Unit) {
                 .height(40.dp) // Fixed height to match IconButtons
                 .scale(if (playFocused) 1.05f else 1f)
         ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(4.dp))
+            if (state.isEnriching) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.width(8.dp))
+                // Text("Loading...", style = MaterialTheme.typography.labelLarge) // Optional text
+            } else {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(4.dp))
+            }
             Text("Play", style = MaterialTheme.typography.labelLarge)
         }
         
@@ -514,7 +584,7 @@ fun ActionButtonsRow(media: MediaItem, onAction: (MediaDetailEvent) -> Unit) {
              Icon(
                  imageVector = if (media.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                  contentDescription = "Favorite", 
-                 tint = if (media.isFavorite) Color.Red else Color.White,
+                 tint = if (media.isFavorite) MaterialTheme.colorScheme.error else Color.White,
                  modifier = Modifier.size(20.dp)
              )
         }
@@ -583,7 +653,7 @@ fun SourceSelectionDialog(
                             if (source.hasHDR) {
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFFFF9800), // Orange for HDR
+                                    color = MaterialTheme.colorScheme.tertiary, // Gold/Accent for HDR
                                     modifier = Modifier.padding(end = 8.dp)
                                 ) {
                                     Text(
@@ -600,7 +670,7 @@ fun SourceSelectionDialog(
                                  Surface(
                                      shape = RoundedCornerShape(4.dp),
                                      color = if (source.resolution.contains("4k", ignoreCase = true) || source.resolution.startsWith("2160")) 
-                                                Color(0xFFE91E63) else MaterialTheme.colorScheme.primaryContainer
+                                                MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceVariant
                                  ) {
                                      Text(
                                          source.resolution.uppercase(), 
@@ -608,7 +678,7 @@ fun SourceSelectionDialog(
                                          style = MaterialTheme.typography.labelSmall, 
                                          fontWeight = FontWeight.Bold,
                                          color = if (source.resolution.contains("4k", ignoreCase = true) || source.resolution.startsWith("2160")) 
-                                                    Color.White else MaterialTheme.colorScheme.onPrimaryContainer
+                                                    MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurfaceVariant
                                      )
                                  }
                             }
@@ -638,7 +708,8 @@ fun PreviewMediaDetailMovie() {
     )
     MediaDetailScreen(
         state = MediaDetailUiState(media = movie),
-        onAction = {}
+        onAction = {},
+        onCollectionClicked = { _, _ -> }
     )
 }
 
@@ -656,6 +727,7 @@ fun PreviewMediaDetailShow() {
     )
     MediaDetailScreen(
         state = MediaDetailUiState(media = show, seasons = seasons),
-        onAction = {}
+        onAction = {},
+        onCollectionClicked = { _, _ -> }
     )
 }
