@@ -270,25 +270,34 @@ class MediaDetailViewModel
 
         private fun loadSimilarItems() {
             viewModelScope.launch {
-                getSimilarMediaUseCase(ratingKey, serverId).onSuccess { items ->
-                    _uiState.update { it.copy(similarItems = items) }
-                }
+                getSimilarMediaUseCase(ratingKey, serverId)
+                    .onSuccess { items ->
+                        Timber.d("VM: Loaded ${items.size} similar items for $ratingKey")
+                        _uiState.update { it.copy(similarItems = items) }
+                    }
+                    .onFailure { error ->
+                        Timber.w(error, "VM: Failed to load similar items for $ratingKey")
+                    }
             }
         }
 
         private fun loadCollection() {
-            Timber.d("VM: Loading ALL collections for ratingKey=$ratingKey serverId=$serverId")
+            Timber.d("VM: Loading collections for ratingKey=$ratingKey serverId=$serverId")
             viewModelScope.launch {
-                getMediaCollectionsUseCase(ratingKey, serverId).collect { collections ->
-                    if (collections.isNotEmpty()) {
-                        Timber.d("VM: Received ${collections.size} collection(s)")
-                        collections.forEach { col ->
-                            Timber.d("   - '${col.title}' (${col.items.size} items, server=${col.serverId.take(8)})")
+                try {
+                    getMediaCollectionsUseCase(ratingKey, serverId).collect { collections ->
+                        if (collections.isNotEmpty()) {
+                            Timber.i("VM: ✅ Received ${collections.size} collection(s)")
+                            collections.forEach { col ->
+                                Timber.d("   - '${col.title}' (${col.items.size} items, server=${col.serverId})")
+                            }
+                        } else {
+                            Timber.w("VM: ⚠️ No collections received for $ratingKey (empty result from repository)")
                         }
-                    } else {
-                        Timber.d("VM: No collections received for $ratingKey")
+                        _uiState.update { it.copy(collections = collections) }
                     }
-                    _uiState.update { it.copy(collections = collections) }
+                } catch (e: Exception) {
+                    Timber.e(e, "VM: ❌ Exception loading collections for $ratingKey")
                 }
             }
         }

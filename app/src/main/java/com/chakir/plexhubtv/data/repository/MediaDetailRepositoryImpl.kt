@@ -20,6 +20,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -35,6 +36,7 @@ class MediaDetailRepositoryImpl
         private val authRepository: AuthRepository,
         private val connectionManager: ConnectionManager,
         private val mediaDao: MediaDao,
+        private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,
         private val plexApiCache: PlexApiCache,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
@@ -174,13 +176,28 @@ class MediaDetailRepositoryImpl
                 val client = getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
                 val response = client.getRelated(ratingKey)
                 if (response.isSuccessful) {
-                    val metadata = response.body()?.mediaContainer?.metadata ?: emptyList()
-                    val items =
-                        metadata.map {
+                    val body = response.body()
+                    if (body != null) {
+                        // The /related endpoint returns HUBS, not direct metadata
+                        // Usually the first hub is "Similar" or "More like this"
+                        val hubs = body.mediaContainer?.hubs ?: emptyList()
+                        Timber.d("Similar: Received ${hubs.size} hubs for $ratingKey")
+                        
+                        val similarHub = hubs.find { it.hubIdentifier == "similar" } ?: hubs.firstOrNull()
+                        val metadata = similarHub?.metadata ?: emptyList()
+                        
+                        Timber.d("Similar: Found ${metadata.size} items in similar hub")
+                        
+                        val items = metadata.map {
                             mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
                         }
-                    Result.success(items)
+                        Result.success(items)
+                    } else {
+                        Timber.w("Similar: Response body is null for $ratingKey")
+                        Result.success(emptyList())
+                    }
                 } else {
+                    Timber.w("Similar: API returned ${response.code()} for $ratingKey")
                     Result.failure(Exception("API Error: ${response.code()}"))
                 }
             } catch (e: IOException) {
@@ -198,89 +215,92 @@ class MediaDetailRepositoryImpl
         override fun getMediaCollections(
             ratingKey: String,
             serverId: String,
-        ): Flow<List<Collection>> =
-            flow {
-                val serverResult = authRepository.getServers()
-                val servers = serverResult.getOrNull() ?: emptyList()
-
-                val item = getMediaDetail(ratingKey, serverId).getOrNull() ?: return@flow
-                val guid = item.guid ?: return@flow
-
-                coroutineScope {
-                    val deferreds =
-                        servers.map { server ->
-                            async(ioDispatcher) {
-                                val baseUrl = connectionManager.findBestConnection(server) ?: return@async emptyList<Collection>()
-                                val client = PlexClient(server, api, baseUrl)
-
-                                val metadataResponse = client.getMetadataByGuid(guid)
-                                if (metadataResponse.isSuccessful) {
-                                    val metadata = metadataResponse.body()?.mediaContainer?.metadata?.firstOrNull()
-                                    val collections = metadata?.collections ?: return@async emptyList()
-
-                                    collections.mapNotNull { collDto ->
-                                        val collRatingKey = collDto.ratingKey ?: collDto.id ?: return@mapNotNull null
-                                        val hubResponse = client.getCollectionHubs(collRatingKey)
-                                        if (hubResponse.isSuccessful) {
-                                            val hubs = hubResponse.body()?.mediaContainer?.hubs ?: emptyList()
-                                            val items =
-                                                hubs.flatMap { hub ->
-                                                    hub.metadata?.map { mapper.mapDtoToDomain(it, server.clientIdentifier, baseUrl, server.accessToken) } ?: emptyList<MediaItem>()
-                                                }
-                                            Collection(
-                                                id = collRatingKey,
-                                                serverId = server.clientIdentifier,
-                                                title = collDto.tag ?: "Collection",
-                                                items = items,
+        ): Flow<List<Collection>> {
+            return collectionDao.getCollectionsForMedia(ratingKey, serverId)
+                .map { collectionEntities ->
+                    if (collectionEntities.isEmpty()) {
+                        Timber.d("Collections: No collections found in DB for $ratingKey")
+                        emptyList()
+                    } else {
+                        Timber.d("Collections: Found ${collectionEntities.size} collections in DB for $ratingKey")
+                        
+                        // For each collection, get its items from the database
+                        collectionEntities.map { collEntity ->
+                            val items = collectionDao.getMediaInCollection(collEntity.id, collEntity.serverId)
+                                .map { mediaEntities ->
+                                    mediaEntities.map { entity ->
+                                        val client = getClient(entity.serverId)
+                                        val baseUrl = client?.baseUrl
+                                        val token = client?.server?.accessToken
+                                        
+                                        val domain = mapper.mapEntityToDomain(entity)
+                                        if (baseUrl != null && token != null) {
+                                            mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                                                baseUrl = baseUrl,
+                                                accessToken = token,
                                             )
                                         } else {
-                                            null
+                                            domain
                                         }
                                     }
-                                } else {
-                                    emptyList()
                                 }
-                            }
+                                .first() // Get first emission
+                            
+                            Collection(
+                                id = collEntity.id,
+                                serverId = collEntity.serverId,
+                                title = collEntity.title,
+                                items = items,
+                            )
                         }
-
-                    val allResults = deferreds.awaitAll().flatten()
-
-                    data class CollectionKey(val title: String)
-                    val aggregated =
-                        allResults.groupBy { CollectionKey(it.title) }
-                            .map { (key, group) ->
-                                group.first().copy(
-                                    items = group.flatMap { it.items }.distinctBy { it.guid ?: it.ratingKey },
-                                )
-                            }
-
-                    emit(aggregated)
+                    }
                 }
-            }.flowOn(ioDispatcher)
+                .flowOn(ioDispatcher)
+        }
 
         override fun getCollection(
             collectionId: String,
             serverId: String,
-        ): Flow<Collection?> =
-            flow {
-                val client = getClient(serverId) ?: return@flow
-                val response = client.getCollectionHubs(collectionId)
-                if (response.isSuccessful) {
-                    val hubs = response.body()?.mediaContainer?.hubs ?: emptyList()
-                    val items =
-                        hubs.flatMap { hub ->
-                            hub.metadata?.map { mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken) } ?: emptyList()
-                        }
-                    emit(
+        ): Flow<Collection?> {
+            return collectionDao.getCollection(collectionId, serverId)
+                .map { collectionEntity ->
+                    if (collectionEntity == null) {
+                        Timber.w("Collection: Not found in DB - id=$collectionId server=$serverId")
+                        null
+                    } else {
+                        Timber.d("Collection: Found '${collectionEntity.title}' in DB")
+                        
+                        // Get collection items from database
+                        val items = collectionDao.getMediaInCollection(collectionId, serverId)
+                            .map { mediaEntities ->
+                                mediaEntities.map { entity ->
+                                    val client = getClient(entity.serverId)
+                                    val baseUrl = client?.baseUrl
+                                    val token = client?.server?.accessToken
+                                    
+                                    val domain = mapper.mapEntityToDomain(entity)
+                                    if (baseUrl != null && token != null) {
+                                        mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                                            baseUrl = baseUrl,
+                                            accessToken = token,
+                                        )
+                                    } else {
+                                        domain
+                                    }
+                                }
+                            }
+                            .first()
+                        
                         Collection(
-                            id = collectionId,
-                            serverId = serverId,
-                            title = "Collection",
+                            id = collectionEntity.id,
+                            serverId = collectionEntity.serverId,
+                            title = collectionEntity.title,
                             items = items,
-                        ),
-                    )
+                        )
+                    }
                 }
-            }.flowOn(ioDispatcher)
+                .flowOn(ioDispatcher)
+        }
 
         private suspend fun getClient(serverId: String): PlexClient? {
             val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null

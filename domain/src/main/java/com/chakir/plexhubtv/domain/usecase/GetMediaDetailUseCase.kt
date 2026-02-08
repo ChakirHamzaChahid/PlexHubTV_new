@@ -38,6 +38,34 @@ class GetMediaDetailUseCase
             serverId: String,
         ): Flow<Result<MediaDetail>> =
             flow {
+                // Special case for IPTV channels: they don't need server lookup
+                // ratingKey contains the stream URL, serverId is "iptv"
+                if (serverId == "iptv") {
+                    // For IPTV, ratingKey is actually the stream URL
+                    val iptvItem =
+                        MediaItem(
+                            id = "iptv:$ratingKey",
+                            ratingKey = ratingKey,
+                            serverId = "iptv",
+                            title = ratingKey, // Will be overridden by navigation args if available
+                            type = MediaType.Clip, // Use Clip for IPTV streams
+                            mediaParts =
+                                listOf(
+                                    com.chakir.plexhubtv.core.model.MediaPart(
+                                        id = "iptv-part-0",
+                                        key = ratingKey, // Stream URL
+                                        duration = null,
+                                        file = ratingKey,
+                                        size = null,
+                                        container = "mpegts", // Common for IPTV
+                                        streams = emptyList(),
+                                    ),
+                                ),
+                        )
+                    emit(Result.success(MediaDetail(item = iptvItem, children = emptyList())))
+                    return@flow
+                }
+
                 coroutineScope {
                     // 1. Start fetching primary detail
                     val itemDeferred = async { mediaDetailRepository.getMediaDetail(ratingKey, serverId) }
