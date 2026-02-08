@@ -29,6 +29,7 @@ build_log.txt
 /core/network/build
 /core/ui/build
 /core/database/build
+/core/datastore/build
 /core/domain/build
 /core/model/build
 /core/paging/build
