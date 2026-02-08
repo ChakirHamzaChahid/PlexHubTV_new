@@ -1,4 +1,24 @@
 /build
+/core/common/build
+/core/network/build
+/core/ui/build
+/core/database/build
+/core/domain/build
+/core/model/build
+/core/paging/build
+/core/preferences/build
+/core/repository/build
+/core/ui/build
+/core/utils/build
+/feature/auth/build
+/feature/home/build
+/feature/library/build
+/feature/player/build
+/feature/search/build
+/feature/settings/build
+/feature/splash/build
+/feature/tvguide/build
+/feature/tvguide/build
 # Keystore (SÉCURITÉ)
 keystore/
 *.jks
