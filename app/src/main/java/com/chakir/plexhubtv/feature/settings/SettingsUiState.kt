@@ -13,31 +13,46 @@ data class SettingsUiState(
     val availableServers: List<String> = listOf("MyServer"),
     val availableServersMap: Map<String, String> = emptyMap(),
     val playerEngine: String = "ExoPlayer",
-    val appVersion: String = "0.7.0",
+    val appVersion: String = "0.8.0",
     val isSyncing: Boolean = false,
     val syncMessage: String? = null,
     val syncError: String? = null,
     val excludedServerIds: Set<String> = emptySet(),
     val preferredAudioLanguage: String? = null,
-    val preferredSubtitleLanguage: String? = null
+    val preferredSubtitleLanguage: String? = null,
 )
 
 enum class AppTheme {
-    Plex, MonoDark, MonoLight, Morocco
+    Plex,
+    MonoDark,
+    MonoLight,
+    Morocco,
 }
 
 sealed interface SettingsAction {
     data class ChangeTheme(val theme: AppTheme) : SettingsAction
+
     data class ChangeVideoQuality(val quality: String) : SettingsAction
+
     data object ClearCache : SettingsAction
+
     data class SelectDefaultServer(val serverName: String) : SettingsAction
+
     data class ChangePlayerEngine(val engine: String) : SettingsAction
+
     data object Back : SettingsAction
+
     data object Logout : SettingsAction
+
     data object CheckServerStatus : SettingsAction
+
     data object ForceSync : SettingsAction
+
     data object SyncWatchlist : SettingsAction
+
     data class ChangePreferredAudioLanguage(val language: String?) : SettingsAction
+
     data class ChangePreferredSubtitleLanguage(val language: String?) : SettingsAction
+
     data class ToggleServerExclusion(val serverId: String) : SettingsAction
 }

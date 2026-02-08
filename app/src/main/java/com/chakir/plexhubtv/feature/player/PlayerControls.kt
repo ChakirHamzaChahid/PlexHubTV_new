@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.feature.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,12 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.chakir.plexhubtv.domain.model.AudioTrack
-import com.chakir.plexhubtv.domain.model.SubtitleTrack
 
 /**
  * Interface utilisateur des contrôles du lecteur vidéo (Overlay).
@@ -36,41 +33,44 @@ fun PlayerControls(
     uiState: PlayerUiState,
     onAction: (PlayerAction) -> Unit,
     title: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     // Gradient Overlays
     Box(modifier = modifier.fillMaxSize()) {
         // Top Gradient
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-                .align(Alignment.TopCenter)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
-                    )
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent),
+                        ),
+                    ),
         )
 
         // Bottom Gradient
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .align(Alignment.BottomCenter)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
-                    )
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
+                        ),
+                    ),
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
             // Top Bar
             TopControlBar(title = title, onClose = { onAction(PlayerAction.Close) })
@@ -84,7 +84,7 @@ fun PlayerControls(
                 onNext = { onAction(PlayerAction.Next) },
                 onPrevious = { onAction(PlayerAction.Previous) },
                 hasNext = true, // TODO: Check playlist/episodes
-                hasPrevious = true // TODO: Check playback history
+                hasPrevious = true, // TODO: Check playback history
             )
 
             // Bottom Bar (Seekbar + Options)
@@ -95,23 +95,26 @@ fun PlayerControls(
                 onSeek = { onAction(PlayerAction.SeekTo(it)) },
                 onAudioSettings = { onAction(PlayerAction.ShowAudioSelector) },
                 onSubtitleSettings = { onAction(PlayerAction.ShowSubtitleSelector) },
-                onVideoSettings = { /* TODO: Video Settings */ }
+                onVideoSettings = { /* TODO: Video Settings */ },
             )
         }
     }
 }
 
 @Composable
-fun TopControlBar(title: String, onClose: () -> Unit) {
+fun TopControlBar(
+    title: String,
+    onClose: () -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         IconButton(onClick = onClose) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
                 contentDescription = "Back",
-                tint = Color.White
+                tint = Color.White,
             )
         }
         Spacer(modifier = Modifier.width(16.dp))
@@ -120,7 +123,7 @@ fun TopControlBar(title: String, onClose: () -> Unit) {
             style = MaterialTheme.typography.titleLarge,
             color = Color.White,
             fontWeight = FontWeight.SemiBold,
-            maxLines = 1
+            maxLines = 1,
         )
     }
 }
@@ -134,24 +137,24 @@ fun CenterControls(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     hasNext: Boolean,
-    hasPrevious: Boolean
+    hasPrevious: Boolean,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         // Previous
         IconButton(
             onClick = onPrevious,
             enabled = hasPrevious,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(48.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = "Previous",
                 tint = if (hasPrevious) Color.White else Color.White.copy(alpha = 0.3f),
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(32.dp),
             )
         }
 
@@ -163,7 +166,7 @@ fun CenterControls(
                 imageVector = Icons.Rounded.FastRewind,
                 contentDescription = "Rewind 10s",
                 tint = Color.White,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             )
         }
 
@@ -172,15 +175,16 @@ fun CenterControls(
         // Play/Pause (Hero)
         IconButton(
             onClick = onPlayPause,
-            modifier = Modifier
-                .size(80.dp)
-                .background(MaterialTheme.colorScheme.primary, shape = androidx.compose.foundation.shape.CircleShape)
+            modifier =
+                Modifier
+                    .size(80.dp)
+                    .background(MaterialTheme.colorScheme.primary, shape = androidx.compose.foundation.shape.CircleShape),
         ) {
             Icon(
                 imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play",
                 tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
             )
         }
 
@@ -192,7 +196,7 @@ fun CenterControls(
                 imageVector = Icons.Rounded.FastForward,
                 contentDescription = "Forward 10s",
                 tint = Color.White,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             )
         }
 
@@ -202,13 +206,13 @@ fun CenterControls(
         IconButton(
             onClick = onNext,
             enabled = hasNext,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(48.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = "Next",
                 tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.3f),
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(32.dp),
             )
         }
     }
@@ -222,25 +226,25 @@ fun BottomControlBar(
     onSeek: (Long) -> Unit,
     onAudioSettings: () -> Unit,
     onSubtitleSettings: () -> Unit,
-    onVideoSettings: () -> Unit
+    onVideoSettings: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Time & Slider
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
                 text = formatDuration(currentPosition),
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.8f)
+                color = Color.White.copy(alpha = 0.8f),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = formatDuration(duration),
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.5f)
+                color = Color.White.copy(alpha = 0.5f),
             )
         }
 
@@ -249,41 +253,42 @@ fun BottomControlBar(
             value = currentPosition.toFloat(),
             onValueChange = { onSeek(it.toLong()) },
             valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-            ),
-            modifier = Modifier.height(20.dp) // Compact touch target
+            colors =
+                SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = Color.White.copy(alpha = 0.3f),
+                ),
+            modifier = Modifier.height(20.dp), // Compact touch target
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
 
         // Action Buttons Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             ControlButton(
                 icon = Icons.Rounded.Audiotrack,
                 label = "Audio",
-                onClick = onAudioSettings
+                onClick = onAudioSettings,
             )
             ControlButton(
                 icon = Icons.Rounded.ClosedCaption,
                 label = "Subtitles",
-                onClick = onSubtitleSettings
+                onClick = onSubtitleSettings,
             )
-             ControlButton(
+            ControlButton(
                 icon = Icons.Rounded.AspectRatio,
                 label = "Fit", // Aspect Ratio
-                onClick = {}
+                onClick = {},
             )
             ControlButton(
                 icon = Icons.Rounded.Settings,
                 label = "Settings",
-                onClick = onVideoSettings
+                onClick = onVideoSettings,
             )
         }
     }
@@ -293,23 +298,23 @@ fun BottomControlBar(
 fun ControlButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier.clickable(onClick = onClick),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = Color.White,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.8f)
+            color = Color.White.copy(alpha = 0.8f),
         )
     }
 }
@@ -319,7 +324,7 @@ fun formatDuration(ms: Long): String {
     val m = totalSeconds / 60
     val s = totalSeconds % 60
     val h = m / 60
-    
+
     return if (h > 0) {
         "%d:%02d:%02d".format(h, m % 60, s)
     } else {

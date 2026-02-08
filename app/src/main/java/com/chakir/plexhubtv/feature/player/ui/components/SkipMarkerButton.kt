@@ -1,14 +1,13 @@
 package com.chakir.plexhubtv.feature.player.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,14 +18,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.ui.draw.scale
-import com.chakir.plexhubtv.domain.model.Marker
+import com.chakir.plexhubtv.core.model.Marker
 
 /** Bouton animé qui apparaît pendant les intros ou les crédits pour les passer. */
 @Composable
@@ -35,7 +32,7 @@ fun SkipMarkerButton(
     markerType: String,
     isVisible: Boolean,
     onSkip: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val displayText =
         when (markerType) {
@@ -59,32 +56,33 @@ fun SkipMarkerButton(
         visible = isVisible && marker != null,
         enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
         exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
-        modifier = modifier
+        modifier = modifier,
     ) {
         androidx.compose.material3.Surface(
             onClick = onSkip,
             shape = RoundedCornerShape(8.dp),
             color = if (isFocused) buttonColor else buttonColor.copy(alpha = 0.8f),
-            modifier = Modifier
-                .scale(scale),
-            interactionSource = interactionSource
+            modifier =
+                Modifier
+                    .scale(scale),
+            interactionSource = interactionSource,
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = displayText,
                     tint = Color.White,
-                    modifier = Modifier
+                    modifier = Modifier,
                 )
                 Text(
                     text = displayText,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
                 )
             }
         }

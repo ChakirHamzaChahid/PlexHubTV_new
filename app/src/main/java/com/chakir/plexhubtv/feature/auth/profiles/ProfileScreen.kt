@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.chakir.plexhubtv.domain.model.PlexHomeUser
+import com.chakir.plexhubtv.core.model.PlexHomeUser
 
 /**
  * Écran de sélection de profil (Plex Home).
@@ -32,7 +32,7 @@ import com.chakir.plexhubtv.domain.model.PlexHomeUser
 fun ProfileRoute(
     viewModel: ProfileViewModel = hiltViewModel(),
     onSwitchSuccess: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -45,7 +45,7 @@ fun ProfileRoute(
     ProfileScreen(
         state = uiState,
         onAction = viewModel::onAction,
-        onBack = onBack
+        onBack = onBack,
     )
 }
 
@@ -53,22 +53,23 @@ fun ProfileRoute(
 fun ProfileScreen(
     state: ProfileUiState,
     onAction: (ProfileAction) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(modifier = Modifier.height(48.dp))
             Text(
                 text = "Qui regarde ?",
                 style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Spacer(modifier = Modifier.height(48.dp))
 
@@ -78,7 +79,7 @@ fun ProfileScreen(
                 Text(
                     text = state.error,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(16.dp),
                 )
                 Button(onClick = { onAction(ProfileAction.LoadUsers) }) {
                     Text("Réessayer")
@@ -89,12 +90,12 @@ fun ProfileScreen(
                     contentPadding = PaddingValues(32.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.widthIn(max = 800.dp)
+                    modifier = Modifier.widthIn(max = 800.dp),
                 ) {
                     items(state.users) { user ->
                         UserProfileCard(
                             user = user,
-                            onClick = { onAction(ProfileAction.SelectUser(user)) }
+                            onClick = { onAction(ProfileAction.SelectUser(user)) },
                         )
                     }
                 }
@@ -107,25 +108,26 @@ fun ProfileScreen(
                 pinValue = state.pinValue,
                 onDigitEnter = { onAction(ProfileAction.EnterPinDigit(it)) },
                 onCancel = { onAction(ProfileAction.CancelPin) },
-                onClear = { onAction(ProfileAction.ClearPin) }
+                onClear = { onAction(ProfileAction.ClearPin) },
             )
         }
 
         if (state.isSwitching) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
         }
-        
+
         // Back Button
         TextButton(
             onClick = onBack,
-            modifier = Modifier.padding(16.dp).align(Alignment.BottomStart)
+            modifier = Modifier.padding(16.dp).align(Alignment.BottomStart),
         ) {
             Text("Retour")
         }
@@ -135,23 +137,25 @@ fun ProfileScreen(
 @Composable
 fun UserProfileCard(
     user: PlexHomeUser,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable { onClick() }
-            .padding(12.dp)
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onClick() }
+                .padding(12.dp),
     ) {
         AsyncImage(
             model = user.thumb,
             contentDescription = user.title,
-            modifier = Modifier
-                .size(120.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentScale = ContentScale.Crop
+            modifier =
+                Modifier
+                    .size(120.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentScale = ContentScale.Crop,
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
@@ -159,13 +163,13 @@ fun UserProfileCard(
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
         if (user.protected || user.hasPassword) {
             Text(
                 text = "🔒 Protégé",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -177,36 +181,38 @@ fun PinEntryDialog(
     pinValue: String,
     onDigitEnter: (String) -> Unit,
     onCancel: () -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
 ) {
     Dialog(onDismissRequest = onCancel) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = "Code PIN pour ${user.title}",
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 24.dp)
+                    modifier = Modifier.padding(bottom = 24.dp),
                 ) {
                     repeat(4) { index ->
                         val char = pinValue.getOrNull(index)?.let { "*" } ?: ""
                         Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
+                            modifier =
+                                Modifier
+                                    .size(48.dp)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center,
                         ) {
                             Text(text = char, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                         }
@@ -215,13 +221,14 @@ fun PinEntryDialog(
 
                 // Numeric Keypad
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val rows = listOf(
-                        listOf("1", "2", "3"),
-                        listOf("4", "5", "6"),
-                        listOf("7", "8", "9"),
-                        listOf("Annuler", "0", "Effacer")
-                    )
-                    
+                    val rows =
+                        listOf(
+                            listOf("1", "2", "3"),
+                            listOf("4", "5", "6"),
+                            listOf("7", "8", "9"),
+                            listOf("Annuler", "0", "Effacer"),
+                        )
+
                     rows.forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             row.forEach { key ->
@@ -234,7 +241,14 @@ fun PinEntryDialog(
                                         }
                                     },
                                     modifier = Modifier.size(width = 80.dp, height = 48.dp),
-                                    colors = if (key == "Annuler") ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
+                                    colors =
+                                        if (key == "Annuler") {
+                                            ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.error,
+                                            )
+                                        } else {
+                                            ButtonDefaults.buttonColors()
+                                        },
                                 ) {
                                     Text(text = key, fontSize = 14.sp)
                                 }

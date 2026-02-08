@@ -24,32 +24,33 @@ import com.chakir.plexhubtv.feature.home.MediaCard
 @Composable
 fun FavoritesRoute(
     viewModel: FavoritesViewModel = hiltViewModel(),
-    onNavigateToMedia: (String, String) -> Unit
+    onNavigateToMedia: (String, String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     FavoritesScreen(
         uiState = uiState,
-        onMediaClick = { media -> onNavigateToMedia(media.ratingKey, media.serverId) }
+        onMediaClick = { media -> onNavigateToMedia(media.ratingKey, media.serverId) },
     )
 }
 
 @Composable
 fun FavoritesScreen(
     uiState: FavoritesUiState,
-    onMediaClick: (com.chakir.plexhubtv.domain.model.MediaItem) -> Unit
+    onMediaClick: (com.chakir.plexhubtv.core.model.MediaItem) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
     ) {
         Text(
             text = "Favorites",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -58,11 +59,11 @@ fun FavoritesScreen(
                 CircularProgressIndicator()
             }
         } else if (uiState.favorites.isEmpty()) {
-             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = "No favorites yet.",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                 )
             }
         } else {
@@ -71,7 +72,7 @@ fun FavoritesScreen(
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             ) {
                 items(uiState.favorites) { media ->
                     MediaCard(
@@ -82,7 +83,7 @@ fun FavoritesScreen(
                         width = 100.dp,
                         height = 150.dp,
                         titleStyle = MaterialTheme.typography.labelMedium,
-                        subtitleStyle = MaterialTheme.typography.labelSmall
+                        subtitleStyle = MaterialTheme.typography.labelSmall,
                     )
                 }
             }

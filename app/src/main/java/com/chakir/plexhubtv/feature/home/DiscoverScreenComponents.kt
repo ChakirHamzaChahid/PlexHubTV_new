@@ -15,18 +15,18 @@ fun EmptyState(onRetry: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = "No content available",
             style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-             text = "Make sure your Plex server is running and accessible.",
-             style = MaterialTheme.typography.bodyMedium,
-             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-             modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
+            text = "Make sure your Plex server is running and accessible.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
         )
         Button(onClick = onRetry) {
             Text("Refresh")

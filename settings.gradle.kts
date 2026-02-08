@@ -21,4 +21,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "PlexHubTV"
 include(":app")
+include(":core:model")
+include(":core:common")
+include(":domain")
+include(":core:network")
+include(":core:database")
+include(":core:datastore")
  

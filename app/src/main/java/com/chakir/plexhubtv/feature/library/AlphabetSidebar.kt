@@ -2,7 +2,6 @@ package com.chakir.plexhubtv.feature.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,28 +31,31 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AlphabetSidebar(
     onLetterSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val alphabet = remember { listOf("#") + ('A'..'Z').map { it.toString() } }
-    
+
     Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .width(40.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .padding(vertical = 8.dp),
+        modifier =
+            modifier
+                .fillMaxHeight()
+                .width(40.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            items(alphabet) { letter ->
-                SidebarItem(
-                    letter = letter,
-                    onClick = { onLetterSelected(letter) }
-                )
+            alphabet.forEach { letter ->
+                item {
+                    SidebarItem(
+                        letter = letter,
+                        onClick = { onLetterSelected(letter) },
+                    )
+                }
             }
         }
     }
@@ -63,25 +64,26 @@ fun AlphabetSidebar(
 @Composable
 fun SidebarItem(
     letter: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    
+
     Box(
-        modifier = Modifier
-            .width(32.dp) // Increased hit target
-            .clip(RoundedCornerShape(4.dp))
-            .background(if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent)
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+        modifier =
+            Modifier
+                .width(32.dp) // Increased hit target
+                .clip(RoundedCornerShape(4.dp))
+                .background(if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent)
+                .onFocusChanged { isFocused = it.isFocused }
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = letter,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
             color = if (isFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(vertical = 4.dp)
+            modifier = Modifier.padding(vertical = 4.dp),
         )
     }
 }

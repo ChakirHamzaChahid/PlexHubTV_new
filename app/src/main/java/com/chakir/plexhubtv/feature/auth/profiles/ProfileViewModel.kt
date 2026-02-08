@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -16,84 +17,94 @@ import javax.inject.Inject
  * Gère le chargement des utilisateurs et le basculement (Switch User) avec ou sans PIN.
  */
 @HiltViewModel
-class ProfileViewModel @Inject constructor(
-    private val authRepository: AuthRepository
-) : ViewModel() {
+class ProfileViewModel
+    @Inject
+    constructor(
+        private val authRepository: AuthRepository,
+    ) : ViewModel() {
+        private val _uiState = MutableStateFlow(ProfileUiState())
+        val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    private val _uiState = MutableStateFlow(ProfileUiState())
-    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+        init {
+            Timber.d("SCREEN [Profile]: Opened")
+            onAction(ProfileAction.LoadUsers)
+        }
 
-    init {
-        android.util.Log.d("METRICS", "SCREEN [Profile]: Opened")
-        onAction(ProfileAction.LoadUsers)
-    }
+        fun onAction(action: ProfileAction) {
+            when (action) {
+                ProfileAction.LoadUsers -> loadUsers()
+                is ProfileAction.SelectUser -> {
+                    // BYPASS PIN: Always switch directly, even if protected
+                    switchUser(action.user)
 
-    fun onAction(action: ProfileAction) {
-        when (action) {
-            ProfileAction.LoadUsers -> loadUsers()
-            is ProfileAction.SelectUser -> {
-                // BYPASS PIN: Always switch directly, even if protected
-                switchUser(action.user)
-                
                 /*
                 if (action.user.protected || action.user.hasPassword) {
                     _uiState.update { it.copy(showPinDialog = true, selectedUser = action.user, pinValue = "") }
                 } else {
                     switchUser(action.user)
                 }
-                */
-            }
-            ProfileAction.CancelPin -> {
-                _uiState.update { it.copy(showPinDialog = false, selectedUser = null, pinValue = "") }
-            }
-            is ProfileAction.EnterPinDigit -> {
-                if (_uiState.value.pinValue.length < 4) {
-                    _uiState.update { it.copy(pinValue = it.pinValue + action.digit) }
-                    if (_uiState.value.pinValue.length == 4) {
-                        onAction(ProfileAction.SubmitPin)
+                 */
+                }
+                ProfileAction.CancelPin -> {
+                    _uiState.update { it.copy(showPinDialog = false, selectedUser = null, pinValue = "") }
+                }
+                is ProfileAction.EnterPinDigit -> {
+                    if (_uiState.value.pinValue.length < 4) {
+                        _uiState.update { it.copy(pinValue = it.pinValue + action.digit) }
+                        if (_uiState.value.pinValue.length == 4) {
+                            onAction(ProfileAction.SubmitPin)
+                        }
                     }
                 }
-            }
-            ProfileAction.ClearPin -> {
-                _uiState.update { it.copy(pinValue = "") }
-            }
-            ProfileAction.SubmitPin -> {
-                val user = _uiState.value.selectedUser ?: return
-                val pin = _uiState.value.pinValue
-                switchUser(user, pin)
+                ProfileAction.ClearPin -> {
+                    _uiState.update { it.copy(pinValue = "") }
+                }
+                ProfileAction.SubmitPin -> {
+                    val user = _uiState.value.selectedUser ?: return
+                    val pin = _uiState.value.pinValue
+                    switchUser(user, pin)
+                }
             }
         }
-    }
 
-    private fun loadUsers() {
-        viewModelScope.launch {
-            val startTime = System.currentTimeMillis()
-            android.util.Log.d("METRICS", "SCREEN [Profile]: Loading users start")
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            authRepository.getHomeUsers()
-                .onSuccess { users ->
-                    val duration = System.currentTimeMillis() - startTime
-                    android.util.Log.i("METRICS", "SCREEN [Profile] SUCCESS: duration=${duration}ms | users=${users.size}")
-                    _uiState.update { it.copy(isLoading = false, users = users) }
-                }
-                .onFailure { error ->
-                    val duration = System.currentTimeMillis() - startTime
-                    android.util.Log.e("METRICS", "SCREEN [Profile] FAILED: duration=${duration}ms error=${error.message}")
-                    _uiState.update { it.copy(isLoading = false, error = error.message) }
-                }
+        private fun loadUsers() {
+            viewModelScope.launch {
+                val startTime = System.currentTimeMillis()
+                Timber.d("SCREEN [Profile]: Loading users start")
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                authRepository.getHomeUsers()
+                    .onSuccess { users ->
+                        val duration = System.currentTimeMillis() - startTime
+                        Timber.i("SCREEN [Profile] SUCCESS: duration=${duration}ms | users=${users.size}")
+                        _uiState.update { it.copy(isLoading = false, users = users) }
+                    }
+                    .onFailure { error ->
+                        val duration = System.currentTimeMillis() - startTime
+                        Timber.e("SCREEN [Profile] FAILED: duration=${duration}ms error=${error.message}")
+                        _uiState.update { it.copy(isLoading = false, error = error.message) }
+                    }
+            }
         }
-    }
 
-    private fun switchUser(user: com.chakir.plexhubtv.domain.model.PlexHomeUser, pin: String? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSwitching = true, error = null) }
-            authRepository.switchUser(user, pin)
-                .onSuccess {
-                    _uiState.update { it.copy(isSwitching = false, switchSuccess = true, showPinDialog = false) }
-                }
-                .onFailure { error ->
-                    _uiState.update { it.copy(isSwitching = false, error = "Échec du changement d'utilisateur: ${error.message}", pinValue = "") }
-                }
+        private fun switchUser(
+            user: com.chakir.plexhubtv.core.model.PlexHomeUser,
+            pin: String? = null,
+        ) {
+            viewModelScope.launch {
+                _uiState.update { it.copy(isSwitching = true, error = null) }
+                authRepository.switchUser(user, pin)
+                    .onSuccess {
+                        _uiState.update { it.copy(isSwitching = false, switchSuccess = true, showPinDialog = false) }
+                    }
+                    .onFailure { error ->
+                        _uiState.update {
+                            it.copy(
+                                isSwitching = false,
+                                error = "Échec du changement d'utilisateur: ${error.message}",
+                                pinValue = "",
+                            )
+                        }
+                    }
+            }
         }
     }
-}

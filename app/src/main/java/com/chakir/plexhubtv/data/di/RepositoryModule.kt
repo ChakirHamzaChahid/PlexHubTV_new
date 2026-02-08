@@ -4,12 +4,14 @@ import com.chakir.plexhubtv.data.repository.AuthRepositoryImpl
 import com.chakir.plexhubtv.data.repository.DownloadsRepositoryImpl
 import com.chakir.plexhubtv.data.repository.LibraryRepositoryImpl
 import com.chakir.plexhubtv.data.repository.MediaRepositoryImpl
+import com.chakir.plexhubtv.data.repository.OfflineWatchSyncRepositoryImpl
 import com.chakir.plexhubtv.data.repository.SearchRepositoryImpl
 import com.chakir.plexhubtv.data.repository.SettingsRepositoryImpl
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.DownloadsRepository
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.OfflineWatchSyncRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import dagger.Binds
@@ -26,64 +28,97 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
 
     @Binds
     @Singleton
-    abstract fun bindAuthRepository(
-        impl: AuthRepositoryImpl
-    ): AuthRepository
+    abstract fun bindMediaRepository(impl: MediaRepositoryImpl): MediaRepository
 
     @Binds
     @Singleton
-    abstract fun bindMediaRepository(
-        impl: MediaRepositoryImpl
-    ): MediaRepository
+    abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
 
     @Binds
     @Singleton
-    abstract fun bindSettingsRepository(
-        impl: SettingsRepositoryImpl
-    ): SettingsRepository
+    abstract fun bindLibraryRepository(impl: LibraryRepositoryImpl): LibraryRepository
 
     @Binds
     @Singleton
-    abstract fun bindLibraryRepository(
-        impl: LibraryRepositoryImpl
-    ): LibraryRepository
+    abstract fun bindSearchRepository(impl: SearchRepositoryImpl): SearchRepository
 
     @Binds
     @Singleton
-    abstract fun bindSearchRepository(
-        impl: SearchRepositoryImpl
-    ): SearchRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindDownloadsRepository(
-        impl: DownloadsRepositoryImpl
-    ): DownloadsRepository
+    abstract fun bindDownloadsRepository(impl: DownloadsRepositoryImpl): DownloadsRepository
 
     @Binds
     @Singleton
     abstract fun bindAccountRepository(
-        impl: com.chakir.plexhubtv.data.repository.AccountRepositoryImpl
+        impl: com.chakir.plexhubtv.data.repository.AccountRepositoryImpl,
     ): com.chakir.plexhubtv.domain.repository.AccountRepository
 
     @Binds
     @Singleton
     abstract fun bindSyncRepository(
-        impl: com.chakir.plexhubtv.data.repository.SyncRepositoryImpl
+        impl: com.chakir.plexhubtv.data.repository.SyncRepositoryImpl,
     ): com.chakir.plexhubtv.domain.repository.SyncRepository
 
     @Binds
     @Singleton
     abstract fun bindWatchlistRepository(
-        impl: com.chakir.plexhubtv.data.repository.WatchlistRepositoryImpl
+        impl: com.chakir.plexhubtv.data.repository.WatchlistRepositoryImpl,
     ): com.chakir.plexhubtv.domain.repository.WatchlistRepository
 
     @Binds
     @Singleton
     abstract fun bindIptvRepository(
-        impl: com.chakir.plexhubtv.data.repository.IptvRepositoryImpl
+        impl: com.chakir.plexhubtv.data.repository.IptvRepositoryImpl,
     ): com.chakir.plexhubtv.domain.repository.IptvRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMediaUrlResolver(
+        impl: com.chakir.plexhubtv.core.util.DefaultMediaUrlResolver,
+    ): com.chakir.plexhubtv.core.util.MediaUrlResolver
+
+    @Binds
+    @Singleton
+    abstract fun bindMediaDeduplicator(
+        impl: com.chakir.plexhubtv.data.repository.aggregation.DefaultMediaDeduplicator,
+    ): com.chakir.plexhubtv.data.repository.aggregation.MediaDeduplicator
+
+    @Binds
+    @Singleton
+    abstract fun bindOnDeckRepository(
+        impl: com.chakir.plexhubtv.data.repository.OnDeckRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.OnDeckRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindHubsRepository(
+        impl: com.chakir.plexhubtv.data.repository.HubsRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.HubsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFavoritesRepository(
+        impl: com.chakir.plexhubtv.data.repository.FavoritesRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.FavoritesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMediaDetailRepository(
+        impl: com.chakir.plexhubtv.data.repository.MediaDetailRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.MediaDetailRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPlaybackRepository(
+        impl: com.chakir.plexhubtv.data.repository.PlaybackRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.PlaybackRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindOfflineWatchSyncRepository(impl: OfflineWatchSyncRepositoryImpl): OfflineWatchSyncRepository
 }

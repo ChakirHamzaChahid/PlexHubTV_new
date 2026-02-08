@@ -1,13 +1,14 @@
 package com.chakir.plexhubtv.core.network
 
 import android.net.Uri
-import com.chakir.plexhubtv.domain.model.Server
-import java.util.Locale
 import kotlin.math.ceil
-import kotlin.math.min
 
 enum class ImageType {
-    POSTER, ART, THUMB, LOGO, AVATAR
+    POSTER,
+    ART,
+    THUMB,
+    LOGO,
+    AVATAR,
 }
 
 /**
@@ -31,7 +32,7 @@ object PlexImageHelper {
         width: Int,
         height: Int,
         imageType: ImageType = ImageType.POSTER,
-        enableTranscoding: Boolean = true
+        enableTranscoding: Boolean = true,
     ): String {
         if (path.isNullOrBlank()) return ""
 
@@ -42,25 +43,31 @@ object PlexImageHelper {
         }
 
         // Apply rounding for cache hit rate
-        val roundedWidth = roundToFactor(width, WIDTH_ROUNDING_FACTOR)
-            .coerceIn(MIN_TRANSCODED_WIDTH, MAX_TRANSCODED_WIDTH)
-        val roundedHeight = roundToFactor(height, HEIGHT_ROUNDING_FACTOR)
-            .coerceIn(MIN_TRANSCODED_HEIGHT, MAX_TRANSCODED_HEIGHT)
+        val roundedWidth =
+            roundToFactor(width, WIDTH_ROUNDING_FACTOR)
+                .coerceIn(MIN_TRANSCODED_WIDTH, MAX_TRANSCODED_WIDTH)
+        val roundedHeight =
+            roundToFactor(height, HEIGHT_ROUNDING_FACTOR)
+                .coerceIn(MIN_TRANSCODED_HEIGHT, MAX_TRANSCODED_HEIGHT)
 
         val encodedPath = Uri.encode("$path${if (path.contains("?")) "&" else "?"}X-Plex-Token=$token")
-        
-        val builder = Uri.parse("$baseUrl/photo/:/transcode").buildUpon()
-            .appendQueryParameter("width", roundedWidth.toString())
-            .appendQueryParameter("height", roundedHeight.toString())
-            .appendQueryParameter("minSize", "1")
-            .appendQueryParameter("upscale", "1")
-            .appendQueryParameter("url", encodedPath)
-            .appendQueryParameter("X-Plex-Token", token)
+
+        val builder =
+            Uri.parse("$baseUrl/photo/:/transcode").buildUpon()
+                .appendQueryParameter("width", roundedWidth.toString())
+                .appendQueryParameter("height", roundedHeight.toString())
+                .appendQueryParameter("minSize", "1")
+                .appendQueryParameter("upscale", "1")
+                .appendQueryParameter("url", encodedPath)
+                .appendQueryParameter("X-Plex-Token", token)
 
         return builder.build().toString()
     }
 
-    private fun roundToFactor(value: Int, factor: Int): Int {
+    private fun roundToFactor(
+        value: Int,
+        factor: Int,
+    ): Int {
         return (ceil(value.toDouble() / factor) * factor).toInt()
     }
 

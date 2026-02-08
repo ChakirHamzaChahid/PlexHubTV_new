@@ -18,24 +18,25 @@ import com.chakir.plexhubtv.feature.player.PlayerStats
 @Composable
 fun PerformanceOverlay(
     stats: PlayerStats,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .padding(16.dp)
-            .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
-            .padding(12.dp)
+        modifier =
+            modifier
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                .padding(12.dp),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = "NERD STATS",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
             )
-            
+
             StatRow("Bitrate", stats.bitrate)
             StatRow("Resolution", stats.resolution)
             StatRow("Video Codec", stats.videoCodec)
@@ -48,22 +49,25 @@ fun PerformanceOverlay(
 }
 
 @Composable
-private fun StatRow(label: String, value: String) {
+private fun StatRow(
+    label: String,
+    value: String,
+) {
     Row(
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = "$label: ",
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
             color = Color.White.copy(alpha = 0.7f),
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
             color = Color.Green,
             fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
     }
 }

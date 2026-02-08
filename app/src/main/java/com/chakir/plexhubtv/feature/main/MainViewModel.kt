@@ -17,32 +17,33 @@ import javax.inject.Inject
  * Surveille l'état de la connexion (Online/Offline) via [ConnectionManager].
  */
 @HiltViewModel
-class MainViewModel @Inject constructor(
-    private val connectionManager: ConnectionManager
-) : ViewModel() {
+class MainViewModel
+    @Inject
+    constructor(
+        private val connectionManager: ConnectionManager,
+    ) : ViewModel() {
+        private val _uiState = MutableStateFlow(MainUiState())
+        val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
-    private val _uiState = MutableStateFlow(MainUiState())
-    val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+        init {
+            observeConnectionState()
+        }
 
-    init {
-        observeConnectionState()
-    }
-
-    private fun observeConnectionState() {
-        viewModelScope.launch {
-            connectionManager.isOffline.collectLatest { offline ->
-                _uiState.update { it.copy(isOffline = offline) }
+        private fun observeConnectionState() {
+            viewModelScope.launch {
+                connectionManager.isOffline.collectLatest { offline ->
+                    _uiState.update { it.copy(isOffline = offline) }
+                }
             }
         }
+
+        // Debug method to simulate network toggle
+        fun toggleOfflineMode() {
+            val newState = !_uiState.value.isOffline
+            connectionManager.setOfflineMode(newState)
+        }
     }
-    
-    // Debug method to simulate network toggle
-    fun toggleOfflineMode() {
-        val newState = !_uiState.value.isOffline
-        connectionManager.setOfflineMode(newState)
-    }
-}
 
 data class MainUiState(
-    val isOffline: Boolean = false
+    val isOffline: Boolean = false,
 )

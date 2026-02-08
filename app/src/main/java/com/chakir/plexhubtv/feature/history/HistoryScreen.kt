@@ -24,32 +24,33 @@ import com.chakir.plexhubtv.feature.home.MediaCard
 @Composable
 fun HistoryRoute(
     viewModel: HistoryViewModel = hiltViewModel(),
-    onNavigateToMedia: (String, String) -> Unit
+    onNavigateToMedia: (String, String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     HistoryScreen(
         uiState = uiState,
-        onMediaClick = { media -> onNavigateToMedia(media.ratingKey, media.serverId) }
+        onMediaClick = { media -> onNavigateToMedia(media.ratingKey, media.serverId) },
     )
 }
 
 @Composable
 fun HistoryScreen(
     uiState: HistoryUiState,
-    onMediaClick: (com.chakir.plexhubtv.domain.model.MediaItem) -> Unit
+    onMediaClick: (com.chakir.plexhubtv.core.model.MediaItem) -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
     ) {
         Text(
             text = "Watch History",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -58,11 +59,11 @@ fun HistoryScreen(
                 CircularProgressIndicator()
             }
         } else if (uiState.historyItems.isEmpty()) {
-             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = "No history available.",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                 )
             }
         } else {
@@ -71,7 +72,7 @@ fun HistoryScreen(
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             ) {
                 items(uiState.historyItems) { media ->
                     MediaCard(
@@ -82,7 +83,7 @@ fun HistoryScreen(
                         width = 100.dp,
                         height = 150.dp,
                         titleStyle = MaterialTheme.typography.labelMedium,
-                        subtitleStyle = MaterialTheme.typography.labelSmall
+                        subtitleStyle = MaterialTheme.typography.labelSmall,
                     )
                 }
             }

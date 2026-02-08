@@ -6,19 +6,21 @@ import coil.request.Options
 
 /**
  * Custom Coil Keyer for Plex URLs.
- * 
+ *
  * Objectives:
  * 1. Ignore "X-Plex-Token" in cache keys to prevent re-downloads when session/token changes.
  * 2. Ignore timestamps or transient params if present.
  * 3. Preserve transformation params (width, height, upscale) effectively.
- * 
+ *
  * Logic:
  * - If URL contains "X-Plex-Token", rebuild the URL without it.
  * - Use that sanitized URL as the cache key.
  */
 class PlexImageKeyer : Keyer<Uri> {
-
-    override fun key(data: Uri, options: Options): String? {
+    override fun key(
+        data: Uri,
+        options: Options,
+    ): String? {
         // Only handle http/https URLs that likely come from Plex
         if (data.scheme != "http" && data.scheme != "https") return null
 
@@ -29,16 +31,17 @@ class PlexImageKeyer : Keyer<Uri> {
 
         // Build a stable key by removing volatile parameters
         val builder = data.buildUpon().clearQuery()
-        
+
         val paramNames = data.queryParameterNames
-        val stableParams = paramNames.filter { key ->
-            key != "X-Plex-Token" && 
-            key != "X-Plex-Client-Identifier" &&
-            key != "X-Plex-Product" &&
-            key != "X-Plex-Version" &&
-            key != "_" // jQuery timestamp often used in webs
-        }
-        
+        val stableParams =
+            paramNames.filter { key ->
+                key != "X-Plex-Token" &&
+                    key != "X-Plex-Client-Identifier" &&
+                    key != "X-Plex-Product" &&
+                    key != "X-Plex-Version" &&
+                    key != "_" // jQuery timestamp often used in webs
+            }
+
         // Sort params to ensure deterministic key order (width=300&height=400 vs height=400&width=300)
         stableParams.sorted().forEach { key ->
             val values = data.getQueryParameters(key)

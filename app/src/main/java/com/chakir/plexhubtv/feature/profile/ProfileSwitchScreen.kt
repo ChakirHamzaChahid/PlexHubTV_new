@@ -17,11 +17,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.chakir.plexhubtv.domain.model.UserProfile
+import com.chakir.plexhubtv.core.model.UserProfile
 
 /**
  * Profile Switch Screen - Allows switching between Plex Home Users
  */
+
 /**
  * Écran de changement de profil utilisateur (Plex Home).
  * Permet de basculer entre les utilisateurs gérés (ex: Admin, Enfant, Invité).
@@ -30,14 +31,14 @@ import com.chakir.plexhubtv.domain.model.UserProfile
 fun ProfileSwitchRoute(
     viewModel: ProfileViewModel = hiltViewModel(),
     onProfileSwitched: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     ProfileSwitchScreen(
         state = uiState,
         onAction = viewModel::onEvent,
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
     )
 }
 
@@ -46,7 +47,7 @@ fun ProfileSwitchRoute(
 fun ProfileSwitchScreen(
     state: ProfileUiState,
     onAction: (ProfileEvent) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -56,9 +57,9 @@ fun ProfileSwitchScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
             )
-        }
+        },
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             when {
@@ -71,19 +72,19 @@ fun ProfileSwitchScreen(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(32.dp)
+                            modifier = Modifier.padding(32.dp),
                         ) {
                             Icon(
                                 Icons.Filled.Error,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.error
+                                tint = MaterialTheme.colorScheme.error,
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 state.error,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.error
+                                color = MaterialTheme.colorScheme.error,
                             )
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = { onAction(ProfileEvent.RefreshProfiles) }) {
@@ -99,18 +100,18 @@ fun ProfileSwitchScreen(
                                 Icons.Filled.PersonOff,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 "No profiles available",
                                 style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
                                 "Contact your Plex administrator",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -119,13 +120,13 @@ fun ProfileSwitchScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(state.users) { user ->
                             ProfileListItem(
                                 user = user,
                                 isCurrentUser = user.id == state.currentUserId,
-                                onClick = { onAction(ProfileEvent.SwitchToUser(user)) }
+                                onClick = { onAction(ProfileEvent.SwitchToUser(user)) },
                             )
                         }
                     }
@@ -139,38 +140,40 @@ fun ProfileSwitchScreen(
 fun ProfileListItem(
     user: UserProfile,
     isCurrentUser: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
             ) {
                 if (user.thumb != null) {
                     AsyncImage(
                         model = user.thumb,
                         contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
                     )
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Filled.Person,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 }
@@ -182,15 +185,16 @@ fun ProfileListItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     user.title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold
-                    )
+                    style =
+                        MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                        ),
                 )
                 if (user.admin) {
                     Text(
                         "Administrator",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -200,13 +204,13 @@ fun ProfileListItem(
                 Icon(
                     Icons.Filled.CheckCircle,
                     contentDescription = "Current user",
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             } else if (user.protected) {
                 Icon(
                     Icons.Filled.Lock,
                     contentDescription = "Protected profile",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -216,13 +220,14 @@ fun ProfileListItem(
 @Preview(showBackground = true)
 @Composable
 fun PreviewProfileSwitchScreen() {
-    val users = listOf(
-        UserProfile(id = "1", title = "Chakir", admin = true, protected = true, thumb = ""),
-        UserProfile(id = "2", title = "Guest", admin = false, protected = false, thumb = "")
-    )
+    val users =
+        listOf(
+            UserProfile(id = "1", title = "Chakir", admin = true, protected = true, thumb = ""),
+            UserProfile(id = "2", title = "Guest", admin = false, protected = false, thumb = ""),
+        )
     ProfileSwitchScreen(
         state = ProfileUiState(users = users, currentUserId = "1"),
         onAction = {},
-        onNavigateBack = {}
+        onNavigateBack = {},
     )
 }

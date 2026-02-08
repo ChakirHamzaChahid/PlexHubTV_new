@@ -1,0 +1,28 @@
+package com.chakir.plexhubtv.domain.usecase
+
+import com.chakir.plexhubtv.core.common.util.Resource
+import com.chakir.plexhubtv.core.model.Hub
+import com.chakir.plexhubtv.domain.repository.MediaRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import javax.inject.Inject
+
+/**
+ * Récupère les recommandations unifiées (Hubs).
+ *
+ * Transforme le flux de Hubs du repository en un Resource (Loading/Success/Error)
+ * pour consommation facile par l'UI.
+ */
+class GetRecommendedContentUseCase
+    @Inject
+    constructor(
+        private val mediaRepository: MediaRepository,
+    ) {
+        operator fun invoke(): Flow<Resource<List<Hub>>> =
+            mediaRepository.getUnifiedHubs()
+                .map { hubs -> Resource.Success(hubs) as Resource<List<Hub>> }
+                .catch { e -> emit(Resource.Error(e.message ?: "Unknown Error")) }
+                .onStart { emit(Resource.Loading()) }
+    }

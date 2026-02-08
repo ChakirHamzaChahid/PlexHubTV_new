@@ -1,0 +1,100 @@
+package com.chakir.plexhubtv.domain.usecase
+
+import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.service.PlaybackManager
+import javax.inject.Inject
+
+data class AdjacentEpisodes(
+    val previous: MediaItem? = null,
+    val next: MediaItem? = null,
+)
+
+/**
+ * Use case for loading adjacent episodes (next/previous) for TV show navigation.
+ */
+
+/**
+ * Cas d'utilisation pour la navigation entre épisodes (Précédent / Suivant).
+ *
+ * Logique de navigation :
+ * 1. Vérifie d'abord la file d'attente de lecture (PlayQueue) active.
+ * 2. Si la file est vide, bascule sur la navigation séquentielle classique (Saison en cours).
+ */
+class EpisodeNavigationUseCase
+    @Inject
+    constructor(
+        private val mediaRepository: MediaRepository,
+        private val playbackManager: PlaybackManager,
+    ) {
+        /**
+         * Charge l'épisode précédent et suivant par rapport à l'épisode courant.
+         * @return [AdjacentEpisodes] contenant les items ou null s'ils n'existent pas.
+         */
+        suspend fun loadAdjacentEpisodes(currentEpisode: MediaItem): Result<AdjacentEpisodes> {
+            return try {
+                if (currentEpisode.type != MediaType.Episode) {
+                    return Result.success(AdjacentEpisodes())
+                }
+
+                // First check if we're in a playback queue
+                val queueNext = playbackManager.getNextMedia()
+                val queuePrevious = playbackManager.getPreviousMedia()
+
+                if (queueNext != null || queuePrevious != null) {
+                    // Use queue-based navigation
+                    return Result.success(
+                        AdjacentEpisodes(
+                            next = queueNext,
+                            previous = queuePrevious,
+                        ),
+                    )
+                }
+
+                // Fall back to sequential season navigation
+                val seasonKey =
+                    currentEpisode.parentRatingKey
+                        ?: return Result.success(AdjacentEpisodes())
+
+                val seasonEpisodes =
+                    mediaRepository.getSeasonEpisodes(
+                        seasonKey,
+                        currentEpisode.serverId,
+                    ).getOrNull() ?: return Result.success(AdjacentEpisodes())
+
+                // Find current episode index
+                val currentIndex =
+                    seasonEpisodes.indexOfFirst {
+                        it.ratingKey == currentEpisode.ratingKey
+                    }
+
+                if (currentIndex == -1) {
+                    return Result.success(AdjacentEpisodes())
+                }
+
+                val previous =
+                    if (currentIndex > 0) {
+                        seasonEpisodes[currentIndex - 1]
+                    } else {
+                        null
+                    }
+
+                val next =
+                    if (currentIndex < seasonEpisodes.size - 1) {
+                        seasonEpisodes[currentIndex + 1]
+                    } else {
+                        null
+                    }
+
+                Result.success(
+                    AdjacentEpisodes(
+                        previous = previous,
+                        next = next,
+                    ),
+                )
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }

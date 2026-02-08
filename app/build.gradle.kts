@@ -2,13 +2,15 @@ import java.io.FileInputStream
 import java.util.Properties
 
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
-    id("kotlin-parcelize")
-    id("com.google.devtools.ksp")
-    id("com.google.dagger.hilt.android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.ktlint)
 }
 
 android {
@@ -20,7 +22,21 @@ android {
         minSdk = 27
         targetSdk = 34
         versionCode = 1
-        versionName = "0.6.1"
+        versionName = "0.8.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePropertiesFile = rootProject.file("keystore/keystore.properties")
+            if (keystorePropertiesFile.exists()) {
+                val keystoreProperties = Properties()
+                keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -38,13 +54,21 @@ android {
         }
         release {
             isMinifyEnabled = true
-            isShrinkResources = true // Ajout de la suppression des ressources
-            // buildConfigField("String", "API_BASE_URL", "\"https://api.example.com/\"")
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigningConfig = signingConfigs.findByName("release")
+            signingConfig =
+                if (releaseSigningConfig?.storeFile?.exists() == true) {
+                    releaseSigningConfig
+                } else {
+                    signingConfigs.getByName("debug")
+                }
+            buildConfigField("String", "API_BASE_URL", "\"https://plex.tv/\"")
+            buildConfigField("String", "PLEX_TOKEN", "\"\"")
+            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"\"")
         }
     }
 
@@ -93,71 +117,81 @@ android {
 
 dependencies {
     // --- UI & Compose ---
-    implementation(platform("androidx.compose:compose-bom:2026.01.00"))
-    implementation("androidx.appcompat:appcompat:1.7.1")
-    implementation("androidx.activity:activity-compose:1.9.3")
-    implementation("androidx.core:core-ktx:1.17.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
-    implementation("androidx.tv:tv-foundation:1.0.0-alpha12")
-    implementation("androidx.tv:tv-material:1.0.1")
-    implementation(libs.androidx.leanback)
+    implementation(project(":core:model"))
+    implementation(project(":core:common"))
+    implementation(project(":domain"))
+    implementation(project(":core:network"))
+    implementation(project(":core:database"))
+    implementation(project(":core:datastore"))
+
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.tv.foundation)
+    implementation(libs.androidx.tv.material)
     implementation(libs.androidx.tv.provider)
-    implementation("androidx.compose.material3:material3")
+    implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.foundation)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation(libs.glide)
-    implementation("androidx.navigation:navigation-compose:2.9.6")
-    implementation("io.coil-kt:coil-compose:2.7.0")
-    implementation("io.coil-kt:coil-video:2.7.0")
+    implementation(libs.androidx.compose.navigation)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
 
     // --- Networking & Data ---
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
-    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.gson)
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
-    implementation("com.squareup.okhttp3:okhttp:5.3.2")
-    implementation("com.squareup.okhttp3:logging-interceptor:5.3.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.timber)
 
     // --- Player Vidéo ---
-    implementation("androidx.media3:media3-exoplayer:1.5.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.5.1")
-    implementation("androidx.media3:media3-ui:1.5.1")
-    implementation("androidx.media3:media3-common:1.5.1")
-    implementation("androidx.media3:media3-session:1.5.1")
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.common)
+    implementation(libs.media3.session)
 
     // Hybrid Engine - MPV Fallback
     implementation("dev.jdtech.mpv:libmpv:0.5.1")
 
-    // ExoPlayer Extensions (Codecs & Subtitles) - Copied from Plezy
-    // FFmpeg audio decoder for unsupported codecs (ALAC, DTS, TrueHD, etc.)
+    // ExoPlayer Extensions
     implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
-    // libass-android for ASS/SSA subtitle rendering
     implementation("io.github.peerless2012:ass-media:0.4.0-beta01")
 
     // --- ARCHITECTURE (Paging 3 + Room) ---
-    implementation("androidx.paging:paging-runtime-ktx:3.3.6")
-    implementation("androidx.paging:paging-compose:3.3.6")
+    implementation(libs.paging.runtime)
+    implementation(libs.paging.compose)
     implementation(libs.androidx.compose.ui.text)
 
     // Room
-    val room_version = "2.8.4"
-    implementation("androidx.room:room-runtime:$room_version")
-    implementation("androidx.room:room-ktx:$room_version")
-    implementation("androidx.room:room-paging:$room_version")
-    ksp("androidx.room:room-compiler:$room_version") // ESSENTIEL POUR FTS5
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    implementation(libs.room.paging)
+    ksp(libs.room.compiler)
 
     // WorkManager
-    implementation("androidx.work:work-runtime-ktx:2.11.0")
+    implementation(libs.androidx.work.runtime)
 
     // --- HILT (Injection de dépendance) ---
-    implementation("com.google.dagger:hilt-android:2.58")
-    ksp("com.google.dagger:hilt-compiler:2.58")
-    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
-    implementation("androidx.hilt:hilt-work:1.3.0")
-    ksp("androidx.hilt:hilt-compiler:1.3.0")
-    implementation("androidx.datastore:datastore-preferences:1.2.0")
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.androidx.compiler)
+    implementation(libs.androidx.datastore.preferences)
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
+
+    // --- TEST ---
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.truth)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("org.robolectric:robolectric:4.11.1")
 }

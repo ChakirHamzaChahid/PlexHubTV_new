@@ -1,25 +1,25 @@
 package com.chakir.plexhubtv.feature.player.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.focusable
-import androidx.compose.ui.input.key.*
-import android.view.KeyEvent as NativeKeyEvent
-import com.chakir.plexhubtv.domain.model.Chapter
-import com.chakir.plexhubtv.domain.model.Marker
+import com.chakir.plexhubtv.core.model.Chapter
+import com.chakir.plexhubtv.core.model.Marker
 import kotlin.math.max
 import kotlin.math.min
+import android.view.KeyEvent as NativeKeyEvent
 
 /**
  * Barre de progression personnalisée (SeekBar) pour le lecteur vidéo. Affiche :
@@ -36,7 +36,7 @@ fun EnhancedSeekBar(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
     isDragging: Boolean = false,
-    playedColor: Color = Color(0xFFE5A00D)
+    playedColor: Color = Color(0xFFE5A00D),
 ) {
     if (duration <= 0L) return
 
@@ -47,86 +47,92 @@ fun EnhancedSeekBar(
     val progress = if (duration > 0) displayPosition.toFloat() / duration.toFloat() else 0f
     var boxWidth by remember { mutableStateOf(0f) }
 
-    Column(modifier = modifier
-        .fillMaxWidth()
-        .padding(horizontal = 8.dp, vertical = 4.dp)) {
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
         // Main seekbar container (Touch Area)
         // Main seekbar container (Touch + Focus Area)
         val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
         val isFocused by interactionSource.collectIsFocusedAsState()
-        
+
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(30.dp) // Touch area height
-                .onSizeChanged { boxWidth = it.width.toFloat() }
-                .focusable(interactionSource = interactionSource)
-                .onKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown) {
-                        when (event.nativeKeyEvent.keyCode) {
-                            NativeKeyEvent.KEYCODE_DPAD_LEFT -> {
-                                val current = if (isDrag) dragPosition else currentPosition
-                                val newPos = max(0L, current - 10000) // -10s
-                                isDrag = true
-                                dragPosition = newPos
-                                onSeek(newPos)
-                                true
-                            }
-                            NativeKeyEvent.KEYCODE_DPAD_RIGHT -> {
-                                val current = if (isDrag) dragPosition else currentPosition
-                                val newPos = min(duration, current + 10000) // +10s
-                                isDrag = true
-                                dragPosition = newPos
-                                onSeek(newPos)
-                                true
-                            }
-                            NativeKeyEvent.KEYCODE_DPAD_CENTER, NativeKeyEvent.KEYCODE_ENTER -> {
-                                if (isDrag) {
-                                  onSeek(dragPosition)
-                                  isDrag = false
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(30.dp) // Touch area height
+                    .onSizeChanged { boxWidth = it.width.toFloat() }
+                    .focusable(interactionSource = interactionSource)
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            when (event.nativeKeyEvent.keyCode) {
+                                NativeKeyEvent.KEYCODE_DPAD_LEFT -> {
+                                    val current = if (isDrag) dragPosition else currentPosition
+                                    val newPos = max(0L, current - 10000) // -10s
+                                    isDrag = true
+                                    dragPosition = newPos
+                                    onSeek(newPos)
+                                    true
                                 }
-                                true
-                            } 
-                            else -> false
+                                NativeKeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                    val current = if (isDrag) dragPosition else currentPosition
+                                    val newPos = min(duration, current + 10000) // +10s
+                                    isDrag = true
+                                    dragPosition = newPos
+                                    onSeek(newPos)
+                                    true
+                                }
+                                NativeKeyEvent.KEYCODE_DPAD_CENTER, NativeKeyEvent.KEYCODE_ENTER -> {
+                                    if (isDrag) {
+                                        onSeek(dragPosition)
+                                        isDrag = false
+                                    }
+                                    true
+                                }
+                                else -> false
+                            }
+                        } else if (event.type == KeyEventType.KeyUp) {
+                            // Optional: Reset isDrag on key up if we want "seek on release" behavior,
+                            // but for immediate seek "on press" is usually better for D-pad scrubbing.
+                            // We will let the "isDragging" state persist slightly or rely on the parent updating currentPosition.
+                            false
+                        } else {
+                            false
                         }
-                    } else if (event.type == KeyEventType.KeyUp) {
-                        // Optional: Reset isDrag on key up if we want "seek on release" behavior, 
-                        // but for immediate seek "on press" is usually better for D-pad scrubbing.
-                        // We will let the "isDragging" state persist slightly or rely on the parent updating currentPosition.
-                         false
-                    } else false
-                }
-                .pointerInput(Unit) {
-                    var dragStartX = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { offset ->
-                            isDrag = true
-                            dragStartX = offset.x
-                            dragPosition = currentPosition // Start drag from current
-                        },
-                        onHorizontalDrag = { change, _ ->
-                            change.consume()
-                            isDrag = true
-                            val dragDelta = change.position.x - dragStartX
-                            val seekDelta = (dragDelta / boxWidth) * duration
-                            dragPosition =
-                                max(
-                                    0L,
-                                    min(
-                                        currentPosition +
+                    }
+                    .pointerInput(Unit) {
+                        var dragStartX = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { offset ->
+                                isDrag = true
+                                dragStartX = offset.x
+                                dragPosition = currentPosition // Start drag from current
+                            },
+                            onHorizontalDrag = { change, _ ->
+                                change.consume()
+                                isDrag = true
+                                val dragDelta = change.position.x - dragStartX
+                                val seekDelta = (dragDelta / boxWidth) * duration
+                                dragPosition =
+                                    max(
+                                        0L,
+                                        min(
+                                            currentPosition +
                                                 seekDelta.toLong(),
-                                        duration
+                                            duration,
+                                        ),
                                     )
-                                )
-                        },
-                        onDragEnd = {
-                            isDrag = false
-                            onSeek(dragPosition)
-                            dragStartX = 0f
-                        }
-                    )
-                },
-            contentAlignment = Alignment.CenterStart
+                            },
+                            onDragEnd = {
+                                isDrag = false
+                                onSeek(dragPosition)
+                                dragStartX = 0f
+                            },
+                        )
+                    },
+            contentAlignment = Alignment.CenterStart,
         ) {
             // Visual Track (Background)
             Box(
@@ -136,23 +142,23 @@ fun EnhancedSeekBar(
                         .height(if (isFocused) 6.dp else 4.dp) // Visual thickness increases on focus
                         .background(
                             if (isFocused) Color.Gray else Color.Gray.copy(alpha = 0.5f),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)
-                        )
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp),
+                        ),
             ) {
-                 // Chapter markers logic can be added here
+                // Chapter markers logic can be added here
             }
 
             // Progress (Played part)
-             Box(
+            Box(
                 modifier =
                     Modifier
                         .height(if (isFocused) 6.dp else 4.dp)
                         .fillMaxWidth(progress)
-                        .background(playedColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                        .background(playedColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(2.dp)),
             )
 
             // Markers (Intro/Credits)
-             markers.filter { it.type == "intro" }.forEach { marker ->
+            markers.filter { it.type == "intro" }.forEach { marker ->
                 val markerStart = (marker.startTime.toFloat() / duration.toFloat())
                 Box(
                     modifier =
@@ -160,10 +166,10 @@ fun EnhancedSeekBar(
                             .height(if (isFocused) 6.dp else 4.dp)
                             .width(4.dp)
                             .background(Color.Green)
-                            .offset(x = (markerStart * boxWidth).dp)
+                            .offset(x = (markerStart * boxWidth).dp),
                 )
             }
-             markers.filter { it.type == "credits" }.forEach { marker ->
+            markers.filter { it.type == "credits" }.forEach { marker ->
                 val markerStart = (marker.startTime.toFloat() / duration.toFloat())
                 Box(
                     modifier =
@@ -171,7 +177,7 @@ fun EnhancedSeekBar(
                             .height(if (isFocused) 6.dp else 4.dp)
                             .width(4.dp)
                             .background(Color.Red)
-                            .offset(x = (markerStart * boxWidth).dp)
+                            .offset(x = (markerStart * boxWidth).dp),
                 )
             }
 
@@ -183,9 +189,9 @@ fun EnhancedSeekBar(
                             .size(16.dp)
                             .background(
                                 Color.White,
-                                shape = androidx.compose.foundation.shape.CircleShape
+                                shape = androidx.compose.foundation.shape.CircleShape,
                             )
-                            .offset(x = (progress * boxWidth).dp - 8.dp) // center thumb
+                            .offset(x = (progress * boxWidth).dp - 8.dp), // center thumb
                 )
             } else {
                 Box(
@@ -194,20 +200,21 @@ fun EnhancedSeekBar(
                             .size(12.dp)
                             .background(
                                 playedColor,
-                                shape = androidx.compose.foundation.shape.CircleShape
+                                shape = androidx.compose.foundation.shape.CircleShape,
                             )
-                            .offset(x = (progress * boxWidth).dp - 6.dp) // center thumb
+                            .offset(x = (progress * boxWidth).dp - 6.dp), // center thumb
                 )
             }
         }
 
         // Time display
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(text = formatTime(displayPosition), color = Color.White, fontSize = 12.sp)
 
@@ -226,11 +233,12 @@ fun EnhancedSeekBar(
         // Chapter indicators legend
         if (chapters.isNotEmpty()) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) { Text(text = "Chapitres: ${chapters.size}", color = Color.Gray, fontSize = 10.sp) }
         }
     }

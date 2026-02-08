@@ -27,7 +27,7 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToLogin: () -> Unit,
-    onNavigateToServerStatus: () -> Unit
+    onNavigateToServerStatus: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -44,7 +44,7 @@ fun SettingsRoute(
 
     SettingsScreen(
         state = uiState,
-        onAction = viewModel::onAction
+        onAction = viewModel::onAction,
     )
 }
 
@@ -52,7 +52,7 @@ fun SettingsRoute(
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
-    onAction: (SettingsAction) -> Unit
+    onAction: (SettingsAction) -> Unit,
 ) {
     // Dialog States
     var showQualityDialog by remember { mutableStateOf(false) }
@@ -71,21 +71,23 @@ fun SettingsScreen(
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background, // Match background for seamless look
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
-                )
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background, // Match background for seamless look
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        actionIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    ),
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
             contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             // --- Appearance ---
             item {
@@ -93,7 +95,7 @@ fun SettingsScreen(
                     SettingsTile(
                         title = "App Theme",
                         subtitle = state.theme.name,
-                        onClick = { showThemeDialog = true }
+                        onClick = { showThemeDialog = true },
                     )
                 }
             }
@@ -104,12 +106,12 @@ fun SettingsScreen(
                     SettingsTile(
                         title = "Video Quality",
                         subtitle = state.videoQuality,
-                        onClick = { showQualityDialog = true }
+                        onClick = { showQualityDialog = true },
                     )
                     SettingsTile(
                         title = "Player Engine",
                         subtitle = state.playerEngine,
-                        onClick = { showPlayerEngineDialog = true }
+                        onClick = { showPlayerEngineDialog = true },
                     )
                 }
             }
@@ -119,23 +121,25 @@ fun SettingsScreen(
                 SettingsSection("Languages") {
                     // Find display name for stored code
                     val audioOptions = getAudioLanguageOptions()
-                    val currentAudioDisplay = audioOptions.find { it.second == state.preferredAudioLanguage }?.first
-                        ?: state.preferredAudioLanguage ?: "Original"
+                    val currentAudioDisplay =
+                        audioOptions.find { it.second == state.preferredAudioLanguage }?.first
+                            ?: state.preferredAudioLanguage ?: "Original"
 
                     SettingsTile(
                         title = "Preferred Audio Language",
                         subtitle = currentAudioDisplay,
-                        onClick = { showAudioLangDialog = true }
+                        onClick = { showAudioLangDialog = true },
                     )
 
                     val subtitleOptions = getSubtitleLanguageOptions()
-                    val currentSubtitleDisplay = subtitleOptions.find { it.second == state.preferredSubtitleLanguage }?.first
-                        ?: state.preferredSubtitleLanguage ?: "None"
+                    val currentSubtitleDisplay =
+                        subtitleOptions.find { it.second == state.preferredSubtitleLanguage }?.first
+                            ?: state.preferredSubtitleLanguage ?: "None"
 
                     SettingsTile(
                         title = "Preferred Subtitle Language",
                         subtitle = currentSubtitleDisplay,
-                        onClick = { showSubtitleLangDialog = true }
+                        onClick = { showSubtitleLangDialog = true },
                     )
                 }
             }
@@ -146,49 +150,54 @@ fun SettingsScreen(
                     SettingsTile(
                         title = "Default Server",
                         subtitle = state.defaultServer,
-                        onClick = { 
+                        onClick = {
                             if (state.availableServers.isNotEmpty()) {
-                                showServerDialog = true 
+                                showServerDialog = true
                             }
                         },
-                        trailingContent = if (state.availableServers.isEmpty()) { {
-                             Text("Scanning...", style = MaterialTheme.typography.bodySmall)
-                        } } else null
+                        trailingContent =
+                            if (state.availableServers.isEmpty()) {
+                                {
+                                    Text("Scanning...", style = MaterialTheme.typography.bodySmall)
+                                }
+                            } else {
+                                null
+                            },
                     )
                     SettingsTile(
                         title = "Check Server Status",
                         subtitle = "View connection details and latency",
                         icon = Icons.Filled.Info,
-                        onClick = { onAction(SettingsAction.CheckServerStatus) }
+                        onClick = { onAction(SettingsAction.CheckServerStatus) },
                     )
                 }
             }
 
             // --- Server Visibility ---
             item {
-                 SettingsSection("Server Visibility") {
+                SettingsSection("Server Visibility") {
                     if (state.availableServersMap.isEmpty()) {
-                         Text(
+                        Text(
                             text = "No servers found",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(16.dp),
                         )
                     } else {
                         state.availableServersMap.entries.forEach { (name, id) ->
                             SettingsSwitch(
                                 title = name,
                                 isChecked = !state.excludedServerIds.contains(id),
-                                onCheckedChange = { onAction(SettingsAction.ToggleServerExclusion(id)) }
+                                onCheckedChange = { onAction(SettingsAction.ToggleServerExclusion(id)) },
                             )
                         }
                     }
                 }
-                 Text(
+                Text(
                     text = "Uncheck servers to hide them from unified libraries.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(horizontal = 24.dp)
+                    modifier = Modifier.padding(horizontal = 24.dp),
                 )
             }
 
@@ -200,16 +209,21 @@ fun SettingsScreen(
                         subtitle = if (state.isSyncing) state.syncMessage ?: "Syncing..." else "Update local database from Plex",
                         icon = Icons.Filled.Cached,
                         onClick = { onAction(SettingsAction.ForceSync) },
-                        trailingContent = if (state.isSyncing) { {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                        } } else null
+                        trailingContent =
+                            if (state.isSyncing) {
+                                {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                }
+                            } else {
+                                null
+                            },
                     )
-                    
+
                     SettingsTile(
                         title = "Sync Watchlist",
                         subtitle = "Import Plex watchlist favorites",
                         icon = Icons.Filled.Cached,
-                        onClick = { onAction(SettingsAction.SyncWatchlist) }
+                        onClick = { onAction(SettingsAction.SyncWatchlist) },
                     )
 
                     SettingsTile(
@@ -217,39 +231,39 @@ fun SettingsScreen(
                         subtitle = "Used: ${state.cacheSize}",
                         icon = Icons.Filled.Delete,
                         titleColor = MaterialTheme.colorScheme.error,
-                        onClick = { onAction(SettingsAction.ClearCache) }
+                        onClick = { onAction(SettingsAction.ClearCache) },
                     )
                 }
-                 if (state.syncError != null) {
+                if (state.syncError != null) {
                     Text(
                         text = state.syncError,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
-                         modifier = Modifier.padding(horizontal = 24.dp)
+                        modifier = Modifier.padding(horizontal = 24.dp),
                     )
                 }
             }
 
-             // --- Account ---
+            // --- Account ---
             item {
                 SettingsSection("Account") {
                     SettingsTile(
                         title = "Logout",
                         icon = Icons.Filled.Logout,
                         titleColor = MaterialTheme.colorScheme.error,
-                        onClick = { onAction(SettingsAction.Logout) }
+                        onClick = { onAction(SettingsAction.Logout) },
                     )
                 }
             }
 
             item {
-               Box(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = "Version ${state.appVersion}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
-               }
+                }
             }
         }
     }
@@ -263,10 +277,10 @@ fun SettingsScreen(
             options = options,
             currentValue = state.videoQuality,
             onDismissRequest = { showQualityDialog = false },
-            onOptionSelected = { 
+            onOptionSelected = {
                 onAction(SettingsAction.ChangeVideoQuality(it))
                 showQualityDialog = false
-            }
+            },
         )
     }
 
@@ -277,10 +291,10 @@ fun SettingsScreen(
             options = options,
             currentValue = state.playerEngine,
             onDismissRequest = { showPlayerEngineDialog = false },
-            onOptionSelected = { 
+            onOptionSelected = {
                 onAction(SettingsAction.ChangePlayerEngine(it))
                 showPlayerEngineDialog = false
-            }
+            },
         )
     }
 
@@ -291,10 +305,10 @@ fun SettingsScreen(
             options = options,
             currentValue = state.theme.name,
             onDismissRequest = { showThemeDialog = false },
-            onOptionSelected = { 
+            onOptionSelected = {
                 onAction(SettingsAction.ChangeTheme(AppTheme.valueOf(it)))
                 showThemeDialog = false
-            }
+            },
         )
     }
 
@@ -309,12 +323,12 @@ fun SettingsScreen(
                 val isoCode = audioOptions.find { it.first == selectedName }?.second
                 onAction(SettingsAction.ChangePreferredAudioLanguage(isoCode))
                 showAudioLangDialog = false
-            }
+            },
         )
     }
 
     if (showSubtitleLangDialog) {
-         val subtitleOptions = getSubtitleLanguageOptions()
+        val subtitleOptions = getSubtitleLanguageOptions()
         SettingsDialog(
             title = "Preferred Subtitle Language",
             options = subtitleOptions.map { it.first },
@@ -324,50 +338,52 @@ fun SettingsScreen(
                 val isoCode = subtitleOptions.find { it.first == selectedName }?.second
                 onAction(SettingsAction.ChangePreferredSubtitleLanguage(isoCode))
                 showSubtitleLangDialog = false
-            }
+            },
         )
     }
 
-     if (showServerDialog) {
+    if (showServerDialog) {
         SettingsDialog(
             title = "Default Server",
             options = state.availableServers,
             currentValue = state.defaultServer,
             onDismissRequest = { showServerDialog = false },
-            onOptionSelected = { 
+            onOptionSelected = {
                 onAction(SettingsAction.SelectDefaultServer(it))
                 showServerDialog = false
-            }
+            },
         )
     }
 }
 
 // Helpers for Language Options
-private fun getAudioLanguageOptions() = listOf(
-    "Original" to null,
-    "English" to "eng",
-    "French" to "fra",
-    "German" to "deu",
-    "Spanish" to "spa",
-    "Italian" to "ita",
-    "Japanese" to "jpn",
-    "Korean" to "kor",
-    "Russian" to "rus",
-    "Portuguese" to "por"
-)
+private fun getAudioLanguageOptions() =
+    listOf(
+        "Original" to null,
+        "English" to "eng",
+        "French" to "fra",
+        "German" to "deu",
+        "Spanish" to "spa",
+        "Italian" to "ita",
+        "Japanese" to "jpn",
+        "Korean" to "kor",
+        "Russian" to "rus",
+        "Portuguese" to "por",
+    )
 
-private fun getSubtitleLanguageOptions() = listOf(
-    "None" to null,
-    "English" to "eng",
-    "French" to "fra",
-    "German" to "deu",
-    "Spanish" to "spa",
-    "Italian" to "ita",
-    "Japanese" to "jpn",
-    "Korean" to "kor",
-    "Russian" to "rus",
-    "Portuguese" to "por"
-)
+private fun getSubtitleLanguageOptions() =
+    listOf(
+        "None" to null,
+        "English" to "eng",
+        "French" to "fra",
+        "German" to "deu",
+        "Spanish" to "spa",
+        "Italian" to "ita",
+        "Japanese" to "jpn",
+        "Korean" to "kor",
+        "Russian" to "rus",
+        "Portuguese" to "por",
+    )
 
 @Preview(showBackground = true)
 @Composable
@@ -375,7 +391,7 @@ fun PreviewSettingsScreen() {
     PlexHubTheme {
         SettingsScreen(
             state = SettingsUiState(videoQuality = "Original", cacheSize = "150 MB", availableServers = listOf("Plex Server 1")),
-            onAction = {}
+            onAction = {},
         )
     }
 }

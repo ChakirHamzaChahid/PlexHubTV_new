@@ -1,7 +1,6 @@
 package com.chakir.plexhubtv
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,16 +17,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.chakir.plexhubtv.core.navigation.Screen
 import com.chakir.plexhubtv.feature.auth.AuthRoute
+import com.chakir.plexhubtv.feature.auth.profiles.ProfileRoute
 import com.chakir.plexhubtv.feature.details.MediaDetailRoute
 import com.chakir.plexhubtv.feature.details.SeasonDetailRoute
-import com.chakir.plexhubtv.feature.downloads.DownloadsRoute
-import com.chakir.plexhubtv.feature.home.HomeRoute
-import com.chakir.plexhubtv.feature.library.LibraryRoute
 import com.chakir.plexhubtv.feature.player.VideoPlayerRoute
-import com.chakir.plexhubtv.feature.search.SearchRoute
-import com.chakir.plexhubtv.feature.settings.SettingsRoute
-import com.chakir.plexhubtv.feature.auth.profiles.ProfileRoute
 import dagger.hilt.android.AndroidEntryPoint
+import timber.log.Timber
 
 /**
  * Activité principale de PlexHubTV.
@@ -36,33 +31,32 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     @javax.inject.Inject
     lateinit var settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        android.util.Log.i("METRICS", "APP STARTUP: Launching PlexHubTV")
-        
+        Timber.i("APP STARTUP: Launching PlexHubTV")
+
         // Play Intro Sound
         try {
             val mediaPlayer = android.media.MediaPlayer.create(this, R.raw.intro_sound)
             mediaPlayer.setOnCompletionListener { it.release() }
             mediaPlayer.start()
         } catch (e: Exception) {
-            android.util.Log.e("IntroSound", "Failed to play intro: ${e.message}")
+            Timber.e("Failed to play intro: ${e.message}")
         }
-        
+
         enableEdgeToEdge()
         setContent {
             val appThemeState = settingsDataStore.appTheme.collectAsState(initial = "Plex")
-            
+
             com.chakir.plexhubtv.core.designsystem.PlexHubTheme(
-                appTheme = appThemeState.value
+                appTheme = appThemeState.value,
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = MaterialTheme.colorScheme.background,
                 ) {
                     PlexHubApp()
                 }
@@ -92,17 +86,17 @@ fun PlexHubApp() {
                     navController.navigate(Screen.Loading.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
-                }
+                },
             )
         }
 
         composable(Screen.Loading.route) {
             com.chakir.plexhubtv.feature.loading.LoadingRoute(
                 onNavigateToMain = {
-                     navController.navigate(Screen.Main.route) {
-                         popUpTo(Screen.Loading.route) { inclusive = true }
-                     }
-                }
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.Loading.route) { inclusive = true }
+                    }
+                },
             )
         }
 
@@ -115,10 +109,10 @@ fun PlexHubApp() {
                 },
                 onBack = {
                     navController.popBackStack()
-                }
+                },
             )
         }
-        
+
         composable(Screen.Main.route) {
             com.chakir.plexhubtv.feature.main.MainScreen(
                 onNavigateToDetails = { ratingKey, serverId ->
@@ -134,17 +128,18 @@ fun PlexHubApp() {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
             )
         }
-        
+
         // Media Details
         composable(
             route = Screen.MediaDetail.route,
-            arguments = listOf(
-                navArgument(Screen.ARG_RATING_KEY) { type = NavType.StringType },
-                navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType }
-            )
+            arguments =
+                listOf(
+                    navArgument(Screen.ARG_RATING_KEY) { type = NavType.StringType },
+                    navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType },
+                ),
         ) {
             MediaDetailRoute(
                 onNavigateToPlayer = { ratingKey, serverId ->
@@ -161,17 +156,18 @@ fun PlexHubApp() {
                 },
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
             )
         }
 
         // Season Details
         composable(
             route = Screen.SeasonDetail.route,
-            arguments = listOf(
-                navArgument(Screen.ARG_RATING_KEY) { type = NavType.StringType },
-                navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType }
-            )
+            arguments =
+                listOf(
+                    navArgument(Screen.ARG_RATING_KEY) { type = NavType.StringType },
+                    navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType },
+                ),
         ) {
             SeasonDetailRoute(
                 onNavigateToPlayer = { ratingKey, serverId ->
@@ -179,17 +175,18 @@ fun PlexHubApp() {
                 },
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
             )
         }
 
         // Collection Details
         composable(
             route = Screen.CollectionDetail.route,
-            arguments = listOf(
-                navArgument("collectionId") { type = NavType.StringType },
-                navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType }
-            )
+            arguments =
+                listOf(
+                    navArgument("collectionId") { type = NavType.StringType },
+                    navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType },
+                ),
         ) {
             com.chakir.plexhubtv.feature.collection.CollectionDetailRoute(
                 onNavigateToDetail = { ratingKey, serverId ->
@@ -197,41 +194,41 @@ fun PlexHubApp() {
                 },
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
             )
         }
-
-
 
         // VideoPlayer
         composable(
             route = Screen.VideoPlayer.route,
-            arguments = listOf(
-                navArgument(Screen.ARG_RATING_KEY) { type = NavType.StringType },
-                navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType },
-                navArgument(Screen.ARG_START_OFFSET) { 
-                    type = NavType.LongType 
-                    defaultValue = 0L
-                },
-                navArgument(Screen.ARG_URL) {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                },
-                navArgument(Screen.ARG_TITLE) {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                }
-            ),
-            deepLinks = listOf(
-                androidx.navigation.navDeepLink { uriPattern = "plexhub://play/{ratingKey}?serverId={serverId}" }
-            )
+            arguments =
+                listOf(
+                    navArgument(Screen.ARG_RATING_KEY) { type = NavType.StringType },
+                    navArgument(Screen.ARG_SERVER_ID) { type = NavType.StringType },
+                    navArgument(Screen.ARG_START_OFFSET) {
+                        type = NavType.LongType
+                        defaultValue = 0L
+                    },
+                    navArgument(Screen.ARG_URL) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument(Screen.ARG_TITLE) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            deepLinks =
+                listOf(
+                    androidx.navigation.navDeepLink { uriPattern = "plexhub://play/{ratingKey}?serverId={serverId}" },
+                ),
         ) {
             VideoPlayerRoute(
                 onClose = {
                     navController.popBackStack()
-                }
+                },
             )
         }
     }

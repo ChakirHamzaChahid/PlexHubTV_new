@@ -12,52 +12,58 @@ import javax.inject.Singleton
  * Mimics Plezy's _fetchWithCacheFallback behavior using Room.
  */
 @Singleton
-class PlexApiCache @Inject constructor(
-    private val apiCacheDao: ApiCacheDao
-) {
-
-    /**
-     * Tries to get value from cache.
-     * Returns null if not found or expired.
-     */
-    suspend fun get(cacheKey: String): String? {
-        return withContext(Dispatchers.IO) {
-            val entry = apiCacheDao.getEntry(cacheKey)
-            if (entry != null) {
-                if (entry.isExpired()) {
-                    // Lazy expiration: delete if expired
-                    apiCacheDao.deleteEntry(cacheKey)
-                    null
+class PlexApiCache
+    @Inject
+    constructor(
+        private val apiCacheDao: ApiCacheDao,
+    ) {
+        /**
+         * Tries to get value from cache.
+         * Returns null if not found or expired.
+         */
+        suspend fun get(cacheKey: String): String? {
+            return withContext(Dispatchers.IO) {
+                val entry = apiCacheDao.getEntry(cacheKey)
+                if (entry != null) {
+                    if (entry.isExpired()) {
+                        // Lazy expiration: delete if expired
+                        apiCacheDao.deleteEntry(cacheKey)
+                        null
+                    } else {
+                        entry.data
+                    }
                 } else {
-                    entry.data
+                    null
                 }
-            } else {
-                null
+            }
+        }
+
+        /**
+         * Stores value in cache with specified TTL.
+         */
+        suspend fun put(
+            cacheKey: String,
+            data: String,
+            ttlSeconds: Int = 3600,
+        ) {
+            withContext(Dispatchers.IO) {
+                val entry =
+                    ApiCacheEntity(
+                        cacheKey = cacheKey,
+                        data = data,
+                        cachedAt = System.currentTimeMillis(),
+                        ttlSeconds = ttlSeconds,
+                    )
+                apiCacheDao.insertCache(entry)
+            }
+        }
+
+        /**
+         * Clears specific entry.
+         */
+        suspend fun evict(cacheKey: String) {
+            withContext(Dispatchers.IO) {
+                apiCacheDao.deleteEntry(cacheKey)
             }
         }
     }
-
-    /**
-     * Stores value in cache with specified TTL.
-     */
-    suspend fun put(cacheKey: String, data: String, ttlSeconds: Int = 3600) {
-        withContext(Dispatchers.IO) {
-            val entry = ApiCacheEntity(
-                cacheKey = cacheKey,
-                data = data,
-                cachedAt = System.currentTimeMillis(),
-                ttlSeconds = ttlSeconds
-            )
-            apiCacheDao.insertCache(entry)
-        }
-    }
-
-    /**
-     * Clears specific entry.
-     */
-    suspend fun evict(cacheKey: String) {
-        withContext(Dispatchers.IO) {
-            apiCacheDao.deleteEntry(cacheKey)
-        }
-    }
-}

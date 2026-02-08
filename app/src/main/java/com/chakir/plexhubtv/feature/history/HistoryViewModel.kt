@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.feature.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.chakir.plexhubtv.domain.model.MediaItem
+import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.usecase.GetWatchHistoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,12 +10,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 data class HistoryUiState(
     val isLoading: Boolean = true,
     val historyItems: List<MediaItem> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
 )
 
 /**
@@ -23,33 +24,34 @@ data class HistoryUiState(
  * Utilise [GetWatchHistoryUseCase].
  */
 @HiltViewModel
-class HistoryViewModel @Inject constructor(
-    private val getWatchHistoryUseCase: GetWatchHistoryUseCase
-) : ViewModel() {
+class HistoryViewModel
+    @Inject
+    constructor(
+        private val getWatchHistoryUseCase: GetWatchHistoryUseCase,
+    ) : ViewModel() {
+        private val _uiState = MutableStateFlow(HistoryUiState())
+        val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
 
-    private val _uiState = MutableStateFlow(HistoryUiState())
-    val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
+        init {
+            Timber.d("SCREEN [History]: Opened")
+            loadHistory()
+        }
 
-    init {
-        android.util.Log.d("METRICS", "SCREEN [History]: Opened")
-        loadHistory()
-    }
-
-    private fun loadHistory() {
-        viewModelScope.launch {
-            val startTime = System.currentTimeMillis()
-            android.util.Log.d("METRICS", "SCREEN [History]: Loading start")
-            getWatchHistoryUseCase()
-                .collect { items ->
-                    val duration = System.currentTimeMillis() - startTime
-                    android.util.Log.i("METRICS", "SCREEN [History] SUCCESS: duration=${duration}ms | items=${items.size}")
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false,
-                            historyItems = items
-                        )
+        private fun loadHistory() {
+            viewModelScope.launch {
+                val startTime = System.currentTimeMillis()
+                Timber.d("SCREEN [History]: Loading start")
+                getWatchHistoryUseCase()
+                    .collect { items ->
+                        val duration = System.currentTimeMillis() - startTime
+                        Timber.i("SCREEN [History] SUCCESS: duration=${duration}ms | items=${items.size}")
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                historyItems = items,
+                            )
+                        }
                     }
-                }
+            }
         }
     }
-}

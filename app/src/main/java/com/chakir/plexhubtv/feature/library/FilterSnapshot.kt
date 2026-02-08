@@ -6,5 +6,5 @@ data class FilterSnapshot(
     val server: String?,
     val sort: String?,
     val isDescending: Boolean,
-    val query: String
+    val query: String,
 )

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -20,78 +21,80 @@ import javax.inject.Inject
  * Exécute les recherches via [SearchAcrossServersUseCase] avec un mécanisme de "debounce" pour éviter les appels excessifs.
  */
 @HiltViewModel
-class SearchViewModel @Inject constructor(
-    private val searchAcrossServersUseCase: SearchAcrossServersUseCase
-) : ViewModel() {
+class SearchViewModel
+    @Inject
+    constructor(
+        private val searchAcrossServersUseCase: SearchAcrossServersUseCase,
+    ) : ViewModel() {
+        private val _uiState = MutableStateFlow(SearchUiState())
+        val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
-    private val _uiState = MutableStateFlow(SearchUiState())
-    val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+        private val _navigationEvents = Channel<SearchNavigationEvent>()
+        val navigationEvents = _navigationEvents.receiveAsFlow()
 
-    private val _navigationEvents = Channel<SearchNavigationEvent>()
-    val navigationEvents = _navigationEvents.receiveAsFlow()
+        private var searchJob: Job? = null
 
-    private var searchJob: Job? = null
-
-    init {
-        android.util.Log.d("METRICS", "SCREEN [Search]: Opened")
-    }
-
-    fun onAction(action: SearchAction) {
-        when (action) {
-            is SearchAction.QueryChange -> {
-                _uiState.update { it.copy(query = action.query) }
-                if (action.query.isBlank()) {
-                    _uiState.update { it.copy(searchState = SearchState.Idle, results = emptyList()) }
-                    searchJob?.cancel()
-                } else {
-                    debouncedSearch(action.query)
-                }
-            }
-            is SearchAction.ClearQuery -> {
-                _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = emptyList()) }
-                searchJob?.cancel()
-            }
-            is SearchAction.OpenMedia -> {
-                viewModelScope.launch {
-                    _navigationEvents.send(SearchNavigationEvent.NavigateToDetail(action.media.ratingKey, action.media.serverId))
-                }
-            }
+        init {
+            Timber.d("SCREEN [Search]: Opened")
         }
-    }
 
-    private fun debouncedSearch(query: String) {
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            val startTime = System.currentTimeMillis()
-            _uiState.update { it.copy(searchState = SearchState.Searching, error = null) }
-            delay(500L) // Debounce 500ms
-            
-            searchAcrossServersUseCase(query).collect { result ->
-                val duration = System.currentTimeMillis() - startTime - 500L // Approx duration after delay
-                result.fold(
-                    onSuccess = { items ->
-                        android.util.Log.i("METRICS", "SCREEN [Search] SUCCESS: query='$query' Load Duration=${duration}ms | Results=${items.size}")
-                        _uiState.update { 
-                            it.copy(
-                                results = items,
-                                searchState = if (items.isNotEmpty()) SearchState.Results else SearchState.NoResults
-                            ) 
-                        }
-                    },
-                    onFailure = { error ->
-                        android.util.Log.e("METRICS", "SCREEN [Search] FAILED: query='$query' duration=${duration}ms error=${error.message}")
-                        _uiState.update { 
-                            it.copy(
-                                searchState = SearchState.Error, 
-                                error = error.message
-                            ) 
-                        }
+        fun onAction(action: SearchAction) {
+            when (action) {
+                is SearchAction.QueryChange -> {
+                    _uiState.update { it.copy(query = action.query) }
+                    if (action.query.isBlank()) {
+                        _uiState.update { it.copy(searchState = SearchState.Idle, results = emptyList()) }
+                        searchJob?.cancel()
+                    } else {
+                        debouncedSearch(action.query)
                     }
-                )
+                }
+                is SearchAction.ClearQuery -> {
+                    _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = emptyList()) }
+                    searchJob?.cancel()
+                }
+                is SearchAction.OpenMedia -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SearchNavigationEvent.NavigateToDetail(action.media.ratingKey, action.media.serverId))
+                    }
+                }
             }
         }
+
+        private fun debouncedSearch(query: String) {
+            searchJob?.cancel()
+            searchJob =
+                viewModelScope.launch {
+                    val startTime = System.currentTimeMillis()
+                    _uiState.update { it.copy(searchState = SearchState.Searching, error = null) }
+                    delay(500L) // Debounce 500ms
+
+                    searchAcrossServersUseCase(query).collect { result ->
+                        val duration = System.currentTimeMillis() - startTime - 500L // Approx duration after delay
+                        result.fold(
+                            onSuccess = { items ->
+                                Timber.i("SCREEN [Search] SUCCESS: query='$query' Load Duration=${duration}ms | Results=${items.size}")
+                                _uiState.update {
+                                    it.copy(
+                                        results = items,
+                                        searchState = if (items.isNotEmpty()) SearchState.Results else SearchState.NoResults,
+                                    )
+                                }
+                            },
+                            onFailure = { error ->
+                                Timber.e("SCREEN [Search] FAILED: query='$query' duration=${duration}ms error=${error.message}")
+                                _uiState.update {
+                                    it.copy(
+                                        searchState = SearchState.Error,
+                                        error = error.message,
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
+        }
     }
-}
 
 sealed interface SearchNavigationEvent {
     data class NavigateToDetail(val ratingKey: String, val serverId: String) : SearchNavigationEvent
