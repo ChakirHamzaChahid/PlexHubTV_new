@@ -10,6 +10,7 @@ import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.GenericPlexResponse
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
+import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.data.repository.aggregation.MediaDeduplicator
 import com.chakir.plexhubtv.domain.repository.AuthRepository
@@ -72,19 +73,30 @@ class HubsRepositoryImpl
                                                     val hubTitle = hubDto.title ?: "Unknown"
 
                                                     val metadata = hubDto.metadata ?: emptyList()
+                                                    val hubBaseUrl = client.baseUrl
+                                                    val hubToken = client.server.accessToken ?: ""
                                                     val entities =
                                                         metadata.filter { mapper.isQualityMetadata(it) && !it.ratingKey.isNullOrEmpty() }.map {
                                                                 dto ->
-                                                            mapper.mapDtoToEntity(
+                                                            val entity = mapper.mapDtoToEntity(
                                                                 dto,
                                                                 client.server.clientIdentifier,
                                                                 dto.librarySectionID ?: "0",
                                                             )
-                                                                .copy(
-                                                                    filter = "hub",
-                                                                    sortOrder = hubDto.hubIdentifier ?: "default",
-                                                                    pageOffset = 0,
-                                                                )
+                                                            entity.copy(
+                                                                filter = "hub",
+                                                                sortOrder = hubDto.hubIdentifier ?: "default",
+                                                                pageOffset = 0,
+                                                                resolvedThumbUrl = entity.thumbUrl?.let { path ->
+                                                                    getOptimizedImageUrl("$hubBaseUrl$path?X-Plex-Token=$hubToken", 300, 450)
+                                                                        ?: "$hubBaseUrl$path?X-Plex-Token=$hubToken"
+                                                                },
+                                                                resolvedArtUrl = entity.artUrl?.let { path ->
+                                                                    getOptimizedImageUrl("$hubBaseUrl$path?X-Plex-Token=$hubToken", 1280, 720)
+                                                                        ?: "$hubBaseUrl$path?X-Plex-Token=$hubToken"
+                                                                },
+                                                                resolvedBaseUrl = hubBaseUrl,
+                                                            )
                                                         }
 
                                                     if (entities.isNotEmpty()) {
@@ -148,19 +160,30 @@ class HubsRepositoryImpl
                                                 val hubTitle = hubDto.title ?: "Unknown"
 
                                                 val metadata = hubDto.metadata ?: emptyList()
+                                                val netBaseUrl = client.baseUrl
+                                                val netToken = client.server.accessToken ?: ""
                                                 val entities =
                                                     metadata.filter { mapper.isQualityMetadata(it) && !it.ratingKey.isNullOrEmpty() }.map {
                                                             dto ->
-                                                        mapper.mapDtoToEntity(
+                                                        val entity = mapper.mapDtoToEntity(
                                                             dto,
                                                             client.server.clientIdentifier,
                                                             dto.librarySectionID ?: "0",
                                                         )
-                                                            .copy(
-                                                                filter = "hub",
-                                                                sortOrder = hubDto.hubIdentifier ?: "default",
-                                                                pageOffset = 0,
-                                                            )
+                                                        entity.copy(
+                                                            filter = "hub",
+                                                            sortOrder = hubDto.hubIdentifier ?: "default",
+                                                            pageOffset = 0,
+                                                            resolvedThumbUrl = entity.thumbUrl?.let { path ->
+                                                                getOptimizedImageUrl("$netBaseUrl$path?X-Plex-Token=$netToken", 300, 450)
+                                                                    ?: "$netBaseUrl$path?X-Plex-Token=$netToken"
+                                                            },
+                                                            resolvedArtUrl = entity.artUrl?.let { path ->
+                                                                getOptimizedImageUrl("$netBaseUrl$path?X-Plex-Token=$netToken", 1280, 720)
+                                                                    ?: "$netBaseUrl$path?X-Plex-Token=$netToken"
+                                                            },
+                                                            resolvedBaseUrl = netBaseUrl,
+                                                        )
                                                     }
 
                                                 if (entities.isNotEmpty()) {
@@ -282,7 +305,7 @@ class HubsRepositoryImpl
 
         private suspend fun getActiveClients(): List<PlexClient> =
             coroutineScope {
-                val servers = authRepository.getServers(forceRefresh = true).getOrNull() ?: return@coroutineScope emptyList()
+                val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
 
                 servers.map { server ->
                     async {

@@ -13,6 +13,8 @@ import coil.ImageLoaderFactory
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.IoDispatcher
+import com.chakir.plexhubtv.core.network.ConnectionManager
+import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineDispatcher
@@ -54,6 +56,10 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
 
     @Inject @IoDispatcher
     lateinit var ioDispatcher: CoroutineDispatcher
+
+    @Inject lateinit var connectionManager: ConnectionManager
+
+    @Inject lateinit var authRepository: AuthRepository
 
     private val _appReady = MutableStateFlow(false)
     val appReady: StateFlow<Boolean> = _appReady.asStateFlow()
@@ -126,6 +132,31 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
                                 Timber.d("Init: Network ready")
                             } catch (e: Exception) {
                                 Timber.e(e, "Init: Network failed")
+                            }
+                        },
+                        // Job 5: Pre-warm ConnectionManager with known servers
+                        // Tests connections in parallel so URLs are ready before Home screen loads
+                        async(Dispatchers.IO) {
+                            try {
+                                Timber.d("Init: Pre-warming server connections...")
+                                val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: emptyList()
+                                if (servers.isNotEmpty()) {
+                                    // Test all server connections in parallel (fire-and-forget per server)
+                                    servers.map { server ->
+                                        async {
+                                            try {
+                                                connectionManager.findBestConnection(server)
+                                            } catch (e: Exception) {
+                                                Timber.w(e, "Init: Connection test failed for ${server.name}")
+                                            }
+                                        }
+                                    }.awaitAll()
+                                    Timber.d("Init: Server connections warmed (${servers.size} servers)")
+                                } else {
+                                    Timber.d("Init: No servers to warm")
+                                }
+                            } catch (e: Exception) {
+                                Timber.w(e, "Init: Connection warmup failed")
                             }
                         },
                     )

@@ -25,7 +25,7 @@ import androidx.room.TypeConverters
         CollectionEntity::class,
         MediaCollectionCrossRef::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = false,
 )
 abstract class PlexDatabase : RoomDatabase() {
