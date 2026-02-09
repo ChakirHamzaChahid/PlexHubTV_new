@@ -50,7 +50,7 @@ object PlexImageHelper {
             roundToFactor(height, HEIGHT_ROUNDING_FACTOR)
                 .coerceIn(MIN_TRANSCODED_HEIGHT, MAX_TRANSCODED_HEIGHT)
 
-        val encodedPath = Uri.encode("$path${if (path.contains("?")) "&" else "?"}X-Plex-Token=$token")
+        val encodedPath = Uri.encode(path)
 
         val builder =
             Uri.parse("$baseUrl/photo/:/transcode").buildUpon()

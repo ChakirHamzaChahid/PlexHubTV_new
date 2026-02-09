@@ -10,6 +10,7 @@ import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
+import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.data.repository.aggregation.MediaDeduplicator
 import com.chakir.plexhubtv.domain.repository.AuthRepository
@@ -104,9 +105,22 @@ class OnDeckRepositoryImpl
                         val token = client.server.accessToken ?: ""
                         applicationScope.async<List<MediaEntity>>(ioDispatcher) {
                             try {
+                                val baseUrl = client.baseUrl
+                                val accessToken = client.server.accessToken ?: ""
                                 val response = client.getOnDeck()
                                 response.body()?.mediaContainer?.metadata?.map { dto: MetadataDTO ->
-                                    mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "")
+                                    val entity = mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "")
+                                    entity.copy(
+                                        resolvedThumbUrl = entity.thumbUrl?.let { path ->
+                                            getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 300, 450)
+                                                ?: "$baseUrl$path?X-Plex-Token=$accessToken"
+                                        },
+                                        resolvedArtUrl = entity.artUrl?.let { path ->
+                                            getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 1280, 720)
+                                                ?: "$baseUrl$path?X-Plex-Token=$accessToken"
+                                        },
+                                        resolvedBaseUrl = baseUrl,
+                                    )
                                 } ?: emptyList()
                             } catch (e: Exception) {
                                 Timber.w(e, "OnDeck fetch failed for server=${client.server.name}")
@@ -141,7 +155,7 @@ class OnDeckRepositoryImpl
         // Helper duplicated from MediaRepositoryImpl logic (or extracted later)
         private suspend fun getActiveClients(): List<PlexClient> =
             coroutineScope {
-                val servers = authRepository.getServers(forceRefresh = true).getOrNull() ?: return@coroutineScope emptyList()
+                val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
 
                 servers.map { server ->
                     async {

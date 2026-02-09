@@ -198,6 +198,8 @@ class SettingsDataStore
             }
         }
 
+        private val CACHED_CONNECTIONS = stringPreferencesKey("cached_connections")
+
         private val PREF_AUDIO_LANG = stringPreferencesKey("pref_audio_lang")
         private val PREF_SUBTITLE_LANG = stringPreferencesKey("pref_subtitle_lang")
 
@@ -232,6 +234,31 @@ class SettingsDataStore
         suspend fun saveIptvPlaylistUrl(url: String) {
             dataStore.edit { preferences ->
                 preferences[IPTV_PLAYLIST_URL] = url
+            }
+        }
+
+        /**
+         * Persisted connection URLs per server (serverId -> baseUrl).
+         * Restored on cold start so ConnectionManager has working URLs immediately.
+         */
+        val cachedConnections: Flow<Map<String, String>>
+            get() = dataStore.data.map { prefs ->
+                val json = prefs[CACHED_CONNECTIONS] ?: return@map emptyMap()
+                try {
+                    // Simple key=value pairs separated by "|", e.g. "id1=url1|id2=url2"
+                    json.split("|").filter { it.contains("=") }.associate { entry ->
+                        val (key, value) = entry.split("=", limit = 2)
+                        key to value
+                    }
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+            }
+
+        suspend fun saveCachedConnections(connections: Map<String, String>) {
+            dataStore.edit { prefs ->
+                val serialized = connections.entries.joinToString("|") { "${it.key}=${it.value}" }
+                prefs[CACHED_CONNECTIONS] = serialized
             }
         }
 

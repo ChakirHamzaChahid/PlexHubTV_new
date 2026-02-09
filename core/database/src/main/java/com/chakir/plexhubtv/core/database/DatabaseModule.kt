@@ -39,12 +39,12 @@ object DatabaseModule {
                 database.execSQL(
                     """
                 CREATE TABLE IF NOT EXISTS `collections_new` (
-                    `id` TEXT NOT NULL, 
-                    `serverId` TEXT NOT NULL, 
-                    `title` TEXT NOT NULL, 
-                    `summary` TEXT, 
-                    `thumbUrl` TEXT, 
-                    `lastSync` INTEGER NOT NULL, 
+                    `id` TEXT NOT NULL,
+                    `serverId` TEXT NOT NULL,
+                    `title` TEXT NOT NULL,
+                    `summary` TEXT,
+                    `thumbUrl` TEXT,
+                    `lastSync` INTEGER NOT NULL,
                     PRIMARY KEY(`id`, `serverId`)
                 )
              """,
@@ -65,6 +65,17 @@ object DatabaseModule {
 
                 // 4. Rename new table
                 database.execSQL("ALTER TABLE `collections_new` RENAME TO `collections`")
+            }
+        }
+
+    private val MIGRATION_19_20 =
+        object : androidx.room.migration.Migration(19, 20) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE media ADD COLUMN resolvedThumbUrl TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE media ADD COLUMN resolvedArtUrl TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE media ADD COLUMN resolvedBaseUrl TEXT DEFAULT NULL")
+                // Add composite index for HomeContentDao JOIN performance
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_media_ratingkey_serverid ON media(ratingKey, serverId)")
             }
         }
 
@@ -92,7 +103,7 @@ object DatabaseModule {
                     }
                 },
             )
-            .addMigrations(MIGRATION_11_12, MIGRATION_15_16, MIGRATION_18_19)
+            .addMigrations(MIGRATION_11_12, MIGRATION_15_16, MIGRATION_18_19, MIGRATION_19_20)
             .fallbackToDestructiveMigration()
             .build()
     }

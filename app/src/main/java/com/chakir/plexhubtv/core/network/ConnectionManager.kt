@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.core.network
 
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.Server
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -8,8 +9,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,22 +24,38 @@ import javax.inject.Singleton
  * - Utilise une logique de "Course" (Race) pour tester les connexions candidates en parallèle.
  * - Gère le mode Hors-ligne global de l'application.
  * - Cache les URLs valides pour éviter de re-tester à chaque appel.
+ * - Persiste les URLs validées dans DataStore pour survie au redémarrage.
  */
 @Singleton
 class ConnectionManager
     @Inject
     constructor(
         private val connectionTester: ServerConnectionTester,
+        private val settingsDataStore: SettingsDataStore,
         @com.chakir.plexhubtv.core.di.ApplicationScope private val scope: CoroutineScope,
     ) {
         // Map of Server MachineID -> Active (Best) Base URL
         private val _activeConnections = MutableStateFlow<Map<String, String>>(emptyMap())
         val activeConnections: StateFlow<Map<String, String>> = _activeConnections.asStateFlow()
 
-        // Global Offline State (Manual toggle + Network Callback logic in real app)
-        // For this prototype, we'll expose a MutableState that can be toggled or set by failures.
+        // Global Offline State
         private val _isOffline = MutableStateFlow(false)
         val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
+
+        init {
+            // Restore persisted connections on cold start
+            scope.launch {
+                try {
+                    val persisted = settingsDataStore.cachedConnections.first()
+                    if (persisted.isNotEmpty()) {
+                        _activeConnections.update { it + persisted }
+                        Timber.d("ConnectionManager: Restored ${persisted.size} cached connections from DataStore")
+                    }
+                } catch (e: Exception) {
+                    Timber.w(e, "ConnectionManager: Failed to restore cached connections")
+                }
+            }
+        }
 
         /**
          * Finds the best connection for a server using "Race" logic.
@@ -115,6 +134,14 @@ class ConnectionManager
             url: String,
         ) {
             _activeConnections.update { it + (serverId to url) }
+            // Persist to DataStore for cold start recovery
+            scope.launch {
+                try {
+                    settingsDataStore.saveCachedConnections(_activeConnections.value)
+                } catch (e: Exception) {
+                    Timber.w(e, "ConnectionManager: Failed to persist connection cache")
+                }
+            }
         }
 
         fun getCachedUrl(serverId: String): String? = _activeConnections.value[serverId]

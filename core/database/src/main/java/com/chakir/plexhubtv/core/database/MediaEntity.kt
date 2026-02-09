@@ -76,4 +76,8 @@ data class MediaEntity(
     val ratingKeys: String? = null,
     val parentThumb: String? = null,
     val grandparentThumb: String? = null,
+    // Pre-resolved full URLs for offline-first instant display
+    val resolvedThumbUrl: String? = null,
+    val resolvedArtUrl: String? = null,
+    val resolvedBaseUrl: String? = null,
 )
