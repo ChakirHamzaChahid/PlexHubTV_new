@@ -326,8 +326,10 @@ class LibraryViewModel
                     _uiState.update { it.copy(selectedServerFilter = action.serverId) }
                 }
                 is LibraryAction.OnItemFocused -> {
+                    // PERFORMANCE FIX: Only update SavedStateHandle, DO NOT update _uiState.
+                    // Updating _uiState triggers a full screen recomposition on every D-pad move.
                     savedStateHandle["lastFocusedId"] = action.item.ratingKey
-                    _uiState.update { it.copy(lastFocusedId = action.item.ratingKey) }
+                    // _uiState.update { it.copy(lastFocusedId = action.item.ratingKey) } 
                 }
                 is LibraryAction.JumpToLetter -> {
                     viewModelScope.launch {

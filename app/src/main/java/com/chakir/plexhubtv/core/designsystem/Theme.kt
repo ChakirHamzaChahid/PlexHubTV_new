@@ -96,6 +96,24 @@ private val MoroccoColorScheme =
         onSurfaceVariant = Color.LightGray,
     )
 
+private val NetflixColorScheme =
+    darkColorScheme(
+        primary = NetflixRed,
+        onPrimary = NetflixWhite,
+        secondary = NetflixRed,
+        onSecondary = NetflixWhite,
+        tertiary = NetflixRed,
+        onTertiary = NetflixWhite,
+        background = NetflixBlack,
+        surface = NetflixDarkGray,
+        onBackground = NetflixWhite,
+        onSurface = NetflixWhite,
+        error = NetflixRed,
+        outline = NetflixWhite,
+        surfaceVariant = NetflixDarkGray,
+        onSurfaceVariant = NetflixLightGray,
+    )
+
 /**
  * Thème principal de l'application basé sur Material3.
  *
@@ -116,6 +134,7 @@ fun PlexHubTheme(
             "MonoDark" -> MonoDarkColorScheme
             "MonoLight" -> MonoLightColorScheme
             "Morocco" -> MoroccoColorScheme
+            "Netflix" -> NetflixColorScheme
             "Plex" -> if (darkTheme) DarkColorScheme else LightColorScheme
             else -> if (darkTheme) DarkColorScheme else LightColorScheme
         }

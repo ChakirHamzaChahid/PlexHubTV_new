@@ -269,14 +269,22 @@ fun VideoPlayerScreen(
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize(),
         ) {
-            com.chakir.plexhubtv.feature.player.ui.PlezyPlayerControls(
-                uiState = uiState,
-                onAction = onAction,
-                title = uiState.currentItem?.title ?: "",
-                chapters = chapters,
-                markers = markers,
-                visibleMarkers = visibleMarkers,
-                playPauseFocusRequester = focusRequester,
+            com.chakir.plexhubtv.feature.player.components.NetflixPlayerControls(
+                media = uiState.currentItem,
+                isPlaying = uiState.isPlaying,
+                currentTimeMs = uiState.currentPosition,
+                durationMs = uiState.duration,
+                onPlayPauseToggle = {
+                    if (uiState.isPlaying) onAction(PlayerAction.Pause) else onAction(PlayerAction.Play)
+                },
+                onSeek = { onAction(PlayerAction.SeekTo(it)) },
+                onSkipForward = { onAction(PlayerAction.SeekTo(uiState.currentPosition + 30000)) },
+                onSkipBackward = { onAction(PlayerAction.SeekTo(uiState.currentPosition - 10000)) },
+                onNext = { onAction(PlayerAction.Next) },
+                onStop = { onAction(PlayerAction.Close) },
+                isVisible = shouldShowControls,
+                modifier = Modifier,
+                playPauseFocusRequester = focusRequester
             )
         }
 

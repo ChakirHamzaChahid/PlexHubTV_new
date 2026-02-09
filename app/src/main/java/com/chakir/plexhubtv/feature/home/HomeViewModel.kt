@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -26,6 +27,7 @@ class HomeViewModel
     @Inject
     constructor(
         private val getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase,
+        private val favoritesRepository: FavoritesRepository,
         private val workManager: androidx.work.WorkManager,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val imagePrefetchManager: com.chakir.plexhubtv.core.image.ImagePrefetchManager,
@@ -97,6 +99,13 @@ class HomeViewModel
 
                 // Avoid showing full-screen loading if we already have some data (e.g., from previous session or quick refresh)
                 _uiState.update { it.copy(isLoading = it.onDeck.isEmpty() && it.hubs.isEmpty(), error = null) }
+
+                // Launch Favorites Collection
+                launch {
+                    favoritesRepository.getFavorites().collect { favorites ->
+                        _uiState.update { it.copy(favorites = favorites) }
+                    }
+                }
 
                 getUnifiedHomeContentUseCase().collect { result ->
                     val duration = System.currentTimeMillis() - startTime

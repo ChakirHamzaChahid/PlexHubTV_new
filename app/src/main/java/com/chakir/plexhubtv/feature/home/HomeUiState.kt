@@ -17,6 +17,7 @@ data class HomeUiState(
     val syncMessage: String = "",
     val onDeck: List<MediaItem> = emptyList(),
     val hubs: List<Hub> = emptyList(),
+    val favorites: List<MediaItem> = emptyList(),
     val error: String? = null,
 ) : Parcelable
 

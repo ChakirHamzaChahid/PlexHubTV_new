@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.database.CollectionDao
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -32,6 +33,7 @@ class MediaDetailRepositoryImplTest {
     private val authRepository = mockk<AuthRepository>()
     private val connectionManager = mockk<ConnectionManager>()
     private val mediaDao = mockk<MediaDao>(relaxed = true)
+    private val collectionDao = mockk<CollectionDao>(relaxed = true)
     private val plexApiCache = mockk<PlexApiCache>(relaxed = true)
     private val mapper = mockk<MediaMapper>()
     private val mediaUrlResolver = mockk<MediaUrlResolver>()
@@ -42,7 +44,15 @@ class MediaDetailRepositoryImplTest {
     fun setup() {
         repository =
             MediaDetailRepositoryImpl(
-                api, authRepository, connectionManager, mediaDao, plexApiCache, mapper, mediaUrlResolver, testDispatcher,
+                api,
+                authRepository,
+                connectionManager,
+                mediaDao,
+                collectionDao,
+                plexApiCache,
+                mapper,
+                mediaUrlResolver,
+                testDispatcher,
             )
 
         val server = createServer("s1")

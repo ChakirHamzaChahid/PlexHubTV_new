@@ -43,3 +43,10 @@ val MorocGreen = Color(0xFF006233) // Flag Green
 val MorocGold = Color(0xFFFDB913) // Royal Gold Accent
 val MorocBackground = Color(0xFF1A0505) // Deep Dark Red/Brown Background (Night in Marrakech)
 val MorocSurface = Color(0xFF2D0A0A) // Slightly lighter for cards
+
+// Netflix Colors
+val NetflixRed = Color(0xFFE50914)
+val NetflixBlack = Color(0xFF000000)
+val NetflixDarkGray = Color(0xFF141414)
+val NetflixLightGray = Color(0xFFB3B3B3)
+val NetflixWhite = Color(0xFFFFFFFF)

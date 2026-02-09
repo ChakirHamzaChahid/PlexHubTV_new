@@ -2,6 +2,8 @@ package com.chakir.plexhubtv.feature.details
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -10,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -38,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
+import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
@@ -104,17 +109,17 @@ fun MediaDetailScreen(
                     }
                 }
             } else if (state.media != null) {
-                MediaDetailContent(
+                NetflixDetailScreen(
                     media = state.media,
                     seasons = state.seasons,
                     similarItems = state.similarItems,
-                    state = state, // Pass full state to access collection
+                    state = state,
                     onAction = onAction,
                     onCollectionClicked = onCollectionClicked,
                 )
             }
         }
-
+    
         val sourceMedia = state.selectedPlaybackItem ?: state.media
         if (state.showSourceSelection && sourceMedia?.remoteSources?.isNotEmpty() == true) {
             SourceSelectionDialog(
@@ -129,450 +134,60 @@ fun MediaDetailScreen(
 }
 
 @Composable
-fun MediaDetailContent(
-    media: MediaItem,
-    seasons: List<MediaItem>,
-    similarItems: List<MediaItem>,
-    state: MediaDetailUiState, // Added this
-    onAction: (MediaDetailEvent) -> Unit,
-    onCollectionClicked: (String, String) -> Unit,
-) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 1. Background Backdrop
-        AsyncImage(
-            model =
-                ImageRequest.Builder(LocalContext.current)
-                    .data(media.artUrl ?: media.thumbUrl)
-                    .crossfade(true)
-                    .build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-
-        // Dark Overlay with Gradient for better readability
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors =
-                                listOf(
-                                    Color.Black,
-                                    Color.Black.copy(alpha = 0.8f),
-                                    Color.Black.copy(alpha = 0.4f),
-                                ),
-                            startX = 0f,
-                            endX = Float.POSITIVE_INFINITY,
-                        ),
-                    ),
-        )
-
-        // 2. Main Content Scrollable (TvLazyColumn for TV D-pad navigation)
-        // 2. Main Content Scrollable (LazyColumn for TV D-pad navigation)
-        LazyColumn(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(start = 64.dp, end = 32.dp, top = 24.dp, bottom = 24.dp),
-        ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(32.dp),
-                ) {
-                    // Left Column: Poster + Ratings
-                    Column(
-                        modifier =
-                            Modifier
-                                .width(200.dp) // Reduced from 240dp to make poster shorter
-                                .fillMaxHeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(2f / 3f),
-                        ) {
-                            AsyncImage(
-                                model =
-                                    ImageRequest.Builder(LocalContext.current)
-                                        .data(media.thumbUrl)
-                                        .crossfade(true)
-                                        .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer
-
-                        // Ratings Badges
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                        ) {
-                            val rating = media.rating
-                            if (rating != null && rating > 0) {
-                                DetailRatingItem(
-                                    label = "Critics",
-                                    value = rating,
-                                    icon = Icons.Default.Star,
-                                    color = Color(0xFFFFD700),
-                                )
-                            }
-                            val audienceRating = media.audienceRating
-                            if (audienceRating != null && audienceRating > 0) {
-                                DetailRatingItem(
-                                    label = "Audience",
-                                    value = audienceRating,
-                                    icon = Icons.Default.Star,
-                                    color = Color(0xFFFF9800),
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer
-
-                        // Technical Badges
-                        com.chakir.plexhubtv.feature.details.components.TechnicalBadges(
-                            media = media,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    // Right Column: Info details
-                    Column(
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                    ) {
-                        // Title
-                        Text(
-                            text = media.title,
-                            style = MaterialTheme.typography.headlineSmall, // Reduced from displaySmall
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            maxLines = 2,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        )
-
-                        // Metadata Row
-                        Row(
-                            modifier = Modifier.padding(vertical = 8.dp), // Reduced vertical padding
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            media.year?.let {
-                                Text(text = "$it", style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f))
-                                Spacer(Modifier.width(16.dp))
-                            }
-
-                            media.durationMs?.let {
-                                val mins = it / 60000
-                                Text(
-                                    text = "$mins min",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = Color.White.copy(alpha = 0.7f),
-                                )
-                                Spacer(Modifier.width(16.dp))
-                            }
-
-                            media.contentRating?.let { rating ->
-                                if (rating.isNotBlank()) {
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = Color.White.copy(alpha = 0.1f),
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                                    ) {
-                                        Text(
-                                            text = rating.uppercase(),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                    }
-                                    Spacer(Modifier.width(16.dp))
-                                }
-                            }
-
-                            media.studio?.let { studio ->
-                                if (studio.isNotBlank()) {
-                                    Text(
-                                        text = studio,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White.copy(alpha = 0.5f),
-                                        maxLines = 1,
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            // IDs in Top Right (Subtle)
-                            if (!media.imdbId.isNullOrBlank()) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color.White.copy(alpha = 0.1f),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                                ) {
-                                    Text(
-                                        text = "IMDB: ${media.imdbId}",
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontWeight = FontWeight.Bold,
-                                    )
-                                }
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            if (!media.tmdbId.isNullOrBlank()) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color.White.copy(alpha = 0.1f),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                                ) {
-                                    Text(
-                                        text = "TMDB: ${media.tmdbId}",
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontWeight = FontWeight.Bold,
-                                    )
-                                }
-                            }
-                        }
-
-                        // Available Servers (Discrete)
-                        if (media.remoteSources.isNotEmpty()) {
-                            val uniqueServers = media.remoteSources.map { it.serverName }.distinct().sorted()
-                            Text(
-                                text = "Available on: " + uniqueServers.joinToString(" • "),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.5f),
-                                modifier = Modifier.padding(bottom = 8.dp),
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp)) // Reduced spacer
-
-                        // Action Buttons
-                        ActionButtonsRow(media = media, state = state, onAction = onAction)
-
-                        Spacer(modifier = Modifier.height(16.dp)) // Reduced spacer
-
-                        // Synopsis
-                        Text(
-                            text = "Synopsis",
-                            style = MaterialTheme.typography.titleMedium, // Reduced from titleLarge
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                        )
-                        Spacer(modifier = Modifier.height(4.dp)) // Reduced spacer
-                        Text(
-                            text = media.summary ?: "No summary available.",
-                            style = MaterialTheme.typography.bodyMedium, // Reduced from bodyLarge
-                            color = Color.White.copy(alpha = 0.8f),
-                            maxLines = 4, // More compact
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        )
-
-                        // Content specific rows (Seasons for TV)
-                        if (media.type == MediaType.Show && seasons.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Text(
-                                text = "Seasons",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(vertical = 4.dp),
-                            ) {
-                                items(seasons) { season ->
-                                    MediaCard(
-                                        media = season,
-                                        onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
-                                        onPlay = {},
-                                        onFocus = {},
-                                        width = 100.dp,
-                                        height = 150.dp,
-                                        titleStyle = MaterialTheme.typography.labelMedium,
-                                        subtitleStyle = MaterialTheme.typography.labelSmall,
-                                    )
-                                }
-                            }
-                        }
-
-                        // Collections Section
-                        if (state.collections.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Text(
-                                text = "Collections",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(vertical = 4.dp),
-                            ) {
-                                items(state.collections) { collection ->
-                                    Surface(
-                                        onClick = { onCollectionClicked(collection.id, collection.serverId) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color.White.copy(alpha = 0.1f),
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                        ) {
-                                            Text(
-                                                text = collection.title,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = Color.White,
-                                            )
-                                            Text(
-                                                text = "(${collection.items.size} items)",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White.copy(alpha = 0.6f),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Similar Items Row (More Like This)
-                        if (similarItems.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Text(
-                                text = "More Like This",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(vertical = 4.dp),
-                            ) {
-                                items(similarItems) { similarItem ->
-                                    MediaCard(
-                                        media = similarItem,
-                                        onClick = { onAction(MediaDetailEvent.OpenMediaDetail(similarItem)) },
-                                        onPlay = {},
-                                        onFocus = {},
-                                        width = 100.dp,
-                                        height = 150.dp,
-                                        titleStyle = MaterialTheme.typography.labelMedium,
-                                        subtitleStyle = MaterialTheme.typography.labelSmall,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Back Button
-        IconButton(
-            onClick = { onAction(MediaDetailEvent.Back) },
-            modifier = Modifier.padding(16.dp).align(Alignment.TopStart),
-        ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-        }
-    }
-}
-
-@Composable
-fun DetailRatingItem(
-    label: String,
-    value: Double,
-    icon: ImageVector,
-    color: Color,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = String.format("%.1f", value),
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.5f))
-    }
-}
-
-@Composable
 fun ActionButtonsRow(
     media: MediaItem,
     state: MediaDetailUiState,
     onAction: (MediaDetailEvent) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { // Slightly tighter spacing
-        val playFocusRequester = remember { FocusRequester() }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Play Button
+        val playInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+        val isPlayFocused by playInteractionSource.collectIsFocusedAsState()
 
-        LaunchedEffect(Unit) {
-            try {
-                playFocusRequester.requestFocus()
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to request focus")
-            }
+        Button(
+            onClick = { onAction(MediaDetailEvent.PlayClicked) },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isPlayFocused) MaterialTheme.colorScheme.primary else Color.White,
+                contentColor = if (isPlayFocused) MaterialTheme.colorScheme.onPrimary else Color.Black,
+            ),
+            shape = RoundedCornerShape(4.dp),
+            modifier = Modifier
+                .height(40.dp)
+                .scale(if (isPlayFocused) 1.05f else 1f)
+                .focusable(interactionSource = playInteractionSource),
+            interactionSource = playInteractionSource,
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Play", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
         }
 
-        var playFocused by remember { mutableStateOf(false) }
+        // Download Button
+        val downloadInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+        val isDownloadFocused by downloadInteractionSource.collectIsFocusedAsState()
+
         Button(
-            onClick = {
-                if (media.remoteSources.size > 1) {
-                    onAction(MediaDetailEvent.ShowSourceSelection)
-                } else {
-                    onAction(MediaDetailEvent.PlayClicked)
-                }
-            },
-            enabled = !state.isEnriching, // Disable while enriching
-            colors =
-                ButtonDefaults.buttonColors(
-                    containerColor = if (playFocused) MaterialTheme.colorScheme.secondary else Color.White.copy(alpha = 0.15f),
-                    contentColor = if (playFocused) MaterialTheme.colorScheme.onSecondary else Color.White,
-                    disabledContainerColor = Color.White.copy(alpha = 0.1f),
-                    disabledContentColor = Color.White.copy(alpha = 0.5f),
-                ),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), // Compact padding
-            modifier =
-                Modifier
-                    .focusRequester(playFocusRequester)
-                    .onFocusChanged { playFocused = it.isFocused }
-                    .height(40.dp) // Fixed height to match IconButtons
-                    .scale(if (playFocused) 1.05f else 1f),
+            onClick = { onAction(MediaDetailEvent.DownloadClicked) },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isDownloadFocused) NetflixLightGray else NetflixDarkGray,
+                contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(4.dp),
+            modifier = Modifier
+                .height(40.dp)
+                .scale(if (isDownloadFocused) 1.05f else 1f)
+                .focusable(interactionSource = downloadInteractionSource),
+            interactionSource = downloadInteractionSource
         ) {
-            if (state.isEnriching) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = Color.White.copy(alpha = 0.7f),
-                )
-                Spacer(Modifier.width(8.dp))
-                // Text("Loading...", style = MaterialTheme.typography.labelLarge) // Optional text
-            } else {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(4.dp))
-            }
-            Text("Play", style = MaterialTheme.typography.labelLarge)
+            Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Download", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
         }
 
         // Watch Status
@@ -581,7 +196,7 @@ fun ActionButtonsRow(
             onClick = { onAction(MediaDetailEvent.ToggleWatchStatus) },
             modifier =
                 Modifier
-                    .size(40.dp) // Smaller from 48dp
+                    .size(40.dp) // Smaller
                     .onFocusChanged { watchFocused = it.isFocused }
                     .background(
                         if (watchFocused) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.1f),
@@ -620,6 +235,7 @@ fun ActionButtonsRow(
         }
     }
 }
+
 
 @Preview(showBackground = true, device = "spec:width=1280dp,height=720dp,dpi=72")
 @Composable

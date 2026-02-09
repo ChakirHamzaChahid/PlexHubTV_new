@@ -24,7 +24,9 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import androidx.compose.ui.zIndex
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.navigation.Screen
 import com.chakir.plexhubtv.feature.downloads.DownloadsRoute
@@ -64,102 +66,141 @@ fun MainScreen(
         }
     }
 
-    AppSidebar(
-        navController = navController,
-        isOffline = uiState.isOffline,
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (uiState.isOffline) {
-                OfflineBanner()
+    // State for TopBar transparency and visibility
+    var isTopBarScrolled by remember { mutableStateOf(false) }
+    var isTopBarVisible by remember { mutableStateOf(true) }
+
+    // Determines the current selected item based on the route
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val selectedItem =
+        remember(currentRoute) {
+            when (currentRoute) {
+                Screen.Home.route -> NavigationItem.Home
+                Screen.Movies.route -> NavigationItem.Movies
+                Screen.TVShows.route -> NavigationItem.TVShows
+                Screen.Favorites.route -> NavigationItem.Favorites
+                Screen.History.route -> NavigationItem.History
+                Screen.Settings.route -> NavigationItem.Settings
+                Screen.Search.route -> NavigationItem.Search
+                Screen.Downloads.route -> NavigationItem.Downloads
+                else -> NavigationItem.Home // Default or None
             }
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Home.route,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .background(MaterialTheme.colorScheme.background),
-            ) {
-                composable(Screen.Home.route) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        HomeRoute(
-                            onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                            onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
-                        )
-                    }
-                }
-                composable(
-                    route = Screen.Movies.route,
-                    arguments = listOf(navArgument("mediaType") { defaultValue = "movie" }),
-                ) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        LibraryRoute(
-                            onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                        )
-                    }
-                }
-                composable(
-                    route = Screen.TVShows.route,
-                    arguments = listOf(navArgument("mediaType") { defaultValue = "show" }),
-                ) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        LibraryRoute(
-                            onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                        )
-                    }
-                }
-                composable(Screen.Search.route) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        SearchRoute(
-                            onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                        )
-                    }
-                }
-                composable(Screen.Downloads.route) {
-                    DownloadsRoute(
+        }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (uiState.isOffline) {
+            OfflineBanner()
+        }
+
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+        ) {
+            composable(Screen.Home.route) {
+                if (uiState.isOffline) {
+                    OfflinePlaceholder()
+                } else {
+                    HomeRoute(
+                        onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
                         onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
                     )
                 }
-                composable(Screen.Settings.route) {
-                    SettingsRoute(
-                        onNavigateBack = { navController.popBackStack() },
-                        onNavigateToLogin = onLogout,
-                        onNavigateToServerStatus = { navController.navigate(Screen.ServerStatus.route) },
-                    )
-                }
-                composable(Screen.ServerStatus.route) {
-                    com.chakir.plexhubtv.feature.settings.serverstatus.ServerStatusRoute(
-                        onNavigateBack = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.Favorites.route) {
-                    com.chakir.plexhubtv.feature.favorites.FavoritesRoute(
+            }
+            composable(
+                route = Screen.Movies.route,
+                arguments = listOf(navArgument("mediaType") { defaultValue = "movie" }),
+            ) {
+                if (uiState.isOffline) {
+                    OfflinePlaceholder()
+                } else {
+                    LibraryRoute(
                         onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
                     )
-                }
-                composable(Screen.History.route) {
-                    com.chakir.plexhubtv.feature.history.HistoryRoute(
-                        onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                    )
-                }
-                composable(Screen.Iptv.route) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        com.chakir.plexhubtv.feature.iptv.IptvRoute(
-                            onPlayChannel = { url, title -> onPlayUrl(url, title) },
-                        )
-                    }
                 }
             }
+            composable(
+                route = Screen.TVShows.route,
+                arguments = listOf(navArgument("mediaType") { defaultValue = "show" }),
+            ) {
+                if (uiState.isOffline) {
+                    OfflinePlaceholder()
+                } else {
+                    LibraryRoute(
+                        onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    )
+                }
+            }
+            composable(Screen.Search.route) {
+                if (uiState.isOffline) {
+                    OfflinePlaceholder()
+                } else {
+                    SearchRoute(
+                        onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    )
+                }
+            }
+            composable(Screen.Downloads.route) {
+                DownloadsRoute(
+                    onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.Settings.route) {
+                SettingsRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToLogin = onLogout,
+                    onNavigateToServerStatus = { navController.navigate(Screen.ServerStatus.route) },
+                )
+            }
+            composable(Screen.ServerStatus.route) {
+                com.chakir.plexhubtv.feature.settings.serverstatus.ServerStatusRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
+            composable(Screen.Favorites.route) {
+                com.chakir.plexhubtv.feature.favorites.FavoritesRoute(
+                    onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.History.route) {
+                com.chakir.plexhubtv.feature.history.HistoryRoute(
+                    onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.Iptv.route) {
+                if (uiState.isOffline) {
+                    OfflinePlaceholder()
+                } else {
+                    com.chakir.plexhubtv.feature.iptv.IptvRoute(
+                        onPlayChannel = { url, title -> onPlayUrl(url, title) },
+                    )
+                }
+            }
+        }
+
+        // Netflix Top Bar Overlay
+        if (!uiState.isOffline) {
+            NetflixTopBar(
+                selectedItem = selectedItem,
+                isScrolled = isTopBarScrolled, // Will be updated by callbacks in next sprints
+                isVisible = isTopBarVisible,
+                onItemSelected = { item ->
+                    navController.navigate(item.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onSearchClick = { navController.navigate(Screen.Search.route) },
+                onProfileClick = { navController.navigate(Screen.Settings.route) },
+                modifier = Modifier.align(Alignment.TopCenter).zIndex(1f),
+            )
         }
     }
 }
@@ -205,7 +246,8 @@ sealed class NavigationItem(val screen: Screen, val label: String, val icon: Ima
 
     data object Downloads : NavigationItem(Screen.Downloads, "Downloads", Icons.Rounded.Download)
 
-    data object Favorites : NavigationItem(Screen.Favorites, "Favorites", Icons.Filled.Favorite)
+
+    data object Favorites : NavigationItem(Screen.Favorites, "My List", Icons.Filled.Favorite)
 
     data object History : NavigationItem(Screen.History, "History", Icons.Filled.History)
 

@@ -8,6 +8,7 @@ import com.chakir.plexhubtv.core.image.ImagePrefetchManager
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import com.chakir.plexhubtv.domain.usecase.HomeContent
 import com.google.common.truth.Truth.assertThat
@@ -31,6 +32,7 @@ class HomeViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private val getUnifiedHomeContentUseCase = mockk<GetUnifiedHomeContentUseCase>()
+    private val favoritesRepository = mockk<FavoritesRepository>()
     private val workManager = mockk<WorkManager>(relaxed = true)
     private val settingsDataStore = mockk<SettingsDataStore>()
     private val imagePrefetchManager = mockk<ImagePrefetchManager>()
@@ -73,6 +75,7 @@ class HomeViewModelTest {
             viewModel =
                 HomeViewModel(
                     getUnifiedHomeContentUseCase,
+                    favoritesRepository,
                     workManager,
                     settingsDataStore,
                     imagePrefetchManager,
@@ -97,6 +100,7 @@ class HomeViewModelTest {
             viewModel =
                 HomeViewModel(
                     getUnifiedHomeContentUseCase,
+                    favoritesRepository,
                     workManager,
                     settingsDataStore,
                     imagePrefetchManager,

@@ -1,7 +1,16 @@
 package com.chakir.plexhubtv.feature.favorites
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -11,12 +20,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.chakir.plexhubtv.feature.home.MediaCard
+import com.chakir.plexhubtv.core.designsystem.NetflixBlack
+import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import com.chakir.plexhubtv.feature.home.components.NetflixMediaCard
 
 /**
  * Écran affichant les favoris de l'utilisateur.
@@ -43,48 +59,50 @@ fun FavoritesScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(16.dp),
+                .background(NetflixBlack) // Netflix Black Background
+                .padding(start = 58.dp, end = 58.dp, top = 24.dp), // Consistent padding
     ) {
         Text(
-            text = "Favorites",
-            style = MaterialTheme.typography.headlineLarge,
+            text = "My List", // Netflix "My List"
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = Color.White,
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = NetflixRed)
             }
         } else if (uiState.favorites.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = "No favorites yet.",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                    color = Color.White.copy(alpha = 0.6f),
                 )
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 100.dp),
-                contentPadding = PaddingValues(bottom = 16.dp),
+                columns = GridCells.Adaptive(minSize = 140.dp), // Matched card size
+                contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(uiState.favorites) { media ->
-                    MediaCard(
-                        media = media,
-                        onClick = { onMediaClick(media) },
-                        onPlay = { /* Optional direct play */ },
-                        onFocus = {},
-                        width = 100.dp,
-                        height = 150.dp,
-                        titleStyle = MaterialTheme.typography.labelMedium,
-                        subtitleStyle = MaterialTheme.typography.labelSmall,
-                    )
+                    var isFocused by remember { mutableStateOf(false) }
+                    Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
+                        NetflixMediaCard(
+                            media = media,
+                            onClick = { onMediaClick(media) },
+                            onPlay = { /* Optional direct play */ },
+                            onFocus = { isFocused = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(2f/3f)
+                        )
+                    }
                 }
             }
         }

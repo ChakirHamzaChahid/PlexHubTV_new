@@ -47,7 +47,7 @@ fun SearchRoute(
         }
     }
 
-    SearchScreen(
+    NetflixSearchScreen(
         state = uiState,
         onAction = viewModel::onAction,
     )
