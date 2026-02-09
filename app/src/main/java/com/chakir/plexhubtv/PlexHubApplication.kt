@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.security.Security
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -70,6 +71,8 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
+
+        installSecurityProviders()
 
         // Launch parallel initialization
         initializeAppInParallel()
@@ -244,5 +247,27 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
 
     override fun newImageLoader(): ImageLoader {
         return imageLoader
+    }
+
+    /**
+     * Installs security providers to handle modern SSL/TLS requirements.
+     * Updates Google Play Services security provider and installs Conscrypt as fallback.
+     */
+    private fun installSecurityProviders() {
+        // 1. Install Conscrypt as the primary provider (highly compatible/modern)
+        try {
+            Security.insertProviderAt(org.conscrypt.Conscrypt.newProvider(), 1)
+            Timber.i("✅ Conscrypt security provider installed successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to install Conscrypt provider")
+        }
+
+        // 2. Update Google Play Services security provider
+        try {
+            com.google.android.gms.security.ProviderInstaller.installIfNeeded(this)
+            Timber.i("✅ GMS Security provider updated successfully")
+        } catch (e: Exception) {
+            Timber.w("GMS Security provider update failed or not available: ${e.message}")
+        }
     }
 }

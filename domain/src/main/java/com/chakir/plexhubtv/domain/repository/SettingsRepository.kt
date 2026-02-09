@@ -61,4 +61,13 @@ interface SettingsRepository {
     val iptvPlaylistUrl: Flow<String?>
 
     suspend fun saveIptvPlaylistUrl(url: String)
+
+    // --- External API Keys ---
+    fun getTmdbApiKey(): Flow<String?>
+
+    suspend fun saveTmdbApiKey(key: String)
+
+    fun getOmdbApiKey(): Flow<String?>
+
+    suspend fun saveOmdbApiKey(key: String)
 }

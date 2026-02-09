@@ -37,6 +37,8 @@ class SettingsDataStore
         private val FIRST_SYNC_COMPLETE = stringPreferencesKey("first_sync_complete")
         private val EXCLUDED_SERVER_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("excluded_server_ids")
         private val IPTV_PLAYLIST_URL = stringPreferencesKey("iptv_playlist_url")
+        private val TMDB_API_KEY = stringPreferencesKey("tmdb_api_key")
+        private val OMDB_API_KEY = stringPreferencesKey("omdb_api_key")
 
         val plexToken: Flow<String?> =
             dataStore.data
@@ -97,6 +99,14 @@ class SettingsDataStore
         val iptvPlaylistUrl: Flow<String?> =
             dataStore.data
                 .map { preferences -> preferences[IPTV_PLAYLIST_URL] }
+
+        val tmdbApiKey: Flow<String?> =
+            dataStore.data
+                .map { preferences -> preferences[TMDB_API_KEY] }
+
+        val omdbApiKey: Flow<String?> =
+            dataStore.data
+                .map { preferences -> preferences[OMDB_API_KEY] }
 
         suspend fun saveToken(token: String) {
             dataStore.edit { preferences ->
@@ -234,6 +244,26 @@ class SettingsDataStore
         suspend fun saveIptvPlaylistUrl(url: String) {
             dataStore.edit { preferences ->
                 preferences[IPTV_PLAYLIST_URL] = url
+            }
+        }
+
+        suspend fun saveTmdbApiKey(key: String) {
+            dataStore.edit { preferences ->
+                if (key.isBlank()) {
+                    preferences.remove(TMDB_API_KEY)
+                } else {
+                    preferences[TMDB_API_KEY] = key
+                }
+            }
+        }
+
+        suspend fun saveOmdbApiKey(key: String) {
+            dataStore.edit { preferences ->
+                if (key.isBlank()) {
+                    preferences.remove(OMDB_API_KEY)
+                } else {
+                    preferences[OMDB_API_KEY] = key
+                }
             }
         }
 

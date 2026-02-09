@@ -31,6 +31,8 @@ hiltCompose = "1.3.0"
 mockk = "1.13.8"
 truth = "1.1.5"
 junit = "4.13.2"
+playServicesBasement = "18.5.0"
+conscrypt = "2.5.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -101,6 +103,8 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
+play-services-basement = { group = "com.google.android.gms", name = "play-services-basement", version.ref = "playServicesBasement" }
+conscrypt-android = { group = "org.conscrypt", name = "conscrypt-android", version.ref = "conscrypt" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

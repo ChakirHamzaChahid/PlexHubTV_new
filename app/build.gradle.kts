@@ -51,6 +51,10 @@ android {
             buildConfigField("String", "PLEX_TOKEN", "\"$plexToken\"")
             val iptvUrl = localProperties.getProperty("IPTV_PLAYLIST_URL") ?: ""
             buildConfigField("String", "IPTV_PLAYLIST_URL", "\"$iptvUrl\"")
+            val tmdbApiKey = localProperties.getProperty("TMDB_API_KEY") ?: ""
+            buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
+            val omdbApiKey = localProperties.getProperty("OMDB_API_KEY") ?: ""
+            buildConfigField("String", "OMDB_API_KEY", "\"$omdbApiKey\"")
         }
         release {
             isMinifyEnabled = true
@@ -69,6 +73,8 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"https://plex.tv/\"")
             buildConfigField("String", "PLEX_TOKEN", "\"\"")
             buildConfigField("String", "IPTV_PLAYLIST_URL", "\"\"")
+            buildConfigField("String", "TMDB_API_KEY", "\"\"")
+            buildConfigField("String", "OMDB_API_KEY", "\"\"")
         }
     }
 
@@ -194,4 +200,8 @@ dependencies {
     testImplementation(libs.truth)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation("org.robolectric:robolectric:4.11.1")
+
+    // --- Security Resilience ---
+    implementation(libs.play.services.basement)
+    implementation(libs.conscrypt.android)
 }

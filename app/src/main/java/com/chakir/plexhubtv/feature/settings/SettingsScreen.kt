@@ -6,8 +6,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -227,6 +229,21 @@ fun SettingsScreen(
                     )
 
                     SettingsTile(
+                        title = "Sync Media Ratings",
+                        subtitle = if (state.isSyncingRatings) "Syncing ratings..." else state.ratingSyncMessage ?: "Update IMDb/TMDb ratings",
+                        icon = Icons.Default.Star,
+                        onClick = { onAction(SettingsAction.SyncRatings) },
+                        trailingContent =
+                            if (state.isSyncingRatings) {
+                                {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                }
+                            } else {
+                                null
+                            },
+                    )
+
+                    SettingsTile(
                         title = "Clear Cache & Data",
                         subtitle = "Used: ${state.cacheSize}",
                         icon = Icons.Filled.Delete,
@@ -241,6 +258,74 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 24.dp),
                     )
+                }
+            }
+
+            // --- External API Keys ---
+            item {
+                SettingsSection("External API Keys") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = "Configure API keys for rating sync feature",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        // TMDb API Key
+                        var tmdbKey by remember(state.tmdbApiKey) { mutableStateOf(state.tmdbApiKey) }
+                        OutlinedTextField(
+                            value = tmdbKey,
+                            onValueChange = { tmdbKey = it },
+                            label = { Text("TMDb API Key") },
+                            placeholder = { Text("Enter TMDb API key") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            trailingIcon = {
+                                if (tmdbKey != state.tmdbApiKey) {
+                                    IconButton(onClick = { onAction(SettingsAction.SaveTmdbApiKey(tmdbKey)) }) {
+                                        Icon(Icons.Default.Done, contentDescription = "Save")
+                                    }
+                                }
+                            },
+                        )
+
+                        Text(
+                            text = "Get your key at themoviedb.org/settings/api",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                        )
+
+                        // OMDb API Key
+                        var omdbKey by remember(state.omdbApiKey) { mutableStateOf(state.omdbApiKey) }
+                        OutlinedTextField(
+                            value = omdbKey,
+                            onValueChange = { omdbKey = it },
+                            label = { Text("OMDb API Key") },
+                            placeholder = { Text("Enter OMDb API key") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            trailingIcon = {
+                                if (omdbKey != state.omdbApiKey) {
+                                    IconButton(onClick = { onAction(SettingsAction.SaveOmdbApiKey(omdbKey)) }) {
+                                        Icon(Icons.Default.Done, contentDescription = "Save")
+                                    }
+                                }
+                            },
+                        )
+
+                        Text(
+                            text = "Get your key at omdbapi.com/apikey.aspx",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                        )
+                    }
                 }
             }
 

@@ -15,6 +15,9 @@ android {
         minSdk = 27
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
     }
 
     buildTypes {

@@ -69,8 +69,20 @@ class PlexClient(
         return api.getHubs(buildUrl("/hubs?includeGuids=1&includeMeta=1"), count)
     }
 
-    suspend fun search(query: String): Response<GenericPlexResponse> {
-        return api.search(buildUrl("/search?includeGuids=1&includeMedia=1"), query)
+    suspend fun search(
+        query: String,
+        year: Int? = null,
+        type: String? = null,
+        unwatched: Boolean? = null,
+    ): Response<GenericPlexResponse> {
+        val unwatchedInt = if (unwatched == true) 1 else if (unwatched == false) 0 else null
+        return api.search(
+            url = buildUrl("/search?includeGuids=1&includeMedia=1"),
+            query = query,
+            year = year,
+            type = type,
+            unwatched = unwatchedInt,
+        )
     }
 
     suspend fun getMetadata(

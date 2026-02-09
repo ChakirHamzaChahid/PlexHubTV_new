@@ -25,10 +25,12 @@ import androidx.room.TypeConverters
         CollectionEntity::class,
         MediaCollectionCrossRef::class,
     ],
-    version = 20,
-    exportSchema = false,
+    version = 22,
+    exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
+    // ... DAOs ...
+
     abstract fun mediaDao(): MediaDao
 
     abstract fun serverDao(): ServerDao

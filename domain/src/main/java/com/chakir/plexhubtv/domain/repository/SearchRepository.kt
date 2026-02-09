@@ -10,11 +10,19 @@ interface SearchRepository {
      * Recherche un terme sur TOUS les serveurs connectés en parallèle.
      * @return Une liste agrégée et dédoublonnée de résultats.
      */
-    suspend fun searchAllServers(query: String): Result<List<MediaItem>>
+    suspend fun searchAllServers(
+        query: String,
+        year: Int? = null,
+        type: String? = null,
+        unwatched: Boolean? = null,
+    ): Result<List<MediaItem>>
 
     /** Recherche sur un serveur spécifique. */
     suspend fun searchOnServer(
         server: com.chakir.plexhubtv.core.model.Server,
         query: String,
+        year: Int? = null,
+        type: String? = null,
+        unwatched: Boolean? = null,
     ): Result<List<MediaItem>>
 }

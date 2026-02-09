@@ -167,3 +167,6 @@ test_output_4.txt
 test_output_5.txt
 test_output_track.txt
 test_output.txt
+build_error.log
+build_log2.txt
+compile_error.txt

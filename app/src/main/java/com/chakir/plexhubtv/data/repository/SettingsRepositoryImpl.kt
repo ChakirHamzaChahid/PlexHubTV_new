@@ -100,4 +100,16 @@ class SettingsRepositoryImpl
         override suspend fun saveIptvPlaylistUrl(url: String) {
             settingsDataStore.saveIptvPlaylistUrl(url)
         }
+
+        override fun getTmdbApiKey(): Flow<String?> = settingsDataStore.tmdbApiKey
+
+        override suspend fun saveTmdbApiKey(key: String) {
+            settingsDataStore.saveTmdbApiKey(key)
+        }
+
+        override fun getOmdbApiKey(): Flow<String?> = settingsDataStore.omdbApiKey
+
+        override suspend fun saveOmdbApiKey(key: String) {
+            settingsDataStore.saveOmdbApiKey(key)
+        }
     }

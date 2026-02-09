@@ -79,6 +79,25 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_20_21 =
+        object : androidx.room.migration.Migration(20, 21) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add titleSortable column for locale-aware sorting
+                db.execSQL("ALTER TABLE media ADD COLUMN titleSortable TEXT NOT NULL DEFAULT ''")
+                // Create index on titleSortable for efficient sorting
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_media_titleSortable ON media(titleSortable)")
+                // Note: titleSortable will be populated when library syncs next time
+            }
+        }
+
+    private val MIGRATION_21_22 =
+        object : androidx.room.migration.Migration(21, 22) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add scrapedRating column
+                database.execSQL("ALTER TABLE media ADD COLUMN scrapedRating REAL")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -103,7 +122,14 @@ object DatabaseModule {
                     }
                 },
             )
-            .addMigrations(MIGRATION_11_12, MIGRATION_15_16, MIGRATION_18_19, MIGRATION_19_20)
+            .addMigrations(
+                MIGRATION_11_12,
+                MIGRATION_15_16,
+                MIGRATION_18_19,
+                MIGRATION_19_20,
+                MIGRATION_20_21,
+                MIGRATION_21_22
+            )
             .fallbackToDestructiveMigration()
             .build()
     }

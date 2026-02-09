@@ -382,27 +382,22 @@ fun MediaDetailContent(
                             maxLines = 4, // More compact
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         )
-                    }
-                }
-            }
 
-            // Content specific rows (Seasons for TV)
-            if (media.type == MediaType.Show && seasons.isNotEmpty()) {
-                item {
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-                        Text(
-                            text = "Seasons",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                        ) {
-                            seasons.forEach { season ->
-                                item {
+                        // Content specific rows (Seasons for TV)
+                        if (media.type == MediaType.Show && seasons.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Seasons",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(vertical = 4.dp),
+                            ) {
+                                items(seasons) { season ->
                                     MediaCard(
                                         media = season,
                                         onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
@@ -416,30 +411,22 @@ fun MediaDetailContent(
                                 }
                             }
                         }
-                    }
-                }
-            }
 
-            // Collections Section
-            if (state.collections.isNotEmpty()) {
-                item {
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-                        if (media.type == MediaType.Show && seasons.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-                        Text(
-                            text = "Collections",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                        ) {
-                            state.collections.forEach { collection ->
-                                item {
+                        // Collections Section
+                        if (state.collections.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Collections",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(vertical = 4.dp),
+                            ) {
+                                items(state.collections) { collection ->
                                     Surface(
                                         onClick = { onCollectionClicked(collection.id, collection.serverId) },
                                         shape = RoundedCornerShape(8.dp),
@@ -465,31 +452,22 @@ fun MediaDetailContent(
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                }
-            }
 
-            // Similar Items Row (More Like This)
-            if (similarItems.isNotEmpty()) {
-                item {
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-                        if (media.type == MediaType.Show && seasons.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-                        Text(
-                            text = "More Like This",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                        ) {
-                            similarItems.forEach { similarItem ->
-                                item {
+                        // Similar Items Row (More Like This)
+                        if (similarItems.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "More Like This",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(vertical = 4.dp),
+                            ) {
+                                items(similarItems) { similarItem ->
                                     MediaCard(
                                         media = similarItem,
                                         onClick = { onAction(MediaDetailEvent.OpenMediaDetail(similarItem)) },

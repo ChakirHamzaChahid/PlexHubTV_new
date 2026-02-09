@@ -15,12 +15,17 @@ class SearchAcrossServersUseCase
     constructor(
         private val searchRepository: SearchRepository,
     ) {
-        operator fun invoke(query: String): Flow<Result<List<MediaItem>>> =
+        operator fun invoke(
+            query: String,
+            year: Int? = null,
+            type: String? = null,
+            unwatched: Boolean? = null,
+        ): Flow<Result<List<MediaItem>>> =
             flow {
                 if (query.isBlank()) {
                     emit(Result.success(emptyList()))
                 } else {
-                    emit(searchRepository.searchAllServers(query))
+                    emit(searchRepository.searchAllServers(query, year, type, unwatched))
                 }
             }
     }

@@ -117,6 +117,56 @@ interface MediaDao {
         libraryId: String,
     )
 
+    // ========================================
+    // Rating Sync Queries (IMDb/TMDb)
+    // ========================================
+
+    /**
+     * Get all unique TMDb IDs for series.
+     * DISTINCT ensures only 1 API call per unique series across all servers.
+     */
+    @Query("SELECT DISTINCT tmdbId FROM media WHERE type = 'show' AND tmdbId IS NOT NULL AND tmdbId != ''")
+    suspend fun getAllSeriesWithTmdbId(): List<String>
+
+    /**
+     * Get all unique IMDb IDs for series WITHOUT TMDb ID (fallback).
+     */
+    @Query(
+        "SELECT DISTINCT imdbId FROM media " +
+            "WHERE type = 'show' AND imdbId IS NOT NULL AND imdbId != '' " +
+            "AND (tmdbId IS NULL OR tmdbId = '')",
+    )
+    suspend fun getAllSeriesWithImdbIdNoTmdbId(): List<String>
+
+    /**
+     * Get all unique IMDb IDs for movies.
+     * DISTINCT ensures only 1 API call per unique movie across all servers.
+     */
+    @Query("SELECT DISTINCT imdbId FROM media WHERE type = 'movie' AND imdbId IS NOT NULL AND imdbId != ''")
+    suspend fun getAllMoviesWithImdbId(): List<String>
+
+    /**
+     * Update rating by IMDb ID.
+     * Updates ALL servers with the same IMDb ID in a single query.
+     * @return Number of rows updated (useful for logging)
+     */
+    @Query("UPDATE media SET scrapedRating = :rating WHERE imdbId = :imdbId AND (scrapedRating IS NULL OR scrapedRating != :rating)")
+    suspend fun updateRatingByImdbId(
+        imdbId: String,
+        rating: Double,
+    ): Int
+
+    /**
+     * Update rating by TMDb ID.
+     * Updates ALL servers with the same TMDb ID in a single query.
+     * @return Number of rows updated (useful for logging)
+     */
+    @Query("UPDATE media SET scrapedRating = :rating WHERE tmdbId = :tmdbId AND (scrapedRating IS NULL OR scrapedRating != :rating)")
+    suspend fun updateRatingByTmdbId(
+        tmdbId: String,
+        rating: Double,
+    ): Int
+
     @Query("SELECT * FROM media WHERE lastViewedAt > 0 ORDER BY lastViewedAt DESC LIMIT :limit OFFSET :offset")
     fun getHistory(
         limit: Int,
@@ -140,13 +190,21 @@ interface MediaDao {
     )
     suspend fun getUniqueCountByType(type: String): Int
 
+    @Query("UPDATE media SET viewOffset = :viewOffset, lastViewedAt = :lastViewedAt WHERE ratingKey = :ratingKey AND serverId = :serverId")
+    suspend fun updateProgress(
+        ratingKey: String,
+        serverId: String,
+        viewOffset: Long,
+        lastViewedAt: Long,
+    )
+
     @Query("SELECT COUNT(*) FROM media WHERE type = :type")
     suspend fun getRawCountByType(type: String): Int
 
     @Query(
         "SELECT *, MAX(addedAt) as addedAt, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as audienceRating, " +
             "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
@@ -163,8 +221,8 @@ interface MediaDao {
 
     @Query(
         "SELECT *, MAX(addedAt) as addedAt, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as audienceRating, " +
             "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
@@ -181,14 +239,14 @@ interface MediaDao {
 
     @Query(
         "SELECT *, MAX(addedAt) as addedAt, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as audienceRating, " +
             "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
             "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
-            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY title ASC",
+            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY titleSortable COLLATE NOCASE ASC",
     )
     fun aggregatedPagingSourceByTitleAsc(
         type: String,
@@ -199,14 +257,14 @@ interface MediaDao {
 
     @Query(
         "SELECT *, MAX(addedAt) as addedAt, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as audienceRating, " +
             "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
             "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
-            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY title DESC",
+            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY titleSortable COLLATE NOCASE DESC",
     )
     fun aggregatedPagingSourceByTitleDesc(
         type: String,
@@ -224,7 +282,7 @@ interface MediaDao {
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
             "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
-            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY year DESC, title ASC",
+            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY year DESC, titleSortable COLLATE NOCASE ASC",
     )
     fun aggregatedPagingSourceByYearDesc(
         type: String,
@@ -235,14 +293,14 @@ interface MediaDao {
 
     @Query(
         "SELECT *, MAX(addedAt) as addedAt, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as audienceRating, " +
             "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
             "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
-            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY year ASC, title ASC",
+            "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ORDER BY year DESC, titleSortable COLLATE NOCASE ASC",
     )
     fun aggregatedPagingSourceByYearAsc(
         type: String,
@@ -253,15 +311,15 @@ interface MediaDao {
 
     @Query(
         "SELECT *, MAX(addedAt) as addedAt, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as audienceRating, " +
             "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
             "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
             "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END " +
-            "ORDER BY (COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) DESC, title ASC",
+            "ORDER BY (COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) DESC, titleSortable COLLATE NOCASE ASC",
     )
     fun aggregatedPagingSourceByRatingDesc(
         type: String,
@@ -272,15 +330,15 @@ interface MediaDao {
 
     @Query(
         "SELECT *, MAX(addedAt) as addedAt, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, " +
-            "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as rating, " +
+            "(COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) as audienceRating, " +
             "GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media " +
             "WHERE type = :type " +
             "AND (:genre IS NULL OR genres LIKE '%' || :genre || '%') " +
             "AND (:serverId IS NULL OR serverId = :serverId) " +
             "AND (:query IS NULL OR title LIKE '%' || :query || '%') " +
             "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END " +
-            "ORDER BY (COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) ASC, title ASC",
+            "ORDER BY (COALESCE(SUM(COALESCE(scrapedRating, rating)), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(COALESCE(scrapedRating, rating)) + COUNT(audienceRating), 0) ASC, titleSortable COLLATE NOCASE ASC",
     )
     fun aggregatedPagingSourceByRatingAsc(
         type: String,
@@ -356,4 +414,11 @@ interface MediaDao {
     """,
     )
     suspend fun getAllDuplicates(unificationId: String): List<MediaEntity>
+
+    // Persistence helper to survive library syncs
+    @Query("SELECT ratingKey, scrapedRating FROM media WHERE ratingKey IN (:ratingKeys) AND serverId = :serverId")
+    suspend fun getScrapedRatings(
+        ratingKeys: List<String>,
+        serverId: String,
+    ): Map<@androidx.room.MapColumn(columnName = "ratingKey") String, @androidx.room.MapColumn(columnName = "scrapedRating") Double?>
 }

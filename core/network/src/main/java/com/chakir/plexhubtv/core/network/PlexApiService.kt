@@ -96,6 +96,9 @@ interface PlexApiService {
     suspend fun search(
         @Url url: String,
         @Query("query") query: String,
+        @Query("year") year: Int? = null,
+        @Query("type") type: String? = null, // movie, show, episode, person
+        @Query("unwatched") unwatched: Int? = null, // 1 = true, 0 = false
     ): Response<GenericPlexResponse> // SearchResponse
 
     @GET

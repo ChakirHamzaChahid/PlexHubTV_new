@@ -83,20 +83,21 @@ class CollectionSyncWorker
                                 if (libKey != null && (libType == "movie" || libType == "show")) {
                                     // Update Notification occasionally
                                     updateNotification("Syncing ${server.name}: $libTitle...")
+                                    Timber.i(">>> Syncing Collections for Library: '$libTitle' (key=$libKey, type=$libType)")
 
                                     val baseUrl = connectionManager.findBestConnection(server) ?: return@forEach
                                     val collectionsUrl = "$baseUrl/library/sections/$libKey/collections?X-Plex-Token=${server.accessToken}"
-                                    Timber.d("  -> Library '$libTitle' (type=$libType, key=$libKey): Fetching collections...")
+                                    Timber.d("  -> Fetching collections from: $collectionsUrl")
 
                                     val collectionsResponse = api.getCollections(collectionsUrl)
                                     if (!collectionsResponse.isSuccessful) {
-                                        Timber.e("     ERROR: Failed to fetch collections: code=${collectionsResponse.code()}")
+                                        Timber.e("     ERROR: Failed to fetch collections: code=${collectionsResponse.code()} body=${collectionsResponse.errorBody()?.string()}")
                                         return@forEach
                                     }
 
                                     val collectionsContainer = collectionsResponse.body()?.mediaContainer
                                     val collections = collectionsContainer?.metadata ?: emptyList()
-                                    Timber.d("     SUCCESS: Found ${collections.size} potential collections")
+                                    Timber.i("     SUCCESS: Found ${collections.size} potential collections in '$libTitle'")
 
                                     collections.forEach { collectionDto ->
                                         if (collectionDto.type != "collection") {
@@ -144,6 +145,8 @@ class CollectionSyncWorker
                                                             // Use ratingKey as offset to ensure uniqueness within this filter bucket
                                                             pageOffset = itemDto.ratingKey.toIntOrNull() ?: itemDto.ratingKey.hashCode(),
                                                         )
+                                                // Log insertion attempt
+                                                // Timber.v("       - Inserting Media: ${itemDto.title} (${itemDto.ratingKey})")
                                                 mediaDao.insertMedia(mediaEntity)
 
                                                 MediaCollectionCrossRef(

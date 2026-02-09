@@ -10,6 +10,7 @@ import androidx.work.WorkManager
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
+import com.chakir.plexhubtv.work.RatingSyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -163,6 +164,42 @@ class SettingsViewModel
                 is SettingsAction.ToggleServerExclusion -> {
                     viewModelScope.launch { settingsRepository.toggleServerExclusion(action.serverId) }
                 }
+                is SettingsAction.SaveTmdbApiKey -> {
+                    _uiState.update { it.copy(tmdbApiKey = action.key) }
+                    viewModelScope.launch { settingsRepository.saveTmdbApiKey(action.key) }
+                }
+                is SettingsAction.SaveOmdbApiKey -> {
+                    _uiState.update { it.copy(omdbApiKey = action.key) }
+                    viewModelScope.launch { settingsRepository.saveOmdbApiKey(action.key) }
+                }
+                is SettingsAction.SyncRatings -> {
+                    _uiState.update { it.copy(isSyncingRatings = true, ratingSyncMessage = null) }
+
+                    val constraints =
+                        Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build()
+
+                    val syncRequest =
+                        OneTimeWorkRequestBuilder<RatingSyncWorker>()
+                            .setConstraints(constraints)
+                            .build()
+
+                    workManager.enqueueUniqueWork(
+                        "RatingSync_Manual",
+                        ExistingWorkPolicy.KEEP, // Prevent duplicate syncs
+                        syncRequest,
+                    )
+
+                    // Show immediate feedback
+                    _uiState.update { it.copy(isSyncingRatings = false, ratingSyncMessage = "Rating sync started in background...") }
+
+                    // Clear message after 3 seconds
+                    viewModelScope.launch {
+                        kotlinx.coroutines.delay(3000)
+                        _uiState.update { it.copy(ratingSyncMessage = null) }
+                    }
+                }
             }
         }
 
@@ -234,6 +271,16 @@ class SettingsViewModel
                 launch {
                     settingsRepository.excludedServerIds.collect { excluded ->
                         _uiState.update { it.copy(excludedServerIds = excluded) }
+                    }
+                }
+                launch {
+                    settingsRepository.getTmdbApiKey().collect { key ->
+                        _uiState.update { it.copy(tmdbApiKey = key ?: "") }
+                    }
+                }
+                launch {
+                    settingsRepository.getOmdbApiKey().collect { key ->
+                        _uiState.update { it.copy(omdbApiKey = key ?: "") }
                     }
                 }
             }

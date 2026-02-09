@@ -99,14 +99,45 @@ class PlaybackRepositoryImpl
             } catch (e: Exception) {
                 Timber.e(e, "Error updating progress for ${media.ratingKey}")
                 Result.failure(e)
+            } finally {
+                // Update local DB regardless of network status (Optimistic UI / Offline support)
+                try {
+                    mediaDao.updateProgress(
+                        ratingKey = media.ratingKey,
+                        serverId = media.serverId,
+                        viewOffset = positionMs,
+                        lastViewedAt = System.currentTimeMillis(),
+                    )
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to update local progress for ${media.ratingKey}")
+                }
             }
         }
 
         override suspend fun getNextMedia(currentItem: MediaItem): MediaItem? {
             if (currentItem.type != MediaType.Episode) return null
-            val episodes = mediaDetailRepository.getSeasonEpisodes(currentItem.parentRatingKey ?: "", currentItem.serverId).getOrNull() ?: return null
-            val currentIndex = episodes.indexOfFirst { it.ratingKey == currentItem.ratingKey }
-            return if (currentIndex != -1 && currentIndex < episodes.size - 1) episodes[currentIndex + 1] else null
+            
+            // 1. Try next episode in current season
+            val episodes = mediaDetailRepository.getSeasonEpisodes(currentItem.parentRatingKey ?: "", currentItem.serverId).getOrNull()
+            if (episodes != null) {
+                val currentIndex = episodes.indexOfFirst { it.ratingKey == currentItem.ratingKey }
+                if (currentIndex != -1 && currentIndex < episodes.size - 1) {
+                    return episodes[currentIndex + 1]
+                }
+            }
+
+            // 2. Try first episode of next season
+            val showId = currentItem.grandparentRatingKey ?: return null
+            val seasons = mediaDetailRepository.getShowSeasons(showId, currentItem.serverId).getOrNull()?.sortedBy { it.seasonIndex ?: Int.MAX_VALUE } ?: return null
+            
+            val currentSeasonIndex = seasons.indexOfFirst { it.ratingKey == currentItem.parentRatingKey }
+            if (currentSeasonIndex != -1 && currentSeasonIndex < seasons.size - 1) {
+                val nextSeason = seasons[currentSeasonIndex + 1]
+                val nextSeasonEpisodes = mediaDetailRepository.getSeasonEpisodes(nextSeason.ratingKey, currentItem.serverId).getOrNull()
+                return nextSeasonEpisodes?.minByOrNull { it.episodeIndex ?: Int.MAX_VALUE }
+            }
+            
+            return null
         }
 
         override suspend fun getPreviousMedia(currentItem: MediaItem): MediaItem? {

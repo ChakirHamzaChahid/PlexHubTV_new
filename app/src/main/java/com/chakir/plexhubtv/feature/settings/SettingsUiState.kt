@@ -20,6 +20,10 @@ data class SettingsUiState(
     val excludedServerIds: Set<String> = emptySet(),
     val preferredAudioLanguage: String? = null,
     val preferredSubtitleLanguage: String? = null,
+    val tmdbApiKey: String = "",
+    val omdbApiKey: String = "",
+    val isSyncingRatings: Boolean = false,
+    val ratingSyncMessage: String? = null,
 )
 
 enum class AppTheme {
@@ -55,4 +59,10 @@ sealed interface SettingsAction {
     data class ChangePreferredSubtitleLanguage(val language: String?) : SettingsAction
 
     data class ToggleServerExclusion(val serverId: String) : SettingsAction
+
+    data class SaveTmdbApiKey(val key: String) : SettingsAction
+
+    data class SaveOmdbApiKey(val key: String) : SettingsAction
+
+    data object SyncRatings : SettingsAction
 }

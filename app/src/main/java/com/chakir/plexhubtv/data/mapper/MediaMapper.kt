@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.data.mapper
 
+import com.chakir.plexhubtv.core.common.StringNormalizer
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
@@ -173,6 +174,7 @@ class MediaMapper
                 serverId = serverId,
                 librarySectionId = libraryKey,
                 title = dto.title,
+                titleSortable = StringNormalizer.normalizeForSorting(dto.title),
                 // PHASE 2: Pre-calculate unificationId
                 unificationId = calculateUnificationId(dto),
                 guid = dto.guid,
@@ -254,6 +256,7 @@ class MediaMapper
                 librarySectionId = libraryKey,
                 unificationId = item.unificationId ?: "${item.serverId}_${item.ratingKey}",
                 title = item.title,
+                titleSortable = StringNormalizer.normalizeForSorting(item.title),
                 guid = item.guid,
                 imdbId = item.imdbId,
                 tmdbId = item.tmdbId,

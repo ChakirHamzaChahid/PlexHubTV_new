@@ -32,6 +32,8 @@ import androidx.room.Entity
         androidx.room.Index(value = ["updatedAt"]),
         // Hierarchy support
         androidx.room.Index(value = ["parentRatingKey"]),
+        // Locale-aware sorting support
+        androidx.room.Index(value = ["titleSortable"]),
     ],
 )
 data class MediaEntity(
@@ -39,6 +41,7 @@ data class MediaEntity(
     val serverId: String,
     val librarySectionId: String, // To store which library this belongs to (Crucial for filtering)
     val title: String,
+    val titleSortable: String = "", // Normalized title for locale-aware alphabetical sorting
     // Paging Context
     val filter: String = "all",
     val sortOrder: String = "default",
@@ -80,4 +83,6 @@ data class MediaEntity(
     val resolvedThumbUrl: String? = null,
     val resolvedArtUrl: String? = null,
     val resolvedBaseUrl: String? = null,
+    // PERSISTENCE: Rating fetched from external sources (TMDb/OMDb) - Preserved during sync
+    val scrapedRating: Double? = null,
 )

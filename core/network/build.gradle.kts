@@ -1,3 +1,5 @@
+import java.util.Properties
+import java.io.FileInputStream
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -16,6 +18,25 @@ android {
         minSdk = 27
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+    }
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localProperties.load(FileInputStream(localPropertiesFile))
+    }
+
+    val tmdbApiKey = localProperties.getProperty("TMDB_API_KEY") ?: ""
+    val omdbApiKey = localProperties.getProperty("OMDB_API_KEY") ?: ""
+
+    android {
+        defaultConfig {
+            buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
+            buildConfigField("String", "OMDB_API_KEY", "\"$omdbApiKey\"")
+        }
+    }
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

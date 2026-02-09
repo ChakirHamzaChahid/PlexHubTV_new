@@ -122,15 +122,22 @@ class SyncRepositoryImpl
                                 // FILTER: Only keep quality metadata (Movies MUST have IMDb/TMDB)
                                 val validMetadata = metadata.filter { mediaMapper.isQualityMetadata(it) }
 
+                                // PERSISTENCE: Retrieve existing scraped ratings before they get overwritten
+                                val ratingKeys = validMetadata.map { it.ratingKey }
+                                val existingRatingsMap = mediaDao.getScrapedRatings(ratingKeys, server.clientIdentifier)
+
                                 val entities =
                                     validMetadata.mapIndexed { index, dto ->
                                         val dtoWithLib = dto.copy(librarySectionID = libraryKey)
-                                        mediaMapper.mapDtoToEntity(dtoWithLib, server.clientIdentifier, libraryKey)
-                                            .copy(
-                                                filter = "all",
-                                                sortOrder = "default",
-                                                pageOffset = start + index,
-                                            )
+                                        val entity = mediaMapper.mapDtoToEntity(dtoWithLib, server.clientIdentifier, libraryKey)
+                                        
+                                        // Restore scrapedRating if it exists
+                                        entity.copy(
+                                            filter = "all",
+                                            sortOrder = "default",
+                                            pageOffset = start + index,
+                                            scrapedRating = existingRatingsMap[dto.ratingKey]
+                                        )
                                     }
 
                                 if (entities.isNotEmpty()) {

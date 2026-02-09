@@ -177,6 +177,7 @@ class LibrarySyncWorker
                                 androidx.work.ExistingWorkPolicy.REPLACE,
                                 collectionSyncRequest,
                             )
+                            Timber.i("✓ CollectionSyncWorker ENQUEUED successfully")
                         } catch (e: Exception) {
                             Timber.e("Failed to trigger collection sync: ${e.message}")
                         }

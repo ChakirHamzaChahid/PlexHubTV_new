@@ -32,7 +32,12 @@ class SearchRepositoryImpl
         private val serverMapper: ServerMapper,
         private val mapper: MediaMapper,
     ) : SearchRepository {
-        override suspend fun searchAllServers(query: String): Result<List<MediaItem>> =
+        override suspend fun searchAllServers(
+            query: String,
+            year: Int?,
+            type: String?,
+            unwatched: Boolean?,
+        ): Result<List<MediaItem>> =
             kotlinx.coroutines.coroutineScope {
                 try {
                     // Get all servers as a one-time list (first emission)
@@ -48,7 +53,7 @@ class SearchRepositoryImpl
                     val results: List<MediaItem> =
                         servers.map { server ->
                             async {
-                                searchOnServer(server, query).fold(
+                                searchOnServer(server, query, year, type, unwatched).fold(
                                     onSuccess = { it },
                                     onFailure = { e ->
                                         Timber.e("Search failed on server ${server.name}: ${e.message}")
@@ -72,12 +77,15 @@ class SearchRepositoryImpl
         override suspend fun searchOnServer(
             server: com.chakir.plexhubtv.core.model.Server,
             query: String,
+            year: Int?,
+            type: String?,
+            unwatched: Boolean?,
         ): Result<List<MediaItem>> {
             return try {
                 val baseUrl = connectionManager.findBestConnection(server) ?: return Result.failure(Exception("No connection"))
                 val client = PlexClient(server, api, baseUrl)
 
-                val response = client.search(query)
+                val response = client.search(query, year, type, unwatched)
                 if (response.isSuccessful) {
                     val mediaContainer = response.body()?.mediaContainer
                     val metadata = mutableListOf<MetadataDTO>()

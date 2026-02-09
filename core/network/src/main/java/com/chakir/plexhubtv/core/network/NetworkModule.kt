@@ -157,4 +157,60 @@ object NetworkModule {
     fun provideServerConnectionTester(): ServerConnectionTester {
         return OkHttpConnectionTester()
     }
+
+    // ========================================
+    // TMDb API (for Series ratings)
+    // ========================================
+
+    @Provides
+    @Singleton
+    @javax.inject.Named("tmdb")
+    fun provideTmdbRetrofit(gson: Gson): Retrofit {
+        val tmdbClient = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+        
+        return Retrofit.Builder()
+            .baseUrl("https://api.themoviedb.org/")
+            .client(tmdbClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideTmdbApiService(
+        @javax.inject.Named("tmdb") retrofit: Retrofit,
+    ): TmdbApiService {
+        return retrofit.create(TmdbApiService::class.java)
+    }
+
+    // ========================================
+    // OMDb API (for Movies + Series fallback)
+    // ========================================
+
+    @Provides
+    @Singleton
+    @javax.inject.Named("omdb")
+    fun provideOmdbRetrofit(gson: Gson): Retrofit {
+        val omdbClient = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+        
+        return Retrofit.Builder()
+            .baseUrl("https://www.omdbapi.com/")
+            .client(omdbClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOmdbApiService(
+        @javax.inject.Named("omdb") retrofit: Retrofit,
+    ): OmdbApiService {
+        return retrofit.create(OmdbApiService::class.java)
+    }
 }
