@@ -26,6 +26,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.navigation.Screen
@@ -70,6 +72,10 @@ fun MainScreen(
     var isTopBarScrolled by remember { mutableStateOf(false) }
     var isTopBarVisible by remember { mutableStateOf(true) }
 
+    // FocusRequesters for Top Bar ↔ Content navigation
+    val topBarFocusRequester = remember { FocusRequester() }
+    val contentFocusRequester = remember { FocusRequester() }
+
     // Determines the current selected item based on the route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -96,10 +102,10 @@ fun MainScreen(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
+            modifier = Modifier
+                .fillMaxSize()
+                .focusRequester(contentFocusRequester)
+                .background(MaterialTheme.colorScheme.background),
         ) {
             composable(Screen.Home.route) {
                 if (uiState.isOffline) {
@@ -199,7 +205,10 @@ fun MainScreen(
                 },
                 onSearchClick = { navController.navigate(Screen.Search.route) },
                 onProfileClick = { navController.navigate(Screen.Settings.route) },
-                modifier = Modifier.align(Alignment.TopCenter).zIndex(1f),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(1f)
+                    .focusRequester(topBarFocusRequester),
             )
         }
     }

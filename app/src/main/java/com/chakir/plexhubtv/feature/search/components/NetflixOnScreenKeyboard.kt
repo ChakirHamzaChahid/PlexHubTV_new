@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.draw.scale
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
@@ -112,6 +113,7 @@ private fun KeyButton(
                 color = if (isFocused) NetflixWhite else Color.Transparent,
                 shape = RoundedCornerShape(8.dp)
             )
+            .focusable() // Required for D-Pad navigation on TV
             .clickable(onClick = onClick)
             .onFocusChanged { isFocused = it.isFocused },
         contentAlignment = Alignment.Center

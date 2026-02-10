@@ -30,8 +30,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +46,11 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import com.chakir.plexhubtv.core.model.Chapter
+import com.chakir.plexhubtv.core.model.Marker
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.feature.player.ui.components.EnhancedSeekBar
+import com.chakir.plexhubtv.feature.player.ui.components.SkipMarkerButton
 import kotlinx.coroutines.delay
 
 @Composable
@@ -65,6 +67,10 @@ fun NetflixPlayerControls(
     onStop: () -> Unit,
     isVisible: Boolean,
     modifier: Modifier = Modifier,
+    chapters: List<Chapter> = emptyList(),
+    markers: List<Marker> = emptyList(),
+    visibleMarkers: List<Marker> = emptyList(),
+    onSkipMarker: (Marker) -> Unit = {},
     playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null
 ) {
     AnimatedVisibility(
@@ -138,6 +144,19 @@ fun NetflixPlayerControls(
                 }
             }
 
+            // Skip Marker Buttons (Intro / Credits)
+            visibleMarkers.forEach { marker ->
+                SkipMarkerButton(
+                    marker = marker,
+                    markerType = marker.type,
+                    isVisible = true,
+                    onSkip = { onSkipMarker(marker) },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 200.dp, end = 32.dp)
+                )
+            }
+
             // Bottom Controls
             Column(
                 modifier = Modifier
@@ -150,37 +169,18 @@ fun NetflixPlayerControls(
                     )
                     .padding(32.dp)
             ) {
-                // Seek Bar
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                // Enhanced Seek Bar with chapters & markers
+                EnhancedSeekBar(
+                    currentPosition = currentTimeMs,
+                    duration = durationMs,
+                    chapters = chapters,
+                    markers = markers,
+                    onSeek = onSeek,
+                    playedColor = NetflixRed,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = formatTime(currentTimeMs),
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Slider(
-                        value = currentTimeMs.toFloat(),
-                        onValueChange = { onSeek(it.toLong()) },
-                        valueRange = 0f..durationMs.toFloat(),
-                        colors = SliderDefaults.colors(
-                            thumbColor = NetflixRed,
-                            activeTrackColor = NetflixRed,
-                            inactiveTrackColor = Color.Gray
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = formatTime(durationMs),
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-                }
+                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Transport Controls
                 Row(
@@ -205,33 +205,19 @@ fun NetflixPlayerControls(
                     IconButton(onClick = onSkipForward) {
                         Icon(Icons.Default.FastForward, "Forward 30s", tint = Color.White)
                     }
-                    
+
                     Spacer(modifier = Modifier.width(32.dp))
                      IconButton(onClick = onNext) {
                         Icon(Icons.Default.SkipNext, "Next Episode", tint = Color.White)
                     }
-                    
+
                     Spacer(modifier = Modifier.width(16.dp))
                      IconButton(onClick = onStop) {
                         Icon(Icons.Default.Stop, "Stop", tint = Color.White)
                     }
                 }
-                
-                // Skip Intro Button PlaceHolder (Integrate later)
-                // NetflixSkipButton(...)
             }
         }
     }
 }
 
-fun formatTime(millis: Long): String {
-    val seconds = (millis / 1000) % 60
-    val minutes = (millis / (1000 * 60)) % 60
-    val hours = (millis / (1000 * 60 * 60))
-    
-    return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format("%02d:%02d", minutes, seconds)
-    }
-}

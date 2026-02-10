@@ -65,6 +65,7 @@ fun SettingsScreen(
     var showServerDialog by remember { mutableStateOf(false) }
 
     Scaffold(
+        modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
         topBar = {
             TopAppBar(
                 title = { Text("Settings", fontWeight = FontWeight.Bold) },

@@ -78,9 +78,9 @@ fun NetflixMediaCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    // Animations (Optimized: 2 instead of 4 for better performance)
+    // Animations
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.05f else 1f, // Reduced from 1.08f
+        targetValue = if (isFocused) 1.08f else 1f,
         animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
         label = "scale"
     )
@@ -105,14 +105,15 @@ fun NetflixMediaCard(
     Column(
         modifier = modifier
             .width(cardWidth)
-            .zIndex(if (isFocused) 10f else 0f) // Static conditional instead of animation
+            .zIndex(if (isFocused) 10f else 0f)
             .scale(scale)
+            // focusable BEFORE clickable for proper D-Pad navigation
+            .focusable(interactionSource = interactionSource)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             )
-            .focusable(interactionSource = interactionSource)
     ) {
         Box(
             modifier = Modifier
@@ -133,17 +134,24 @@ fun NetflixMediaCard(
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(imageUrl)
-                    .crossfade(false) // Disable for performance/stability during focus zoom
-                    .size(coil.size.Size.ORIGINAL) // Don't upscale
+                    .crossfade(false)
+                    // Size images to actual card dimensions (×3 for xxhdpi)
+                    .size(
+                        width = when (cardType) {
+                            CardType.POSTER, CardType.TOP_TEN -> 420
+                            CardType.WIDE -> 720
+                        },
+                        height = when (cardType) {
+                            CardType.POSTER, CardType.TOP_TEN -> 630
+                            CardType.WIDE -> 405
+                        }
+                    )
                     .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                     .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                     .build(),
                 contentDescription = media.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
-                error = coil.compose.rememberAsyncImagePainter(
-                    model = android.R.drawable.ic_menu_gallery
-                )
             )
 
             // Gradient Scrim on Focus (simple conditional instead of AnimatedVisibility)
@@ -176,8 +184,12 @@ fun NetflixMediaCard(
             }
         }
 
-        // Title and Metadata Overlay (simple conditional instead of AnimatedVisibility)
-        if (isFocused) {
+        // Title and Metadata — animated per Netflix plan
+        AnimatedVisibility(
+            visible = isFocused,
+            enter = fadeIn(tween(200)) + expandVertically(tween(200)),
+            exit = fadeOut(tween(150)) + shrinkVertically(tween(150)),
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -191,22 +203,20 @@ fun NetflixMediaCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                     // Rating
                     val rating = media.rating
                     if (rating != null && rating > 0) {
-                         Text(
-                             text = "${(rating * 10).toInt()}% Match",
-                             style = MaterialTheme.typography.labelSmall,
-                             color = Color(0xFF46D369), // Netflix Match Green
-                             fontSize = 10.sp,
-                             fontWeight = FontWeight.Bold
-                         )
-                         Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "${(rating * 10).toInt()}% Match",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF46D369),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                     }
-                    
-                    // Year or Content Rating
+
                     val metaText = media.contentRating ?: media.year?.toString()
                     if (metaText != null) {
                         Text(

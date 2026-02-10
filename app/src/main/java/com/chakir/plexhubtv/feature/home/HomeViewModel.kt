@@ -31,9 +31,8 @@ class HomeViewModel
         private val workManager: androidx.work.WorkManager,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val imagePrefetchManager: com.chakir.plexhubtv.core.image.ImagePrefetchManager,
-        private val savedStateHandle: androidx.lifecycle.SavedStateHandle,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(savedStateHandle["home_state"] ?: HomeUiState(isLoading = true))
+        private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
         val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
         private val _navigationEvents = Channel<HomeNavigationEvent>()
@@ -142,9 +141,6 @@ class HomeViewModel
                                     hubs = filteredHubs,
                                 )
 
-                            // Save to SavedStateHandle for persistence
-                            savedStateHandle["home_state"] = newState
-
                             _uiState.update { newState }
                         },
                         onFailure = { error ->
@@ -159,9 +155,6 @@ class HomeViewModel
                                 } else {
                                     _uiState.value.copy(isLoading = false) // Silently fail update if we have cache
                                 }
-
-                            // Save to SavedStateHandle
-                            savedStateHandle["home_state"] = newState
 
                             _uiState.update { newState }
                         },

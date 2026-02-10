@@ -96,20 +96,18 @@ fun HomeRoute(
 fun DiscoverScreen(
     state: HomeUiState,
     onAction: (HomeAction) -> Unit,
+    onScrollStateChanged: (Boolean) -> Unit = {},
 ) {
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background, // Ensure dark background
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
         ) {
-            var backgroundUrl by remember { mutableStateOf<String?>(null) }
-
-            // Background Layer
-            AnimatedBackground(targetUrl = backgroundUrl ?: state.onDeck.firstOrNull()?.artUrl)
+            // AnimatedBackground REMOVED — hero billboard handles its own backdrop.
+            // Double background was causing double memory usage for full-screen images.
 
             when {
                 state.isInitialSync && state.onDeck.isEmpty() && state.hubs.isEmpty() ->
@@ -126,7 +124,7 @@ fun DiscoverScreen(
                         hubs = state.hubs,
                         favorites = state.favorites,
                         onAction = onAction,
-                        onScrollStateChanged = { /* Handle top bar transparency if needed */ },
+                        onScrollStateChanged = onScrollStateChanged,
                     )
             }
         }

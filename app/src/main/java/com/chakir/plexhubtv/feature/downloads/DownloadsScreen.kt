@@ -57,6 +57,7 @@ fun DownloadsScreen(
         topBar = {
             TopAppBar(title = { Text("Downloads") })
         },
+        modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             if (state.isLoading) {

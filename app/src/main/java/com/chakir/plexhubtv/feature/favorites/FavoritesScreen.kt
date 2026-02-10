@@ -60,7 +60,7 @@ fun FavoritesScreen(
             Modifier
                 .fillMaxSize()
                 .background(NetflixBlack) // Netflix Black Background
-                .padding(start = 58.dp, end = 58.dp, top = 24.dp), // Consistent padding
+                .padding(start = 58.dp, end = 58.dp, top = 80.dp), // 56dp TopBar + 24dp content padding
     ) {
         Text(
             text = "My List", // Netflix "My List"
