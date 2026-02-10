@@ -1,15 +1,8 @@
 package com.chakir.plexhubtv.feature.home.components
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.with
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -55,7 +50,6 @@ import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun NetflixHeroBillboard(
     items: List<MediaItem>,
@@ -68,6 +62,7 @@ fun NetflixHeroBillboard(
 
     var currentIndex by remember { mutableIntStateOf(0) }
     val currentItem = items[currentIndex]
+    val playButtonFocusRequester = remember { FocusRequester() }
 
     // Auto-rotation logic
     LaunchedEffect(items, autoRotateIntervalMs) {
@@ -79,33 +74,34 @@ fun NetflixHeroBillboard(
         }
     }
 
+    // Request initial focus on Play button
+    LaunchedEffect(Unit) {
+        playButtonFocusRequester.requestFocus()
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(550.dp) // Large immersive height
+            .height(480.dp) // Per plan: ~65% of 720p screen
     ) {
-        // Background Image Crossfade
-        AnimatedContent(
+        // Background Image — Crossfade instead of AnimatedContent for less memory pressure
+        Crossfade(
             targetState = currentItem,
-            transitionSpec = {
-                fadeIn(animationSpec = tween(500)) with fadeOut(animationSpec = tween(500))
-            },
+            animationSpec = tween(500),
             label = "HeroImageTransition"
         ) { media ->
-            Box(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(media.artUrl ?: media.thumbUrl)
-                        .crossfade(true)
-                        .size(coil.size.Size.ORIGINAL) // Don't upscale
-                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(media.artUrl ?: media.thumbUrl)
+                    .crossfade(false) // Crossfade composable handles transition
+                    .size(1920, 1080) // TV max resolution, not Size.ORIGINAL
+                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         // Gradient Overlay (Scrims)
@@ -116,8 +112,8 @@ fun NetflixHeroBillboard(
                     Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            NetflixBlack.copy(alpha = 0.3f), // Mild tint middle
-                            NetflixBlack // Solid black at bottom to blend with rows
+                            NetflixBlack.copy(alpha = 0.3f),
+                            NetflixBlack
                         ),
                         startY = 0f,
                         endY = Float.POSITIVE_INFINITY
@@ -130,7 +126,7 @@ fun NetflixHeroBillboard(
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
-                            NetflixBlack.copy(alpha = 0.9f), // Darker on left for text readability
+                            NetflixBlack.copy(alpha = 0.9f),
                             Color.Transparent,
                         ),
                         startX = 0f,
@@ -143,8 +139,8 @@ fun NetflixHeroBillboard(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 48.dp, bottom = 48.dp) // Alignment with content rows
-                .fillMaxWidth(0.5f) // Take up left half
+                .padding(start = 48.dp, bottom = 48.dp)
+                .fillMaxWidth(0.5f)
         ) {
             Text(
                 text = currentItem.title,
@@ -154,9 +150,9 @@ fun NetflixHeroBillboard(
                 overflow = TextOverflow.Ellipsis,
                 color = NetflixWhite
             )
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Metadata Line
             Row(verticalAlignment = Alignment.CenterVertically) {
                 currentItem.year?.let {
@@ -169,15 +165,14 @@ fun NetflixHeroBillboard(
                             .background(Color.Gray.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
                             .padding(horizontal = 4.dp, vertical = 2.dp)
                     ) {
-                         Text(
-                            text = it, 
+                        Text(
+                            text = it,
                             color = NetflixWhite,
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
-                     Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                 }
-                // Duration?
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -192,10 +187,11 @@ fun NetflixHeroBillboard(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Buttons
+            // Buttons — Play gets initial focus
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 NetflixPlayButton(
-                    onClick = { onPlay(currentItem) }
+                    onClick = { onPlay(currentItem) },
+                    modifier = Modifier.focusRequester(playButtonFocusRequester)
                 )
                 NetflixInfoButton(
                     onClick = { onInfo(currentItem) }
@@ -203,7 +199,7 @@ fun NetflixHeroBillboard(
             }
         }
 
-        // Page Indicators (Right side or Bottom Right)
+        // Page Indicators
         Row(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -211,13 +207,13 @@ fun NetflixHeroBillboard(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items.forEachIndexed { index, _ ->
-                val width = if (index == currentIndex) 24.dp else 8.dp // Static conditional
+                val indicatorWidth = if (index == currentIndex) 24.dp else 8.dp
                 val alpha = if (index == currentIndex) 1f else 0.5f
-                
+
                 Box(
                     modifier = Modifier
                         .height(8.dp)
-                        .width(width)
+                        .width(indicatorWidth)
                         .clip(RoundedCornerShape(4.dp))
                         .background(Color.White.copy(alpha = alpha))
                 )
@@ -237,13 +233,13 @@ fun NetflixPlayButton(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isFocused) Color.White else Color.White, // Always white
+            containerColor = Color.White,
             contentColor = Color.Black
         ),
         interactionSource = interactionSource,
         contentPadding = ButtonDefaults.ContentPadding,
         modifier = modifier
-            .padding(vertical = if (isFocused) 0.dp else 2.dp) // Subtle scale effect via padding
+            .padding(vertical = if (isFocused) 0.dp else 2.dp)
     ) {
         Icon(
             imageVector = Icons.Default.PlayArrow,
@@ -252,7 +248,7 @@ fun NetflixPlayButton(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Play", 
+            text = "Play",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -270,12 +266,12 @@ fun NetflixInfoButton(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-             containerColor = if (isFocused) Color.Gray.copy(alpha=0.8f) else Color.Gray.copy(alpha = 0.5f),
+            containerColor = if (isFocused) Color.Gray.copy(alpha = 0.8f) else Color.Gray.copy(alpha = 0.5f),
             contentColor = Color.White
         ),
         interactionSource = interactionSource,
         modifier = modifier
-             .padding(vertical = if (isFocused) 0.dp else 2.dp)
+            .padding(vertical = if (isFocused) 0.dp else 2.dp)
     ) {
         Icon(
             imageVector = Icons.Default.Info,

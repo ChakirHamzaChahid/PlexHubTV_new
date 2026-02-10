@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -41,6 +38,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -49,7 +51,6 @@ import com.chakir.plexhubtv.feature.home.components.NetflixMediaCard
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 
 @Composable
 fun NetflixDetailScreen(
@@ -61,6 +62,7 @@ fun NetflixDetailScreen(
     onCollectionClicked: (String, String) -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(if (media.type == MediaType.Show) DetailTab.Episodes else DetailTab.MoreLikeThis) }
+    val listState = rememberTvLazyListState()
 
     Box(modifier = Modifier.fillMaxSize().background(NetflixBlack)) {
         // 1. Full Screen Backdrop with Gradient
@@ -69,6 +71,9 @@ fun NetflixDetailScreen(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(media.artUrl ?: media.thumbUrl)
                     .crossfade(true)
+                    .size(1920, 1080) // TV resolution, not Size.ORIGINAL
+                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -111,21 +116,22 @@ fun NetflixDetailScreen(
             )
         }
 
-        // 2. Content Scroll
-        LazyColumn(
+        // 2. Content Scroll — TvLazyColumn for proper D-Pad navigation
+        TvLazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize().zIndex(2f),
-            contentPadding = PaddingValues(start = 50.dp, bottom = 50.dp, top = 0.dp) // Added top padding control
+            contentPadding = PaddingValues(start = 50.dp, bottom = 50.dp, top = 0.dp),
+            pivotOffsets = PivotOffsets(parentFraction = 0.0f)
         ) {
             // Spacer to push content down so header shows nicely
-            item { Spacer(modifier = Modifier.height(350.dp)) }
+            item(key = "detail_top_spacer") { Spacer(modifier = Modifier.height(350.dp)) }
 
             // Hero Metadata
-            item {
+            item(key = "detail_metadata") {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(end = 50.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    // Title
                     Text(
                         text = media.title,
                         style = MaterialTheme.typography.displayMedium,
@@ -134,50 +140,38 @@ fun NetflixDetailScreen(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Meta Row (Match, Year, Rating, Duration)
+                    // Meta Row
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Match % (Fake for now or calculated from rating)
                         val matchPercentage = ((media.rating ?: 0.0) * 10).toInt()
                         if (matchPercentage > 0) {
                             Text(
                                 text = "$matchPercentage% Match",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFF46D369), // Netflix Match Green
+                                color = Color(0xFF46D369),
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                         }
 
-                        // Year
                         media.year?.let {
-                            Text(
-                                text = it.toString(),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = NetflixLightGray
-                            )
+                            Text(text = it.toString(), style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
                             Spacer(modifier = Modifier.width(16.dp))
                         }
 
-                        // Content Rating
                         media.contentRating?.let {
                             Box(
                                 modifier = Modifier
                                     .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Text(
-                                    text = it,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White
-                                )
+                                Text(text = it, style = MaterialTheme.typography.labelMedium, color = Color.White)
                             }
                             Spacer(modifier = Modifier.width(16.dp))
                         }
 
-                        // Duration
                         media.durationMs?.let {
                             val mins = it / 60000
                             Text(
@@ -186,30 +180,15 @@ fun NetflixDetailScreen(
                                 color = NetflixLightGray
                             )
                         }
-                        
-                        // Quality Badges (HD/4K) - optional
+
                         Spacer(modifier = Modifier.width(16.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(Color.Transparent, RoundedCornerShape(4.dp))
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                                .run {
-                                    // simple border logic manually since no Border modifier on Box easily without surface
-                                    this
-                                }
-                        ) {
-                             Text("HD", style = MaterialTheme.typography.labelSmall, color = NetflixLightGray, fontWeight = FontWeight.Bold)
-                        }
+                        Text("HD", style = MaterialTheme.typography.labelSmall, color = NetflixLightGray, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
-
-                    // Buttons Row
                     ActionButtonsRow(media, state, onAction)
-
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Synopsis
                     Text(
                         text = media.summary ?: "",
                         style = MaterialTheme.typography.bodyLarge,
@@ -221,10 +200,10 @@ fun NetflixDetailScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(40.dp)) }
+            item(key = "detail_spacer_tabs") { Spacer(modifier = Modifier.height(40.dp)) }
 
             // 3. Tabs
-            item {
+            item(key = "detail_tabs") {
                 NetflixDetailTabs(
                     selectedTab = selectedTab,
                     onTabSelected = { selectedTab = it },
@@ -232,77 +211,83 @@ fun NetflixDetailScreen(
                 )
             }
 
-            // 4. Tab Content
-            item {
-                when (selectedTab) {
-                    DetailTab.Episodes -> {
-                         if (seasons.isNotEmpty()) {
-                             LazyRow(
-                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                 contentPadding = PaddingValues(end = 50.dp)
-                             ) {
-                                 items(seasons) { season ->
-                                     // Using NetflixMediaCard for seasons but maybe slightly adjusted aspect ratio?
-                                     // Standard is usually 2/3 for posters.
-                                     NetflixMediaCard(
-                                         media = season,
-                                         onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
-                                         onPlay = {}, // Optional: Play season?
-                                         onFocus = {},
-                                         modifier = Modifier.width(140.dp).aspectRatio(2f/3f)
-                                     )
-                                 }
-                             }
-                         } else {
-                             Text("No seasons available", color = NetflixLightGray)
-                         }
+            // 4. Tab Content — TvLazyRow for proper D-Pad inside TvLazyColumn
+            when (selectedTab) {
+                DetailTab.Episodes -> {
+                    if (seasons.isNotEmpty()) {
+                        item(key = "detail_seasons_row") {
+                            TvLazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(end = 50.dp),
+                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                            ) {
+                                items(seasons, key = { "${it.ratingKey}_${it.serverId}" }) { season ->
+                                    NetflixMediaCard(
+                                        media = season,
+                                        onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
+                                        onPlay = {},
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        item(key = "detail_no_seasons") {
+                            Text("No seasons available", color = NetflixLightGray)
+                        }
                     }
-                    DetailTab.MoreLikeThis -> {
-                        if (similarItems.isNotEmpty()) {
-                             LazyRow(
-                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                 contentPadding = PaddingValues(end = 50.dp)
-                             ) {
-                                 items(similarItems) { item ->
-                                     NetflixMediaCard(
-                                         media = item,
-                                         onClick = { onAction(MediaDetailEvent.OpenMediaDetail(item)) },
-                                         onPlay = {},
-                                         onFocus = {},
-                                         modifier = Modifier.width(140.dp).aspectRatio(2f/3f)
-                                     )
-                                 }
-                             }
-                         } else {
-                             Text("No similar items found", color = NetflixLightGray)
-                         }
-                         
-                         // Collections also here?
-                         if (state.collections.isNotEmpty()) {
-                             Spacer(modifier = Modifier.height(24.dp))
-                             Text("Included in Collections", style = MaterialTheme.typography.titleMedium, color = NetflixDarkGray)
-                             Spacer(modifier = Modifier.height(12.dp))
-                              LazyRow(
-                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                 contentPadding = PaddingValues(end = 50.dp)
-                             ) {
-                                 items(state.collections) { collection ->
-                                     // Simple text card for collections
-                                     Button(
-                                         onClick = { onCollectionClicked(collection.id, collection.serverId) },
-                                         colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f))
-                                     ) {
-                                         Text(collection.title, color = Color.White)
-                                     }
-                                 }
-                             }
-                         }
+                }
+                DetailTab.MoreLikeThis -> {
+                    if (similarItems.isNotEmpty()) {
+                        item(key = "detail_similar_row") {
+                            TvLazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(end = 50.dp),
+                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                            ) {
+                                items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }) { item ->
+                                    NetflixMediaCard(
+                                        media = item,
+                                        onClick = { onAction(MediaDetailEvent.OpenMediaDetail(item)) },
+                                        onPlay = {},
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        item(key = "detail_no_similar") {
+                            Text("No similar items found", color = NetflixLightGray)
+                        }
+                    }
+
+                    if (state.collections.isNotEmpty()) {
+                        item(key = "detail_collections_title") {
+                            Column {
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Text("Included in Collections", style = MaterialTheme.typography.titleMedium, color = NetflixDarkGray)
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+                        item(key = "detail_collections_row") {
+                            TvLazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(end = 50.dp),
+                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                            ) {
+                                items(state.collections, key = { it.id }) { collection ->
+                                    Button(
+                                        onClick = { onCollectionClicked(collection.id, collection.serverId) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f))
+                                    ) {
+                                        Text(collection.title, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-            
-            // Padding at bottom
-            item { Spacer(modifier = Modifier.height(50.dp)) }
+
+            item(key = "detail_bottom_spacer") { Spacer(modifier = Modifier.height(50.dp)) }
         }
 
         // Back Button

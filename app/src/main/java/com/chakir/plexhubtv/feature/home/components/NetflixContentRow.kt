@@ -1,6 +1,5 @@
 package com.chakir.plexhubtv.feature.home.components
 
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,8 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
 
@@ -28,14 +29,13 @@ fun NetflixContentRow(
 ) {
     if (items.isEmpty()) return
 
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val listState = rememberTvLazyListState()
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(bottom = 24.dp)
-            // Fix nested focus: Ensure column is part of focus traversal but passes focus to children
-             .focusable(false)
+        // .focusable(false) REMOVED — was blocking focus traversal to children
     ) {
         // Row Title
         Text(
@@ -43,19 +43,20 @@ fun NetflixContentRow(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = NetflixWhite,
-            modifier = Modifier.padding(start = 48.dp, bottom = 12.dp) // Aligned with safe area
+            modifier = Modifier.padding(start = 48.dp, bottom = 12.dp)
         )
 
-        // Horizontal List
-        LazyRow(
+        // Horizontal List — TvLazyRow for proper D-Pad navigation and focus restoration
+        TvLazyRow(
             state = listState,
             contentPadding = PaddingValues(horizontal = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), // 8dp per plan spec
+            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(
                 items = items,
-                key = { it.ratingKey }
+                key = { "${it.ratingKey}_${it.serverId}" } // Composite key for uniqueness
             ) { item ->
                 NetflixMediaCard(
                     media = item,

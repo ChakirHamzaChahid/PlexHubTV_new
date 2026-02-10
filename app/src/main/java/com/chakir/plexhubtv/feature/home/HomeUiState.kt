@@ -1,15 +1,15 @@
 package com.chakir.plexhubtv.feature.home
 
-import android.os.Parcelable
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
-import kotlinx.parcelize.Parcelize
 
 /**
  * État de l'UI pour l'écran d'accueil.
  * Gère le chargement, l'erreur, la synchronisation initiale, le contenu "On Deck" et les hubs.
+ *
+ * NOTE: Ne PAS utiliser @Parcelize/SavedStateHandle — les listes (hubs, onDeck, favorites)
+ * peuvent contenir des centaines d'items, causant TransactionTooLargeException et des freezes.
  */
-@Parcelize
 data class HomeUiState(
     val isLoading: Boolean = false,
     val isInitialSync: Boolean = false,
@@ -19,7 +19,7 @@ data class HomeUiState(
     val hubs: List<Hub> = emptyList(),
     val favorites: List<MediaItem> = emptyList(),
     val error: String? = null,
-) : Parcelable
+)
 
 sealed interface HomeAction {
     data object Refresh : HomeAction

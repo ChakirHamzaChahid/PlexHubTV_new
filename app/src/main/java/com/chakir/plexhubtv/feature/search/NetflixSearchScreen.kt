@@ -14,13 +14,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.items
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
-import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.feature.home.components.NetflixMediaCard
+import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.feature.home.components.CardType
+import com.chakir.plexhubtv.feature.home.components.NetflixContentRow
 import com.chakir.plexhubtv.feature.search.components.NetflixOnScreenKeyboard
 
 @Composable
@@ -39,16 +40,16 @@ fun NetflixSearchScreen(
         modifier = modifier
             .fillMaxSize()
             .background(NetflixBlack)
+            .padding(top = 56.dp) // Leave room for TopBar overlay
             .padding(32.dp),
         horizontalArrangement = Arrangement.spacedBy(32.dp)
     ) {
         // Left: On-Screen Keyboard
         Column(
             modifier = Modifier
-                .weight(0.4f)
+                .weight(0.35f)
                 .fillMaxHeight()
         ) {
-            // Search Query Display
             Text(
                 text = if (state.query.isEmpty()) "Search" else state.query,
                 fontSize = 32.sp,
@@ -69,17 +70,15 @@ fun NetflixSearchScreen(
                 onClear = {
                     onAction(SearchAction.ClearQuery)
                 },
-                onSearch = {
-                    // Search is triggered automatically via debounce in ViewModel
-                },
+                onSearch = {},
                 initialFocusRequester = keyboardFocusRequester
             )
         }
 
-        // Right: Search Results
+        // Right: Search Results — organized by type in horizontal rows
         Box(
             modifier = Modifier
-                .weight(0.6f)
+                .weight(0.65f)
                 .fillMaxHeight()
         ) {
             when (state.searchState) {
@@ -131,19 +130,37 @@ fun NetflixSearchScreen(
                     }
                 }
                 SearchState.Results -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        contentPadding = PaddingValues(8.dp),
+                    // Group results by type for Netflix-style horizontal rows
+                    val groupedResults = remember(state.results) {
+                        state.results.groupBy { it.type }
+                    }
+
+                    TvLazyColumn(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        contentPadding = PaddingValues(bottom = 32.dp),
+                        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                     ) {
-                        items(state.results) { item ->
-                            NetflixMediaCard(
-                                media = item,
-                                onClick = { onAction(SearchAction.OpenMedia(item)) },
-                                onPlay = { onAction(SearchAction.OpenMedia(item)) },
-                                onFocus = { }
-                            )
+                        groupedResults.forEach { (type, items) ->
+                            item(key = "search_row_${type.name}") {
+                                val title = when (type) {
+                                    MediaType.Movie -> "Movies"
+                                    MediaType.Show -> "TV Shows"
+                                    MediaType.Episode -> "Episodes"
+                                    MediaType.Season -> "Seasons"
+                                    else -> "Results"
+                                }
+                                val cardType = when (type) {
+                                    MediaType.Episode -> CardType.WIDE
+                                    else -> CardType.POSTER
+                                }
+                                NetflixContentRow(
+                                    title = title,
+                                    items = items,
+                                    cardType = cardType,
+                                    onItemClick = { onAction(SearchAction.OpenMedia(it)) },
+                                    onItemPlay = { onAction(SearchAction.OpenMedia(it)) }
+                                )
+                            }
                         }
                     }
                 }
