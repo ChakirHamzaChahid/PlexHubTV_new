@@ -44,7 +44,7 @@ fun HistoryScreen(
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(16.dp),
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 72.dp), // 56dp TopBar + 16dp
     ) {
         Text(
             text = "Watch History",

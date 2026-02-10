@@ -283,6 +283,10 @@ fun VideoPlayerScreen(
                 onNext = { onAction(PlayerAction.Next) },
                 onStop = { onAction(PlayerAction.Close) },
                 isVisible = shouldShowControls,
+                chapters = chapters,
+                markers = markers,
+                visibleMarkers = visibleMarkers,
+                onSkipMarker = { onAction(PlayerAction.SkipMarker(it)) },
                 modifier = Modifier,
                 playPauseFocusRequester = focusRequester
             )
