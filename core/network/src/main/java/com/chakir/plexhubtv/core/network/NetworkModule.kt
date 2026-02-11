@@ -170,12 +170,12 @@ object NetworkModule {
     @Provides
     @Singleton
     @javax.inject.Named("tmdb")
-    fun provideTmdbRetrofit(gson: Gson): Retrofit {
-        val tmdbClient = OkHttpClient.Builder()
+    fun provideTmdbRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
+        val tmdbClient = okHttpClient.newBuilder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
-        
+
         return Retrofit.Builder()
             .baseUrl("https://api.themoviedb.org/")
             .client(tmdbClient)
@@ -198,12 +198,12 @@ object NetworkModule {
     @Provides
     @Singleton
     @javax.inject.Named("omdb")
-    fun provideOmdbRetrofit(gson: Gson): Retrofit {
-        val omdbClient = OkHttpClient.Builder()
+    fun provideOmdbRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
+        val omdbClient = okHttpClient.newBuilder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
-        
+
         return Retrofit.Builder()
             .baseUrl("https://www.omdbapi.com/")
             .client(omdbClient)
