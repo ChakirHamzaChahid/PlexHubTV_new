@@ -98,6 +98,52 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_22_23 =
+        object : androidx.room.migration.Migration(22, 23) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Create profiles table for multi-user support
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `profiles` (
+                        `id` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `avatarUrl` TEXT,
+                        `avatarEmoji` TEXT,
+                        `isKidsProfile` INTEGER NOT NULL,
+                        `ageRating` TEXT NOT NULL,
+                        `autoPlayNext` INTEGER NOT NULL,
+                        `preferredAudioLanguage` TEXT,
+                        `preferredSubtitleLanguage` TEXT,
+                        `preferredQuality` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `lastUsed` INTEGER NOT NULL,
+                        `isActive` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                    """
+                )
+
+                // Create index on isActive for faster active profile queries
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_profiles_isActive` ON `profiles` (`isActive`)")
+
+                // Create default profile
+                database.execSQL(
+                    """
+                    INSERT INTO `profiles` (
+                        `id`, `name`, `avatarUrl`, `avatarEmoji`, `isKidsProfile`,
+                        `ageRating`, `autoPlayNext`, `preferredAudioLanguage`,
+                        `preferredSubtitleLanguage`, `preferredQuality`,
+                        `createdAt`, `lastUsed`, `isActive`
+                    ) VALUES (
+                        '${java.util.UUID.randomUUID()}', 'Default', NULL, '😊', 0,
+                        'GENERAL', 1, NULL, NULL, 'AUTO',
+                        ${System.currentTimeMillis()}, ${System.currentTimeMillis()}, 1
+                    )
+                    """
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -128,7 +174,8 @@ object DatabaseModule {
                 MIGRATION_18_19,
                 MIGRATION_19_20,
                 MIGRATION_20_21,
-                MIGRATION_21_22
+                MIGRATION_21_22,
+                MIGRATION_22_23
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -178,5 +225,10 @@ object DatabaseModule {
     @Provides
     fun provideCollectionDao(database: PlexDatabase): CollectionDao {
         return database.collectionDao()
+    }
+
+    @Provides
+    fun provideProfileDao(database: PlexDatabase): ProfileDao {
+        return database.profileDao()
     }
 }

@@ -22,7 +22,54 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.core.model.Profile
+
+/**
+ * Route pour l'écran de sélection de profil avec ViewModel.
+ */
+@Composable
+fun ProfileSelectionRoute(
+    viewModel: ProfileViewModel = hiltViewModel(),
+    onNavigateToHome: () -> Unit,
+    onNavigateToManageProfiles: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val navigationEvents = viewModel.navigationEvents
+
+    // Handle navigation events
+    LaunchedEffect(navigationEvents) {
+        navigationEvents.collect { event ->
+            when (event) {
+                is ProfileNavigationEvent.NavigateToHome -> onNavigateToHome()
+                is ProfileNavigationEvent.NavigateToManageProfiles -> onNavigateToManageProfiles()
+                is ProfileNavigationEvent.NavigateBack -> onNavigateToHome()
+            }
+        }
+    }
+
+    if (uiState.isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    } else {
+        ProfileSelectionScreen(
+            profiles = uiState.profiles,
+            onProfileSelected = { viewModel.onAction(ProfileAction.SelectProfile(it)) },
+            onManageProfiles = { viewModel.onAction(ProfileAction.ManageProfiles) }
+        )
+    }
+
+    // Show error snackbar if needed
+    uiState.error?.let { error ->
+        LaunchedEffect(error) {
+            // TODO: Show error snackbar
+        }
+    }
+}
 
 /**
  * Écran de sélection de profil.

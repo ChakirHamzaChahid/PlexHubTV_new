@@ -2,85 +2,155 @@ package com.chakir.plexhubtv.feature.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.chakir.plexhubtv.domain.repository.AccountRepository
+import com.chakir.plexhubtv.core.model.Profile
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
-data class ProfileUiState(
-    val users: List<com.chakir.plexhubtv.core.model.UserProfile> = emptyList(),
-    val currentUserId: String? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null,
-)
-
-sealed interface ProfileEvent {
-    data class SwitchToUser(val user: com.chakir.plexhubtv.core.model.UserProfile) : ProfileEvent
-
-    data object RefreshProfiles : ProfileEvent
-}
-
 /**
- * ViewModel gérant la liste des profils utilisateurs (Plex Home Users).
- * Permet de lister les utilisateurs et de basculer de session active via [AccountRepository].
+ * ViewModel pour la gestion des profils utilisateurs.
  */
 @HiltViewModel
-class ProfileViewModel
-    @Inject
-    constructor(
-        private val accountRepository: AccountRepository,
-    ) : ViewModel() {
-        private val _uiState = MutableStateFlow(ProfileUiState())
-        val uiState = _uiState.asStateFlow()
+class ProfileViewModel @Inject constructor(
+    private val profileRepository: ProfileRepository
+) : ViewModel() {
 
-        init {
-            loadProfiles()
+    private val _uiState = MutableStateFlow(ProfileUiState())
+    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    private val _navigationEvents = Channel<ProfileNavigationEvent>()
+    val navigationEvents = _navigationEvents.receiveAsFlow()
+
+    init {
+        loadProfiles()
+        observeActiveProfile()
+    }
+
+    fun onAction(action: ProfileAction) {
+        when (action) {
+            is ProfileAction.SelectProfile -> selectProfile(action.profile)
+            is ProfileAction.ManageProfiles -> navigateToManageProfiles()
+            is ProfileAction.CreateProfile -> showCreateDialog()
+            is ProfileAction.EditProfile -> showEditDialog(action.profile)
+            is ProfileAction.DeleteProfile -> deleteProfile(action.profileId)
+            is ProfileAction.DismissDialog -> dismissDialog()
+            is ProfileAction.Back -> navigateBack()
         }
+    }
 
-        private fun loadProfiles() {
-            viewModelScope.launch {
-                _uiState.update { it.copy(isLoading = true) }
-                accountRepository.getHomeUsers().onSuccess { users ->
-                    val currentUser = accountRepository.getCurrentUser()
+    private fun loadProfiles() {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+
+                // Ensure default profile exists
+                profileRepository.ensureDefaultProfile()
+
+                // Observe all profiles
+                profileRepository.getAllProfiles().collect { profiles ->
                     _uiState.update {
                         it.copy(
-                            users =
-                                users.map { user ->
-                                    com.chakir.plexhubtv.core.model.UserProfile(
-                                        id = user.uuid,
-                                        title = user.title,
-                                        thumb = user.thumb,
-                                        protected = user.protected,
-                                        admin = user.admin,
-                                    )
-                                },
-                            currentUserId = currentUser?.uuid,
+                            profiles = profiles,
                             isLoading = false,
+                            error = null
                         )
                     }
-                }.onFailure { error ->
-                    _uiState.update { it.copy(error = error.localizedMessage, isLoading = false) }
                 }
-            }
-        }
-
-        fun onEvent(event: ProfileEvent) {
-            when (event) {
-                is ProfileEvent.SwitchToUser -> {
-                    viewModelScope.launch {
-                        _uiState.update { it.copy(isLoading = true) }
-                        // Convert domain model back or fetch from list?
-                        val user = accountRepository.getHomeUsers().getOrNull()?.find { it.uuid == event.user.id }
-                        if (user != null) {
-                            accountRepository.switchUser(user, null) // In real app, prompt for PIN if needed
-                            _uiState.update { it.copy(currentUserId = user.uuid, isLoading = false) }
-                        }
-                    }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load profiles")
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to load profiles"
+                    )
                 }
-                ProfileEvent.RefreshProfiles -> loadProfiles()
             }
         }
     }
+
+    private fun observeActiveProfile() {
+        viewModelScope.launch {
+            profileRepository.getActiveProfileFlow().collect { profile ->
+                _uiState.update { it.copy(activeProfile = profile) }
+            }
+        }
+    }
+
+    private fun selectProfile(profile: Profile) {
+        viewModelScope.launch {
+            try {
+                val result = profileRepository.switchProfile(profile.id)
+                if (result.isSuccess) {
+                    Timber.i("Profile switched to: ${profile.name}")
+                    _navigationEvents.send(ProfileNavigationEvent.NavigateToHome)
+                } else {
+                    val error = result.exceptionOrNull()?.message ?: "Failed to switch profile"
+                    _uiState.update { it.copy(error = error) }
+                    Timber.e("Failed to switch profile: $error")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error switching profile")
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    private fun navigateToManageProfiles() {
+        viewModelScope.launch {
+            _navigationEvents.send(ProfileNavigationEvent.NavigateToManageProfiles)
+        }
+    }
+
+    private fun showCreateDialog() {
+        _uiState.update { it.copy(showCreateDialog = true) }
+    }
+
+    private fun showEditDialog(profile: Profile) {
+        _uiState.update {
+            it.copy(
+                showEditDialog = true,
+                profileToEdit = profile
+            )
+        }
+    }
+
+    private fun deleteProfile(profileId: String) {
+        viewModelScope.launch {
+            try {
+                val result = profileRepository.deleteProfile(profileId)
+                if (result.isFailure) {
+                    val error = result.exceptionOrNull()?.message ?: "Failed to delete profile"
+                    _uiState.update { it.copy(error = error) }
+                    Timber.e("Failed to delete profile: $error")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error deleting profile")
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    private fun dismissDialog() {
+        _uiState.update {
+            it.copy(
+                showCreateDialog = false,
+                showEditDialog = false,
+                profileToEdit = null
+            )
+        }
+    }
+
+    private fun navigateBack() {
+        viewModelScope.launch {
+            _navigationEvents.send(ProfileNavigationEvent.NavigateBack)
+        }
+    }
+}
