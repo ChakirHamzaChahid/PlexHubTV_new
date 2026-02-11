@@ -6,7 +6,7 @@ import androidx.work.WorkManager
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.Server
-import com.chakir.plexhubtv.core.network.ConnectionManager
+import com.chakir.plexhubtv.di.network.ConnectionManager
 import com.chakir.plexhubtv.domain.repository.*
 import com.chakir.plexhubtv.domain.usecase.*
 import com.google.common.truth.Truth.assertThat

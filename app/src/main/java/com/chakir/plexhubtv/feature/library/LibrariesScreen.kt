@@ -76,8 +76,8 @@ import com.chakir.plexhubtv.feature.home.MediaCard
 import timber.log.Timber
 
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import com.chakir.plexhubtv.di.designsystem.NetflixBlack
+import com.chakir.plexhubtv.di.designsystem.NetflixRed
 import androidx.compose.ui.zIndex
 
 // ... (Rest of imports likely preserved by smart apply, but I should be careful)

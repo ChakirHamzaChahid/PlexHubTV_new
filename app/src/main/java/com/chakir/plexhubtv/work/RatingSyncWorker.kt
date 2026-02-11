@@ -5,9 +5,9 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.chakir.plexhubtv.core.database.MediaDao
-import com.chakir.plexhubtv.core.network.ApiKeyManager
-import com.chakir.plexhubtv.core.network.OmdbApiService
-import com.chakir.plexhubtv.core.network.TmdbApiService
+import com.chakir.plexhubtv.di.network.ApiKeyManager
+import com.chakir.plexhubtv.di.network.OmdbApiService
+import com.chakir.plexhubtv.di.network.TmdbApiService
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.delay

@@ -15,7 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.chakir.plexhubtv.core.navigation.Screen
+import com.chakir.plexhubtv.di.navigation.Screen
 import com.chakir.plexhubtv.feature.auth.AuthRoute
 import com.chakir.plexhubtv.feature.auth.profiles.ProfileRoute
 import com.chakir.plexhubtv.feature.details.MediaDetailRoute

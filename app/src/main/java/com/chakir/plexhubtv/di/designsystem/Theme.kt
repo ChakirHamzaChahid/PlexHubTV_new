@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.designsystem
+package com.chakir.plexhubtv.di.designsystem
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme

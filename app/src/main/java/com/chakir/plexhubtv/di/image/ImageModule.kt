@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.image
+package com.chakir.plexhubtv.di.image
 
 import android.content.Context
 import coil.ImageLoader

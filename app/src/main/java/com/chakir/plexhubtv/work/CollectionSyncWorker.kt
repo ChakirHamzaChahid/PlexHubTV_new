@@ -5,8 +5,8 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.chakir.plexhubtv.core.database.*
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
+import com.chakir.plexhubtv.di.network.ConnectionManager
+import com.chakir.plexhubtv.di.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import dagger.assisted.Assisted

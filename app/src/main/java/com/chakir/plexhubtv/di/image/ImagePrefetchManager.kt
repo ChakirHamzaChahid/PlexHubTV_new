@@ -1,9 +1,9 @@
-package com.chakir.plexhubtv.core.image
+package com.chakir.plexhubtv.di.image
 
 import android.content.Context
 import coil.ImageLoader
 import coil.request.ImageRequest
-import com.chakir.plexhubtv.core.network.PlexImageHelper
+import com.chakir.plexhubtv.di.network.PlexImageHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

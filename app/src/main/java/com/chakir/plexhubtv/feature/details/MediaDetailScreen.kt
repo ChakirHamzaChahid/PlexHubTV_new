@@ -39,8 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
+import com.chakir.plexhubtv.di.designsystem.NetflixDarkGray
+import com.chakir.plexhubtv.di.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog

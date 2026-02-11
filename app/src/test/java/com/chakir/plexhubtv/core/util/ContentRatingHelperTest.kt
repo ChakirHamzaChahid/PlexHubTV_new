@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.util
+package com.chakir.plexhubtv.di.util
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test

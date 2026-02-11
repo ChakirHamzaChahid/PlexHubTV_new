@@ -45,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import com.chakir.plexhubtv.di.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.Chapter
 import com.chakir.plexhubtv.core.model.Marker
 import com.chakir.plexhubtv.core.model.MediaItem

@@ -4,9 +4,9 @@ import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.Server
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiCache
-import com.chakir.plexhubtv.core.network.PlexApiService
+import com.chakir.plexhubtv.di.network.ConnectionManager
+import com.chakir.plexhubtv.di.network.PlexApiCache
+import com.chakir.plexhubtv.di.network.PlexApiService
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository

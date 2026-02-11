@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.network
+package com.chakir.plexhubtv.di.network
 
 import android.net.Uri
 import kotlin.math.ceil

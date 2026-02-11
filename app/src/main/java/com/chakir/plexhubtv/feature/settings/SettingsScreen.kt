@@ -20,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
+import com.chakir.plexhubtv.di.designsystem.PlexHubTheme
 
 /**
  * Écran principal des paramètres.

@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.datastore
+package com.chakir.plexhubtv.di.datastore
 
 import android.content.Context
 import androidx.datastore.core.DataStore

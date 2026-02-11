@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.image
+package com.chakir.plexhubtv.di.image
 
 import android.net.Uri
 import coil.key.Keyer

@@ -4,10 +4,10 @@ import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.core.model.VideoStream
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
-import com.chakir.plexhubtv.core.network.PlexClient
-import com.chakir.plexhubtv.core.network.model.MetadataDTO
+import com.chakir.plexhubtv.di.network.ConnectionManager
+import com.chakir.plexhubtv.di.network.PlexApiService
+import com.chakir.plexhubtv.di.network.PlexClient
+import com.chakir.plexhubtv.di.network.model.MetadataDTO
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository

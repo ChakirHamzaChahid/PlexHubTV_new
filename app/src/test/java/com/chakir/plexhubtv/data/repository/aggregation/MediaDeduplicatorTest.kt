@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.data.repository.aggregation
 
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.core.network.ConnectionManager
+import com.chakir.plexhubtv.di.network.ConnectionManager
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every

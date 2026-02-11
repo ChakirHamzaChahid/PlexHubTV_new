@@ -32,8 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import com.chakir.plexhubtv.di.designsystem.NetflixBlack
+import com.chakir.plexhubtv.di.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 
 /**

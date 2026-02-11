@@ -3,8 +3,8 @@ package com.chakir.plexhubtv.feature.home
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.work.WorkManager
-import com.chakir.plexhubtv.core.datastore.SettingsDataStore
-import com.chakir.plexhubtv.core.image.ImagePrefetchManager
+import com.chakir.plexhubtv.di.datastore.SettingsDataStore
+import com.chakir.plexhubtv.di.image.ImagePrefetchManager
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType

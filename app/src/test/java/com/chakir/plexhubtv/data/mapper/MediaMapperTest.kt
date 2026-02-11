@@ -2,8 +2,8 @@ package com.chakir.plexhubtv.data.mapper
 
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.core.network.model.GuidDTO
-import com.chakir.plexhubtv.core.network.model.MetadataDTO
+import com.chakir.plexhubtv.di.network.model.GuidDTO
+import com.chakir.plexhubtv.di.network.model.MetadataDTO
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
 import org.junit.Test

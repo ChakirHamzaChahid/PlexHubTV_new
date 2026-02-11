@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.PivotOffsets
 import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.items
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixWhite
+import com.chakir.plexhubtv.di.designsystem.NetflixBlack
+import com.chakir.plexhubtv.di.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.NetflixContentRow

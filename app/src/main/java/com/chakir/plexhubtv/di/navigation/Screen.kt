@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.navigation
+package com.chakir.plexhubtv.di.navigation
 
 sealed class Screen(val route: String) {
     // --- Auth Graph ---

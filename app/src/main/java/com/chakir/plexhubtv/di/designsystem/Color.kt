@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.designsystem
+package com.chakir.plexhubtv.di.designsystem
 
 import androidx.compose.ui.graphics.Color
 
