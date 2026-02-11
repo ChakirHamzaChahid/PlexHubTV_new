@@ -40,6 +40,7 @@ class MediaDetailRepositoryImpl
         private val plexApiCache: PlexApiCache,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
+        private val gson: com.google.gson.Gson,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MediaDetailRepository {
         override suspend fun getMediaDetail(
@@ -54,11 +55,14 @@ class MediaDetailRepositoryImpl
                 val cachedJson = plexApiCache.get(cacheKey)
                 if (cachedJson != null) {
                     try {
-                        // We don't have GSON injected here easily without more refactor,
-                        // but the original code had it. Let's assume for now we want fresh data
-                        // or we inject GSON too if needed. Original MediaRepositoryImpl had GSON.
+                        val cachedResponse = gson.fromJson(cachedJson, com.chakir.plexhubtv.core.network.model.PlexResponse::class.java)
+                        val cachedMetadata = cachedResponse?.mediaContainer?.metadata?.firstOrNull()
+                        if (cachedMetadata != null) {
+                            val cachedItem = mapper.mapDtoToDomain(cachedMetadata, serverId, client.baseUrl, client.server.accessToken)
+                            return Result.success(cachedItem)
+                        }
                     } catch (e: Exception) {
-                        Timber.w(e, "Failed to parse cached metadata")
+                        Timber.w(e, "Failed to parse cached metadata for $ratingKey")
                     }
                 }
 
@@ -96,6 +100,11 @@ class MediaDetailRepositoryImpl
                 Result.failure(MediaNotFoundException("Media $ratingKey not found on server $serverId"))
             } catch (e: IOException) {
                 Timber.e(e, "Network error fetching media detail $ratingKey")
+                // Fallback to Room if network fails
+                val localEntity = mediaDao.getMedia(ratingKey, serverId)
+                if (localEntity != null) {
+                    return Result.success(mapper.mapEntityToDomain(localEntity))
+                }
                 Result.failure(NetworkException("Network error", e))
             } catch (e: HttpException) {
                 Timber.e(e, "HTTP error ${e.code()} fetching media detail $ratingKey")
