@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.domain.usecase
+package com.chakir.plexhubtv.data.usecase
 
 import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
