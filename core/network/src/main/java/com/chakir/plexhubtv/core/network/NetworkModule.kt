@@ -6,7 +6,6 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -61,10 +60,9 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideAuthInterceptor(
-        settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
-        @com.chakir.plexhubtv.core.di.ApplicationScope scope: CoroutineScope
+        settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore
     ): AuthInterceptor {
-        return AuthInterceptor(settingsDataStore, scope)
+        return AuthInterceptor(settingsDataStore)
     }
 
     @Provides
