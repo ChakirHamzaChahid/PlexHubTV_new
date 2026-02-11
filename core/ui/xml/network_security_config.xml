@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 
+        Configuration pour supporter les flux IPTV/LiveTV.
+        Les URLs IPTV des utilisateurs peuvent être HTTP (non-HTTPS) et provenir de n'importe quel domaine.
+        Cette configuration autorise les connexions cleartext tout en maintenant la validation des certificats système.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
