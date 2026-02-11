@@ -123,6 +123,27 @@ class MediaDetailRepositoryImpl
             ratingKey: String,
             serverId: String,
         ): Result<List<MediaItem>> {
+            // 1. Cache-first: Load from Room immediately
+            val localEntities = mediaDao.getChildren(ratingKey, serverId)
+            if (localEntities.isNotEmpty()) {
+                val client = getClient(serverId)
+                val baseUrl = client?.baseUrl
+                val token = client?.server?.accessToken
+                val cachedItems = localEntities.map {
+                    mapper.mapEntityToDomain(it).let { domain ->
+                        if (baseUrl != null && token != null) {
+                            mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                                baseUrl = baseUrl, accessToken = token
+                            )
+                        } else domain
+                    }
+                }
+                // If we have local data and no network, return immediately
+                val networkClient = getClient(serverId)
+                if (networkClient == null) return Result.success(cachedItems)
+            }
+
+            // 2. Attempt network fetch for refresh
             try {
                 val client = getClient(serverId)
                 if (client != null) {
@@ -130,10 +151,9 @@ class MediaDetailRepositoryImpl
                     if (response.isSuccessful) {
                         val metadata = response.body()?.mediaContainer?.metadata
                         if (metadata != null) {
-                            val items =
-                                metadata.map {
-                                    mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
-                                }
+                            val items = metadata.map {
+                                mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
+                            }
                             return Result.success(items)
                         }
                     }
@@ -146,27 +166,22 @@ class MediaDetailRepositoryImpl
                 Timber.e(e, "Error fetching episodes for $ratingKey")
             }
 
-            val localEntities = mediaDao.getChildren(ratingKey, serverId)
+            // 3. Fallback: Return cache (already loaded above)
             if (localEntities.isNotEmpty()) {
                 val client = getClient(serverId)
-                val baseUrl = client?.baseUrl
-                val token = client?.server?.accessToken
-
-                val items =
-                    localEntities.map {
-                        mapper.mapEntityToDomain(it).let { domain ->
-                            if (baseUrl != null && token != null) {
-                                mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
-                                    baseUrl = baseUrl,
-                                    accessToken = token,
-                                )
-                            } else {
-                                domain
-                            }
-                        }
-                    }
+                val items = localEntities.map {
+                    val domain = mapper.mapEntityToDomain(it)
+                    val baseUrl = client?.baseUrl
+                    val token = client?.server?.accessToken
+                    if (baseUrl != null && token != null) {
+                        mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                            baseUrl = baseUrl, accessToken = token
+                        )
+                    } else domain
+                }
                 return Result.success(items)
             }
+
             return Result.failure(MediaNotFoundException("Episodes for $ratingKey not found"))
         }
 
