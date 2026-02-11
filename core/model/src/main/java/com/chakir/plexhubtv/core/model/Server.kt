@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.core.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Représente un serveur Plex (Media Server).
  *
@@ -16,6 +18,7 @@ package com.chakir.plexhubtv.core.model
  * @property relay Si vrai, la connexion passe par un relais Plex (plus lent, limité à 1Mbps/2Mbps sans Plex Pass).
  * @property connectionState État actuel de la connexion (testé par [ServerConnectionTester]).
  */
+@Immutable
 data class Server(
     val clientIdentifier: String,
     val name: String,
@@ -41,6 +44,7 @@ data class Server(
  * @property local Si vrai, c'est une adresse RFC1918 (LAN).
  * @property relay Si vrai, c'est une connexion relayée par plex.tv.
  */
+@Immutable
 data class ConnectionCandidate(
     val protocol: String,
     val address: String,
