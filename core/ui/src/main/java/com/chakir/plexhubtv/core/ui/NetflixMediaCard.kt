@@ -169,16 +169,20 @@ fun NetflixMediaCard(
                 )
             }
 
-            // Progress Bar
+            // Progress Bar with Remaining Time
             val durationMs = media.durationMs
-            if ((media.playbackPositionMs ?: 0L) > 0 && durationMs != null) {
-                 val progress by remember(media.playbackPositionMs, durationMs) {
+            val playbackPositionMs = media.playbackPositionMs ?: 0L
+            if (playbackPositionMs > 0 && durationMs != null && durationMs > 0) {
+                val progress by remember(playbackPositionMs, durationMs) {
                     mutableFloatStateOf(
-                        ((media.playbackPositionMs ?: 0L).toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                        (playbackPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
                     )
                 }
+                val remainingMs = (durationMs - playbackPositionMs).coerceAtLeast(0)
                 NetflixProgressBar(
                     progress = progress,
+                    remainingMs = remainingMs,
+                    showRemainingTime = isFocused && cardType == CardType.WIDE,
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
@@ -235,19 +239,48 @@ fun NetflixMediaCard(
 @Composable
 fun NetflixProgressBar(
     progress: Float,
+    remainingMs: Long = 0,
+    showRemainingTime: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(2.dp) // Minimal height
-            .background(Color.Gray.copy(alpha = 0.5f))
-    ) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Remaining Time Text (optional, only for Continue Watching WIDE cards)
+        if (showRemainingTime && remainingMs > 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                val remainingMinutes = (remainingMs / 60000).toInt()
+                val remainingText = when {
+                    remainingMinutes < 1 -> "< 1 min left"
+                    remainingMinutes == 1 -> "1 min left"
+                    else -> "$remainingMinutes min left"
+                }
+                Text(
+                    text = remainingText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                )
+            }
+        }
+
+        // Progress Bar
         Box(
             modifier = Modifier
-                .fillMaxWidth(progress)
-                .height(2.dp)
-                .background(NetflixRed)
-        )
+                .fillMaxWidth()
+                .height(4.dp) // Increased from 2dp for better visibility
+                .background(Color.Gray.copy(alpha = 0.3f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .height(4.dp)
+                    .background(NetflixRed)
+            )
+        }
     }
 }
