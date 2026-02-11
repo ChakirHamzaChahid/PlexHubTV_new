@@ -1,8 +1,10 @@
 package com.chakir.plexhubtv.feature.player.controller
 
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.util.WatchNextHelper
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
+import com.chakir.plexhubtv.domain.usecase.PrefetchNextEpisodeUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,7 +18,8 @@ import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Gère le scrobbling (mise à jour de la progression sur le serveur) et la détection "Watch Next".
+ * Gère le scrobbling (mise à jour de la progression sur le serveur), la détection "Watch Next",
+ * et le préchargement du prochain épisode.
  */
 @javax.inject.Singleton
 class PlayerScrobbler
@@ -24,9 +27,11 @@ class PlayerScrobbler
     constructor(
         private val playbackRepository: PlaybackRepository,
         private val watchNextHelper: WatchNextHelper,
+        private val prefetchNextEpisodeUseCase: PrefetchNextEpisodeUseCase,
     ) {
         private var scrobbleJob: Job? = null
         private var autoNextTriggered = false
+        private var prefetchTriggered = false
 
         private val _showAutoNextPopup = MutableStateFlow(false)
         val showAutoNextPopup: StateFlow<Boolean> = _showAutoNextPopup.asStateFlow()
@@ -61,6 +66,22 @@ class PlayerScrobbler
                             } catch (e: Exception) {
                                 Timber.w("WatchNext update failed: ${e.message}")
                             }
+
+                            // Prefetch next episode at 80% progress
+                            if (item.type == MediaType.Episode && !prefetchTriggered && duration > 1000) {
+                                val progress = position.toFloat() / duration.toFloat()
+                                if (progress >= 0.8f) {
+                                    prefetchTriggered = true
+                                    launch {
+                                        try {
+                                            prefetchNextEpisodeUseCase(item)
+                                            Timber.d("Prefetch triggered at ${(progress * 100).toInt()}%")
+                                        } catch (e: Exception) {
+                                            Timber.w("Prefetch failed: ${e.message}")
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -70,7 +91,9 @@ class PlayerScrobbler
             scrobbleJob?.cancel()
             scrobbleJob = null
             autoNextTriggered = false
+            prefetchTriggered = false
             _showAutoNextPopup.update { false }
+            prefetchNextEpisodeUseCase.reset()
         }
 
         fun checkAutoNext(
@@ -91,7 +114,9 @@ class PlayerScrobbler
 
         fun resetAutoNext() {
             autoNextTriggered = false
+            prefetchTriggered = false
             _showAutoNextPopup.update { false }
+            prefetchNextEpisodeUseCase.reset()
         }
 
         fun dismissAutoNext() {
