@@ -8,6 +8,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.unit.dp
 
 /**
@@ -142,19 +147,30 @@ fun SortDialog(
         title = { Text("Sort By") },
         text = {
             Column {
-                options.forEach { option ->
+                options.forEachIndexed { index, option ->
+                    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    val isFocused by interactionSource.collectIsFocusedAsState()
+
                     Row(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .clickable {
+                                .background(
+                                    if (isFocused) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f) else Color.Transparent,
+                                    RoundedCornerShape(4.dp)
+                                )
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null,
+                                ) {
                                     // Toggle desc if same option clicked, else default to asc/desc based on logic?
                                     // Default logic: Date -> Desc default, Title -> Asc default
                                     val defaultDesc = option == "Date Added" || option == "Year" || option == "Rating"
                                     val newDesc = if (currentSort == option) !isDescending else defaultDesc
                                     onSelectSort(option, newDesc)
                                 }
-                                .padding(vertical = 12.dp),
+                                .focusable(interactionSource = interactionSource)
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

@@ -5,9 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -58,6 +56,7 @@ import timber.log.Timber
 @Composable
 fun MediaDetailRoute(
     viewModel: MediaDetailViewModel = hiltViewModel(),
+    enrichmentViewModel: MediaEnrichmentViewModel = hiltViewModel(),
     onNavigateToPlayer: (String, String) -> Unit,
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateToSeason: (String, String) -> Unit,
@@ -65,6 +64,22 @@ fun MediaDetailRoute(
     onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val enrichmentState by viewModel.uiState.collectAsState()
+    
+    // Combine states for the Screen
+    val combinedState = uiState.copy(
+        similarItems = enrichmentState.similarItems,
+        collections = enrichmentState.collections
+    )
+
+    // Trigger enrichment when media is loaded
+    LaunchedEffect(uiState.media) {
+        val media = uiState.media
+        if (media != null) {
+             enrichmentViewModel.loadEnrichment(media)
+        }
+    }
+
     val events = viewModel.navigationEvents
 
     LaunchedEffect(events) {
@@ -80,7 +95,7 @@ fun MediaDetailRoute(
     }
 
     MediaDetailScreen(
-        state = uiState,
+        state = combinedState,
         onAction = viewModel::onEvent,
         onCollectionClicked = viewModel::onCollectionClicked,
     )

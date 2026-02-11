@@ -18,6 +18,7 @@ import javax.inject.Inject
 /**
  * Gère le scrobbling (mise à jour de la progression sur le serveur) et la détection "Watch Next".
  */
+@javax.inject.Singleton
 class PlayerScrobbler
     @Inject
     constructor(

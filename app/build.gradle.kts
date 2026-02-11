@@ -127,8 +127,12 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":domain"))
     implementation(project(":core:network"))
+    implementation(project(":core:navigation"))
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
+    implementation(project(":core:designsystem"))
+    implementation(project(":core:ui"))
+    implementation(project(":data"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.appcompat)
@@ -141,6 +145,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.foundation)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.compose.navigation)
     implementation(libs.coil.compose)
@@ -203,5 +208,6 @@ dependencies {
 
     // --- Security Resilience ---
     implementation(libs.play.services.basement)
+    implementation(libs.play.services.base)
     implementation(libs.conscrypt.android)
 }

@@ -17,9 +17,10 @@ import androidx.tv.foundation.lazy.list.items
 import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.feature.home.components.CardType
-import com.chakir.plexhubtv.feature.home.components.NetflixContentRow
-import com.chakir.plexhubtv.feature.home.components.NetflixHeroBillboard
+import com.chakir.plexhubtv.core.ui.CardType
+import com.chakir.plexhubtv.core.ui.NetflixContentRow
+import com.chakir.plexhubtv.core.ui.NetflixHeroBillboard
+import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 
 @Composable
 fun NetflixHomeContent(

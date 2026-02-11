@@ -15,14 +15,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.grid.TvGridCells
+import androidx.tv.foundation.lazy.grid.TvLazyGridState
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.TvLazyListState
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -73,7 +75,7 @@ import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.feature.home.MediaCard
 import timber.log.Timber
 
-import com.chakir.plexhubtv.feature.home.components.NetflixMediaCard
+import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import androidx.compose.ui.zIndex
@@ -119,8 +121,8 @@ fun LibrariesScreen(
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
 ) {
-    val gridState = rememberLazyGridState()
-    val listState = rememberLazyListState()
+    val gridState = rememberTvLazyGridState()
+    val listState = rememberTvLazyListState()
 
     LaunchedEffect(scrollRequest) {
         if (scrollRequest != null) {
@@ -392,8 +394,8 @@ fun LibraryContent(
     viewMode: LibraryViewMode,
     onItemClick: (MediaItem) -> Unit,
     onAction: (LibraryAction) -> Unit,
-    gridState: androidx.compose.foundation.lazy.grid.LazyGridState,
-    listState: androidx.compose.foundation.lazy.LazyListState,
+    gridState: TvLazyGridState,
+    listState: TvLazyListState,
     showSidebar: Boolean = false,
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
@@ -401,12 +403,13 @@ fun LibraryContent(
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             if (viewMode == LibraryViewMode.Grid) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 140.dp), // Increased min size for cards
+                TvLazyVerticalGrid(
+                    columns = TvGridCells.Adaptive(minSize = 140.dp),
                     state = gridState,
-                    contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp), // Match Netflix padding
+                    contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
+                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(
@@ -423,7 +426,7 @@ fun LibraryContent(
                                     onClick = { onItemClick(item) },
                                     onPlay = { },
                                     onFocus = { focused -> 
-                                        isFocused = focused // Fixed: now properly resets to false
+                                        isFocused = focused
                                         if (focused) {
                                             onAction(LibraryAction.OnItemFocused(item))
                                         }
@@ -446,17 +449,18 @@ fun LibraryContent(
                     }
                     
                      if (pagedItems.loadState.append is LoadState.Loading) {
-                        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(maxLineSpan) }) {
                             LoadingMoreIndicator()
                         }
                     }
                 }
             } else {
                 // List View
-                androidx.compose.foundation.lazy.LazyColumn(
+                TvLazyColumn(
                     state = listState,
                     contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
+                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(
@@ -531,10 +535,11 @@ fun RecommendedContent(
         return
     }
 
-    androidx.compose.foundation.lazy.LazyColumn(
+    TvLazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
+        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
     ) {
         items(hubs) { hub ->
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -546,9 +551,10 @@ fun RecommendedContent(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
 
-                androidx.compose.foundation.lazy.LazyRow(
+                TvLazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                 ) {
                     items(hub.items) { item ->
                         MediaCard(

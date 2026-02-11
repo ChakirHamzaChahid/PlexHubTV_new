@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -111,15 +113,16 @@ fun SearchScreen(
                     }
                 }
                 SearchState.Results -> {
-                    LazyColumn(
+                    val listState = rememberTvLazyListState()
+                    TvLazyColumn(
+                        state = listState,
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
+                        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                     ) {
-                        state.results.forEach { resultItem ->
-                            item {
-                                SearchResultItem(item = resultItem, onClick = { onAction(SearchAction.OpenMedia(resultItem)) })
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-                            }
+                        items(state.results, key = { "${it.ratingKey}_${it.serverId}" }) { resultItem ->
+                            SearchResultItem(item = resultItem, onClick = { onAction(SearchAction.OpenMedia(resultItem)) })
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
                         }
                     }
                 }

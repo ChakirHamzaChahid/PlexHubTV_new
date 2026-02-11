@@ -66,8 +66,11 @@ class SeasonDetailViewModel
         private val _uiState = MutableStateFlow(SeasonDetailUiState(isLoading = true))
         val uiState: StateFlow<SeasonDetailUiState> = _uiState.asStateFlow()
 
-        val downloadStates = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
-        val isOfflineMode = MutableStateFlow(false)
+        private val _downloadStates = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
+        val downloadStates: StateFlow<Map<String, DownloadState>> = _downloadStates.asStateFlow()
+
+        private val _isOfflineMode = MutableStateFlow(false)
+        val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
 
         private val _navigationEvents = Channel<SeasonDetailNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()

@@ -91,9 +91,6 @@ class SettingsViewModel
                 is SettingsAction.CheckServerStatus -> {
                     viewModelScope.launch { _navigationEvents.send(SettingsNavigationEvent.NavigateToServerStatus) }
                 }
-                is SettingsAction.CheckServerStatus -> {
-                    viewModelScope.launch { _navigationEvents.send(SettingsNavigationEvent.NavigateToServerStatus) }
-                }
                 is SettingsAction.ForceSync -> {
                     _uiState.update { it.copy(isSyncing = true, syncMessage = null, syncError = null) }
 

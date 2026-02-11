@@ -254,19 +254,21 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
      * Updates Google Play Services security provider and installs Conscrypt as fallback.
      */
     private fun installSecurityProviders() {
-        // 1. Install Conscrypt as the primary provider (highly compatible/modern)
+        // 1. Install Conscrypt as the primary provider (highly compatible/modern SSL/TLS)
         try {
-            Security.insertProviderAt(org.conscrypt.Conscrypt.newProvider(), 1)
+            val provider = org.conscrypt.Conscrypt.newProvider()
+            java.security.Security.insertProviderAt(provider, 1)
             Timber.i("✅ Conscrypt security provider installed successfully")
         } catch (e: Exception) {
             Timber.e(e, "Failed to install Conscrypt provider")
         }
 
-        // 2. Update Google Play Services security provider
+        // 2. Update Google Play Services security provider (optional backup)
         try {
             com.google.android.gms.security.ProviderInstaller.installIfNeeded(this)
             Timber.i("✅ GMS Security provider updated successfully")
         } catch (e: Exception) {
+            // We only warn here because we have Conscrypt as a robust fallback
             Timber.w("GMS Security provider update failed or not available: ${e.message}")
         }
     }

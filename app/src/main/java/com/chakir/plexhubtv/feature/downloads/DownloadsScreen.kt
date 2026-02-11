@@ -1,9 +1,16 @@
 package com.chakir.plexhubtv.feature.downloads
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -11,6 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -69,11 +79,14 @@ fun DownloadsScreen(
                     Text("No downloaded content.")
                 }
             } else {
-                LazyColumn(
+                val listState = rememberTvLazyListState()
+                TvLazyColumn(
+                    state = listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
+                    pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                 ) {
-                    items(state.downloads) { item ->
+                    items(state.downloads, key = { it.id }) { item ->
                         DownloadItem(
                             item = item,
                             onClick = { onAction(DownloadsAction.PlayDownload(item)) },
@@ -92,10 +105,27 @@ fun DownloadItem(
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
+    val borderColor by androidx.compose.animation.animateColorAsState(
+        if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
+        label = "border",
+    )
+
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .onFocusChanged { isFocused = it.isFocused }
+                .scale(scale)
+                .background(if (isFocused) Color.White.copy(alpha = 0.05f) else Color.Transparent)
+                .then(
+                    if (isFocused) {
+                        Modifier.border(1.dp, borderColor, MaterialTheme.shapes.small)
+                    } else {
+                        Modifier
+                    }
+                )
                 .clickable(onClick = onClick)
                 .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,

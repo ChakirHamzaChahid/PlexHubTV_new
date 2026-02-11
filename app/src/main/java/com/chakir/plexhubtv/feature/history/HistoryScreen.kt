@@ -2,9 +2,11 @@ package com.chakir.plexhubtv.feature.history
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.grid.TvGridCells
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -67,11 +69,14 @@ fun HistoryScreen(
                 )
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 100.dp),
+            val gridState = rememberTvLazyGridState()
+            TvLazyVerticalGrid(
+                state = gridState,
+                columns = TvGridCells.Adaptive(minSize = 100.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
+                pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(uiState.historyItems) { media ->

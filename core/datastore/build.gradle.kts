@@ -42,7 +42,7 @@ dependencies {
     implementation(project(":core:common"))
 
     // DataStore
-    implementation(libs.androidx.datastore.preferences)
+    api(libs.androidx.datastore.preferences)
 
     // Hilt
     implementation(libs.hilt.android)

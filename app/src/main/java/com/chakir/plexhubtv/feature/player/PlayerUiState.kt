@@ -11,6 +11,7 @@ import com.chakir.plexhubtv.core.model.SubtitleTrack
 data class PlayerUiState(
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
+    val isLoading: Boolean = false,
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
     val bufferedPosition: Long = 0L,

@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
@@ -32,6 +33,8 @@ fun PlayerSettingsDialog(
 ) {
     // Only Quality for now in the main settings, or we could add more generic settings later.
     // Audio and Subtitles are now separate.
+    
+    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -51,12 +54,17 @@ fun PlayerSettingsDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 LazyColumn {
-                    uiState.availableQualities.forEach { quality ->
+                    uiState.availableQualities.forEachIndexed { index, quality ->
                         item {
+                            val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+                            if (index == 0) {
+                                LaunchedEffect(Unit) { fr.requestFocus() }
+                            }
                             SettingItem(
                                 text = quality.name,
                                 isSelected = quality.bitrate == uiState.selectedQuality.bitrate,
                                 onClick = { onSelectQuality(quality) },
+                                modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                             )
                         }
                     }
@@ -170,12 +178,17 @@ fun <T> SelectionDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 LazyColumn {
-                    items.forEach { settingItem ->
+                    items.forEachIndexed { index, settingItem ->
                         item {
+                            val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+                            if (index == 0) {
+                                LaunchedEffect(Unit) { fr.requestFocus() }
+                            }
                             SettingItem(
                                 text = itemLabel(settingItem),
                                 isSelected = selectedItem?.let { itemKey(it) == itemKey(settingItem) } ?: false,
                                 onClick = { onSelect(settingItem) },
+                                modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                             )
                         }
                     }
@@ -356,6 +369,7 @@ fun SettingItem(
     text: String,
     isSelected: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -365,7 +379,7 @@ fun SettingItem(
         shape = RoundedCornerShape(8.dp),
         color = if (isFocused) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
         interactionSource = interactionSource,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
             modifier =

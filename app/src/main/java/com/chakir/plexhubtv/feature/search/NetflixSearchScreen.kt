@@ -20,9 +20,9 @@ import androidx.tv.foundation.lazy.list.items
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.feature.home.components.CardType
-import com.chakir.plexhubtv.feature.home.components.NetflixContentRow
-import com.chakir.plexhubtv.feature.search.components.NetflixOnScreenKeyboard
+import com.chakir.plexhubtv.core.ui.CardType
+import com.chakir.plexhubtv.core.ui.NetflixContentRow
+import com.chakir.plexhubtv.core.ui.NetflixOnScreenKeyboard
 
 @Composable
 fun NetflixSearchScreen(

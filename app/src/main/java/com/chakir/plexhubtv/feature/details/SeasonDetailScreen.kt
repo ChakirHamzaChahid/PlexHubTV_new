@@ -4,7 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.itemsIndexed
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -164,11 +167,13 @@ fun SeasonDetailScreen(
                     }
                 }
                 else -> {
-                    LazyColumn(
+                    val listState = rememberTvLazyListState()
+                    TvLazyColumn(
                         modifier = Modifier.fillMaxSize(),
+                        state = listState,
+                        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                     ) {
-                        state.episodes.forEachIndexed { index, episode ->
-                            item {
+                        itemsIndexed(state.episodes, key = { _, episode -> episode.ratingKey }) { index, episode ->
                                 val downloadState = downloadStates[episode.ratingKey]
                                 EnhancedEpisodeItem(
                                     episode = episode,
@@ -183,7 +188,6 @@ fun SeasonDetailScreen(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                                     )
                                 }
-                            }
                         }
                     }
                 }

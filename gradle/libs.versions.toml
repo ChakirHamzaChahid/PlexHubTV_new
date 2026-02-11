@@ -6,7 +6,7 @@ ktlint = "12.1.2"
 coreKtx = "1.17.0"
 appcompat = "1.7.1"
 composeBom = "2026.01.00"
-tvFoundation = "1.0.0-alpha12"
+tvFoundation = "1.0.0-alpha10"
 tvMaterial = "1.0.1"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.9.3"
@@ -33,6 +33,8 @@ truth = "1.1.5"
 junit = "4.13.2"
 playServicesBasement = "18.5.0"
 conscrypt = "2.5.2"
+foundation = "1.10.2"
+media3CommonKtx = "1.9.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -104,7 +106,10 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
 play-services-basement = { group = "com.google.android.gms", name = "play-services-basement", version.ref = "playServicesBasement" }
+play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBasement" }
 conscrypt-android = { group = "org.conscrypt", name = "conscrypt-android", version.ref = "conscrypt" }
+androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

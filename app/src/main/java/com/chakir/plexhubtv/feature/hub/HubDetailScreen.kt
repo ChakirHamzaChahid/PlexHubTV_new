@@ -1,9 +1,11 @@
 package com.chakir.plexhubtv.feature.hub
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.grid.TvGridCells
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.GridView
@@ -12,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -119,34 +122,52 @@ fun HubDetailScreen(
                 }
                 else -> {
                     if (viewMode == ViewMode.GRID) {
-                        LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 150.dp),
+                        val gridState = rememberTvLazyGridState()
+                        TvLazyVerticalGrid(
+                            state = gridState,
+                            columns = TvGridCells.Adaptive(minSize = 150.dp),
                             contentPadding = PaddingValues(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
+                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                         ) {
                             items(state.items) { item ->
+                                val index = state.items.indexOf(item)
+                                val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+                                if (index == 0) {
+                                    LaunchedEffect(Unit) { fr.requestFocus() }
+                                }
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
                                     onPlay = { /* TODO */ },
                                     onFocus = { /* Optional background update */ },
+                                    modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )
                             }
                         }
                     } else {
                         // List view implementation
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(1),
+                        val listState = rememberTvLazyGridState()
+                        TvLazyVerticalGrid(
+                            state = listState,
+                            columns = TvGridCells.Fixed(1),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
+                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                         ) {
                             items(state.items) { item ->
+                                val index = state.items.indexOf(item)
+                                val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+                                if (index == 0) {
+                                    LaunchedEffect(Unit) { fr.requestFocus() }
+                                }
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
                                     onPlay = { /* TODO */ },
                                     onFocus = { /* Optional background update */ },
+                                    modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )
                             }
                         }

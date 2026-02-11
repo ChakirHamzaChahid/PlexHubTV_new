@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
+@javax.inject.Singleton
 class PlayerStatsTracker
     @Inject
     constructor() {

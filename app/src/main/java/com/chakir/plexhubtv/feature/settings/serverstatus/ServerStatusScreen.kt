@@ -2,6 +2,8 @@ package com.chakir.plexhubtv.feature.settings.serverstatus
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,14 +97,14 @@ fun ServerStatusScreen(
 
 @Composable
 fun ServerStatusCard(server: ServerStatusUiModel) {
-    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
 
     Card(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .onFocusChanged { isFocused = it.isFocused }
-                .focusable(),
+                .focusable(interactionSource = interactionSource),
         colors =
             CardDefaults.cardColors(
                 containerColor = if (isFocused) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,

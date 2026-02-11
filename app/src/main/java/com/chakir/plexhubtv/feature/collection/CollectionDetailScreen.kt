@@ -2,17 +2,22 @@ package com.chakir.plexhubtv.feature.collection
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.grid.TvGridCells
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -92,14 +97,22 @@ fun CollectionDetailScreen(
                             }
                         }
 
-                        LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 120.dp),
+                        val gridState = rememberTvLazyGridState()
+                        TvLazyVerticalGrid(
+                            state = gridState,
+                            columns = TvGridCells.Adaptive(minSize = 120.dp),
                             contentPadding = PaddingValues(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
+                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             items(collection.items) { item ->
+                                val index = collection.items.indexOf(item)
+                                val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+                                if (index == 0) {
+                                    LaunchedEffect(Unit) { fr.requestFocus() }
+                                }
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
@@ -107,6 +120,7 @@ fun CollectionDetailScreen(
                                     onFocus = {},
                                     width = 120.dp,
                                     height = 180.dp,
+                                    modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )
                             }
                         }

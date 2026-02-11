@@ -51,22 +51,24 @@ import android.view.KeyEvent as NativeKeyEvent
 @OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerRoute(
-    viewModel: PlayerViewModel = hiltViewModel(),
+    controlViewModel: PlayerControlViewModel = hiltViewModel(),
+    trackViewModel: TrackSelectionViewModel = hiltViewModel(),
+    statsViewModel: PlaybackStatsViewModel = hiltViewModel(),
     onClose: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by controlViewModel.uiState.collectAsState()
 
     // Collecte des Chapitres et Marqueurs
-    val chapters by viewModel.chapterMarkerManager.chapters.collectAsState()
-    val markers by viewModel.chapterMarkerManager.markers.collectAsState()
-    val visibleMarkers by viewModel.chapterMarkerManager.visibleMarkers.collectAsState()
+    val chapters by controlViewModel.chapterMarkerManager.chapters.collectAsState()
+    val markers by controlViewModel.chapterMarkerManager.markers.collectAsState()
+    val visibleMarkers by controlViewModel.chapterMarkerManager.visibleMarkers.collectAsState()
 
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     // Attache le joueur MPV au cycle de vie (Resume/Pause)
-    LaunchedEffect(viewModel.mpvPlayer) {
-        viewModel.mpvPlayer?.attach(lifecycleOwner)
+    LaunchedEffect(controlViewModel.mpvPlayer) {
+        controlViewModel.mpvPlayer?.attach(lifecycleOwner)
     }
 
     // Gestion du PIP ou de l'orientation ici si nécessaire
@@ -82,8 +84,8 @@ fun VideoPlayerRoute(
 
     VideoPlayerScreen(
         uiState = uiState,
-        exoPlayer = viewModel.player,
-        mpvPlayer = viewModel.mpvPlayer,
+        exoPlayer = controlViewModel.player,
+        mpvPlayer = controlViewModel.mpvPlayer,
         chapters = chapters,
         markers = markers,
         visibleMarkers = visibleMarkers,
@@ -91,7 +93,17 @@ fun VideoPlayerRoute(
             if (action is PlayerAction.Close) {
                 onClose()
             } else {
-                viewModel.onAction(action)
+                // Route actions to appropriate VM
+                when (action) {
+                    is PlayerAction.SelectAudioTrack, 
+                    is PlayerAction.SelectSubtitleTrack,
+                    is PlayerAction.ShowAudioSelector,
+                    is PlayerAction.ShowSubtitleSelector -> trackViewModel.onAction(action)
+                    
+                    is PlayerAction.TogglePerformanceOverlay -> statsViewModel.onAction(action)
+                    
+                    else -> controlViewModel.onAction(action)
+                }
             }
         },
     )

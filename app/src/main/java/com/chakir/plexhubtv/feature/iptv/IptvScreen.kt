@@ -2,14 +2,23 @@ package com.chakir.plexhubtv.feature.iptv
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.scale
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +60,10 @@ fun IptvScreen(
         modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
         topBar = {
             if (isSearchActive) {
+                val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+                LaunchedEffect(Unit) {
+                    searchFocusRequester.requestFocus()
+                }
                 TopAppBar(
                     title = {
                         TextField(
@@ -64,7 +77,7 @@ fun IptvScreen(
                                     unfocusedContainerColor = Color.Transparent,
                                     disabledContainerColor = Color.Transparent,
                                 ),
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester),
                         )
                     },
                     navigationIcon = {
@@ -111,22 +124,23 @@ fun IptvScreen(
                     }
                 }
             } else {
-                LazyColumn(
+                val listState = rememberTvLazyListState()
+                TvLazyColumn(
+                    state = listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
+                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    state.channels.forEach { channel ->
-                        item {
-                            ChannelListItem(
-                                channel = channel,
-                                onClick = {
-                                    val encodedUrl = channel.streamUrl
-                                    val encodedTitle = channel.name
-                                    onPlayChannel(encodedUrl, encodedTitle)
-                                },
-                            )
-                        }
+                    items(state.channels) { channel ->
+                        ChannelListItem(
+                            channel = channel,
+                            onClick = {
+                                val encodedUrl = channel.streamUrl
+                                val encodedTitle = channel.name
+                                onPlayChannel(encodedUrl, encodedTitle)
+                            },
+                        )
                     }
                 }
             }
@@ -170,11 +184,22 @@ fun ChannelListItem(
     channel: IptvChannel,
     onClick: () -> Unit,
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
+    val borderColor by androidx.compose.animation.animateColorAsState(
+        if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
+        label = "border",
+    )
+
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.isFocused }
+            .scale(scale)
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
     ) {
         Row(
             modifier =

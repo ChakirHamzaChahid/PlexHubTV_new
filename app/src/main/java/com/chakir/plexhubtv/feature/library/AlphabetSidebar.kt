@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,17 +47,16 @@ fun AlphabetSidebar(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        LazyColumn(
+        TvLazyColumn(
             verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
+            pivotOffsets = PivotOffsets(parentFraction = 0.5f) // Center focus for sidebar
         ) {
-            alphabet.forEach { letter ->
-                item {
-                    SidebarItem(
-                        letter = letter,
-                        onClick = { onLetterSelected(letter) },
-                    )
-                }
+            items(alphabet) { letter ->
+                SidebarItem(
+                    letter = letter,
+                    onClick = { onLetterSelected(letter) },
+                )
             }
         }
     }

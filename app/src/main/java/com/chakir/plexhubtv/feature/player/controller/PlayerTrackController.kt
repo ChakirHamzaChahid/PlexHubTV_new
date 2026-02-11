@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
+@javax.inject.Singleton
 class PlayerTrackController
     @Inject
     constructor(

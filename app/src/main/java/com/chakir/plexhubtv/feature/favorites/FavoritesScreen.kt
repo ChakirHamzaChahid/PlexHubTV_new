@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.grid.TvGridCells
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,7 +34,7 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
-import com.chakir.plexhubtv.feature.home.components.NetflixMediaCard
+import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 
 /**
  * Écran affichant les favoris de l'utilisateur.
@@ -83,11 +85,14 @@ fun FavoritesScreen(
                 )
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 140.dp), // Matched card size
+            val gridState = rememberTvLazyGridState()
+            TvLazyVerticalGrid(
+                state = gridState,
+                columns = TvGridCells.Adaptive(minSize = 140.dp), // Matched card size
                 contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
+                pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(uiState.favorites) { media ->
