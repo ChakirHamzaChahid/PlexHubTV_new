@@ -215,7 +215,7 @@ class MediaMapper
                 contentRating = ContentRatingHelper.normalize(dto.contentRating),
                 genres = dto.genres?.joinToString(",") { it.tag },
                 addedAt = dto.addedAt ?: 0,
-                updatedAt = dto.updatedAt ?: 0,
+                updatedAt = System.currentTimeMillis(),
                 parentThumb = dto.parentThumb,
                 grandparentThumb = dto.grandparentThumb,
             )
