@@ -3,9 +3,11 @@ package com.chakir.plexhubtv.feature.auth.profiles
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.grid.TvGridCells
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -85,14 +87,17 @@ fun ProfileScreen(
                     Text("Réessayer")
                 }
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(160.dp),
+                val gridState = rememberTvLazyGridState()
+                TvLazyVerticalGrid(
+                    state = gridState,
+                    columns = TvGridCells.Adaptive(160.dp),
                     contentPadding = PaddingValues(32.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp),
+                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.widthIn(max = 800.dp),
                 ) {
-                    items(state.users) { user ->
+                    items(state.users, key = { it.id }) { user ->
                         UserProfileCard(
                             user = user,
                             onClick = { onAction(ProfileAction.SelectUser(user)) },

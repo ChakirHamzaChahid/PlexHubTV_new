@@ -6,7 +6,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -71,15 +74,16 @@ fun ServerStatusScreen(
             if (state.isLoading && state.servers.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
-                LazyColumn(
+                val listState = rememberTvLazyListState()
+                TvLazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
+                    pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                 ) {
-                    state.servers.forEach { server ->
-                        item {
-                            ServerStatusCard(server = server)
-                        }
+                    items(state.servers, key = { it.id }) { server ->
+                        ServerStatusCard(server = server)
                     }
                 }
             }

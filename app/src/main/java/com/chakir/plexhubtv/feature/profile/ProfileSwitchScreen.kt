@@ -2,8 +2,10 @@ package com.chakir.plexhubtv.feature.profile
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.tv.foundation.PivotOffsets
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -117,12 +119,15 @@ fun ProfileSwitchScreen(
                     }
                 }
                 else -> {
-                    LazyColumn(
+                    val listState = rememberTvLazyListState()
+                    TvLazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
+                        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                     ) {
-                        items(state.users) { user ->
+                        items(state.users, key = { it.id }) { user ->
                             ProfileListItem(
                                 user = user,
                                 isCurrentUser = user.id == state.currentUserId,
