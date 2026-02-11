@@ -69,9 +69,6 @@ fun AuthScreen(
     }
 }
 
-// TODO: Replace with your actual token for testing
-// private const val TEST_PLEX_TOKEN = BuildConfig.PLEX_TOKEN
-
 @Composable
 fun IdleState(onAction: (AuthEvent) -> Unit) {
     var token by remember { mutableStateOf(BuildConfig.PLEX_TOKEN) }

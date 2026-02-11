@@ -143,7 +143,7 @@ fun HubDetailScreen(
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
-                                    onPlay = { /* TODO */ },
+                                    onPlay = { /* Direct play not implemented yet */ },
                                     onFocus = { /* Optional background update */ },
                                     modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )
@@ -171,7 +171,7 @@ fun HubDetailScreen(
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
-                                    onPlay = { /* TODO */ },
+                                    onPlay = { /* Direct play not implemented yet */ },
                                     onFocus = { /* Optional background update */ },
                                     modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )

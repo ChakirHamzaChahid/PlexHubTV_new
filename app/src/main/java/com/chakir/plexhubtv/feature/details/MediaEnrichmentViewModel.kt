@@ -45,7 +45,7 @@ class MediaEnrichmentViewModel @Inject constructor(
 
     // Called by UI or Parent VM when primary media is loaded
     fun loadEnrichment(media: MediaItem) {
-      // TODO a revoir   loadCollections(media)
+        // Collections loading disabled - review if needed
     }
 
     private fun loadSimilarItems() {

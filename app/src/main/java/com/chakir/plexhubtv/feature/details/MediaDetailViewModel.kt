@@ -142,7 +142,7 @@ class MediaDetailViewModel
                     }
                 }
                 is MediaDetailEvent.DownloadClicked -> {
-                    // TODO: Implement Download logic
+                    // Download feature not implemented
                 }
                 is MediaDetailEvent.ToggleFavorite -> {
                     val media = _uiState.value.media ?: return

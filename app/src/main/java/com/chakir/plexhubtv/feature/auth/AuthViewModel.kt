@@ -51,7 +51,7 @@ class AuthViewModel
                 AuthEvent.Cancel -> cancelAuth()
                 is AuthEvent.OpenBrowser -> { /* Handled in UI, or trigger intent here */ }
                 is AuthEvent.SubmitToken -> loginWithToken(event.token)
-                AuthEvent.ScanQr -> { /* TODO */ }
+                AuthEvent.ScanQr -> { /* QR code scanning not implemented */ }
             }
         }
 

@@ -83,8 +83,8 @@ fun PlayerControls(
                 onSeekBackward = { onAction(PlayerAction.SeekTo(uiState.currentPosition - 10000)) },
                 onNext = { onAction(PlayerAction.Next) },
                 onPrevious = { onAction(PlayerAction.Previous) },
-                hasNext = true, // TODO: Check playlist/episodes
-                hasPrevious = true, // TODO: Check playback history
+                hasNext = true, // Should check playlist/episodes state
+                hasPrevious = true, // Should check playback history
             )
 
             // Bottom Bar (Seekbar + Options)
@@ -95,7 +95,7 @@ fun PlayerControls(
                 onSeek = { onAction(PlayerAction.SeekTo(it)) },
                 onAudioSettings = { onAction(PlayerAction.ShowAudioSelector) },
                 onSubtitleSettings = { onAction(PlayerAction.ShowSubtitleSelector) },
-                onVideoSettings = { /* TODO: Video Settings */ },
+                onVideoSettings = { /* Video quality settings not implemented */ },
             )
         }
     }
