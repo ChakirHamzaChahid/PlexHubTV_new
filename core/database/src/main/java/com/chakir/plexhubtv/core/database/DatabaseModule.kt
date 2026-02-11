@@ -127,6 +127,8 @@ object DatabaseModule {
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_profiles_isActive` ON `profiles` (`isActive`)")
 
                 // Create default profile
+                val uuid = java.util.UUID.randomUUID().toString()
+                val now = System.currentTimeMillis()
                 database.execSQL(
                     """
                     INSERT INTO `profiles` (
@@ -135,10 +137,34 @@ object DatabaseModule {
                         `preferredSubtitleLanguage`, `preferredQuality`,
                         `createdAt`, `lastUsed`, `isActive`
                     ) VALUES (
-                        '${java.util.UUID.randomUUID()}', 'Default', NULL, '😊', 0,
+                        '$uuid', 'Default', NULL, '😊', 0,
                         'GENERAL', 1, NULL, NULL, 'AUTO',
-                        ${System.currentTimeMillis()}, ${System.currentTimeMillis()}, 1
+                        $now, $now, 1
                     )
+                    """
+                )
+            }
+        }
+
+    private val MIGRATION_23_24 =
+        object : androidx.room.migration.Migration(23, 24) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `search_cache` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `query` TEXT NOT NULL,
+                        `serverId` TEXT NOT NULL,
+                        `resultsJson` TEXT NOT NULL,
+                        `resultCount` INTEGER NOT NULL DEFAULT 0,
+                        `lastUpdated` INTEGER NOT NULL
+                    )
+                    """
+                )
+                database.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS `index_search_cache_query_serverId`
+                    ON `search_cache` (`query`, `serverId`)
                     """
                 )
             }
@@ -175,7 +201,8 @@ object DatabaseModule {
                 MIGRATION_19_20,
                 MIGRATION_20_21,
                 MIGRATION_21_22,
-                MIGRATION_22_23
+                MIGRATION_22_23,
+                MIGRATION_23_24
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -230,5 +257,10 @@ object DatabaseModule {
     @Provides
     fun provideProfileDao(database: PlexDatabase): ProfileDao {
         return database.profileDao()
+    }
+
+    @Provides
+    fun provideSearchCacheDao(database: PlexDatabase): SearchCacheDao {
+        return database.searchCacheDao()
     }
 }
