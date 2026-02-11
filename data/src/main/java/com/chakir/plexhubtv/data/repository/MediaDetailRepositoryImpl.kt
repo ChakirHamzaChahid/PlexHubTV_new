@@ -223,29 +223,34 @@ class MediaDetailRepositoryImpl
                         emptyList()
                     } else {
                         Timber.d("Collections: Found ${collectionEntities.size} collections in DB for $ratingKey")
-                        
-                        // For each collection, get its items from the database
+
+                        // ✅ OPTIMIZED: Batch query to eliminate N+1 problem
+                        // Fetch ALL media for ALL collections in a single query
+                        val collectionIds = collectionEntities.map { it.id }
+                        val allMediaWithCollection = collectionDao.getMediaForCollectionsBatch(collectionIds, serverId)
+
+                        // Group media by collection ID
+                        val mediaByCollection = allMediaWithCollection.groupBy { it.collectionId }
+
+                        // Map to domain objects
                         collectionEntities.map { collEntity ->
-                            val items = collectionDao.getMediaInCollection(collEntity.id, collEntity.serverId)
-                                .map { mediaEntities ->
-                                    mediaEntities.map { entity ->
-                                        val client = getClient(entity.serverId)
-                                        val baseUrl = client?.baseUrl
-                                        val token = client?.server?.accessToken
-                                        
-                                        val domain = mapper.mapEntityToDomain(entity)
-                                        if (baseUrl != null && token != null) {
-                                            mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
-                                                baseUrl = baseUrl,
-                                                accessToken = token,
-                                            )
-                                        } else {
-                                            domain
-                                        }
-                                    }
+                            val mediaList = mediaByCollection[collEntity.id] ?: emptyList()
+                            val items = mediaList.map { mediaWithCol ->
+                                val client = getClient(mediaWithCol.media.serverId)
+                                val baseUrl = client?.baseUrl
+                                val token = client?.server?.accessToken
+
+                                val domain = mapper.mapEntityToDomain(mediaWithCol.media)
+                                if (baseUrl != null && token != null) {
+                                    mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                                        baseUrl = baseUrl,
+                                        accessToken = token,
+                                    )
+                                } else {
+                                    domain
                                 }
-                                .first() // Get first emission
-                            
+                            }
+
                             Collection(
                                 id = collEntity.id,
                                 serverId = collEntity.serverId,

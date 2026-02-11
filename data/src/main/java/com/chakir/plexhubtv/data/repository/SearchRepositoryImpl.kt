@@ -13,6 +13,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -53,13 +54,21 @@ class SearchRepositoryImpl
                     val results: List<MediaItem> =
                         servers.map { server ->
                             async {
-                                searchOnServer(server, query, year, type, unwatched).fold(
+                                // ✅ Timeout per server (5 seconds) to prevent slow servers blocking entire search
+                                val searchResult = withTimeoutOrNull(5000L) {
+                                    searchOnServer(server, query, year, type, unwatched)
+                                }
+
+                                searchResult?.fold(
                                     onSuccess = { it },
                                     onFailure = { e ->
                                         Timber.e("Search failed on server ${server.name}: ${e.message}")
                                         emptyList()
                                     },
-                                )
+                                ) ?: run {
+                                    Timber.w("Search timeout on server ${server.name} (>5s)")
+                                    emptyList()
+                                }
                             }
                         }.awaitAll().flatten()
 
