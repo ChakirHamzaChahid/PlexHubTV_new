@@ -21,7 +21,7 @@ import javax.inject.Inject
 
 data class MediaEnrichmentUiState(
     val similarItems: List<MediaItem> = emptyList(),
-    val collections: List<Hub> = emptyList(),
+    val collections: List<com.chakir.plexhubtv.core.model.Collection> = emptyList(),
     val isLoadingSimilar: Boolean = false,
     val isLoadingCollections: Boolean = false
 )
@@ -45,7 +45,7 @@ class MediaEnrichmentViewModel @Inject constructor(
 
     // Called by UI or Parent VM when primary media is loaded
     fun loadEnrichment(media: MediaItem) {
-        // Collections loading disabled - review if needed
+        loadCollection(media)
     }
 
     private fun loadSimilarItems() {
@@ -61,59 +61,57 @@ class MediaEnrichmentViewModel @Inject constructor(
         }
     }
 
-  /*  private suspend fun loadCollection() {
-        Timber.d("VM: Loading collections (multi-server aggregation)")
-        try {
-            val media = _uiState.value.media ?: run {
-                Timber.w("VM: Cannot load collections - media is null")
-                return
-            }
+    private fun loadCollection(media: MediaItem) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingCollections = true) }
+            try {
+                Timber.d("VM: Loading collections (multi-server aggregation)")
 
-            // Build list of all servers to query: primary + remote sources
-            val serversToQuery = buildList {
-                add(Pair(media.serverId, media.ratingKey))
-                media.remoteSources.forEach { source ->
-                    add(Pair(source.serverId, source.ratingKey))
-                }
-            }.distinctBy { it.first } // Deduplicate by serverId
-
-            Timber.i("VM: Querying ${serversToQuery.size} server(s) for collections")
-            serversToQuery.forEach { (sid, rkey) ->
-                Timber.d("   - Server $sid with ratingKey $rkey")
-            }
-
-            // Query all servers in parallel
-            val allCollections = serversToQuery.map { (sid, rkey) ->
-                viewModelScope.async {
-                    try {
-                        Timber.d("VM: Fetching collections from server $sid...")
-                        val result = getMediaCollectionsUseCase(rkey, sid).first()
-                        Timber.d("VM: ✓ Got ${result.size} collection(s) from server $sid")
-                        result
-                    } catch (e: Exception) {
-                        Timber.w(e, "VM: Failed to load collections from server $sid")
-                        emptyList()
+                // Build list of all servers to query: primary + remote sources
+                val serversToQuery = buildList {
+                    add(Pair(media.serverId, media.ratingKey))
+                    media.remoteSources.forEach { source ->
+                        add(Pair(source.serverId, source.ratingKey))
                     }
-                }
-            }.awaitAll().flatten()
+                }.distinctBy { it.first } // Deduplicate by serverId
 
-            // Deduplicate collections by (title + serverId) to keep distinct collections
-            // Note: Same title on different servers = different collections (correct behavior)
-            val uniqueCollections = allCollections.distinctBy { "${it.title}|${it.serverId}" }
-
-            if (uniqueCollections.isNotEmpty()) {
-                Timber.i("VM: ✅ Aggregated ${uniqueCollections.size} unique collection(s) from ${serversToQuery.size} server(s)")
-                uniqueCollections.forEach { col ->
-                    Timber.d("   - '${col.title}' (${col.items.size} items, server=${col.serverId})")
+                Timber.i("VM: Querying ${serversToQuery.size} server(s) for collections")
+                serversToQuery.forEach { (sid, rkey) ->
+                    Timber.d("   - Server $sid with ratingKey $rkey")
                 }
-            } else {
-                Timber.w("VM: ⚠️ No collections found across any server")
+
+                // Query all servers in parallel
+                val allCollections = serversToQuery.map { (sid, rkey) ->
+                    viewModelScope.async {
+                        try {
+                            Timber.d("VM: Fetching collections from server $sid...")
+                            val result = getMediaCollectionsUseCase(rkey, sid).first()
+                            Timber.d("VM: ✓ Got ${result.size} collection(s) from server $sid")
+                            result
+                        } catch (e: Exception) {
+                            Timber.w(e, "VM: Failed to load collections from server $sid")
+                            emptyList()
+                        }
+                    }
+                }.awaitAll().flatten()
+
+                // Deduplicate collections by (title + serverId) to keep distinct collections
+                val uniqueCollections = allCollections.distinctBy { "${it.title}|${it.serverId}" }
+
+                if (uniqueCollections.isNotEmpty()) {
+                    Timber.i("VM: ✅ Aggregated ${uniqueCollections.size} unique collection(s) from ${serversToQuery.size} server(s)")
+                    uniqueCollections.forEach { col ->
+                        Timber.d("   - '${col.title}' (${col.items.size} items, server=${col.serverId})")
+                    }
+                } else {
+                    Timber.w("VM: ⚠️ No collections found across any server")
+                }
+
+                _uiState.update { it.copy(collections = uniqueCollections, isLoadingCollections = false) }
+            } catch (e: Exception) {
+                Timber.e(e, "VM: ❌ Exception during multi-server collection aggregation")
+                _uiState.update { it.copy(isLoadingCollections = false) }
             }
-
-            _uiState.update { it.copy(collections = uniqueCollections) }
-        } catch (e: Exception) {
-            Timber.e(e, "VM: ❌ Exception during multi-server collection aggregation")
         }
-    }*/
-
+    }
 }
