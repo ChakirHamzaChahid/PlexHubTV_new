@@ -28,6 +28,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.showError
 
 /**
  * Écran de recherche global.
@@ -40,7 +42,10 @@ fun SearchRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
+    val errorEvents = viewModel.errorEvents
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    // Handle navigation events
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
@@ -49,9 +54,17 @@ fun SearchRoute(
         }
     }
 
+    // Handle error events with centralized error display
+    LaunchedEffect(errorEvents) {
+        errorEvents.collect { error ->
+            snackbarHostState.showError(error)
+        }
+    }
+
     NetflixSearchScreen(
         state = uiState,
         onAction = viewModel::onAction,
+        snackbarHostState = snackbarHostState,
     )
 }
 

@@ -2,6 +2,8 @@ package com.chakir.plexhubtv.feature.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.model.AppError
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.SearchAcrossServersUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -31,6 +33,9 @@ class SearchViewModel
 
         private val _navigationEvents = Channel<SearchNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
+
+        private val _errorEvents = Channel<AppError>()
+        val errorEvents = _errorEvents.receiveAsFlow()
 
         private var searchJob: Job? = null
 
@@ -66,7 +71,7 @@ class SearchViewModel
             searchJob =
                 viewModelScope.launch {
                     val startTime = System.currentTimeMillis()
-                    _uiState.update { it.copy(searchState = SearchState.Searching, error = null) }
+                    _uiState.update { it.copy(searchState = SearchState.Searching) }
                     delay(500L) // Debounce 500ms
 
                     searchAcrossServersUseCase(query).collect { result ->
@@ -83,11 +88,16 @@ class SearchViewModel
                             },
                             onFailure = { error ->
                                 Timber.e("SCREEN [Search] FAILED: query='$query' duration=${duration}ms error=${error.message}")
+                                val appError = if (query.length < 2) {
+                                    AppError.Search.QueryTooShort(error.message)
+                                } else {
+                                    AppError.Search.SearchFailed(error.message, error)
+                                }
+                                viewModelScope.launch {
+                                    _errorEvents.send(appError)
+                                }
                                 _uiState.update {
-                                    it.copy(
-                                        searchState = SearchState.Error,
-                                        error = error.message,
-                                    )
+                                    it.copy(searchState = SearchState.Error)
                                 }
                             },
                         )

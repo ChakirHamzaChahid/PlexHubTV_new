@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +23,7 @@ import com.chakir.plexhubtv.di.designsystem.NetflixBlack
 import com.chakir.plexhubtv.di.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.CardType
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.NetflixContentRow
 import com.chakir.plexhubtv.core.ui.NetflixOnScreenKeyboard
 
@@ -28,6 +31,7 @@ import com.chakir.plexhubtv.core.ui.NetflixOnScreenKeyboard
 fun NetflixSearchScreen(
     state: SearchUiState,
     onAction: (SearchAction) -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
     val keyboardFocusRequester = remember { FocusRequester() }
@@ -36,14 +40,19 @@ fun NetflixSearchScreen(
         keyboardFocusRequester.requestFocus()
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .background(NetflixBlack)
-            .padding(top = 56.dp) // Leave room for TopBar overlay
-            .padding(32.dp),
-        horizontalArrangement = Arrangement.spacedBy(32.dp)
-    ) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
+        containerColor = NetflixBlack
+    ) { paddingValues ->
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(top = 56.dp) // Leave room for TopBar overlay
+                .padding(32.dp),
+            horizontalArrangement = Arrangement.spacedBy(32.dp)
+        ) {
         // Left: On-Screen Keyboard
         Column(
             modifier = Modifier
@@ -117,13 +126,15 @@ fun NetflixSearchScreen(
                     }
                 }
                 SearchState.Error -> {
+                    // Errors are now displayed via ErrorSnackbarHost
+                    // Show previous results or idle state
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = state.error ?: "Unknown Error",
-                            color = Color.Red,
+                            text = "Search failed. Please try again.",
+                            color = NetflixWhite.copy(alpha = 0.6f),
                             fontSize = 18.sp,
                             textAlign = TextAlign.Center
                         )
@@ -166,5 +177,6 @@ fun NetflixSearchScreen(
                 }
             }
         }
-    }
+        } // Close Row
+    } // Close Scaffold
 }
