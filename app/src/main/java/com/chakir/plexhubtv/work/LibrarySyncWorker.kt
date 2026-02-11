@@ -5,8 +5,8 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.chakir.plexhubtv.data.repository.SyncRepositoryImpl
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.domain.repository.SyncRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +36,7 @@ class LibrarySyncWorker
         @Assisted appContext: Context,
         @Assisted workerParams: WorkerParameters,
         private val authRepository: AuthRepository,
-        private val syncRepository: SyncRepositoryImpl,
+        private val syncRepository: SyncRepository,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
     ) : CoroutineWorker(appContext, workerParams) {
