@@ -41,12 +41,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.showError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -89,7 +94,9 @@ fun LibraryRoute(
 ) {
     val state by viewModel.uiState.collectAsState()
     val pagedItems = viewModel.pagedItems.collectAsLazyPagingItems()
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    // Handle navigation events
     LaunchedEffect(viewModel.navigationEvents) {
         viewModel.navigationEvents.collect { event ->
             when (event) {
@@ -103,12 +110,20 @@ fun LibraryRoute(
         }
     }
 
+    // Handle error events with centralized error display
+    LaunchedEffect(viewModel.errorEvents) {
+        viewModel.errorEvents.collect { error ->
+            snackbarHostState.showError(error)
+        }
+    }
+
     LibrariesScreen(
         state = state,
         pagedItems = pagedItems,
         onAction = viewModel::onAction,
         scrollRequest = state.initialScrollIndex,
-        onScrollConsumed = { }
+        onScrollConsumed = { },
+        snackbarHostState = snackbarHostState
     )
 }
 
@@ -120,6 +135,7 @@ fun LibrariesScreen(
     onAction: (LibraryAction) -> Unit,
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
+    snackbarHostState: SnackbarHostState,
 ) {
     val gridState = rememberTvLazyGridState()
     val listState = rememberTvLazyListState()
@@ -133,6 +149,7 @@ fun LibrariesScreen(
     }
     Scaffold(
         containerColor = NetflixBlack, // Set Scaffold background
+        snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
         topBar = {
             Column(modifier = Modifier.background(NetflixBlack)) { // Update TopBar background
                 // Main Top Bar

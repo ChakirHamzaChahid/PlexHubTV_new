@@ -9,8 +9,10 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -61,6 +63,9 @@ class LibraryViewModel
         // Canal pour les événements de navigation (Effets uniques, ex: Toast, Navigation)
         private val _navigationEvents = Channel<LibraryNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
+
+        private val _errorEvents = Channel<AppError>()
+        val errorEvents = _errorEvents.receiveAsFlow()
 
         /**
          * Flux réactif PAGINÉ des médias.
@@ -241,7 +246,13 @@ class LibraryViewModel
                 if (com.chakir.plexhubtv.BuildConfig.DEBUG) {
                     Timber.e("Error loading metadata: ${e.message}")
                 }
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+
+                // Emit error via channel for snackbar display
+                viewModelScope.launch {
+                    _errorEvents.send(e.toAppError())
+                }
+
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
 
