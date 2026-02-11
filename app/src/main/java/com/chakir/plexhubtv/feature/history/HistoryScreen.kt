@@ -73,7 +73,7 @@ fun HistoryScreen(
             TvLazyVerticalGrid(
                 state = gridState,
                 columns = TvGridCells.Adaptive(minSize = 100.dp),
-                contentPadding = PaddingValues(bottom = 16.dp),
+                contentPadding = PaddingValues(top = 56.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 pivotOffsets = PivotOffsets(parentFraction = 0.0f),

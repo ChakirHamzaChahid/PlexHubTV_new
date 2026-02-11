@@ -537,7 +537,7 @@ fun RecommendedContent(
 
     TvLazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
         pivotOffsets = PivotOffsets(parentFraction = 0.0f)
     ) {

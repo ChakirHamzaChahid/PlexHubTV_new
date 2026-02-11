@@ -89,7 +89,7 @@ fun FavoritesScreen(
             TvLazyVerticalGrid(
                 state = gridState,
                 columns = TvGridCells.Adaptive(minSize = 140.dp), // Matched card size
-                contentPadding = PaddingValues(bottom = 32.dp),
+                contentPadding = PaddingValues(top = 56.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 pivotOffsets = PivotOffsets(parentFraction = 0.0f),
