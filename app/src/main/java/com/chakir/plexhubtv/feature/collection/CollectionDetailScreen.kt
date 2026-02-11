@@ -107,7 +107,10 @@ fun CollectionDetailScreen(
                             pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                             modifier = Modifier.fillMaxSize(),
                         ) {
-                            items(collection.items) { item ->
+                            items(
+                                items = collection.items,
+                                key = { item -> "${item.serverId}_${item.ratingKey}" },
+                            ) { item ->
                                 val index = collection.items.indexOf(item)
                                 val fr = remember { androidx.compose.ui.focus.FocusRequester() }
                                 if (index == 0) {

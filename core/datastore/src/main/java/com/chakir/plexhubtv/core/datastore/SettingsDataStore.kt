@@ -4,24 +4,34 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import Timber
 import javax.inject.Inject
 
 /**
  * Wrapper autour de DataStore Preferences pour un accès typé aux paramètres de l'application.
  *
  * Gère :
- * - Authentification (Plex Token, Client ID)
+ * - Authentification (Plex Token, Client ID) - SÉCURISÉ via EncryptedSharedPreferences
  * - Préférences UI (Thème, Affichage Hero)
  * - Configuration Lecture (Qualité, Moteur)
  * - État de synchro (Dernière synchro)
+ *
+ * Les données sensibles (tokens, API keys) sont stockées dans [SecurePreferencesManager]
+ * avec chiffrement AES-256-GCM. Les autres préférences utilisent DataStore.
  */
 class SettingsDataStore
     @Inject
     constructor(
         private val dataStore: DataStore<Preferences>,
+        private val securePrefs: SecurePreferencesManager,
     ) {
+        // Deprecated: kept for migration only
         private val PLEX_TOKEN = stringPreferencesKey("plex_token")
         private val CLIENT_ID = stringPreferencesKey("client_id")
         private val SERVER_QUALITY = stringPreferencesKey("server_quality")
@@ -40,13 +50,57 @@ class SettingsDataStore
         private val TMDB_API_KEY = stringPreferencesKey("tmdb_api_key")
         private val OMDB_API_KEY = stringPreferencesKey("omdb_api_key")
 
-        val plexToken: Flow<String?> =
-            dataStore.data
-                .map { preferences -> preferences[PLEX_TOKEN] }
+        init {
+            // Migration: move sensitive data from DataStore to EncryptedSharedPreferences
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val prefs = dataStore.data.first()
 
-        val clientId: Flow<String?> =
-            dataStore.data
-                .map { preferences -> preferences[CLIENT_ID] }
+                    // Migrate plex token
+                    prefs[PLEX_TOKEN]?.let { token ->
+                        if (token.isNotBlank() && securePrefs.getPlexToken() == null) {
+                            securePrefs.savePlexToken(token)
+                            dataStore.edit { it.remove(PLEX_TOKEN) }
+                            Timber.d("Migrated Plex token to EncryptedSharedPreferences")
+                        }
+                    }
+
+                    // Migrate client ID
+                    prefs[CLIENT_ID]?.let { id ->
+                        if (id.isNotBlank() && securePrefs.getClientId() == null) {
+                            securePrefs.saveClientId(id)
+                            dataStore.edit { it.remove(CLIENT_ID) }
+                            Timber.d("Migrated Client ID to EncryptedSharedPreferences")
+                        }
+                    }
+
+                    // Migrate TMDB API key
+                    prefs[TMDB_API_KEY]?.let { key ->
+                        if (key.isNotBlank() && securePrefs.getTmdbApiKey() == null) {
+                            securePrefs.saveTmdbApiKey(key)
+                            dataStore.edit { it.remove(TMDB_API_KEY) }
+                            Timber.d("Migrated TMDB API key to EncryptedSharedPreferences")
+                        }
+                    }
+
+                    // Migrate OMDB API key
+                    prefs[OMDB_API_KEY]?.let { key ->
+                        if (key.isNotBlank() && securePrefs.getOmdbApiKey() == null) {
+                            securePrefs.saveOmdbApiKey(key)
+                            dataStore.edit { it.remove(OMDB_API_KEY) }
+                            Timber.d("Migrated OMDB API key to EncryptedSharedPreferences")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to migrate sensitive data to EncryptedSharedPreferences")
+                }
+            }
+        }
+
+        // Delegated to SecurePreferencesManager for encryption
+        val plexToken: Flow<String?> = securePrefs.plexToken
+
+        val clientId: Flow<String?> = securePrefs.clientId
 
         val currentUserUuid: Flow<String?> =
             dataStore.data
@@ -100,24 +154,19 @@ class SettingsDataStore
             dataStore.data
                 .map { preferences -> preferences[IPTV_PLAYLIST_URL] }
 
-        val tmdbApiKey: Flow<String?> =
-            dataStore.data
-                .map { preferences -> preferences[TMDB_API_KEY] }
+        // Delegated to SecurePreferencesManager for encryption
+        val tmdbApiKey: Flow<String?> = securePrefs.tmdbApiKey
 
-        val omdbApiKey: Flow<String?> =
-            dataStore.data
-                .map { preferences -> preferences[OMDB_API_KEY] }
+        val omdbApiKey: Flow<String?> = securePrefs.omdbApiKey
 
         suspend fun saveToken(token: String) {
-            dataStore.edit { preferences ->
-                preferences[PLEX_TOKEN] = token
-            }
+            // Use SecurePreferencesManager for encrypted storage
+            securePrefs.savePlexToken(token)
         }
 
         suspend fun saveClientId(id: String) {
-            dataStore.edit { preferences ->
-                preferences[CLIENT_ID] = id
-            }
+            // Use SecurePreferencesManager for encrypted storage
+            securePrefs.saveClientId(id)
         }
 
         suspend fun saveUser(
@@ -149,9 +198,8 @@ class SettingsDataStore
         }
 
         suspend fun clearToken() {
-            dataStore.edit { preferences ->
-                preferences.remove(PLEX_TOKEN)
-            }
+            // Use SecurePreferencesManager
+            securePrefs.clearPlexToken()
         }
 
         suspend fun clearUser() {
@@ -248,23 +296,13 @@ class SettingsDataStore
         }
 
         suspend fun saveTmdbApiKey(key: String) {
-            dataStore.edit { preferences ->
-                if (key.isBlank()) {
-                    preferences.remove(TMDB_API_KEY)
-                } else {
-                    preferences[TMDB_API_KEY] = key
-                }
-            }
+            // Use SecurePreferencesManager for encrypted storage
+            securePrefs.saveTmdbApiKey(key)
         }
 
         suspend fun saveOmdbApiKey(key: String) {
-            dataStore.edit { preferences ->
-                if (key.isBlank()) {
-                    preferences.remove(OMDB_API_KEY)
-                } else {
-                    preferences[OMDB_API_KEY] = key
-                }
-            }
+            // Use SecurePreferencesManager for encrypted storage
+            securePrefs.saveOmdbApiKey(key)
         }
 
         /**
@@ -294,5 +332,6 @@ class SettingsDataStore
 
         suspend fun clearAll() {
             dataStore.edit { it.clear() }
+            securePrefs.clearAll()
         }
     }

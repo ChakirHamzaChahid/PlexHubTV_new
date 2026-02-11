@@ -541,7 +541,10 @@ fun RecommendedContent(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         pivotOffsets = PivotOffsets(parentFraction = 0.0f)
     ) {
-        items(hubs) { hub ->
+        items(
+            items = hubs,
+            key = { hub -> hub.hubIdentifier ?: hub.title },
+        ) { hub ->
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = hub.title,
@@ -556,7 +559,10 @@ fun RecommendedContent(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                 ) {
-                    items(hub.items) { item ->
+                    items(
+                        items = hub.items,
+                        key = { item -> "${item.serverId}_${item.ratingKey}" },
+                    ) { item ->
                         MediaCard(
                             media = item,
                             onClick = { onItemClick(item) },

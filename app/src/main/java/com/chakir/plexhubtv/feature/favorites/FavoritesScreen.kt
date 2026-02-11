@@ -95,7 +95,10 @@ fun FavoritesScreen(
                 pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(uiState.favorites) { media ->
+                items(
+                    items = uiState.favorites,
+                    key = { media -> "${media.serverId}_${media.ratingKey}" },
+                ) { media ->
                     var isFocused by remember { mutableStateOf(false) }
                     Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
                         NetflixMediaCard(

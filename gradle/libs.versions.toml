@@ -28,6 +28,7 @@ serialization = "1.9.0"
 datastore = "1.2.0"
 navigation = "2.9.6"
 hiltCompose = "1.3.0"
+securityCrypto = "1.1.0-alpha06"
 mockk = "1.13.8"
 truth = "1.1.5"
 junit = "4.13.2"
@@ -57,6 +58,7 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 androidx-tv-provider = { group = "androidx.tvprovider", name = "tvprovider", version.ref = "tvprovider" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 
 # Room
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }

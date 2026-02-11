@@ -65,77 +65,9 @@ class HubsRepositoryImpl
                                         if (cachedJson != null) {
                                             try {
                                                 val cachedBody = gson.fromJson(cachedJson, GenericPlexResponse::class.java)
-                                                val hubs = cachedBody.mediaContainer?.hubs ?: emptyList()
-                                                Timber.i("REPO [Hubs] CACHE HIT: server=$serverId hubs=${hubs.size}")
-
-                                                return@async hubs.mapNotNull { hubDto ->
-                                                    val hubIdentifier = hubDto.hubIdentifier ?: hubDto.title ?: "unknown"
-                                                    val hubTitle = hubDto.title ?: "Unknown"
-
-                                                    val metadata = hubDto.metadata ?: emptyList()
-                                                    val hubBaseUrl = client.baseUrl
-                                                    val hubToken = client.server.accessToken ?: ""
-                                                    val entities =
-                                                        metadata.filter { mapper.isQualityMetadata(it) && !it.ratingKey.isNullOrEmpty() }.map {
-                                                                dto ->
-                                                            val entity = mapper.mapDtoToEntity(
-                                                                dto,
-                                                                client.server.clientIdentifier,
-                                                                dto.librarySectionID ?: "0",
-                                                            )
-                                                            entity.copy(
-                                                                filter = "hub",
-                                                                sortOrder = hubDto.hubIdentifier ?: "default",
-                                                                pageOffset = 0,
-                                                                resolvedThumbUrl = entity.thumbUrl?.let { path ->
-                                                                    getOptimizedImageUrl("$hubBaseUrl$path?X-Plex-Token=$hubToken", 300, 450)
-                                                                        ?: "$hubBaseUrl$path?X-Plex-Token=$hubToken"
-                                                                },
-                                                                resolvedArtUrl = entity.artUrl?.let { path ->
-                                                                    getOptimizedImageUrl("$hubBaseUrl$path?X-Plex-Token=$hubToken", 1280, 720)
-                                                                        ?: "$hubBaseUrl$path?X-Plex-Token=$hubToken"
-                                                                },
-                                                                resolvedBaseUrl = hubBaseUrl,
-                                                            )
-                                                        }
-
-                                                    if (entities.isNotEmpty()) {
-                                                        mediaDao.upsertMedia(entities)
-                                                        val homeContent =
-                                                            entities.mapIndexed { index, entity ->
-                                                                com.chakir.plexhubtv.core.database.HomeContentEntity(
-                                                                    type = "hub",
-                                                                    hubIdentifier = hubIdentifier,
-                                                                    title = hubTitle,
-                                                                    itemServerId = entity.serverId,
-                                                                    itemRatingKey = entity.ratingKey,
-                                                                    orderIndex = index,
-                                                                )
-                                                            }
-                                                        homeContentDao.insertHomeContent(homeContent)
-
-                                                        Hub(
-                                                            key = hubDto.key ?: "",
-                                                            title = hubTitle,
-                                                            type = hubDto.type ?: "mixed",
-                                                            hubIdentifier = hubIdentifier,
-                                                            items =
-                                                                entities.map { entity ->
-                                                                    val domain = mapper.mapEntityToDomain(entity)
-                                                                    val baseUrl = client.baseUrl
-                                                                    val token = client.server.accessToken
-
-                                                                    mediaUrlResolver.resolveUrls(domain, baseUrl, token ?: "").copy(
-                                                                        baseUrl = baseUrl,
-                                                                        accessToken = token,
-                                                                    )
-                                                                },
-                                                            serverId = client.server.clientIdentifier,
-                                                        )
-                                                    } else {
-                                                        null
-                                                    }
-                                                }
+                                                val hubDtos = cachedBody.mediaContainer?.hubs ?: emptyList()
+                                                Timber.i("REPO [Hubs] CACHE HIT: server=$serverId hubs=${hubDtos.size}")
+                                                return@async processHubDtos(hubDtos, client)
                                             } catch (e: Exception) {
                                                 Timber.e(e, "REPO [Hubs] CACHE PARSE FAILED: server=$serverId")
                                             }
@@ -153,76 +85,8 @@ class HubsRepositoryImpl
                                                 ttlSeconds = 3600, // 1 hour for hubs
                                             )
 
-                                            val hubs = body.mediaContainer?.hubs ?: emptyList()
-
-                                            hubs.mapNotNull { hubDto ->
-                                                val hubIdentifier = hubDto.hubIdentifier ?: hubDto.title ?: "unknown"
-                                                val hubTitle = hubDto.title ?: "Unknown"
-
-                                                val metadata = hubDto.metadata ?: emptyList()
-                                                val netBaseUrl = client.baseUrl
-                                                val netToken = client.server.accessToken ?: ""
-                                                val entities =
-                                                    metadata.filter { mapper.isQualityMetadata(it) && !it.ratingKey.isNullOrEmpty() }.map {
-                                                            dto ->
-                                                        val entity = mapper.mapDtoToEntity(
-                                                            dto,
-                                                            client.server.clientIdentifier,
-                                                            dto.librarySectionID ?: "0",
-                                                        )
-                                                        entity.copy(
-                                                            filter = "hub",
-                                                            sortOrder = hubDto.hubIdentifier ?: "default",
-                                                            pageOffset = 0,
-                                                            resolvedThumbUrl = entity.thumbUrl?.let { path ->
-                                                                getOptimizedImageUrl("$netBaseUrl$path?X-Plex-Token=$netToken", 300, 450)
-                                                                    ?: "$netBaseUrl$path?X-Plex-Token=$netToken"
-                                                            },
-                                                            resolvedArtUrl = entity.artUrl?.let { path ->
-                                                                getOptimizedImageUrl("$netBaseUrl$path?X-Plex-Token=$netToken", 1280, 720)
-                                                                    ?: "$netBaseUrl$path?X-Plex-Token=$netToken"
-                                                            },
-                                                            resolvedBaseUrl = netBaseUrl,
-                                                        )
-                                                    }
-
-                                                if (entities.isNotEmpty()) {
-                                                    mediaDao.upsertMedia(entities)
-                                                    val homeContent =
-                                                        entities.mapIndexed { index, entity ->
-                                                            com.chakir.plexhubtv.core.database.HomeContentEntity(
-                                                                type = "hub",
-                                                                hubIdentifier = hubIdentifier,
-                                                                title = hubTitle,
-                                                                itemServerId = entity.serverId,
-                                                                itemRatingKey = entity.ratingKey,
-                                                                orderIndex = index,
-                                                            )
-                                                        }
-                                                    homeContentDao.insertHomeContent(homeContent)
-
-                                                    Hub(
-                                                        key = hubDto.key ?: "",
-                                                        title = hubTitle,
-                                                        type = hubDto.type ?: "mixed",
-                                                        hubIdentifier = hubIdentifier,
-                                                        items =
-                                                            entities.map { entity ->
-                                                                val domain = mapper.mapEntityToDomain(entity)
-                                                                val baseUrl = client.baseUrl
-                                                                val token = client.server.accessToken
-
-                                                                mediaUrlResolver.resolveUrls(domain, baseUrl, token ?: "").copy(
-                                                                    baseUrl = baseUrl,
-                                                                    accessToken = token,
-                                                                )
-                                                            },
-                                                        serverId = client.server.clientIdentifier,
-                                                    )
-                                                } else {
-                                                    null
-                                                }
-                                            }
+                                            val hubDtos = body.mediaContainer?.hubs ?: emptyList()
+                                            processHubDtos(hubDtos, client)
                                         } else {
                                             emptyList()
                                         }
@@ -302,6 +166,83 @@ class HubsRepositoryImpl
                     }
                 }.awaitAll().sortedBy { it.title } // Or use a predefined order for hubs
             }
+
+        /**
+         * Processes hub DTOs and converts them to domain Hub objects.
+         * Handles entity mapping, URL resolution, and database persistence.
+         * Extracted to eliminate duplication between cache and network paths.
+         */
+        private suspend fun processHubDtos(
+            hubDtos: List<com.chakir.plexhubtv.core.network.model.HubDto>,
+            client: PlexClient,
+        ): List<Hub> {
+            return hubDtos.mapNotNull { hubDto ->
+                val hubIdentifier = hubDto.hubIdentifier ?: hubDto.title ?: "unknown"
+                val hubTitle = hubDto.title ?: "Unknown"
+                val metadata = hubDto.metadata ?: emptyList()
+                val baseUrl = client.baseUrl
+                val token = client.server.accessToken ?: ""
+
+                val entities =
+                    metadata
+                        .filter { mapper.isQualityMetadata(it) && !it.ratingKey.isNullOrEmpty() }
+                        .map { dto ->
+                            val entity = mapper.mapDtoToEntity(
+                                dto,
+                                client.server.clientIdentifier,
+                                dto.librarySectionID ?: "0",
+                            )
+                            entity.copy(
+                                filter = "hub",
+                                sortOrder = hubDto.hubIdentifier ?: "default",
+                                pageOffset = 0,
+                                resolvedThumbUrl = entity.thumbUrl?.let { path ->
+                                    getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$token", 300, 450)
+                                        ?: "$baseUrl$path?X-Plex-Token=$token"
+                                },
+                                resolvedArtUrl = entity.artUrl?.let { path ->
+                                    getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$token", 1280, 720)
+                                        ?: "$baseUrl$path?X-Plex-Token=$token"
+                                },
+                                resolvedBaseUrl = baseUrl,
+                            )
+                        }
+
+                if (entities.isNotEmpty()) {
+                    mediaDao.upsertMedia(entities)
+                    val homeContent =
+                        entities.mapIndexed { index, entity ->
+                            com.chakir.plexhubtv.core.database.HomeContentEntity(
+                                type = "hub",
+                                hubIdentifier = hubIdentifier,
+                                title = hubTitle,
+                                itemServerId = entity.serverId,
+                                itemRatingKey = entity.ratingKey,
+                                orderIndex = index,
+                            )
+                        }
+                    homeContentDao.insertHomeContent(homeContent)
+
+                    Hub(
+                        key = hubDto.key ?: "",
+                        title = hubTitle,
+                        type = hubDto.type ?: "mixed",
+                        hubIdentifier = hubIdentifier,
+                        items =
+                            entities.map { entity ->
+                                val domain = mapper.mapEntityToDomain(entity)
+                                mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                                    baseUrl = baseUrl,
+                                    accessToken = client.server.accessToken,
+                                )
+                            },
+                        serverId = client.server.clientIdentifier,
+                    )
+                } else {
+                    null
+                }
+            }
+        }
 
         private suspend fun getActiveClients(): List<PlexClient> =
             coroutineScope {

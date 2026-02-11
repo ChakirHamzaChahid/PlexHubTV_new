@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.core.network
 
 import android.os.Build
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 import javax.inject.Inject
@@ -16,36 +16,27 @@ import javax.inject.Singleton
  * - Ajoute `X-Plex-Client-Identifier` (UUID de l'appareil).
  * - Ajoute les en-têtes standards de la plateforme Plex (OS, Version, App Name).
  *
- * Les tokens sont observés de manière réactive depuis le DataStore.
+ * Thread-safe: Uses runBlocking to read values synchronously on-demand,
+ * avoiding coroutine leaks and ensuring consistent reads.
  */
 @Singleton
 class AuthInterceptor
     @Inject
     constructor(
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
-        @com.chakir.plexhubtv.core.di.ApplicationScope private val scope: kotlinx.coroutines.CoroutineScope,
     ) : Interceptor {
-        @Volatile
-        private var cachedToken: String? = null
-
-        @Volatile
-        private var cachedClientId: String? = null
-
-        init {
-            scope.launch {
-                settingsDataStore.plexToken.collect { cachedToken = it }
-            }
-            scope.launch {
-                settingsDataStore.clientId.collect { cachedClientId = it }
-            }
-        }
 
         override fun intercept(chain: Interceptor.Chain): Response {
             val originalRequest = chain.request()
             val requestBuilder = originalRequest.newBuilder()
 
-            val token = cachedToken
-            val clientId = cachedClientId
+            // Read values synchronously on-demand (thread-safe)
+            val token = runBlocking {
+                settingsDataStore.plexToken.first()
+            }
+            val clientId = runBlocking {
+                settingsDataStore.clientId.first()
+            }
 
             if (clientId != null && originalRequest.header("X-Plex-Client-Identifier") == null) {
                 requestBuilder.addHeader("X-Plex-Client-Identifier", clientId)

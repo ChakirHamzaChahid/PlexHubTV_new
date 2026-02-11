@@ -132,7 +132,10 @@ fun IptvScreen(
                     pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(state.channels) { channel ->
+                    items(
+                        items = state.channels,
+                        key = { channel -> channel.streamUrl },
+                    ) { channel ->
                         ChannelListItem(
                             channel = channel,
                             onClick = {

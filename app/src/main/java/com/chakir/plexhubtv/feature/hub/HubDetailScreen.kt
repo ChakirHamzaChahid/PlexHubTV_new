@@ -131,7 +131,10 @@ fun HubDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                         ) {
-                            items(state.items) { item ->
+                            items(
+                                items = state.items,
+                                key = { item -> "${item.serverId}_${item.ratingKey}" },
+                            ) { item ->
                                 val index = state.items.indexOf(item)
                                 val fr = remember { androidx.compose.ui.focus.FocusRequester() }
                                 if (index == 0) {
@@ -156,7 +159,10 @@ fun HubDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                         ) {
-                            items(state.items) { item ->
+                            items(
+                                items = state.items,
+                                key = { item -> "${item.serverId}_${item.ratingKey}" },
+                            ) { item ->
                                 val index = state.items.indexOf(item)
                                 val fr = remember { androidx.compose.ui.focus.FocusRequester() }
                                 if (index == 0) {

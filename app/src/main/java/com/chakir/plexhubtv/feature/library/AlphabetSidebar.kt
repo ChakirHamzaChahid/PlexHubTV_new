@@ -52,7 +52,10 @@ fun AlphabetSidebar(
             horizontalAlignment = Alignment.CenterHorizontally,
             pivotOffsets = PivotOffsets(parentFraction = 0.5f) // Center focus for sidebar
         ) {
-            items(alphabet) { letter ->
+            items(
+                items = alphabet,
+                key = { letter -> letter },
+            ) { letter ->
                 SidebarItem(
                     letter = letter,
                     onClick = { onLetterSelected(letter) },

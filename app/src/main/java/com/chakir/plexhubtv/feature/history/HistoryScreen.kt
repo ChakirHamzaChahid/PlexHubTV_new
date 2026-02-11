@@ -79,7 +79,10 @@ fun HistoryScreen(
                 pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(uiState.historyItems) { media ->
+                items(
+                    items = uiState.historyItems,
+                    key = { media -> "${media.serverId}_${media.ratingKey}" },
+                ) { media ->
                     MediaCard(
                         media = media,
                         onClick = { onMediaClick(media) },
