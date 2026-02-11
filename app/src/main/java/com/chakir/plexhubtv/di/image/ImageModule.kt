@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.di.image
 
+import android.app.ActivityManager
 import android.content.Context
 import coil.ImageLoader
 import coil.disk.DiskCache
@@ -10,6 +11,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
+import timber.log.Timber
 import javax.inject.Singleton
 
 @Module
@@ -21,6 +23,25 @@ object ImageModule {
         @ApplicationContext context: Context,
         okHttpClient: OkHttpClient,
     ): ImageLoader {
+        // ✅ ADAPTIVE CACHE: Calculate optimal cache size based on available RAM
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memoryInfo = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memoryInfo)
+
+        val totalRam = memoryInfo.totalMem
+        val memoryCacheSize = when {
+            totalRam < 2_000_000_000 -> (totalRam * 0.10).toLong() // 1-2 GB RAM: 10%
+            totalRam < 4_000_000_000 -> (totalRam * 0.12).toLong() // 2-4 GB RAM: 12%
+            else -> (totalRam * 0.15).toLong()                      // 4+ GB RAM: 15%
+        }.coerceIn(50 * 1024 * 1024L, 400 * 1024 * 1024L) // Min 50 MB, Max 400 MB
+
+        Timber.i(
+            "ImageCache: Total RAM = %.2f GB, Cache = %.1f MB (%.1f%%)",
+            totalRam / (1024.0 * 1024.0 * 1024.0),
+            memoryCacheSize / (1024.0 * 1024.0),
+            (memoryCacheSize.toDouble() / totalRam) * 100
+        )
+
         return ImageLoader.Builder(context)
             .okHttpClient(okHttpClient)
             .components {
@@ -28,13 +49,13 @@ object ImageModule {
             }
             .memoryCache {
                 MemoryCache.Builder(context)
-                    .maxSizeBytes(200 * 1024 * 1024) // Fixed 200MB (Parity with Plezy)
+                    .maxSizeBytes(memoryCacheSize.toInt()) // ✅ Adaptive cache size
                     .build()
             }
             .diskCache {
                 DiskCache.Builder()
                     .directory(context.cacheDir.resolve("image_cache"))
-                    .maxSizeBytes(1024L * 1024 * 1024) // 1GB Cache for "Offline-like" failover
+                    .maxSizeBytes(512L * 1024 * 1024) // 512 MB disk (reduced from 1GB)
                     .build()
             }
             .allowHardware(true)
