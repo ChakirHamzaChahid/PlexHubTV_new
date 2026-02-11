@@ -3,6 +3,8 @@ package com.chakir.plexhubtv.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.chakir.plexhubtv.core.model.AppError
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,6 +39,9 @@ class HomeViewModel
 
         private val _navigationEvents = Channel<HomeNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
+
+        private val _errorEvents = Channel<AppError>()
+        val errorEvents = _errorEvents.receiveAsFlow()
 
         init {
             // PERFORMANCE: Load content immediately to unblock UI (Cold Start Optimization)
@@ -97,7 +102,7 @@ class HomeViewModel
                 Timber.d("SCREEN [Home]: Loading start")
 
                 // Avoid showing full-screen loading if we already have some data (e.g., from previous session or quick refresh)
-                _uiState.update { it.copy(isLoading = it.onDeck.isEmpty() && it.hubs.isEmpty(), error = null) }
+                _uiState.update { it.copy(isLoading = it.onDeck.isEmpty() && it.hubs.isEmpty()) }
 
                 // Launch Favorites Collection
                 launch {
@@ -145,18 +150,14 @@ class HomeViewModel
                         },
                         onFailure = { error ->
                             Timber.e("SCREEN [Home] FAILED: duration=${duration}ms error=${error.message}")
-                            // Only show error message if no content is displayed
-                            val newState =
-                                if (_uiState.value.onDeck.isEmpty() && _uiState.value.hubs.isEmpty()) {
-                                    _uiState.value.copy(
-                                        isLoading = false,
-                                        error = error.message ?: "Unknown error occurred",
-                                    )
-                                } else {
-                                    _uiState.value.copy(isLoading = false) // Silently fail update if we have cache
-                                }
 
-                            _uiState.update { newState }
+                            // Emit error via channel for snackbar display
+                            viewModelScope.launch {
+                                val appError = error.toAppError()
+                                _errorEvents.send(appError)
+                            }
+
+                            _uiState.update { it.copy(isLoading = false) }
                         },
                     )
                 }

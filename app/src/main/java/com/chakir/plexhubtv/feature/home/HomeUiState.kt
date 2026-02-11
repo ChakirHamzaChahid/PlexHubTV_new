@@ -5,7 +5,8 @@ import com.chakir.plexhubtv.core.model.MediaItem
 
 /**
  * État de l'UI pour l'écran d'accueil.
- * Gère le chargement, l'erreur, la synchronisation initiale, le contenu "On Deck" et les hubs.
+ * Gère le chargement, la synchronisation initiale, le contenu "On Deck" et les hubs.
+ * Les erreurs sont maintenant émises via errorEvents channel pour une gestion centralisée.
  *
  * NOTE: Ne PAS utiliser @Parcelize/SavedStateHandle — les listes (hubs, onDeck, favorites)
  * peuvent contenir des centaines d'items, causant TransactionTooLargeException et des freezes.
@@ -18,7 +19,6 @@ data class HomeUiState(
     val onDeck: List<MediaItem> = emptyList(),
     val hubs: List<Hub> = emptyList(),
     val favorites: List<MediaItem> = emptyList(),
-    val error: String? = null,
 )
 
 sealed interface HomeAction {

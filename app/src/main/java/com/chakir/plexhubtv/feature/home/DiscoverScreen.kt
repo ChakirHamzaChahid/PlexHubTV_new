@@ -35,7 +35,10 @@ import com.chakir.plexhubtv.di.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
+import com.chakir.plexhubtv.core.ui.showError
 
 // Backward compatibility wrapper
 @Composable
@@ -73,7 +76,10 @@ fun HomeRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
+    val errorEvents = viewModel.errorEvents
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    // Handle navigation events
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
@@ -83,9 +89,20 @@ fun HomeRoute(
         }
     }
 
+    // Handle error events with centralized error display
+    LaunchedEffect(errorEvents) {
+        errorEvents.collect { error ->
+            val result = snackbarHostState.showError(error)
+            if (result == SnackbarResult.ActionPerformed && error.isRetryable()) {
+                viewModel.onAction(HomeAction.Refresh)
+            }
+        }
+    }
+
     DiscoverScreen(
         state = uiState,
         onAction = viewModel::onAction,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -93,10 +110,12 @@ fun HomeRoute(
 fun DiscoverScreen(
     state: HomeUiState,
     onAction: (HomeAction) -> Unit,
+    snackbarHostState: SnackbarHostState,
     onScrollStateChanged: (Boolean) -> Unit = {},
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { ErrorSnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -113,7 +132,6 @@ fun DiscoverScreen(
                         state.syncMessage,
                     )
                 state.isLoading -> LoadingState()
-                state.error != null -> ErrorState(state.error) { onAction(HomeAction.Refresh) }
                 state.onDeck.isEmpty() && state.hubs.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
                 else ->
                     NetflixHomeContent(
