@@ -43,6 +43,9 @@ import com.chakir.plexhubtv.di.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.di.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.showError
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
 import com.chakir.plexhubtv.feature.home.MediaCard
 import timber.log.Timber
@@ -65,7 +68,8 @@ fun MediaDetailRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val enrichmentState by viewModel.uiState.collectAsState()
-    
+    val snackbarHostState = remember { SnackbarHostState() }
+
     // Combine states for the Screen
     val combinedState = uiState.copy(
         similarItems = enrichmentState.similarItems,
@@ -81,7 +85,9 @@ fun MediaDetailRoute(
     }
 
     val events = viewModel.navigationEvents
+    val errorEvents = viewModel.errorEvents
 
+    // Handle navigation events
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
@@ -94,10 +100,21 @@ fun MediaDetailRoute(
         }
     }
 
+    // Handle error events with centralized error display
+    LaunchedEffect(errorEvents) {
+        errorEvents.collect { error ->
+            val result = snackbarHostState.showError(error)
+            if (result == SnackbarResult.ActionPerformed && error.isRetryable()) {
+                viewModel.onEvent(MediaDetailEvent.Retry)
+            }
+        }
+    }
+
     MediaDetailScreen(
         state = combinedState,
         onAction = viewModel::onEvent,
         onCollectionClicked = viewModel::onCollectionClicked,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -106,22 +123,15 @@ fun MediaDetailScreen(
     state: MediaDetailUiState,
     onAction: (MediaDetailEvent) -> Unit,
     onCollectionClicked: (String, String) -> Unit,
+    snackbarHostState: SnackbarHostState,
 ) {
-    Scaffold { padding ->
+    Scaffold(
+        snackbarHost = { ErrorSnackbarHost(snackbarHostState) }
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.background)) {
             if (state.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
-                }
-            } else if (state.error != null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Error: ${state.error}", color = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { onAction(MediaDetailEvent.Retry) }) {
-                            Text("Retry")
-                        }
-                    }
                 }
             } else if (state.media != null) {
                 NetflixDetailScreen(

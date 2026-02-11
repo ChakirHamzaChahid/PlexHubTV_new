@@ -5,6 +5,7 @@ import com.chakir.plexhubtv.core.model.MediaItem
 /**
  * État de l'UI pour la vue Détail Média.
  * Contient le média principal, les saisons (si série), et les items similaires.
+ * Les erreurs sont maintenant émises via errorEvents channel pour une gestion centralisée.
  */
 data class MediaDetailUiState(
     val isLoading: Boolean = false,
@@ -12,7 +13,6 @@ data class MediaDetailUiState(
     val seasons: List<MediaItem> = emptyList(), // Only if media is Show
     val similarItems: List<MediaItem> = emptyList(),
     val collections: List<com.chakir.plexhubtv.core.model.Collection> = emptyList(),
-    val error: String? = null,
     val showSourceSelection: Boolean = false,
     val selectedPlaybackItem: MediaItem? = null,
     val isOffline: Boolean = false,

@@ -3,8 +3,10 @@ package com.chakir.plexhubtv.feature.details
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,6 +53,9 @@ class MediaDetailViewModel
         private val _navigationEvents = Channel<MediaDetailNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
+        private val _errorEvents = Channel<AppError>()
+        val errorEvents = _errorEvents.receiveAsFlow()
+
         init {
             loadDetail()
             checkFavoriteStatus()
@@ -84,7 +89,7 @@ class MediaDetailViewModel
                                     if (media.type == MediaType.Movie || media.type == MediaType.Episode) {
                                         media
                                     } else {
-                                        _uiState.update { it.copy(error = "No playable episode found.") }
+                                        _errorEvents.send(AppError.Media.NoPlayableContent("No playable episode found for this media."))
                                         return@launch
                                     }
                                 }
@@ -109,7 +114,7 @@ class MediaDetailViewModel
                                 playItem(enrichedItem)
                             }
                         } catch (e: Exception) {
-                            _uiState.update { it.copy(error = "Playback error: ${e.message}") }
+                            _errorEvents.send(AppError.Playback.InitializationFailed(e.message, e))
                         }
                     }
                 }
@@ -216,7 +221,7 @@ class MediaDetailViewModel
             viewModelScope.launch {
                 val startTime = System.currentTimeMillis()
                 Timber.d("SCREEN [Detail]: Loading start for $ratingKey on $serverId")
-                _uiState.update { it.copy(isLoading = true, error = null) }
+                _uiState.update { it.copy(isLoading = true) }
                 getMediaDetailUseCase(ratingKey, serverId).collect { result ->
                     val duration = System.currentTimeMillis() - startTime
                     result.fold(
@@ -241,7 +246,10 @@ class MediaDetailViewModel
                         },
                         onFailure = { error ->
                             Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
-                            _uiState.update { it.copy(isLoading = false, error = error.message) }
+                            viewModelScope.launch {
+                                _errorEvents.send(AppError.Media.LoadFailed(error.message, error))
+                            }
+                            _uiState.update { it.copy(isLoading = false) }
                         },
                     )
                 }
