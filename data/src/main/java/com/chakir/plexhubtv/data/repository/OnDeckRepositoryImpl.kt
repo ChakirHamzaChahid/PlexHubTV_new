@@ -28,11 +28,9 @@ import javax.inject.Inject
 class OnDeckRepositoryImpl
     @Inject
     constructor(
-        private val api: PlexApiService,
         private val mediaDao: MediaDao,
         private val homeContentDao: com.chakir.plexhubtv.core.database.HomeContentDao,
-        private val authRepository: AuthRepository,
-        private val connectionManager: ConnectionManager,
+        private val serverClientResolver: ServerClientResolver,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDeduplicator: MediaDeduplicator,
@@ -41,7 +39,7 @@ class OnDeckRepositoryImpl
     ) : OnDeckRepository {
         override fun getUnifiedOnDeck(): Flow<List<MediaItem>> =
             flow {
-                val serversResult = authRepository.getServers()
+                val serversResult = Result.success(serverClientResolver.getServers())
                 val servers = serversResult.getOrNull() ?: emptyList()
 
                 if (servers.isEmpty()) {
@@ -92,7 +90,7 @@ class OnDeckRepositoryImpl
         }
 
         private suspend fun refreshOnDeck() {
-            val clients = getActiveClients()
+            val clients = serverClientResolver.getActiveClients()
             if (clients.isEmpty()) return
 
             // Use Race to get fastest response? No, we need all OnDecks.
@@ -153,7 +151,7 @@ class OnDeckRepositoryImpl
         }
 
         // Helper duplicated from MediaRepositoryImpl logic (or extracted later)
-        private suspend fun getActiveClients(): List<PlexClient> =
+        private suspend fun serverClientResolver.getActiveClients(): List<PlexClient> =
             coroutineScope {
                 val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
 

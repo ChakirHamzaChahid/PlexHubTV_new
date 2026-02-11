@@ -34,7 +34,7 @@ class MediaDetailRepositoryImpl
     constructor(
         private val api: PlexApiService,
         private val authRepository: AuthRepository,
-        private val connectionManager: ConnectionManager,
+        private val serverClientResolver: ServerClientResolver,
         private val mediaDao: MediaDao,
         private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,
         private val plexApiCache: PlexApiCache,
@@ -48,7 +48,7 @@ class MediaDetailRepositoryImpl
             serverId: String,
         ): Result<MediaItem> {
             return try {
-                val client = getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
+                val client = serverClientResolver.getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
 
                 // 1. Try Cache First for performance
                 val cacheKey = "$serverId:/library/metadata/$ratingKey"
@@ -126,7 +126,7 @@ class MediaDetailRepositoryImpl
             // 1. Cache-first: Load from Room immediately
             val localEntities = mediaDao.getChildren(ratingKey, serverId)
             if (localEntities.isNotEmpty()) {
-                val client = getClient(serverId)
+                val client = serverClientResolver.getClient(serverId)
                 val baseUrl = client?.baseUrl
                 val token = client?.server?.accessToken
                 val cachedItems = localEntities.map {
@@ -139,13 +139,13 @@ class MediaDetailRepositoryImpl
                     }
                 }
                 // If we have local data and no network, return immediately
-                val networkClient = getClient(serverId)
+                val networkClient = serverClientResolver.getClient(serverId)
                 if (networkClient == null) return Result.success(cachedItems)
             }
 
             // 2. Attempt network fetch for refresh
             try {
-                val client = getClient(serverId)
+                val client = serverClientResolver.getClient(serverId)
                 if (client != null) {
                     val response = client.getChildren(ratingKey)
                     if (response.isSuccessful) {
@@ -168,7 +168,7 @@ class MediaDetailRepositoryImpl
 
             // 3. Fallback: Return cache (already loaded above)
             if (localEntities.isNotEmpty()) {
-                val client = getClient(serverId)
+                val client = serverClientResolver.getClient(serverId)
                 val items = localEntities.map {
                     val domain = mapper.mapEntityToDomain(it)
                     val baseUrl = client?.baseUrl
@@ -197,7 +197,7 @@ class MediaDetailRepositoryImpl
             serverId: String,
         ): Result<List<MediaItem>> {
             return try {
-                val client = getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
+                val client = serverClientResolver.getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
                 val response = client.getRelated(ratingKey)
                 if (response.isSuccessful) {
                     val body = response.body()
@@ -260,7 +260,7 @@ class MediaDetailRepositoryImpl
                         collectionEntities.map { collEntity ->
                             val mediaList = mediaByCollection[collEntity.id] ?: emptyList()
                             val items = mediaList.map { mediaWithCol ->
-                                val client = getClient(mediaWithCol.media.serverId)
+                                val client = serverClientResolver.getClient(mediaWithCol.media.serverId)
                                 val baseUrl = client?.baseUrl
                                 val token = client?.server?.accessToken
 
@@ -303,7 +303,7 @@ class MediaDetailRepositoryImpl
                         val items = collectionDao.getMediaInCollection(collectionId, serverId)
                             .map { mediaEntities ->
                                 mediaEntities.map { entity ->
-                                    val client = getClient(entity.serverId)
+                                    val client = serverClientResolver.getClient(entity.serverId)
                                     val baseUrl = client?.baseUrl
                                     val token = client?.server?.accessToken
                                     
@@ -329,12 +329,5 @@ class MediaDetailRepositoryImpl
                     }
                 }
                 .flowOn(ioDispatcher)
-        }
-
-        private suspend fun getClient(serverId: String): PlexClient? {
-            val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
-            val server = servers.find { it.clientIdentifier == serverId } ?: return null
-            val baseUrl = connectionManager.findBestConnection(server) ?: return null
-            return PlexClient(server, api, baseUrl)
         }
     }
