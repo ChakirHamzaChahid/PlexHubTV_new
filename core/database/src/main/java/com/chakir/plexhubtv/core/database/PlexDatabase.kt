@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 23 : Ajout de ProfileEntity pour les profils utilisateurs.
+ * Version 24 : Ajout de SearchCacheEntity pour le cache de recherche offline.
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -25,8 +25,9 @@ import androidx.room.TypeConverters
         CollectionEntity::class,
         MediaCollectionCrossRef::class,
         ProfileEntity::class,
+        SearchCacheEntity::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -55,4 +56,6 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun collectionDao(): CollectionDao
 
     abstract fun profileDao(): ProfileDao
+
+    abstract fun searchCacheDao(): SearchCacheDao
 }

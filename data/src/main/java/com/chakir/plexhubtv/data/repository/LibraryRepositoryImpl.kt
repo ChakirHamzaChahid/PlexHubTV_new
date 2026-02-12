@@ -22,9 +22,7 @@ import javax.inject.Inject
 class LibraryRepositoryImpl
     @Inject
     constructor(
-        private val api: PlexApiService,
-        private val connectionManager: ConnectionManager,
-        private val authRepository: AuthRepository,
+        private val serverClientResolver: ServerClientResolver,
         private val mapper: MediaMapper,
         private val mediaDao: MediaDao,
         private val database: com.chakir.plexhubtv.core.database.PlexDatabase,
@@ -32,7 +30,7 @@ class LibraryRepositoryImpl
         override suspend fun getLibraries(serverId: String): Result<List<LibrarySection>> {
             try {
                 val client =
-                    getClient(serverId) ?: run {
+                    serverClientResolver.getClient(serverId) ?: run {
                         // Offline: Try DB
                         val cached = database.librarySectionDao().getLibrarySections(serverId).first()
                         if (cached.isNotEmpty()) {
@@ -124,7 +122,7 @@ class LibraryRepositoryImpl
                     }
                 }
 
-                val client = getClient(resolvedServerId)
+                val client = serverClientResolver.getClient(resolvedServerId)
                 val normalizedFilter = filter?.lowercase() ?: "all"
                 val baseSort =
                     when (sort) {
@@ -426,7 +424,7 @@ class LibraryRepositoryImpl
             return mediaDao.getMediaCountRaw(rawQuery)
         }
 
-        private suspend fun getClient(serverId: String): PlexClient? {
+        private suspend fun serverClientResolver.getClient(serverId: String): PlexClient? {
             val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
 
             val targetServer =

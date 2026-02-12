@@ -1,11 +1,13 @@
 package com.chakir.plexhubtv.core.network
 
+import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -53,16 +55,21 @@ object NetworkModule {
     @Singleton
     fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
     }
 
     @Provides
     @Singleton
     fun provideAuthInterceptor(
-        settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore
+        settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
+        @ApplicationScope scope: CoroutineScope
     ): AuthInterceptor {
-        return AuthInterceptor(settingsDataStore)
+        return AuthInterceptor(settingsDataStore, scope)
     }
 
     @Provides
@@ -163,12 +170,12 @@ object NetworkModule {
     @Provides
     @Singleton
     @javax.inject.Named("tmdb")
-    fun provideTmdbRetrofit(gson: Gson): Retrofit {
-        val tmdbClient = OkHttpClient.Builder()
+    fun provideTmdbRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
+        val tmdbClient = okHttpClient.newBuilder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
-        
+
         return Retrofit.Builder()
             .baseUrl("https://api.themoviedb.org/")
             .client(tmdbClient)
@@ -191,12 +198,12 @@ object NetworkModule {
     @Provides
     @Singleton
     @javax.inject.Named("omdb")
-    fun provideOmdbRetrofit(gson: Gson): Retrofit {
-        val omdbClient = OkHttpClient.Builder()
+    fun provideOmdbRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
+        val omdbClient = okHttpClient.newBuilder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
-        
+
         return Retrofit.Builder()
             .baseUrl("https://www.omdbapi.com/")
             .client(omdbClient)

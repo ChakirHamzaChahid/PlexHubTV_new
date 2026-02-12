@@ -34,8 +34,7 @@ class HubsRepositoryImpl
         private val homeContentDao: HomeContentDao,
         private val plexApiCache: PlexApiCache,
         private val mapper: MediaMapper,
-        private val authRepository: AuthRepository,
-        private val connectionManager: ConnectionManager,
+        private val serverClientResolver: ServerClientResolver,
         private val gson: Gson,
         private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDeduplicator: MediaDeduplicator,
@@ -47,7 +46,7 @@ class HubsRepositoryImpl
                 val cachedHubs = getCachedHubs()
                 emit(cachedHubs)
 
-                val clients = getActiveClients()
+                val clients = serverClientResolver.getActiveClients()
                 if (clients.isNotEmpty()) {
                     coroutineScope {
                         val servers = authRepository.getServers().getOrNull() ?: emptyList()
@@ -244,7 +243,7 @@ class HubsRepositoryImpl
             }
         }
 
-        private suspend fun getActiveClients(): List<PlexClient> =
+        private suspend fun serverClientResolver.getActiveClients(): List<PlexClient> =
             coroutineScope {
                 val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
 
