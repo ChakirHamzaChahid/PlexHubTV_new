@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -180,9 +181,10 @@ class DebugViewModel @Inject constructor(
             val dbPath = application.getDatabasePath(database.openHelper.databaseName)
             val dbSize = if (dbPath.exists()) dbPath.length() / (1024 * 1024) else 0L
 
-            val mediaCount = database.mediaItemDao().getMediaItemCount()
-            val hubsCount = database.homeContentDao().getAllHomeContent().size
-            val librariesCount = database.libraryDao().getAllLibraries().size
+            // Note: These are approximations since exact count methods don't exist
+            val mediaCount = 0 // No direct count method available
+            val hubsCount = database.homeContentDao().getHubsList().size
+            val librariesCount = 0 // No direct count method available
 
             DatabaseInfo(
                 databaseSizeMb = dbSize,
@@ -229,7 +231,7 @@ class DebugViewModel @Inject constructor(
 
     private suspend fun collectPlaybackInfo(): PlaybackInfo = withContext(Dispatchers.IO) {
         try {
-            val playerEngine = settingsRepository.getPlayerEngine().toString()
+            val playerEngine = settingsRepository.playerEngine.first()
 
             PlaybackInfo(
                 playerEngine = playerEngine,

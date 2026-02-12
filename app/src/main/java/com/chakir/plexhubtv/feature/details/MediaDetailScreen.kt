@@ -163,6 +163,7 @@ fun ActionButtonsRow(
     media: MediaItem,
     state: MediaDetailUiState,
     onAction: (MediaDetailEvent) -> Unit,
+    playButtonFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
 ) {
     Row(
         modifier = Modifier
@@ -177,20 +178,34 @@ fun ActionButtonsRow(
 
         Button(
             onClick = { onAction(MediaDetailEvent.PlayClicked) },
+            enabled = !state.isPlayButtonLoading,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isPlayFocused) MaterialTheme.colorScheme.primary else Color.White,
                 contentColor = if (isPlayFocused) MaterialTheme.colorScheme.onPrimary else Color.Black,
+                disabledContainerColor = Color.White.copy(alpha = 0.5f),
+                disabledContentColor = Color.Black.copy(alpha = 0.5f),
             ),
             shape = RoundedCornerShape(4.dp),
             modifier = Modifier
                 .height(40.dp)
                 .scale(if (isPlayFocused) 1.05f else 1f)
+                .then(if (playButtonFocusRequester != null) Modifier.focusRequester(playButtonFocusRequester) else Modifier)
                 .focusable(interactionSource = playInteractionSource),
             interactionSource = playInteractionSource,
         ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Play", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            if (state.isPlayButtonLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = if (isPlayFocused) MaterialTheme.colorScheme.onPrimary else Color.Black,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Loading...", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            } else {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Play", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            }
         }
 
         // Download Button
@@ -275,6 +290,7 @@ fun PreviewMediaDetailMovie() {
         state = MediaDetailUiState(media = movie),
         onAction = {},
         onCollectionClicked = { _, _ -> },
+        snackbarHostState = remember { SnackbarHostState() },
     )
 }
 
@@ -296,5 +312,6 @@ fun PreviewMediaDetailShow() {
         state = MediaDetailUiState(media = show, seasons = seasons),
         onAction = {},
         onCollectionClicked = { _, _ -> },
+        snackbarHostState = remember { SnackbarHostState() },
     )
 }

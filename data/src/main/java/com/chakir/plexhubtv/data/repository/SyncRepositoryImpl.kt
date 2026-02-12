@@ -34,7 +34,7 @@ class SyncRepositoryImpl
         private val libraryRepository: LibraryRepository,
     ) : SyncRepository {
         // Callback for progress updates (set by LibrarySyncWorker)
-        var onProgressUpdate: ((current: Int, total: Int, libraryName: String) -> Unit)? = null
+        override var onProgressUpdate: ((current: Int, total: Int, libraryName: String) -> Unit)? = null
 
         override suspend fun syncServer(server: Server): Result<Unit> =
             withContext(Dispatchers.IO) {

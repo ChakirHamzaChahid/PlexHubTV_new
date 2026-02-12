@@ -73,6 +73,7 @@ fun HomeRoute(
     viewModel: HomeViewModel = hiltViewModel(),
     onNavigateToDetails: (String, String) -> Unit,
     onNavigateToPlayer: (String, String) -> Unit,
+    onScrollStateChanged: (Boolean) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -103,6 +104,7 @@ fun HomeRoute(
         state = uiState,
         onAction = viewModel::onAction,
         snackbarHostState = snackbarHostState,
+        onScrollStateChanged = onScrollStateChanged,
     )
 }
 

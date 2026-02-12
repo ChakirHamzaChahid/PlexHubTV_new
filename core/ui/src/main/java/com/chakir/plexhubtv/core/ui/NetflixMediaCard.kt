@@ -1,19 +1,12 @@
 package com.chakir.plexhubtv.core.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
@@ -34,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -59,6 +54,7 @@ import coil.request.ImageRequest
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import timber.log.Timber
 
 enum class CardType {
     POSTER,
@@ -77,6 +73,15 @@ fun NetflixMediaCard(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+
+    // Debug: track focus changes
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            Timber.d("CARD_FOCUS: GAINED '${media.title}' (ratingKey=${media.ratingKey})")
+        } else {
+            Timber.d("CARD_FOCUS: LOST '${media.title}' (ratingKey=${media.ratingKey})")
+        }
+    }
 
     // Animations
     val scale by animateFloatAsState(
@@ -107,8 +112,6 @@ fun NetflixMediaCard(
             .width(cardWidth)
             .zIndex(if (isFocused) 10f else 0f)
             .scale(scale)
-            // focusable BEFORE clickable for proper D-Pad navigation
-            .focusable(interactionSource = interactionSource)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -119,9 +122,9 @@ fun NetflixMediaCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(cardAspectRatio)
-                .clip(RoundedCornerShape(4.dp)) // Netflix uses slightly sharper corners
+                .clip(RoundedCornerShape(8.dp)) // Rounded corners like modern Netflix
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .border(2.dp, borderColor, RoundedCornerShape(4.dp))
+                .border(2.dp, borderColor, RoundedCornerShape(8.dp))
         ) {
             // Image Logic
             val imageUrl = remember(media.ratingKey, cardType) {
@@ -188,48 +191,49 @@ fun NetflixMediaCard(
             }
         }
 
-        // Title and Metadata — animated per Netflix plan
-        AnimatedVisibility(
-            visible = isFocused,
-            enter = fadeIn(tween(200)) + expandVertically(tween(200)),
-            exit = fadeOut(tween(150)) + shrinkVertically(tween(150)),
+        // Title and Metadata — always reserves space to prevent LazyColumn scroll jumps
+        // Uses alpha instead of AnimatedVisibility to keep height stable
+        val metadataAlpha by animateFloatAsState(
+            targetValue = if (isFocused) 1f else 0f,
+            animationSpec = tween(durationMillis = 200),
+            label = "metadataAlpha"
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .graphicsLayer { alpha = metadataAlpha }
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            ) {
-                Text(
-                    text = media.title,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Text(
+                text = media.title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val rating = media.rating
-                    if (rating != null && rating > 0) {
-                        Text(
-                            text = "${(rating * 10).toInt()}% Match",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF46D369),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val rating = media.rating
+                if (rating != null && rating > 0) {
+                    Text(
+                        text = "${(rating * 10).toInt()}% Match",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF46D369),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
 
-                    val metaText = media.contentRating ?: media.year?.toString()
-                    if (metaText != null) {
-                        Text(
-                            text = metaText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 10.sp
-                        )
-                    }
+                val metaText = media.contentRating ?: media.year?.toString()
+                if (metaText != null) {
+                    Text(
+                        text = metaText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 10.sp
+                    )
                 }
             }
         }

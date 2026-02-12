@@ -5,19 +5,25 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.items // ✅ items depuis compose standard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.lazy.LazyListState // ✅ State reste dans foundation
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.compose.foundation.lazy.LazyColumn // ✅ Depuis tv-material
+import androidx.compose.foundation.lazy.LazyRow // ✅ Depuis tv-material (pas foundation)
+import androidx.compose.ui.focus.onFocusChanged
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
+import timber.log.Timber
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun NetflixContentRow(
     title: String,
@@ -29,13 +35,15 @@ fun NetflixContentRow(
 ) {
     if (items.isEmpty()) return
 
-    val listState = rememberTvLazyListState()
+    val listState = rememberLazyListState()
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(bottom = 24.dp)
-        // .focusable(false) REMOVED — was blocking focus traversal to children
+            .onFocusChanged { focusState ->
+                Timber.d("ROW_FOCUS: '$title' hasFocus=${focusState.hasFocus} isFocused=${focusState.isFocused}")
+            }
     ) {
         // Row Title
         Text(
@@ -46,13 +54,17 @@ fun NetflixContentRow(
             modifier = Modifier.padding(start = 48.dp, bottom = 12.dp)
         )
 
-        // Horizontal List — TvLazyRow for proper D-Pad navigation and focus restoration
-        TvLazyRow(
+        // Horizontal List — LazyRow for proper D-Pad navigation and focus restoration
+        LazyRow(
             state = listState,
             contentPadding = PaddingValues(horizontal = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp), // 8dp per plan spec
-            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    Timber.d("ROW_LAZYROW: '$title' hasFocus=${focusState.hasFocus} isFocused=${focusState.isFocused}")
+                }
+                .focusGroup() // Group horizontal navigation within this row
         ) {
             items(
                 items = items,

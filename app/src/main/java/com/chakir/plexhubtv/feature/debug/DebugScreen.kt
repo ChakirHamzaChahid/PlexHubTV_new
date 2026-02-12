@@ -20,9 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -90,15 +89,14 @@ fun DebugScreen(
                 CircularProgressIndicator()
             }
         } else {
-            val listState = rememberTvLazyListState()
-            TvLazyColumn(
+            val listState = rememberLazyListState()
+            LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
                 contentPadding = PaddingValues(horizontal = 48.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
             ) {
                 // System Information
                 item {

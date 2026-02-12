@@ -17,7 +17,12 @@ data class MediaDetailUiState(
     val selectedPlaybackItem: MediaItem? = null,
     val isOffline: Boolean = false,
     val isEnriching: Boolean = false, // Indicates if we are currently searching for other servers
-)
+    val isLoadingCollections: Boolean = false, // Indicates if we are currently loading collections
+) {
+    // Play button should be in loading state while streams or collections are being loaded
+    val isPlayButtonLoading: Boolean
+        get() = isEnriching || isLoadingCollections
+}
 
 sealed interface MediaDetailEvent {
     data object ToggleWatchStatus : MediaDetailEvent

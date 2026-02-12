@@ -38,14 +38,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Timber.i("APP STARTUP: Launching PlexHubTV")
 
-        // Play Intro Sound
-        try {
-            val mediaPlayer = android.media.MediaPlayer.create(this, R.raw.intro_sound)
-            mediaPlayer.setOnCompletionListener { it.release() }
-            mediaPlayer.start()
-        } catch (e: Exception) {
-            Timber.e("Failed to play intro: ${e.message}")
-        }
+        // Play Intro Sound - DISABLED (video intro has sound instead)
+        // try {
+        //     val mediaPlayer = android.media.MediaPlayer.create(this, R.raw.intro_sound)
+        //     mediaPlayer.setOnCompletionListener { it.release() }
+        //     mediaPlayer.start()
+        // } catch (e: Exception) {
+        //     Timber.e("Failed to play intro: ${e.message}")
+        // }
 
         enableEdgeToEdge()
         setContent {
@@ -78,7 +78,23 @@ class MainActivity : ComponentActivity() {
 fun PlexHubApp() {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Screen.Login.route) {
+    NavHost(navController = navController, startDestination = Screen.Splash.route) {
+        // Splash Screen (Netflix-style auto-login check)
+        composable(Screen.Splash.route) {
+            com.chakir.plexhubtv.feature.splash.SplashRoute(
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToLoading = {
+                    navController.navigate(Screen.Loading.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+
         composable(Screen.Login.route) {
             AuthRoute(
                 onAuthSuccess = {

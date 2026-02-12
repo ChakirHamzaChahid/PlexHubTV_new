@@ -4,10 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -119,19 +118,18 @@ fun SearchScreen(
                 SearchState.Error -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = state.error ?: "Unknown Error",
+                            text = "An error occurred while searching",
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center,
                         )
                     }
                 }
                 SearchState.Results -> {
-                    val listState = rememberTvLazyListState()
-                    TvLazyColumn(
+                    val listState = rememberLazyListState()
+                    LazyColumn(
                         state = listState,
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
-                        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                     ) {
                         items(state.results, key = { "${it.ratingKey}_${it.serverId}" }) { resultItem ->
                             SearchResultItem(item = resultItem, onClick = { onAction(SearchAction.OpenMedia(resultItem)) })

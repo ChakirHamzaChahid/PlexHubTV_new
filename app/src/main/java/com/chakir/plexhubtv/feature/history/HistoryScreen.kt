@@ -2,11 +2,10 @@ package com.chakir.plexhubtv.feature.history
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.grid.TvGridCells
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.items
-import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,7 +45,7 @@ fun HistoryScreen(
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 72.dp), // 56dp TopBar + 16dp
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 80.dp),
     ) {
         Text(
             text = "Watch History",
@@ -69,20 +68,20 @@ fun HistoryScreen(
                 )
             }
         } else {
-            val gridState = rememberTvLazyGridState()
-            TvLazyVerticalGrid(
+            val gridState = rememberLazyGridState()
+            LazyVerticalGrid(
                 state = gridState,
-                columns = TvGridCells.Adaptive(minSize = 100.dp),
+                columns = GridCells.Adaptive(minSize = 100.dp),
                 contentPadding = PaddingValues(top = 56.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(
-                    items = uiState.historyItems,
-                    key = { media -> "${media.serverId}_${media.ratingKey}" },
-                ) { media ->
+                    count = uiState.historyItems.size,
+                    key = { index -> "${uiState.historyItems[index].serverId}_${uiState.historyItems[index].ratingKey}_$index" }
+                ) { index ->
+                    val media = uiState.historyItems[index]
                     MediaCard(
                         media = media,
                         onClick = { onMediaClick(media) },

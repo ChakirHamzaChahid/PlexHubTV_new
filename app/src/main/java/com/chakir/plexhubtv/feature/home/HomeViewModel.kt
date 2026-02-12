@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.chakir.plexhubtv.di.image.*
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -32,7 +33,7 @@ class HomeViewModel
         private val favoritesRepository: FavoritesRepository,
         private val workManager: androidx.work.WorkManager,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
-        private val imagePrefetchManager: com.chakir.plexhubtv.core.image.ImagePrefetchManager,
+        private val imagePrefetchManager: ImagePrefetchManager,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
         val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()

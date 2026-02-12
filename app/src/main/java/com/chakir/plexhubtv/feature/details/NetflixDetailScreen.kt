@@ -24,12 +24,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -38,11 +42,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -62,7 +66,13 @@ fun NetflixDetailScreen(
     onCollectionClicked: (String, String) -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(if (media.type == MediaType.Show) DetailTab.Episodes else DetailTab.MoreLikeThis) }
-    val listState = rememberTvLazyListState()
+    val listState = rememberLazyListState()
+    val playButtonFocusRequester = remember { FocusRequester() }
+
+    // Request focus on Play button when screen opens
+    LaunchedEffect(Unit) {
+        playButtonFocusRequester.requestFocus()
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(NetflixBlack)) {
         // 1. Full Screen Backdrop with Gradient
@@ -116,12 +126,11 @@ fun NetflixDetailScreen(
             )
         }
 
-        // 2. Content Scroll — TvLazyColumn for proper D-Pad navigation
-        TvLazyColumn(
+        // 2. Content Scroll — LazyColumn for proper D-Pad navigation
+        LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().zIndex(2f),
             contentPadding = PaddingValues(start = 50.dp, bottom = 50.dp, top = 0.dp),
-            pivotOffsets = PivotOffsets(parentFraction = 0.0f)
         ) {
             // Spacer to push content down so header shows nicely
             item(key = "detail_top_spacer") { Spacer(modifier = Modifier.height(350.dp)) }
@@ -185,8 +194,27 @@ fun NetflixDetailScreen(
                         Text("HD", style = MaterialTheme.typography.labelSmall, color = NetflixLightGray, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-                    ActionButtonsRow(media, state, onAction)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Available on (servers list) - only show after enrichment is complete
+                    if (!state.isEnriching && media.remoteSources.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Available on: ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NetflixLightGray
+                            )
+                            Text(
+                                text = media.remoteSources.joinToString(", ") { it.serverName },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ActionButtonsRow(media, state, onAction, playButtonFocusRequester)
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
@@ -207,19 +235,20 @@ fun NetflixDetailScreen(
                 NetflixDetailTabs(
                     selectedTab = selectedTab,
                     onTabSelected = { selectedTab = it },
-                    showEpisodes = media.type == MediaType.Show
+                    showEpisodes = media.type == MediaType.Show,
+                    showCollections = state.collections.isNotEmpty()
                 )
             }
 
-            // 4. Tab Content — TvLazyRow for proper D-Pad inside TvLazyColumn
+            // 4. Tab Content — LazyRow for proper D-Pad inside LazyColumn
             when (selectedTab) {
                 DetailTab.Episodes -> {
                     if (seasons.isNotEmpty()) {
                         item(key = "detail_seasons_row") {
-                            TvLazyRow(
+                            LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                                modifier = Modifier.focusGroup() // Group horizontal navigation
                             ) {
                                 items(seasons, key = { "${it.ratingKey}_${it.serverId}" }) { season ->
                                     NetflixMediaCard(
@@ -239,10 +268,10 @@ fun NetflixDetailScreen(
                 DetailTab.MoreLikeThis -> {
                     if (similarItems.isNotEmpty()) {
                         item(key = "detail_similar_row") {
-                            TvLazyRow(
+                            LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                                modifier = Modifier.focusGroup() // Group horizontal navigation
                             ) {
                                 items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }) { item ->
                                     NetflixMediaCard(
@@ -258,20 +287,14 @@ fun NetflixDetailScreen(
                             Text("No similar items found", color = NetflixLightGray)
                         }
                     }
-
+                }
+                DetailTab.Collections -> {
                     if (state.collections.isNotEmpty()) {
-                        item(key = "detail_collections_title") {
-                            Column {
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Text("Included in Collections", style = MaterialTheme.typography.titleMedium, color = NetflixDarkGray)
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-                        }
                         item(key = "detail_collections_row") {
-                            TvLazyRow(
+                            LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                                modifier = Modifier.focusGroup() // Group horizontal navigation
                             ) {
                                 items(state.collections, key = { it.id }) { collection ->
                                     Button(
@@ -283,6 +306,10 @@ fun NetflixDetailScreen(
                                 }
                             }
                         }
+                    } else {
+                        item(key = "detail_no_collections") {
+                            Text("No collections available", color = NetflixLightGray)
+                        }
                     }
                 }
             }
@@ -290,10 +317,14 @@ fun NetflixDetailScreen(
             item(key = "detail_bottom_spacer") { Spacer(modifier = Modifier.height(50.dp)) }
         }
 
-        // Back Button
+        // Back Button - Non-focusable (use physical Back button on remote)
         IconButton(
             onClick = { onAction(MediaDetailEvent.Back) },
-            modifier = Modifier.padding(32.dp).align(Alignment.TopEnd).zIndex(3f)
+            modifier = Modifier
+                .padding(32.dp)
+                .align(Alignment.TopEnd)
+                .zIndex(3f)
+                .focusable(false) // Don't trap focus
         ) {
             Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(32.dp))
         }

@@ -1,11 +1,10 @@
 package com.chakir.plexhubtv.feature.hub
 
 import androidx.compose.foundation.layout.*
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.grid.TvGridCells
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.items
-import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.GridView
@@ -122,14 +121,13 @@ fun HubDetailScreen(
                 }
                 else -> {
                     if (viewMode == ViewMode.GRID) {
-                        val gridState = rememberTvLazyGridState()
-                        TvLazyVerticalGrid(
+                        val gridState = rememberLazyGridState()
+                        LazyVerticalGrid(
                             state = gridState,
-                            columns = TvGridCells.Adaptive(minSize = 150.dp),
+                            columns = GridCells.Adaptive(minSize = 150.dp),
                             contentPadding = PaddingValues(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                         ) {
                             items(
                                 items = state.items,
@@ -151,13 +149,12 @@ fun HubDetailScreen(
                         }
                     } else {
                         // List view implementation
-                        val listState = rememberTvLazyGridState()
-                        TvLazyVerticalGrid(
+                        val listState = rememberLazyGridState()
+                        LazyVerticalGrid(
                             state = listState,
-                            columns = TvGridCells.Fixed(1),
+                            columns = GridCells.Fixed(1),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                         ) {
                             items(
                                 items = state.items,

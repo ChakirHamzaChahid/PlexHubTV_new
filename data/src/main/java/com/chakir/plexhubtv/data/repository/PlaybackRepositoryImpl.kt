@@ -27,6 +27,9 @@ class PlaybackRepositoryImpl
     @Inject
     constructor(
         private val serverClientResolver: ServerClientResolver,
+        private val authRepository: AuthRepository,
+        private val connectionManager: ConnectionManager,
+        private val api: PlexApiService,
         private val mediaDao: MediaDao,
         private val plexApiCache: PlexApiCache,
         private val mapper: MediaMapper,
@@ -39,7 +42,7 @@ class PlaybackRepositoryImpl
             isWatched: Boolean,
         ): Result<Unit> {
             return try {
-                val client = serverClientResolver.getClient(media.serverId) ?: return Result.failure(ServerUnavailableException(media.serverId))
+                val client = getClient(media.serverId) ?: return Result.failure(ServerUnavailableException(media.serverId))
                 val response = if (isWatched) client.scrobble(media.ratingKey) else client.unscrobble(media.ratingKey)
 
                 if (response.isSuccessful) {
@@ -71,7 +74,7 @@ class PlaybackRepositoryImpl
             positionMs: Long,
         ): Result<Unit> {
             return try {
-                val client = serverClientResolver.getClient(media.serverId) ?: return Result.failure(ServerUnavailableException(media.serverId))
+                val client = getClient(media.serverId) ?: return Result.failure(ServerUnavailableException(media.serverId))
                 val response =
                     client.updateTimeline(
                         ratingKey = media.ratingKey,
@@ -177,7 +180,7 @@ class PlaybackRepositoryImpl
             subtitleStreamId: String?,
         ): Result<Unit> {
             return try {
-                val client = serverClientResolver.getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
+                val client = getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
                 val url = "${client.baseUrl}library/parts/$partId"
                 val response =
                     api.putStreamSelection(
@@ -199,7 +202,7 @@ class PlaybackRepositoryImpl
             }
         }
 
-        private suspend fun serverClientResolver.getClient(serverId: String): PlexClient? {
+        private suspend fun getClient(serverId: String): PlexClient? {
             val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
             val server = servers.find { it.clientIdentifier == serverId } ?: return null
             val baseUrl = connectionManager.findBestConnection(server) ?: return null

@@ -146,6 +146,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.foundation)
+    implementation(libs.androidx.compose.animation)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.compose.navigation)
     implementation(libs.coil.compose)

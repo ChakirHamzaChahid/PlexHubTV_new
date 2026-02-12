@@ -16,9 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import com.chakir.plexhubtv.di.designsystem.NetflixBlack
 import com.chakir.plexhubtv.di.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaType
@@ -146,10 +145,9 @@ fun NetflixSearchScreen(
                         state.results.groupBy { it.type }
                     }
 
-                    TvLazyColumn(
+                    LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 32.dp),
-                        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                     ) {
                         groupedResults.forEach { (type, items) ->
                             item(key = "search_row_${type.name}") {

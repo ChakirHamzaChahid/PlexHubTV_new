@@ -15,16 +15,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.grid.TvGridCells
-import androidx.tv.foundation.lazy.grid.TvLazyGridState
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.TvLazyListState
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -137,13 +137,13 @@ fun LibrariesScreen(
     onScrollConsumed: () -> Unit = {},
     snackbarHostState: SnackbarHostState,
 ) {
-    val gridState = rememberTvLazyGridState()
-    val listState = rememberTvLazyListState()
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
 
     LaunchedEffect(scrollRequest) {
         if (scrollRequest != null) {
-            gridState.scrollToItem(0)
-            listState.scrollToItem(0)
+            gridState.scrollToItem(scrollRequest)
+            listState.scrollToItem(scrollRequest)
             onScrollConsumed()
         }
     }
@@ -160,13 +160,15 @@ fun LibrariesScreen(
                         onClose = { onAction(LibraryAction.ToggleSearch) },
                     )
                 } else {
+                    // Compact header: Title on left, Filters on right (same row)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 58.dp, top = 24.dp, end = 16.dp, bottom = 12.dp),
+                            .padding(start = 58.dp, top = 80.dp, end = 58.dp, bottom = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        // Left side: Title
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = if (state.mediaType == MediaType.Movie) "Movies" else "TV Shows",
@@ -183,10 +185,37 @@ fun LibrariesScreen(
                                 )
                             }
                         }
-                        
-                        Row {
-                            // Search icon removed to avoid duplication with Global Top Bar
-                            
+
+                        // Right side: Filters + View Mode
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Filter Buttons
+                            val serverLabel = if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server: MyServer"
+                            val isServerFiltered = state.selectedServerFilter != null
+
+                            FilterButton(
+                                text = serverLabel,
+                                isActive = isServerFiltered,
+                                onClick = { onAction(LibraryAction.OpenServerFilter) },
+                            )
+
+                            val genreLabel = if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Values"
+                            val isGenreFiltered = state.selectedGenre != null
+
+                            FilterButton(
+                                text = genreLabel,
+                                isActive = isGenreFiltered,
+                                onClick = { onAction(LibraryAction.OpenGenreFilter) },
+                            )
+
+                            FilterButton(
+                                text = state.currentSort ?: "Title",
+                                isActive = false,
+                                onClick = { onAction(LibraryAction.OpenSortDialog) },
+                            )
+
                             // View Mode Switch
                             IconButton(onClick = {
                                 val newMode = if (state.viewMode == LibraryViewMode.Grid) LibraryViewMode.List else LibraryViewMode.Grid
@@ -248,41 +277,6 @@ fun LibrariesScreen(
                         }
                     }
                 }
-
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 58.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    // Filter Buttons updated style
-                    val serverLabel = if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "All Servers"
-                    val isServerFiltered = state.selectedServerFilter != null
-
-                    FilterButton(
-                        text = serverLabel,
-                        isActive = isServerFiltered,
-                        onClick = { onAction(LibraryAction.OpenServerFilter) },
-                    )
-
-                    val genreLabel = if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Values"
-                    val isGenreFiltered = state.selectedGenre != null
-
-                    FilterButton(
-                        text = genreLabel,
-                        isActive = isGenreFiltered,
-                        onClick = { onAction(LibraryAction.OpenGenreFilter) },
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    FilterButton(
-                        text = state.currentSort ?: "Date Added",
-                        isActive = false,
-                        onClick = { onAction(LibraryAction.OpenSortDialog) },
-                    )
-                }
             }
         },
     ) { padding ->
@@ -329,18 +323,6 @@ fun LibrariesScreen(
             // ...
 
             when {
-                // Error state
-                state.error != null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = state.error, color = MaterialTheme.colorScheme.error)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(onClick = { onAction(LibraryAction.Refresh) }) {
-                                Text("Retry")
-                            }
-                        }
-                    }
-                }
                 // Loading state (only for INITIAL load)
                 pagedItems.loadState.refresh is androidx.paging.LoadState.Loading && pagedItems.itemCount == 0 -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -411,8 +393,8 @@ fun LibraryContent(
     viewMode: LibraryViewMode,
     onItemClick: (MediaItem) -> Unit,
     onAction: (LibraryAction) -> Unit,
-    gridState: TvLazyGridState,
-    listState: TvLazyListState,
+    gridState: LazyGridState,
+    listState: LazyListState,
     showSidebar: Boolean = false,
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
@@ -420,13 +402,12 @@ fun LibraryContent(
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             if (viewMode == LibraryViewMode.Grid) {
-                TvLazyVerticalGrid(
-                    columns = TvGridCells.Adaptive(minSize = 140.dp),
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 140.dp),
                     state = gridState,
                     contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(
@@ -466,18 +447,17 @@ fun LibraryContent(
                     }
                     
                      if (pagedItems.loadState.append is LoadState.Loading) {
-                        item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(maxLineSpan) }) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             LoadingMoreIndicator()
                         }
                     }
                 }
             } else {
                 // List View
-                TvLazyColumn(
+                LazyColumn(
                     state = listState,
                     contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(
@@ -552,11 +532,10 @@ fun RecommendedContent(
         return
     }
 
-    TvLazyColumn(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
-        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
     ) {
         items(
             items = hubs,
@@ -571,10 +550,9 @@ fun RecommendedContent(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
 
-                TvLazyRow(
+                LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                 ) {
                     items(
                         items = hub.items,

@@ -10,10 +10,10 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import com.chakir.plexhubtv.di.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.IoDispatcher
-import com.chakir.plexhubtv.di.network.ConnectionManager
+import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
 import dagger.hilt.android.HiltAndroidApp

@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.feature.profile
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -147,7 +149,7 @@ private fun ProfileCard(
         label = "scale"
     )
 
-    val borderColor by androidx.compose.animation.core.animateColorAsState(
+    val borderColor by animateColorAsState(
         targetValue = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
         label = "border"
     )
@@ -157,7 +159,6 @@ private fun ProfileCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier
             .scale(scale)
-            .focusable(interactionSource = interactionSource)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -173,9 +174,10 @@ private fun ProfileCard(
                 .border(4.dp, borderColor, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            if (profile.avatarEmoji != null) {
+            val emoji = profile.avatarEmoji
+            if (emoji != null && emoji.isNotEmpty()) {
                 Text(
-                    text = profile.avatarEmoji,
+                    text = emoji,
                     fontSize = 56.sp
                 )
             } else {
@@ -240,7 +242,6 @@ private fun AddProfileCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier
             .scale(scale)
-            .focusable(interactionSource = interactionSource)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

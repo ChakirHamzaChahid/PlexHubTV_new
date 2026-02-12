@@ -81,6 +81,13 @@ dependencies {
     // Networking (already in core:network, but needed for mappers)
     implementation(libs.kotlinx.serialization.json)
 
+    // Retrofit & Networking
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+
+
     // Room (already in core:database, but needed for DAOs access)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

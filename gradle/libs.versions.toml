@@ -6,8 +6,8 @@ ktlint = "12.1.2"
 coreKtx = "1.17.0"
 appcompat = "1.7.1"
 composeBom = "2026.01.00"
-tvFoundation = "1.0.0-alpha10"
-tvMaterial = "1.0.1"
+tvFoundation = "1.0.0-alpha12"
+tvMaterial = "1.1.0-alpha01"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.9.3"
 ksp = "2.0.21-1.0.28"
@@ -36,6 +36,8 @@ playServicesBasement = "18.5.0"
 conscrypt = "2.5.2"
 foundation = "1.10.2"
 media3CommonKtx = "1.9.2"
+runtimeAnnotation = "1.10.2"
+animation = "1.10.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -112,6 +114,8 @@ play-services-base = { group = "com.google.android.gms", name = "play-services-b
 conscrypt-android = { group = "org.conscrypt", name = "conscrypt-android", version.ref = "conscrypt" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }
+androidx-compose-runtime-annotation = { group = "androidx.compose.runtime", name = "runtime-annotation", version.ref = "runtimeAnnotation" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

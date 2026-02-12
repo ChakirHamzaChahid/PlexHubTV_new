@@ -83,7 +83,15 @@ class SearchRepositoryImpl
 
                     Result.success(sortedResults)
                 } catch (e: Exception) {
-                    Timber.e(e, "Global search failed")
+                    // Don't log cancellations as errors
+                    when (e) {
+                        is kotlinx.coroutines.CancellationException -> {
+                            Timber.d("Global search cancelled (user typing)")
+                        }
+                        else -> {
+                            Timber.e(e, "Global search failed")
+                        }
+                    }
                     Result.failure(e)
                 }
             }
@@ -155,7 +163,17 @@ class SearchRepositoryImpl
                     Result.failure(Exception("Search failed: ${response.code()}"))
                 }
             } catch (e: Exception) {
-                Timber.e(e, "Network error during search on ${server.name}")
+                // Don't log cancellations as errors - they're expected when user types quickly
+                when (e) {
+                    is kotlinx.coroutines.CancellationException -> {
+                        // Intentional cancellation (debouncing) - don't log as error
+                        Timber.d("Search cancelled on ${server.name} (user typing)")
+                    }
+                    else -> {
+                        // Real error - log it
+                        Timber.e(e, "Network error during search on ${server.name}")
+                    }
+                }
                 // 4. Network error → fallback to cache
                 if (cached != null) {
                     try {

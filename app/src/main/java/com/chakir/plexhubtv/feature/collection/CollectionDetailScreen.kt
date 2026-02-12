@@ -2,11 +2,10 @@ package com.chakir.plexhubtv.feature.collection
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.grid.TvGridCells
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.items
-import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -97,14 +96,13 @@ fun CollectionDetailScreen(
                             }
                         }
 
-                        val gridState = rememberTvLazyGridState()
-                        TvLazyVerticalGrid(
+                        val gridState = rememberLazyGridState()
+                        LazyVerticalGrid(
                             state = gridState,
-                            columns = TvGridCells.Adaptive(minSize = 120.dp),
+                            columns = GridCells.Adaptive(minSize = 120.dp),
                             contentPadding = PaddingValues(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
-                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             items(

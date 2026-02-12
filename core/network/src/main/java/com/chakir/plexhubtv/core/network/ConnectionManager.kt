@@ -59,8 +59,9 @@ class ConnectionManager
 
         /**
          * Finds the best connection for a server using "Race" logic.
-         * Returns the first WORKING URL immediately, then updates to faster one if found later?
-         * For simplicity, this initial implementation waits for the 'race' winner.
+         * Races ALL connection candidates (both public and local) in parallel.
+         * The first URL that responds successfully wins the race.
+         * This matches Plex's official behavior and handles servers with unreachable public IPs gracefully.
          */
         suspend fun findBestConnection(server: Server): String? {
             if (_isOffline.value) return null
@@ -68,11 +69,14 @@ class ConnectionManager
             // Check cache first
             _activeConnections.value[server.clientIdentifier]?.let { return it }
 
-            // Prioritize: HTTPS & plex.direct > HTTPS > HTTP
-            // But for the RACE, we might want to test them all or a subset.
-            val urlsToTest = server.connectionCandidates.map { it.uri }.distinct()
+            // Race ALL candidates (public + local) in parallel
+            // Let the fastest/most reliable connection win
+            val allCandidates = server.connectionCandidates.map { it.uri }.distinct()
 
-            val validUrl = raceConnections(urlsToTest, server.accessToken ?: "")
+            if (allCandidates.isEmpty()) return null
+
+            val validUrl = raceConnections(allCandidates, server.accessToken ?: "")
+
             if (validUrl != null) {
                 cacheConnection(server.clientIdentifier, validUrl)
             }
@@ -151,15 +155,17 @@ class ConnectionManager
         }
 
         suspend fun checkConnectionStatus(server: Server): ConnectionResult {
-            val urlsToTest = server.connectionCandidates.map { it.uri }.distinct()
-            if (urlsToTest.isEmpty()) {
+            // Race ALL candidates (public + local) in parallel to find the best connection
+            // This ensures we don't show servers as offline just because public IPs are unreachable
+            val allCandidates = server.connectionCandidates.map { it.uri }.distinct()
+
+            if (allCandidates.isEmpty()) {
                 return ConnectionResult("No URLs", false, 0, 404)
             }
 
-            // Use the same race logic but return the result directly
-            // We want the BEST result (lowest latency success), or the "best" failure if all fail.
+            // Test all URLs in parallel and get the best result (lowest latency success)
             val results =
-                urlsToTest.map { url ->
+                allCandidates.map { url ->
                     scope.async { connectionTester.testConnection(url, server.accessToken ?: "") }
                 }.awaitAll()
 

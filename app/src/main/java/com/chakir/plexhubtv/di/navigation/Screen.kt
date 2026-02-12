@@ -2,6 +2,8 @@ package com.chakir.plexhubtv.di.navigation
 
 sealed class Screen(val route: String) {
     // --- Auth Graph ---
+    data object Splash : Screen("splash")
+
     data object Login : Screen("login")
 
     data object PinInput : Screen("pin_input")

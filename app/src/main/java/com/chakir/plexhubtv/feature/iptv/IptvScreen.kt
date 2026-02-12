@@ -7,10 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.scale
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -124,12 +123,11 @@ fun IptvScreen(
                     }
                 }
             } else {
-                val listState = rememberTvLazyListState()
-                TvLazyColumn(
+                val listState = rememberLazyListState()
+                LazyColumn(
                     state = listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(

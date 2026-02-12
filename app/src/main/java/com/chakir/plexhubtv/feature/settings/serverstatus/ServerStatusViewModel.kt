@@ -3,8 +3,8 @@ package com.chakir.plexhubtv.feature.settings.serverstatus
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.Server
-import com.chakir.plexhubtv.di.network.ConnectionManager
-import com.chakir.plexhubtv.di.network.ConnectionResult
+import com.chakir.plexhubtv.core.network.ConnectionManager
+import com.chakir.plexhubtv.core.network.ConnectionResult
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -2,10 +2,9 @@ package com.chakir.plexhubtv.feature.profile
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,15 +18,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.chakir.plexhubtv.core.model.UserProfile
+import com.chakir.plexhubtv.core.model.Profile
 
 /**
- * Profile Switch Screen - Allows switching between Plex Home Users
+ * Profile Switch Screen - Allows switching between local app profiles
  */
 
 /**
- * Écran de changement de profil utilisateur (Plex Home).
- * Permet de basculer entre les utilisateurs gérés (ex: Admin, Enfant, Invité).
+ * Écran de changement de profil utilisateur (Profils locaux de l'app).
+ * Permet de basculer entre les profils locaux de l'application.
  */
 @Composable
 fun ProfileSwitchRoute(
@@ -39,7 +38,7 @@ fun ProfileSwitchRoute(
 
     ProfileSwitchScreen(
         state = uiState,
-        onAction = viewModel::onEvent,
+        onAction = viewModel::onAction,
         onNavigateBack = onNavigateBack,
     )
 }
@@ -48,7 +47,7 @@ fun ProfileSwitchRoute(
 @Composable
 fun ProfileSwitchScreen(
     state: ProfileUiState,
-    onAction: (ProfileEvent) -> Unit,
+    onAction: (ProfileAction) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     Scaffold(
@@ -89,13 +88,13 @@ fun ProfileSwitchScreen(
                                 color = MaterialTheme.colorScheme.error,
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = { onAction(ProfileEvent.RefreshProfiles) }) {
-                                Text("Retry")
+                            Button(onClick = onNavigateBack) {
+                                Text("Back")
                             }
                         }
                     }
                 }
-                state.users.isEmpty() -> {
+                state.profiles.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
@@ -110,28 +109,22 @@ fun ProfileSwitchScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text(
-                                "Contact your Plex administrator",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
                         }
                     }
                 }
                 else -> {
-                    val listState = rememberTvLazyListState()
-                    TvLazyColumn(
+                    val listState = rememberLazyListState()
+                    LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                     ) {
-                        items(state.users, key = { it.id }) { user ->
+                        items(state.profiles, key = { it.id }) { profile ->
                             ProfileListItem(
-                                user = user,
-                                isCurrentUser = user.id == state.currentUserId,
-                                onClick = { onAction(ProfileEvent.SwitchToUser(user)) },
+                                profile = profile,
+                                isCurrentProfile = profile.id == state.activeProfile?.id,
+                                onClick = { onAction(ProfileAction.SelectProfile(profile)) },
                             )
                         }
                     }
@@ -143,8 +136,8 @@ fun ProfileSwitchScreen(
 
 @Composable
 fun ProfileListItem(
-    user: UserProfile,
-    isCurrentUser: Boolean,
+    profile: Profile,
+    isCurrentProfile: Boolean,
     onClick: () -> Unit,
 ) {
     Card(
@@ -164,17 +157,14 @@ fun ProfileListItem(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.size(48.dp),
             ) {
-                if (user.thumb != null) {
-                    AsyncImage(
-                        model = user.thumb,
-                        contentDescription = null,
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                    )
-                } else {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    val emoji = profile.avatarEmoji
+                    if (!emoji.isNullOrEmpty()) {
+                        Text(
+                            text = emoji,
+                            style = MaterialTheme.typography.headlineMedium,
+                        )
+                    } else {
                         Icon(
                             Icons.Filled.Person,
                             contentDescription = null,
@@ -186,36 +176,23 @@ fun ProfileListItem(
 
             Spacer(Modifier.width(16.dp))
 
-            // User info
+            // Profile info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    user.title,
+                    profile.name,
                     style =
                         MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                         ),
                 )
-                if (user.admin) {
-                    Text(
-                        "Administrator",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
             }
 
-            // Current user indicator
-            if (isCurrentUser) {
+            // Current profile indicator
+            if (isCurrentProfile) {
                 Icon(
                     Icons.Filled.CheckCircle,
-                    contentDescription = "Current user",
+                    contentDescription = "Current profile",
                     tint = MaterialTheme.colorScheme.primary,
-                )
-            } else if (user.protected) {
-                Icon(
-                    Icons.Filled.Lock,
-                    contentDescription = "Protected profile",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -225,13 +202,13 @@ fun ProfileListItem(
 @Preview(showBackground = true)
 @Composable
 fun PreviewProfileSwitchScreen() {
-    val users =
+    val profiles =
         listOf(
-            UserProfile(id = "1", title = "Chakir", admin = true, protected = true, thumb = ""),
-            UserProfile(id = "2", title = "Guest", admin = false, protected = false, thumb = ""),
+            Profile(id = "1", name = "Chakir", avatarEmoji = "👤"),
+            Profile(id = "2", name = "Guest", avatarEmoji = "👥"),
         )
     ProfileSwitchScreen(
-        state = ProfileUiState(users = users, currentUserId = "1"),
+        state = ProfileUiState(profiles = profiles, activeProfile = profiles[0], isLoading = false),
         onAction = {},
         onNavigateBack = {},
     )

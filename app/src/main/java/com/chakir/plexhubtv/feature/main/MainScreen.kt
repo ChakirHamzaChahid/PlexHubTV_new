@@ -30,7 +30,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
 import com.chakir.plexhubtv.di.designsystem.PlexHubTheme
-import com.chakir.plexhubtv.di.navigation.NavigationItem
+import com.chakir.plexhubtv.core.navigation.NavigationItem
 import com.chakir.plexhubtv.core.ui.NetflixTopBar
 import com.chakir.plexhubtv.di.navigation.Screen
 import com.chakir.plexhubtv.feature.downloads.DownloadsRoute
@@ -74,10 +74,6 @@ fun MainScreen(
     var isTopBarScrolled by remember { mutableStateOf(false) }
     var isTopBarVisible by remember { mutableStateOf(true) }
 
-    // FocusRequesters for Top Bar ↔ Content navigation
-    val topBarFocusRequester = remember { FocusRequester() }
-    val contentFocusRequester = remember { FocusRequester() }
-
     // Determines the current selected item based on the route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -106,7 +102,6 @@ fun MainScreen(
             startDestination = Screen.Home.route,
             modifier = Modifier
                 .fillMaxSize()
-                .focusRequester(contentFocusRequester)
                 .background(MaterialTheme.colorScheme.background),
         ) {
             composable(Screen.Home.route) {
@@ -116,6 +111,7 @@ fun MainScreen(
                     HomeRoute(
                         onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
                         onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                        onScrollStateChanged = { isScrolled -> isTopBarScrolled = isScrolled },
                     )
                 }
             }
@@ -190,11 +186,11 @@ fun MainScreen(
             }
         }
 
-        // Netflix Top Bar Overlay
+        // Netflix TopBar Overlay
         if (!uiState.isOffline) {
             NetflixTopBar(
                 selectedItem = selectedItem,
-                isScrolled = isTopBarScrolled, // Will be updated by callbacks in next sprints
+                isScrolled = isTopBarScrolled,
                 isVisible = isTopBarVisible,
                 onItemSelected = { item ->
                     navController.navigate(item.route) {
@@ -209,8 +205,7 @@ fun MainScreen(
                 onProfileClick = { navController.navigate(Screen.Settings.route) },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .zIndex(1f)
-                    .focusRequester(topBarFocusRequester),
+                    .zIndex(1f),
             )
         }
     }

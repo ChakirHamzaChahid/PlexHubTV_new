@@ -8,6 +8,7 @@ import com.chakir.plexhubtv.core.model.Profile
 import com.chakir.plexhubtv.core.model.VideoQuality
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import java.util.*
@@ -145,8 +146,8 @@ class ProfileRepositoryImpl @Inject constructor(
             } else {
                 // Return active profile or first profile
                 getActiveProfile() ?: run {
-                    val profiles = profileDao.getAllProfiles()
-                    val firstProfile = profiles.map { it.firstOrNull()?.toProfile() }.first()
+                    val profileList = profileDao.getAllProfiles().first()
+                    val firstProfile = profileList.firstOrNull()?.toProfile()
                     firstProfile?.let {
                         switchProfile(it.id)
                         it.copy(isActive = true)

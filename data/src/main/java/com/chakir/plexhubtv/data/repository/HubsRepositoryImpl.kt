@@ -35,6 +35,8 @@ class HubsRepositoryImpl
         private val plexApiCache: PlexApiCache,
         private val mapper: MediaMapper,
         private val serverClientResolver: ServerClientResolver,
+        private val authRepository: AuthRepository,
+        private val connectionManager: ConnectionManager,
         private val gson: Gson,
         private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDeduplicator: MediaDeduplicator,
@@ -46,7 +48,7 @@ class HubsRepositoryImpl
                 val cachedHubs = getCachedHubs()
                 emit(cachedHubs)
 
-                val clients = serverClientResolver.getActiveClients()
+                val clients = getActiveClients()
                 if (clients.isNotEmpty()) {
                     coroutineScope {
                         val servers = authRepository.getServers().getOrNull() ?: emptyList()
@@ -163,8 +165,47 @@ class HubsRepositoryImpl
                             serverId = null, // Aggregate hubs are not server-specific
                         )
                     }
-                }.awaitAll().sortedBy { it.title } // Or use a predefined order for hubs
+                }.awaitAll().sortedWith(hubDisplayOrderComparator)
             }
+
+        /**
+         * Comparator for custom hub display order.
+         * Hubs are displayed in a predefined order based on their identifier.
+         * Unlisted hubs are placed at the end in alphabetical order.
+         */
+        private val hubDisplayOrderComparator = Comparator<Hub> { hub1, hub2 ->
+            val order = listOf(
+                // Priority order (Continue Watching is handled separately in UI)
+                "home.movies.recentlyreleased",
+                "recentlyReleased",
+                "recently.released.movies",
+                "home.recentlyadded",
+                "recentlyAdded",
+                "home.television.recentlyadded",
+                "recently.added.tv",
+                "home.movies.unwatched",
+                "topUnwatched",
+                "top.unwatched.movies",
+            )
+
+            val id1 = hub1.hubIdentifier?.lowercase() ?: ""
+            val id2 = hub2.hubIdentifier?.lowercase() ?: ""
+
+            // Find positions in priority list (case-insensitive partial match)
+            val pos1 = order.indexOfFirst { id1.contains(it.lowercase()) || it.lowercase().contains(id1) }
+            val pos2 = order.indexOfFirst { id2.contains(it.lowercase()) || it.lowercase().contains(id2) }
+
+            when {
+                // Both have priority positions
+                pos1 != -1 && pos2 != -1 -> pos1.compareTo(pos2)
+                // Only hub1 has priority
+                pos1 != -1 -> -1
+                // Only hub2 has priority
+                pos2 != -1 -> 1
+                // Neither has priority - sort alphabetically by title
+                else -> (hub1.title ?: "").compareTo(hub2.title ?: "", ignoreCase = true)
+            }
+        }
 
         /**
          * Processes hub DTOs and converts them to domain Hub objects.
@@ -172,7 +213,7 @@ class HubsRepositoryImpl
          * Extracted to eliminate duplication between cache and network paths.
          */
         private suspend fun processHubDtos(
-            hubDtos: List<com.chakir.plexhubtv.core.network.model.HubDto>,
+            hubDtos: List<com.chakir.plexhubtv.core.network.model.HubDTO>,
             client: PlexClient,
         ): List<Hub> {
             return hubDtos.mapNotNull { hubDto ->
@@ -243,7 +284,7 @@ class HubsRepositoryImpl
             }
         }
 
-        private suspend fun serverClientResolver.getActiveClients(): List<PlexClient> =
+        private suspend fun getActiveClients(): List<PlexClient> =
             coroutineScope {
                 val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
 

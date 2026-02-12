@@ -10,7 +10,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.tv.material3.*
-import com.chakir.plexhubtv.di.navigation.NavigationItem
+import com.chakir.plexhubtv.core.navigation.NavigationItem
 
 /**
  * Barre de navigation latérale (Drawer) pour TV.

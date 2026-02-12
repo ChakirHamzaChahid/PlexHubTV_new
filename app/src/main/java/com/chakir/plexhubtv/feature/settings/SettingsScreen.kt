@@ -1,9 +1,8 @@
 package com.chakir.plexhubtv.feature.settings
 
 import androidx.compose.foundation.layout.*
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cached
@@ -86,8 +85,8 @@ fun SettingsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        val listState = rememberTvLazyListState()
-        TvLazyColumn(
+        val listState = rememberLazyListState()
+        LazyColumn(
             state = listState,
             modifier =
                 Modifier
@@ -95,7 +94,6 @@ fun SettingsScreen(
                     .fillMaxSize(),
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            pivotOffsets = PivotOffsets(parentFraction = 0.0f)
         ) {
             // --- Appearance ---
             item {

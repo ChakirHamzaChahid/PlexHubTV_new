@@ -34,6 +34,7 @@ class MediaDetailRepositoryImpl
     constructor(
         private val api: PlexApiService,
         private val authRepository: AuthRepository,
+        private val connectionManager: ConnectionManager,
         private val serverClientResolver: ServerClientResolver,
         private val mediaDao: MediaDao,
         private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,

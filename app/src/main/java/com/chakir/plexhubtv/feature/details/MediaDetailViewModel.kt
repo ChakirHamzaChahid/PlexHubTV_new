@@ -298,9 +298,11 @@ class MediaDetailViewModel
 
         private suspend fun loadCollection() {
             Timber.d("VM: Loading collections (multi-server aggregation)")
+            _uiState.update { it.copy(isLoadingCollections = true) }
             try {
                 val media = _uiState.value.media ?: run {
                     Timber.w("VM: Cannot load collections - media is null")
+                    _uiState.update { it.copy(isLoadingCollections = false) }
                     return
                 }
 
@@ -345,9 +347,10 @@ class MediaDetailViewModel
                     Timber.w("VM: ⚠️ No collections found across any server")
                 }
 
-                _uiState.update { it.copy(collections = uniqueCollections) }
+                _uiState.update { it.copy(collections = uniqueCollections, isLoadingCollections = false) }
             } catch (e: Exception) {
                 Timber.e(e, "VM: ❌ Exception during multi-server collection aggregation")
+                _uiState.update { it.copy(isLoadingCollections = false) }
             }
         }
     }

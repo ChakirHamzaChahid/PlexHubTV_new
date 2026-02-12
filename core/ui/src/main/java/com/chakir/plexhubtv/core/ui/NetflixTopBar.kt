@@ -53,11 +53,8 @@ fun NetflixTopBar(
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isScrolled) Color.Black.copy(alpha = 0.85f) else Color.Transparent,
-        animationSpec = tween(durationMillis = 300),
-        label = "TopBarBackgroundAnimation"
-    )
+    // TopBar always has opaque background (does not merge with home screen)
+    val backgroundColor = Color.Black.copy(alpha = 0.95f)
 
     AnimatedVisibility(
         visible = isVisible,
@@ -146,13 +143,18 @@ private fun NetflixNavItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
+    // Different colors for selected vs focused vs normal
     val textColor = when {
-        isSelected -> Color.White
-        isFocused -> Color.White
-        else -> Color.White.copy(alpha = 0.7f)
+        isFocused && isSelected -> NetflixRed // Both focused and selected: Red (for clarity)
+        isFocused -> NetflixRed // Focused during navigation: Red
+        isSelected -> Color.White // Selected (active screen): White
+        else -> Color.White.copy(alpha = 0.7f) // Not selected/focused: Transparent white
     }
 
-    val fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal
+    val fontWeight = when {
+        isFocused || isSelected -> FontWeight.Bold
+        else -> FontWeight.Normal
+    }
 
     Box(
         modifier = Modifier
@@ -161,7 +163,6 @@ private fun NetflixNavItem(
                 indication = null,
                 onClick = onSelected
             )
-            .focusable(interactionSource = interactionSource)
     ) {
         Text(
             text = item.label,
@@ -189,8 +190,7 @@ private fun NetflixSearchIcon(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
-            )
-            .focusable(interactionSource = interactionSource),
+            ),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -208,8 +208,8 @@ private fun NetflixProfileAvatar(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
-    
-    // Premium Netflix-style profile avatar
+
+    // Premium Netflix-style profile avatar with "P" like Netflix "N"
     val borderColor = if (isFocused) Color.White else Color.Transparent
     val scale = if (isFocused) 1.1f else 1f
 
@@ -228,17 +228,18 @@ private fun NetflixProfileAvatar(
                 indication = null,
                 onClick = onClick
             )
-            .focusable(interactionSource = interactionSource)
             .then(
                 if (isFocused) Modifier.border(2.dp, borderColor, CircleShape) else Modifier
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.AccountCircle,
-            contentDescription = "Profile",
-            tint = Color.White,
-            modifier = Modifier.size(20.dp)
+        Text(
+            text = "P",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            ),
+            modifier = Modifier.padding(bottom = 2.dp) // Slight adjustment for vertical centering
         )
     }
 }
