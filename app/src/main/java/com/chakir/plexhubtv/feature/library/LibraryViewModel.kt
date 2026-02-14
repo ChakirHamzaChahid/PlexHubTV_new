@@ -297,6 +297,8 @@ class LibraryViewModel
                     // Handled by PagingAdapter.refresh() in UI
                 }
                 is LibraryAction.OpenMedia -> {
+                    // Sync lastFocusedId to UiState before navigation so focus can be restored on back
+                    _uiState.update { it.copy(lastFocusedId = action.media.ratingKey) }
                     viewModelScope.launch {
                         _navigationEvents.send(LibraryNavigationEvent.NavigateToDetail(action.media.ratingKey, action.media.serverId))
                     }

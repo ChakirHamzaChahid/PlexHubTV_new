@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -124,11 +125,21 @@ fun IptvScreen(
                 }
             } else {
                 val listState = rememberLazyListState()
+                val channelListFocusRequester = remember { FocusRequester() }
+
+                LaunchedEffect(state.channels) {
+                    if (state.channels.isNotEmpty()) {
+                        channelListFocusRequester.requestFocus()
+                    }
+                }
+
                 LazyColumn(
                     state = listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .focusRequester(channelListFocusRequester),
                 ) {
                     items(
                         items = state.channels,

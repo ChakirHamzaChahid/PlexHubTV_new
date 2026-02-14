@@ -25,7 +25,10 @@ import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -71,6 +74,9 @@ fun NetflixPlayerControls(
     markers: List<Marker> = emptyList(),
     visibleMarkers: List<Marker> = emptyList(),
     onSkipMarker: (Marker) -> Unit = {},
+    onShowSubtitles: () -> Unit = {},
+    onShowAudio: () -> Unit = {},
+    onShowSettings: () -> Unit = {},
     playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null
 ) {
     AnimatedVisibility(
@@ -214,6 +220,19 @@ fun NetflixPlayerControls(
                     Spacer(modifier = Modifier.width(16.dp))
                      IconButton(onClick = onStop) {
                         Icon(Icons.Default.Stop, "Stop", tint = Color.White)
+                    }
+
+                    Spacer(modifier = Modifier.width(32.dp))
+                    IconButton(onClick = onShowSubtitles) {
+                        Icon(Icons.Default.Subtitles, "Subtitles", tint = Color.White)
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    IconButton(onClick = onShowAudio) {
+                        Icon(Icons.Default.VolumeUp, "Audio", tint = Color.White)
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    IconButton(onClick = onShowSettings) {
+                        Icon(Icons.Default.Settings, "Settings", tint = Color.White)
                     }
                 }
             }

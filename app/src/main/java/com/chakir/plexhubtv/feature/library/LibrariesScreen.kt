@@ -83,6 +83,7 @@ import timber.log.Timber
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 import com.chakir.plexhubtv.di.designsystem.NetflixBlack
 import com.chakir.plexhubtv.di.designsystem.NetflixRed
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
 
 // ... (Rest of imports likely preserved by smart apply, but I should be careful)
@@ -192,7 +193,7 @@ fun LibrariesScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Filter Buttons
-                            val serverLabel = if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server: MyServer"
+                            val serverLabel = if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server: All"
                             val isServerFiltered = state.selectedServerFilter != null
 
                             FilterButton(
@@ -347,6 +348,7 @@ fun LibrariesScreen(
                             showSidebar = state.currentSort == "Title",
                             scrollRequest = scrollRequest,
                             onScrollConsumed = onScrollConsumed,
+                            lastFocusedId = state.lastFocusedId,
                         )
                     }
                 }
@@ -398,7 +400,12 @@ fun LibraryContent(
     showSidebar: Boolean = false,
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
+    lastFocusedId: String? = null,
 ) {
+    // Focus restoration: request focus on the item that was previously focused
+    val focusRestorationRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    var hasRestoredFocus by remember { mutableStateOf(false) }
+
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             if (viewMode == LibraryViewMode.Grid) {
@@ -417,13 +424,24 @@ fun LibraryContent(
                     ) { index ->
                         val item = pagedItems[index]
                         if (item != null) {
+                            val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
                             var isFocused by remember { mutableStateOf(false) }
+
+                            if (shouldRestoreFocus) {
+                                LaunchedEffect(Unit) {
+                                    try {
+                                        focusRestorationRequester.requestFocus()
+                                        hasRestoredFocus = true
+                                    } catch (_: Exception) { }
+                                }
+                            }
+
                             Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
                                 NetflixMediaCard(
                                     media = item,
                                     onClick = { onItemClick(item) },
                                     onPlay = { },
-                                    onFocus = { focused -> 
+                                    onFocus = { focused ->
                                         isFocused = focused
                                         if (focused) {
                                             onAction(LibraryAction.OnItemFocused(item))
@@ -432,6 +450,9 @@ fun LibraryContent(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .aspectRatio(2f/3f)
+                                        .then(
+                                            if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
+                                        )
                                 )
                             }
                         } else {

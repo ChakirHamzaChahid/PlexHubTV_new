@@ -159,8 +159,8 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideServerConnectionTester(): ServerConnectionTester {
-        return OkHttpConnectionTester()
+    fun provideServerConnectionTester(okHttpClient: OkHttpClient): ServerConnectionTester {
+        return OkHttpConnectionTester(okHttpClient)
     }
 
     // ========================================

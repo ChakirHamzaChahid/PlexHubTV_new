@@ -12,6 +12,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -52,6 +55,8 @@ fun NetflixTopBar(
     onSearchClick: () -> Unit,
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
+    focusRequester: FocusRequester = remember { FocusRequester() },
+    onFocusChanged: (Boolean) -> Unit = {},
 ) {
     // TopBar always has opaque background (does not merge with home screen)
     val backgroundColor = Color.Black.copy(alpha = 0.95f)
@@ -67,7 +72,9 @@ fun NetflixTopBar(
                 .fillMaxWidth()
                 .height(56.dp)
                 .background(backgroundColor)
-                .padding(horizontal = 48.dp), // Safe area padding
+                .padding(horizontal = 48.dp)
+                .focusRequester(focusRequester)
+                .onFocusChanged { onFocusChanged(it.hasFocus) },
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Logo

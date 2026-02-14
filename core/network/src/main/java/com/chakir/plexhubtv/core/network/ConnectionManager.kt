@@ -58,10 +58,9 @@ class ConnectionManager
         }
 
         /**
-         * Finds the best connection for a server using "Race" logic.
-         * Races ALL connection candidates (both public and local) in parallel.
-         * The first URL that responds successfully wins the race.
-         * This matches Plex's official behavior and handles servers with unreachable public IPs gracefully.
+         * Finds the best connection for a server.
+         * Strategy: Race direct candidates first (10s timeout), then fallback to relay (30s timeout).
+         * This ensures fast servers respond quickly while relay-only servers still get connected.
          */
         suspend fun findBestConnection(server: Server): String? {
             if (_isOffline.value) return null
@@ -69,36 +68,51 @@ class ConnectionManager
             // Check cache first
             _activeConnections.value[server.clientIdentifier]?.let { return it }
 
-            // Race ALL candidates (public + local) in parallel
-            // Let the fastest/most reliable connection win
-            val allCandidates = server.connectionCandidates.map { it.uri }.distinct()
+            val directCandidates = server.connectionCandidates.filter { !it.relay }.map { it.uri }.distinct()
+            val relayCandidates = server.connectionCandidates.filter { it.relay }.map { it.uri }.distinct()
 
-            if (allCandidates.isEmpty()) return null
-
-            val validUrl = raceConnections(allCandidates, server.accessToken ?: "")
-
-            if (validUrl != null) {
-                cacheConnection(server.clientIdentifier, validUrl)
+            // 1. Race direct candidates (local + public) with standard timeout
+            if (directCandidates.isNotEmpty()) {
+                val validUrl = raceUrls(directCandidates, server.accessToken ?: "")
+                if (validUrl != null) {
+                    cacheConnection(server.clientIdentifier, validUrl)
+                    return validUrl
+                }
             }
-            return validUrl
+
+            // 2. Fallback: try relay candidates with longer timeout
+            if (relayCandidates.isNotEmpty()) {
+                Timber.d("ConnectionManager: Trying relay candidates for ${server.name} (${relayCandidates.size})")
+                val validUrl = raceUrls(relayCandidates, server.accessToken ?: "", timeoutSeconds = 30)
+                if (validUrl != null) {
+                    cacheConnection(server.clientIdentifier, validUrl)
+                    return validUrl
+                }
+            }
+
+            // 3. Server is relay-capable (server.relay=true) but no candidate has relay flag
+            //    Retry all candidates with longer timeout
+            if (server.relay && relayCandidates.isEmpty()) {
+                Timber.d("ConnectionManager: Retrying all candidates with relay timeout for ${server.name}")
+                val allUrls = server.connectionCandidates.map { it.uri }.distinct()
+                val validUrl = raceUrls(allUrls, server.accessToken ?: "", timeoutSeconds = 30)
+                if (validUrl != null) {
+                    cacheConnection(server.clientIdentifier, validUrl)
+                    return validUrl
+                }
+            }
+
+            return null
         }
-
-        private suspend fun raceConnections(
-            urls: List<String>,
-            token: String,
-        ): String? =
-            coroutineScope {
-                if (urls.isEmpty()) return@coroutineScope null
-
-                // Performance Optimization: Parallel Test
-                raceUrls(urls, token)
-            }
 
         private suspend fun raceUrls(
             urls: List<String>,
             token: String,
+            timeoutSeconds: Int = 10,
         ): String? =
             coroutineScope {
+                if (urls.isEmpty()) return@coroutineScope null
+
                 val winner = kotlinx.coroutines.CompletableDeferred<String?>()
                 var completedCount = 0
 
@@ -106,7 +120,7 @@ class ConnectionManager
                     urls.map { url ->
                         launch {
                             try {
-                                val result = connectionTester.testConnection(url, token)
+                                val result = connectionTester.testConnection(url, token, timeoutSeconds)
                                 if (result.success) {
                                     winner.complete(url)
                                 }
@@ -155,18 +169,18 @@ class ConnectionManager
         }
 
         suspend fun checkConnectionStatus(server: Server): ConnectionResult {
-            // Race ALL candidates (public + local) in parallel to find the best connection
-            // This ensures we don't show servers as offline just because public IPs are unreachable
-            val allCandidates = server.connectionCandidates.map { it.uri }.distinct()
-
-            if (allCandidates.isEmpty()) {
+            val candidates = server.connectionCandidates
+            if (candidates.isEmpty()) {
                 return ConnectionResult("No URLs", false, 0, 404)
             }
 
-            // Test all URLs in parallel and get the best result (lowest latency success)
+            // Test all candidates in parallel with appropriate timeouts per type
+            // Use relay timeout if candidate is flagged relay OR server is relay-capable with no explicit relay candidates
+            val hasExplicitRelayCandidates = candidates.any { it.relay }
             val results =
-                allCandidates.map { url ->
-                    scope.async { connectionTester.testConnection(url, server.accessToken ?: "") }
+                candidates.distinctBy { it.uri }.map { candidate ->
+                    val timeout = if (candidate.relay || (server.relay && !hasExplicitRelayCandidates)) 30 else 10
+                    scope.async { connectionTester.testConnection(candidate.uri, server.accessToken ?: "", timeout) }
                 }.awaitAll()
 
             val winner =

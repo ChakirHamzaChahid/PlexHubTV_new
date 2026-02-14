@@ -26,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
@@ -74,6 +75,10 @@ fun MainScreen(
     var isTopBarScrolled by remember { mutableStateOf(false) }
     var isTopBarVisible by remember { mutableStateOf(true) }
 
+    // TopBar focus management for Back button handling
+    val topBarFocusRequester = remember { FocusRequester() }
+    var isTopBarFocused by remember { mutableStateOf(false) }
+
     // Determines the current selected item based on the route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -88,9 +93,16 @@ fun MainScreen(
                 Screen.Settings.route -> NavigationItem.Settings
                 Screen.Search.route -> NavigationItem.Search
                 Screen.Downloads.route -> NavigationItem.Downloads
+                Screen.Iptv.route -> NavigationItem.Iptv
                 else -> NavigationItem.Home // Default or None
             }
         }
+
+    // Back: from content → focus TopBar; from TopBar → exit app
+    val isOnStartDestination = currentRoute == Screen.Home.route
+    BackHandler(enabled = isOnStartDestination && !isTopBarFocused) {
+        topBarFocusRequester.requestFocus()
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isOffline) {
@@ -206,6 +218,8 @@ fun MainScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .zIndex(1f),
+                focusRequester = topBarFocusRequester,
+                onFocusChanged = { hasFocus -> isTopBarFocused = hasFocus },
             )
         }
     }

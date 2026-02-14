@@ -10,8 +10,6 @@ import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -237,12 +235,10 @@ class MediaDetailViewModel
                                     isEnriching = true, // Start enriching (looking for other servers)
                                 )
                             }
-                            // Secondary fetch for similar items
+                            // Launch ALL secondary fetches in parallel
                             loadSimilarItems()
-
-                            // Secondary fetch for other servers (Available Sources)
-                            // loadCollection() will be called AFTER enrichment completes
                             loadAvailableServers(detail.item)
+                            loadCollection() // Collections are BDD-local, no need to wait for enrichment
                         },
                         onFailure = { error ->
                             Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
@@ -270,15 +266,10 @@ class MediaDetailViewModel
                             currentState.copy(isEnriching = false)
                         }
                     }
-
-                    // NOW load collections using enriched data (with remoteSources populated)
                     Timber.d("VM: Enrichment complete. remoteSources count: ${enriched.remoteSources.size}")
-                    loadCollection()
                 } catch (e: Exception) {
                     Timber.w("Failed to enrich media: ${e.message}")
                     _uiState.update { it.copy(isEnriching = false) }
-                    // Still try to load collections from primary server
-                    loadCollection()
                 }
             }
         }
@@ -296,61 +287,25 @@ class MediaDetailViewModel
             }
         }
 
-        private suspend fun loadCollection() {
-            Timber.d("VM: Loading collections (multi-server aggregation)")
-            _uiState.update { it.copy(isLoadingCollections = true) }
-            try {
-                val media = _uiState.value.media ?: run {
-                    Timber.w("VM: Cannot load collections - media is null")
+        private fun loadCollection() {
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoadingCollections = true) }
+                try {
+                    val media = _uiState.value.media ?: run {
+                        Timber.w("VM: Cannot load collections - media is null")
+                        _uiState.update { it.copy(isLoadingCollections = false) }
+                        return@launch
+                    }
+
+                    // Collections are BDD-local (fast) — query primary server only
+                    val result = getMediaCollectionsUseCase(media.ratingKey, media.serverId).first()
+                    Timber.d("VM: Got ${result.size} collection(s) from primary server")
+
+                    _uiState.update { it.copy(collections = result, isLoadingCollections = false) }
+                } catch (e: Exception) {
+                    Timber.e(e, "VM: Exception loading collections")
                     _uiState.update { it.copy(isLoadingCollections = false) }
-                    return
                 }
-
-                // Build list of all servers to query: primary + remote sources
-                val serversToQuery = buildList {
-                    add(Pair(media.serverId, media.ratingKey))
-                    media.remoteSources.forEach { source ->
-                        add(Pair(source.serverId, source.ratingKey))
-                    }
-                }.distinctBy { it.first } // Deduplicate by serverId
-
-                Timber.i("VM: Querying ${serversToQuery.size} server(s) for collections")
-                serversToQuery.forEach { (sid, rkey) ->
-                    Timber.d("   - Server $sid with ratingKey $rkey")
-                }
-
-                // Query all servers in parallel
-                val allCollections = serversToQuery.map { (sid, rkey) ->
-                    viewModelScope.async {
-                        try {
-                            Timber.d("VM: Fetching collections from server $sid...")
-                            val result = getMediaCollectionsUseCase(rkey, sid).first()
-                            Timber.d("VM: ✓ Got ${result.size} collection(s) from server $sid")
-                            result
-                        } catch (e: Exception) {
-                            Timber.w(e, "VM: Failed to load collections from server $sid")
-                            emptyList()
-                        }
-                    }
-                }.awaitAll().flatten()
-
-                // Deduplicate collections by (title + serverId) to keep distinct collections
-                // Note: Same title on different servers = different collections (correct behavior)
-                val uniqueCollections = allCollections.distinctBy { "${it.title}|${it.serverId}" }
-
-                if (uniqueCollections.isNotEmpty()) {
-                    Timber.i("VM: ✅ Aggregated ${uniqueCollections.size} unique collection(s) from ${serversToQuery.size} server(s)")
-                    uniqueCollections.forEach { col ->
-                        Timber.d("   - '${col.title}' (${col.items.size} items, server=${col.serverId})")
-                    }
-                } else {
-                    Timber.w("VM: ⚠️ No collections found across any server")
-                }
-
-                _uiState.update { it.copy(collections = uniqueCollections, isLoadingCollections = false) }
-            } catch (e: Exception) {
-                Timber.e(e, "VM: ❌ Exception during multi-server collection aggregation")
-                _uiState.update { it.copy(isLoadingCollections = false) }
             }
         }
     }

@@ -54,6 +54,7 @@ class SeasonDetailViewModel
         private val getMediaDetailUseCase: GetMediaDetailUseCase,
         private val toggleWatchStatusUseCase: ToggleWatchStatusUseCase,
         private val resolveEpisodeSourcesUseCase: ResolveEpisodeSourcesUseCase,
+        private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
         private val getPlayQueueUseCase: com.chakir.plexhubtv.domain.usecase.GetPlayQueueUseCase,
         private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
         private val toggleFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.ToggleFavoriteUseCase,
@@ -107,18 +108,20 @@ class SeasonDetailViewModel
             when (event) {
                 is SeasonDetailEvent.PlayEpisode -> {
                     viewModelScope.launch {
-                        _uiState.update { it.copy(isResolvingSources = true) }
+                        // 1. Enrich episode with remote sources (Room-first ~5ms, network fallback if needed)
+                        val enrichedEpisode = try {
+                            enrichMediaItemUseCase(event.episode)
+                        } catch (e: Exception) {
+                            Timber.w(e, "Episode enrichment failed for ${event.episode.title}")
+                            event.episode
+                        }
 
-                        // Populate Queue
-                        val queue = getPlayQueueUseCase(event.episode).getOrElse { listOf(event.episode) }
-                        playbackManager.play(event.episode, queue)
+                        // 2. Populate Queue
+                        val queue = getPlayQueueUseCase(enrichedEpisode).getOrElse { listOf(enrichedEpisode) }
+                        playbackManager.play(enrichedEpisode, queue)
 
-                        val sources = resolveEpisodeSourcesUseCase(event.episode)
-                        _uiState.update { it.copy(isResolvingSources = false) }
-
-                        if (sources.size > 1) {
-                            // Update episode with sources and show dialog
-                            val enrichedEpisode = event.episode.copy(remoteSources = sources)
+                        // 3. Check sources and show dialog or play directly
+                        if (enrichedEpisode.remoteSources.size > 1) {
                             _uiState.update {
                                 it.copy(
                                     showSourceSelection = true,
@@ -126,9 +129,8 @@ class SeasonDetailViewModel
                                 )
                             }
                         } else {
-                            // Play directly
                             _navigationEvents.send(
-                                SeasonDetailNavigationEvent.NavigateToPlayer(event.episode.ratingKey, event.episode.serverId),
+                                SeasonDetailNavigationEvent.NavigateToPlayer(enrichedEpisode.ratingKey, enrichedEpisode.serverId),
                             )
                         }
                     }

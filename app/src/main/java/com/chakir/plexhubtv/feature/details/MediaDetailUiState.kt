@@ -19,9 +19,9 @@ data class MediaDetailUiState(
     val isEnriching: Boolean = false, // Indicates if we are currently searching for other servers
     val isLoadingCollections: Boolean = false, // Indicates if we are currently loading collections
 ) {
-    // Play button should be in loading state while streams or collections are being loaded
+    // Play button waits for enrichment — Room-first is ~5ms (imperceptible), network fallback properly blocks
     val isPlayButtonLoading: Boolean
-        get() = isEnriching || isLoadingCollections
+        get() = isEnriching
 }
 
 sealed interface MediaDetailEvent {

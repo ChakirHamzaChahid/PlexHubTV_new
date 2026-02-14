@@ -170,6 +170,26 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_24_25 =
+        object : androidx.room.migration.Migration(24, 25) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE servers ADD COLUMN relay INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE servers ADD COLUMN publicAddress TEXT")
+                database.execSQL("ALTER TABLE servers ADD COLUMN httpsRequired INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE servers ADD COLUMN connectionCandidatesJson TEXT NOT NULL DEFAULT '[]'")
+                // Clear stale server cache so fresh data with all candidates is fetched from API
+                database.execSQL("DELETE FROM servers")
+            }
+        }
+
+    private val MIGRATION_25_26 =
+        object : androidx.room.migration.Migration(25, 26) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Clear stale server cache for users who already migrated to v25 without the DELETE
+                database.execSQL("DELETE FROM servers")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -202,7 +222,9 @@ object DatabaseModule {
                 MIGRATION_20_21,
                 MIGRATION_21_22,
                 MIGRATION_22_23,
-                MIGRATION_23_24
+                MIGRATION_23_24,
+                MIGRATION_24_25,
+                MIGRATION_25_26
             )
             .fallbackToDestructiveMigration()
             .build()

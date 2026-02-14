@@ -11,19 +11,21 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyListState // ✅ State reste dans foundation
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.compose.foundation.lazy.LazyColumn // ✅ Depuis tv-material
 import androidx.compose.foundation.lazy.LazyRow // ✅ Depuis tv-material (pas foundation)
-import androidx.compose.ui.focus.onFocusChanged
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
-import timber.log.Timber
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun NetflixContentRow(
     title: String,
@@ -41,9 +43,6 @@ fun NetflixContentRow(
         modifier = modifier
             .fillMaxWidth()
             .padding(bottom = 24.dp)
-            .onFocusChanged { focusState ->
-                Timber.d("ROW_FOCUS: '$title' hasFocus=${focusState.hasFocus} isFocused=${focusState.isFocused}")
-            }
     ) {
         // Row Title
         Text(
@@ -61,8 +60,14 @@ fun NetflixContentRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp), // 8dp per plan spec
             modifier = Modifier
                 .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    Timber.d("ROW_LAZYROW: '$title' hasFocus=${focusState.hasFocus} isFocused=${focusState.isFocused}")
+                .focusProperties {
+                    @Suppress("DEPRECATION")
+                    exit = { direction ->
+                        when (direction) {
+                            FocusDirection.Right, FocusDirection.Left -> FocusRequester.Cancel
+                            else -> FocusRequester.Default
+                        }
+                    }
                 }
                 .focusGroup() // Group horizontal navigation within this row
         ) {

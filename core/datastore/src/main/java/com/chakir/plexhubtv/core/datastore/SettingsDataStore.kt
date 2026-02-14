@@ -133,7 +133,7 @@ class SettingsDataStore
 
         val defaultServer: Flow<String> =
             dataStore.data
-                .map { preferences -> preferences[DEFAULT_SERVER] ?: "MyServer" }
+                .map { preferences -> preferences[DEFAULT_SERVER] ?: "all" }
 
         val playerEngine: Flow<String> =
             dataStore.data

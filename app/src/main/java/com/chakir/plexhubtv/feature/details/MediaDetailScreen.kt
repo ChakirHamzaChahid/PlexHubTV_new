@@ -59,7 +59,6 @@ import timber.log.Timber
 @Composable
 fun MediaDetailRoute(
     viewModel: MediaDetailViewModel = hiltViewModel(),
-    enrichmentViewModel: MediaEnrichmentViewModel = hiltViewModel(),
     onNavigateToPlayer: (String, String) -> Unit,
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateToSeason: (String, String) -> Unit,
@@ -67,22 +66,7 @@ fun MediaDetailRoute(
     onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val enrichmentState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // Combine states for the Screen
-    val combinedState = uiState.copy(
-        similarItems = enrichmentState.similarItems,
-        collections = enrichmentState.collections
-    )
-
-    // Trigger enrichment when media is loaded
-    LaunchedEffect(uiState.media) {
-        val media = uiState.media
-        if (media != null) {
-             enrichmentViewModel.loadEnrichment(media)
-        }
-    }
 
     val events = viewModel.navigationEvents
     val errorEvents = viewModel.errorEvents
@@ -111,7 +95,7 @@ fun MediaDetailRoute(
     }
 
     MediaDetailScreen(
-        state = combinedState,
+        state = uiState,
         onAction = viewModel::onEvent,
         onCollectionClicked = viewModel::onCollectionClicked,
         snackbarHostState = snackbarHostState,

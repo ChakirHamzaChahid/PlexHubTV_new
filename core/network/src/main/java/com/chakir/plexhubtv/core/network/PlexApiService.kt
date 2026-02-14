@@ -49,6 +49,8 @@ interface PlexApiService {
     @GET("https://plex.tv/api/v2/resources")
     suspend fun getResources(
         @Query("includeHttps") includeHttps: Int = 1,
+        @Query("includeRelay") includeRelay: Int = 1,
+        @Query("includeIPv6") includeIPv6: Int = 1,
         @Header("X-Plex-Token") token: String,
         @Header("X-Plex-Client-Identifier") clientId: String,
     ): Response<List<PlexResource>>

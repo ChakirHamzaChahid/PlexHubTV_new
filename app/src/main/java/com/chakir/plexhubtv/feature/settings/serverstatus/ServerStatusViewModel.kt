@@ -56,7 +56,7 @@ class ServerStatusViewModel
             viewModelScope.launch {
                 _uiState.update { it.copy(isLoading = true, error = null) }
 
-                val result = authRepository.getServers()
+                val result = authRepository.getServers(forceRefresh = true)
 
                 result.onSuccess { servers ->
                     // Initial list populate (as loading)
@@ -83,14 +83,10 @@ class ServerStatusViewModel
         }
 
         private suspend fun checkAllServers(servers: List<Server>) {
-            // We trigger check for all, assuming ConnectionManager handles concurrency or we launch separate coroutines here.
-            // To be safe and update UI incrementally, we iterate.
-            // Actually, we can launch parallel jobs here.
-
             servers.forEach { server ->
                 viewModelScope.launch {
                     val status = connectionManager.checkConnectionStatus(server)
-                    updateServerStatus(server.clientIdentifier, status)
+                    updateServerStatus(server, status)
                 }
             }
 
@@ -98,20 +94,42 @@ class ServerStatusViewModel
         }
 
         private fun updateServerStatus(
-            identifier: String,
+            server: Server,
             status: ConnectionResult,
         ) {
             _uiState.update { currentState ->
                 val updatedList =
                     currentState.servers.map { item ->
-                        if (item.identifier == identifier) {
-                            item.copy(
-                                isOnline = status.success,
-                                latencyMs = status.latencyMs,
-                                address = status.url,
-                                details = if (status.success) "Online (${status.latencyMs}ms)" else "Offline (Error ${status.errorCode})",
-                                isLoading = false,
-                            )
+                        if (item.identifier == server.clientIdentifier) {
+                            if (status.success) {
+                                item.copy(
+                                    isOnline = true,
+                                    latencyMs = status.latencyMs,
+                                    address = status.url,
+                                    details = "Online (${status.latencyMs}ms)",
+                                    isLoading = false,
+                                )
+                            } else {
+                                val hasRelay = server.relay || server.connectionCandidates.any { it.relay }
+                                if (hasRelay) {
+                                    item.copy(
+                                        isOnline = true,
+                                        latencyMs = 0,
+                                        address = "Plex Relay",
+                                        details = "Online (Relay)",
+                                        isLoading = false,
+                                    )
+                                } else {
+                                    val reason = status.errorCode?.let { "HTTP $it" } ?: status.errorMessage ?: "Unknown"
+                                    item.copy(
+                                        isOnline = false,
+                                        latencyMs = status.latencyMs,
+                                        address = status.url,
+                                        details = "Offline ($reason)",
+                                        isLoading = false,
+                                    )
+                                }
+                            }
                         } else {
                             item
                         }

@@ -27,7 +27,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -54,7 +52,6 @@ import coil.request.ImageRequest
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import timber.log.Timber
 
 enum class CardType {
     POSTER,
@@ -74,13 +71,9 @@ fun NetflixMediaCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    // Debug: track focus changes
-    LaunchedEffect(isFocused) {
-        if (isFocused) {
-            Timber.d("CARD_FOCUS: GAINED '${media.title}' (ratingKey=${media.ratingKey})")
-        } else {
-            Timber.d("CARD_FOCUS: LOST '${media.title}' (ratingKey=${media.ratingKey})")
-        }
+    // Notify parent of focus changes
+    androidx.compose.runtime.LaunchedEffect(isFocused) {
+        onFocus(isFocused)
     }
 
     // Animations

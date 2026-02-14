@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 24 : Ajout de SearchCacheEntity pour le cache de recherche offline.
+ * Version 26 : Purge du cache serveurs pour forcer le re-fetch avec toutes les connexions candidates.
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -27,7 +27,7 @@ import androidx.room.TypeConverters
         ProfileEntity::class,
         SearchCacheEntity::class,
     ],
-    version = 24,
+    version = 26,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {

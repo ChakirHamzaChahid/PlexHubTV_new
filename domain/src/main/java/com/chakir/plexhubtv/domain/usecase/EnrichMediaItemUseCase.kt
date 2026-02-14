@@ -1,80 +1,119 @@
 package com.chakir.plexhubtv.domain.usecase
 
+import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.VideoStream
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Cas d'utilisation pour enrichir un MediaItem avec des sources externes (autres serveurs).
  *
- * Scénario :
- * L'utilisateur a un film sur le serveur A. Ce UseCase va chercher si ce même film
- * existe sur le serveur B ou C pour offrir plus d'options de lecture (fallback).
- *
- * Algorithme de Matching :
- * 1. Recherche via GUID (IMDB/TMDB) -> Match parfait.
- * 2. Fallback sur "Titre + Année" si les GUIDs manquent.
- * 3. Vérification de la hiérarchie pour les épisodes (Saison + Index).
+ * Stratégie Room-first :
+ * 1. Si unificationId non-vide → query Room via mediaDetailRepository.findRemoteSources (~5ms)
+ * 2. Si Room vide ET (guid/imdb/tmdb sont null) → fallback réseau (ancien comportement)
+ * 3. Cache in-memory pour cohérence intra-session
  */
+@Singleton
 class EnrichMediaItemUseCase
     @Inject
     constructor(
         private val authRepository: AuthRepository,
         private val searchRepository: SearchRepository,
         private val mediaRepository: com.chakir.plexhubtv.domain.repository.MediaRepository,
+        private val mediaDetailRepository: MediaDetailRepository,
     ) {
-        /**
-         * Exécute l'enrichissement en parallèle sur tous les serveurs connectés.
-         * @param item L'élément de référence à enrichir.
-         * @return Une copie de [item] avec la liste [MediaItem.remoteSources] remplie.
-         */
-        suspend operator fun invoke(item: MediaItem): MediaItem =
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                kotlinx.coroutines.coroutineScope {
-                    val serversResult = authRepository.getServers()
-                    val allServers = serversResult.getOrNull() ?: return@coroutineScope item
-                    val serverMap = allServers.associate { it.clientIdentifier to it.name }
+        // In-memory cache: keyed by "ratingKey:serverId" → enriched MediaItem
+        private val cache = ConcurrentHashMap<String, MediaItem>()
 
-                    // Start with current source
-                    val bestMedia = item.mediaParts.firstOrNull()
-                    val videoStream = bestMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
-                    val audioStream = bestMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.firstOrNull()
+        suspend operator fun invoke(item: MediaItem): MediaItem {
+            val cacheKey = "${item.ratingKey}:${item.serverId}"
+            cache[cacheKey]?.let { cached ->
+                Timber.d("Enrich: Cache hit for ${item.title} ($cacheKey)")
+                return cached
+            }
+            return enrich(item).also { cache[cacheKey] = it }
+        }
 
-                    val currentSource =
-                        MediaSource(
-                            serverId = item.serverId,
-                            ratingKey = item.ratingKey,
-                            serverName = serverMap[item.serverId] ?: "Unknown",
-                            resolution = videoStream?.let { "${it.height}p" },
-                            container = bestMedia?.container,
-                            videoCodec = videoStream?.codec,
-                            audioCodec = audioStream?.codec,
-                            audioChannels = audioStream?.channels,
-                            fileSize = bestMedia?.size,
-                            bitrate = videoStream?.bitrate,
-                            hasHDR = videoStream?.hasHDR ?: false,
-                            languages =
-                                bestMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()
-                                    ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
-                            thumbUrl = item.thumbUrl,
-                            artUrl = item.artUrl,
-                        )
+        private suspend fun enrich(item: MediaItem): MediaItem {
+            val allServers = authRepository.getServers().getOrNull() ?: return item
+            val serverMap = allServers.associate { it.clientIdentifier to it.name }
+            val currentSource = buildMediaSource(item, serverMap[item.serverId] ?: "Unknown")
 
-                    // If only one server, return immediately
-                    if (allServers.size <= 1) {
-                        return@coroutineScope item.copy(remoteSources = listOf(currentSource))
+            // Single server shortcut
+            if (allServers.size <= 1) {
+                return item.copy(remoteSources = listOf(currentSource))
+            }
+
+            // === ROOM-FIRST: query local DB (~5ms) ===
+            // For episodes: matches by showTitle + seasonTitle + episodeIndex (unificationId unreliable)
+            // For movies/shows: matches by unificationId
+            val canQueryRoom = item.type == MediaType.Episode ||
+                !item.unificationId.isNullOrBlank()
+            if (canQueryRoom) {
+                val localMatches = mediaDetailRepository.findRemoteSources(item)
+                if (localMatches.isNotEmpty()) {
+                    Timber.d("Enrich: Room-first found ${localMatches.size} remote source(s) for '${item.title}'")
+                    val remoteSources = localMatches.map { match ->
+                        buildMediaSource(match, serverMap[match.serverId] ?: match.serverId)
                     }
+                    return item.copy(remoteSources = listOf(currentSource) + remoteSources)
+                }
+            }
 
+            // === NETWORK FALLBACK: for media not yet synced or without unificationId ===
+            Timber.d("Enrich: Network fallback for '${item.title}' (unificationId=${item.unificationId})")
+            return enrichViaNetwork(item, currentSource, allServers, serverMap)
+        }
+
+        private fun buildMediaSource(
+            item: MediaItem,
+            serverName: String,
+        ): MediaSource {
+            val bestMedia = item.mediaParts.firstOrNull()
+            val videoStream = bestMedia?.streams?.filterIsInstance<VideoStream>()?.firstOrNull()
+            val audioStream = bestMedia?.streams?.filterIsInstance<AudioStream>()?.firstOrNull()
+
+            return MediaSource(
+                serverId = item.serverId,
+                ratingKey = item.ratingKey,
+                serverName = serverName,
+                resolution = videoStream?.let { "${it.height}p" },
+                container = bestMedia?.container,
+                videoCodec = videoStream?.codec,
+                audioCodec = audioStream?.codec,
+                audioChannels = audioStream?.channels,
+                fileSize = bestMedia?.size,
+                bitrate = videoStream?.bitrate,
+                hasHDR = videoStream?.hasHDR ?: false,
+                languages = bestMedia?.streams?.filterIsInstance<AudioStream>()
+                    ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
+                thumbUrl = item.thumbUrl,
+                artUrl = item.artUrl,
+            )
+        }
+
+        private suspend fun enrichViaNetwork(
+            item: MediaItem,
+            currentSource: MediaSource,
+            allServers: List<com.chakir.plexhubtv.core.model.Server>,
+            serverMap: Map<String, String>,
+        ): MediaItem =
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                coroutineScope {
                     val matchesDeferred =
                         allServers
-                            .filter { it.clientIdentifier != item.serverId } // Skip current
+                            .filter { it.clientIdentifier != item.serverId }
                             .map { server ->
                                 async {
                                     try {
@@ -95,43 +134,20 @@ class EnrichMediaItemUseCase
                                             val typeMatch = item.type == candidate.type
                                             val episodeMatch =
                                                 if (item.type == MediaType.Episode && candidate.type == MediaType.Episode) {
-                                                    (item.parentIndex == candidate.parentIndex) && (item.episodeIndex == candidate.episodeIndex)
+                                                    // parentIndex may be null when episode comes from Room cache
+                                                    val seasonMatch = item.parentIndex == null || candidate.parentIndex == null || item.parentIndex == candidate.parentIndex
+                                                    seasonMatch && (item.episodeIndex == candidate.episodeIndex)
                                                 } else {
                                                     true
                                                 }
 
                                             (idMatch) || (titleMatch && yearMatch && typeMatch && episodeMatch)
                                         }?.let { match ->
-                                            // FOUND A MATCH! Now fetch its details to get full metadata.
                                             try {
                                                 val detailRes = mediaRepository.getMediaDetail(match.ratingKey, server.clientIdentifier)
                                                 val fullDetail = detailRes.getOrNull()
-
-                                                // Use full details if available, otherwise fallback to search match
                                                 val safeMatch = fullDetail ?: match
-
-                                                val matchMedia = safeMatch.mediaParts.firstOrNull()
-                                                val matchVideo = matchMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
-                                                val matchAudio = matchMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.firstOrNull()
-
-                                                MediaSource(
-                                                    serverId = server.clientIdentifier,
-                                                    ratingKey = safeMatch.ratingKey,
-                                                    serverName = server.name,
-                                                    resolution = matchVideo?.let { "${it.height}p" },
-                                                    container = matchMedia?.container,
-                                                    videoCodec = matchVideo?.codec,
-                                                    audioCodec = matchAudio?.codec,
-                                                    audioChannels = matchAudio?.channels,
-                                                    fileSize = matchMedia?.size,
-                                                    bitrate = matchVideo?.bitrate,
-                                                    hasHDR = matchVideo?.hasHDR ?: false,
-                                                    languages =
-                                                        matchMedia?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()
-                                                            ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
-                                                    thumbUrl = safeMatch.thumbUrl,
-                                                    artUrl = safeMatch.artUrl,
-                                                )
+                                                buildMediaSource(safeMatch, server.name)
                                             } catch (e: Exception) {
                                                 Timber.w(e, "Enrich: detail fetch failed for ${match.ratingKey} on ${server.name}")
                                                 MediaSource(
@@ -150,9 +166,7 @@ class EnrichMediaItemUseCase
                             }
 
                     val matches = matchesDeferred.awaitAll().filterNotNull()
-
-                    val finalSources = listOf(currentSource) + matches
-                    item.copy(remoteSources = finalSources)
+                    item.copy(remoteSources = listOf(currentSource) + matches)
                 }
             }
     }

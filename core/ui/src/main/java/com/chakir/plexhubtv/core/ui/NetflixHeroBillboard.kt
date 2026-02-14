@@ -32,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
@@ -59,7 +57,6 @@ import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import kotlinx.coroutines.delay
-import timber.log.Timber
 
 @Composable
 fun NetflixHeroBillboard(
@@ -81,9 +78,6 @@ fun NetflixHeroBillboard(
     val playButtonFocusRequester = buttonsFocusRequester ?: remember { FocusRequester() }
     val infoButtonFocusRequester = remember { FocusRequester() }
 
-    // Track if initial focus has been requested
-    var hasRequestedInitialFocus by remember { mutableStateOf(false) }
-
     // Auto-rotation logic
     LaunchedEffect(items, autoRotateIntervalMs) {
         if (items.size > 1) {
@@ -94,13 +88,8 @@ fun NetflixHeroBillboard(
         }
     }
 
-    // Request initial focus on Play button (not a large invisible overlay)
-    LaunchedEffect(Unit) {
-        if (!hasRequestedInitialFocus) {
-            playButtonFocusRequester.requestFocus()
-            hasRequestedInitialFocus = true
-        }
-    }
+    // Initial focus is now handled by the PARENT (NetflixHomeContent)
+    // to avoid re-requesting focus when LazyColumn recycles this item.
 
     Box(
         modifier = modifier
@@ -219,19 +208,12 @@ fun NetflixHeroBillboard(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
-                    .onFocusChanged { focusState ->
-                        Timber.d("BILLBOARD_BUTTONS: hasFocus=${focusState.hasFocus} isFocused=${focusState.isFocused}")
-                    }
                     .focusGroup()
                     .onKeyEvent { keyEvent ->
                         if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
                             when (keyEvent.nativeKeyEvent.keyCode) {
-                                android.view.KeyEvent.KEYCODE_DPAD_UP -> {
-                                    Timber.d("BILLBOARD_KEY: UP pressed — consuming (stay on buttons)")
-                                    true
-                                }
+                                android.view.KeyEvent.KEYCODE_DPAD_UP -> true // Stay on buttons
                                 android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                                    Timber.d("BILLBOARD_KEY: DOWN pressed — navigating to first row")
                                     onNavigateDown?.invoke()
                                     true
                                 }
@@ -284,10 +266,6 @@ fun NetflixPlayButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    LaunchedEffect(isFocused) {
-        Timber.d("PLAY_BTN_FOCUS: isFocused=$isFocused")
-    }
-
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
@@ -320,10 +298,6 @@ fun NetflixInfoButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
-
-    LaunchedEffect(isFocused) {
-        Timber.d("INFO_BTN_FOCUS: isFocused=$isFocused")
-    }
 
     Button(
         onClick = onClick,

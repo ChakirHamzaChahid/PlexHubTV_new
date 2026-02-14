@@ -299,6 +299,9 @@ fun VideoPlayerScreen(
                 markers = markers,
                 visibleMarkers = visibleMarkers,
                 onSkipMarker = { onAction(PlayerAction.SkipMarker(it)) },
+                onShowSubtitles = { onAction(PlayerAction.ShowSubtitleSelector) },
+                onShowAudio = { onAction(PlayerAction.ShowAudioSelector) },
+                onShowSettings = { onAction(PlayerAction.ToggleSettings) },
                 modifier = Modifier,
                 playPauseFocusRequester = focusRequester
             )
@@ -325,9 +328,9 @@ fun VideoPlayerScreen(
         // Auto-Next Popup
         AnimatedVisibility(
             visible = uiState.showAutoNextPopup && uiState.nextItem != null,
-            enter = fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
-            exit = fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 140.dp, end = 32.dp),
+            enter = fadeIn() + androidx.compose.animation.slideInVertically { -it },
+            exit = fadeOut() + androidx.compose.animation.slideOutVertically { -it },
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 80.dp, end = 32.dp),
         ) {
             uiState.nextItem?.let { nextItem ->
                 AutoNextPopup(
@@ -404,6 +407,15 @@ fun AutoNextPopup(
     onPlayNow: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val playFocusRequester = remember { FocusRequester() }
+
+    // Auto-focus the "Play Now" button when popup appears
+    LaunchedEffect(Unit) {
+        try {
+            playFocusRequester.requestFocus()
+        } catch (_: Exception) { }
+    }
+
     Surface(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         color = Color.Black.copy(alpha = 0.85f),
@@ -448,7 +460,8 @@ fun AutoNextPopup(
                         modifier =
                             Modifier
                                 .height(32.dp)
-                                .scale(if (isPlayFocused) 1.1f else 1f),
+                                .scale(if (isPlayFocused) 1.1f else 1f)
+                                .focusRequester(playFocusRequester),
                         interactionSource = playInteractionSource,
                         colors =
                             if (isPlayFocused) {

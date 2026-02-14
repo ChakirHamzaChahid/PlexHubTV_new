@@ -167,7 +167,11 @@ interface MediaDao {
         rating: Double,
     ): Int
 
-    @Query("SELECT * FROM media WHERE lastViewedAt > 0 ORDER BY lastViewedAt DESC LIMIT :limit OFFSET :offset")
+    @Query(
+        "SELECT *, MAX(lastViewedAt) as lastViewedAt FROM media WHERE lastViewedAt > 0 " +
+        "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END " +
+        "ORDER BY lastViewedAt DESC LIMIT :limit OFFSET :offset"
+    )
     fun getHistory(
         limit: Int,
         offset: Int,
@@ -396,6 +400,40 @@ interface MediaDao {
     // Dynamic Query for Index/Count
     @androidx.room.RawQuery
     suspend fun getMediaCountRaw(query: androidx.sqlite.db.SupportSQLiteQuery): Int
+
+    // REMOTE SOURCES: Find same media on other servers via unificationId (for enrichment)
+    @Query(
+        """
+        SELECT * FROM media
+        WHERE unificationId = :unificationId
+        AND unificationId != ''
+        AND serverId != :excludeServerId
+        GROUP BY serverId
+    """,
+    )
+    suspend fun findRemoteSources(
+        unificationId: String,
+        excludeServerId: String,
+    ): List<MediaEntity>
+
+    // REMOTE SOURCES: Find same episode on other servers by show title + season title + episode index
+    @Query(
+        """
+        SELECT * FROM media
+        WHERE type = 'episode'
+        AND grandparentTitle = :showTitle
+        AND parentTitle = :seasonTitle
+        AND `index` = :episodeIndex
+        AND serverId != :excludeServerId
+        GROUP BY serverId
+    """,
+    )
+    suspend fun findRemoteEpisodeSources(
+        showTitle: String,
+        seasonTitle: String,
+        episodeIndex: Int,
+        excludeServerId: String,
+    ): List<MediaEntity>
 
     // COLLECTION AGGREGATION: Get unificationId for a specific media
     @Query("SELECT unificationId FROM media WHERE ratingKey = :ratingKey AND serverId = :serverId LIMIT 1")

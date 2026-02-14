@@ -128,19 +128,23 @@ class LibrarySyncWorker
                         return@withContext Result.success()
                     }
 
-                    Timber.d("→ Syncing ${servers.size} server(s)")
+                    val serverNames = servers.joinToString { it.name }
+                    Timber.d("→ Syncing ${servers.size} server(s): [$serverNames]")
 
                     var failureCount = 0
                     servers.forEach { server ->
                         try {
+                            Timber.d("→ [${server.name}] Starting sync (relay=${server.relay}, candidates=${server.connectionCandidates.size}, urls=${server.connectionCandidates.map { it.uri }})")
                             updateNotification("Syncing ${server.name}...")
                             val syncResult = syncRepository.syncServer(server)
                             if (syncResult.isFailure) {
-                                Timber.w("✗ Failed to sync ${server.name}")
+                                Timber.w("✗ [${server.name}] Sync failed: ${syncResult.exceptionOrNull()?.message}")
                                 failureCount++
+                            } else {
+                                Timber.d("✓ [${server.name}] Sync complete")
                             }
                         } catch (e: Exception) {
-                            Timber.e("✗ Exception syncing ${server.name}: ${e.message}")
+                            Timber.e("✗ [${server.name}] Exception: ${e.javaClass.simpleName} - ${e.message}")
                             failureCount++
                         }
                     }
@@ -157,14 +161,14 @@ class LibrarySyncWorker
                     syncRepository.onProgressUpdate = null
 
                     if (failureCount == servers.size && servers.isNotEmpty()) {
-                        Timber.w("All servers failed, marking complete anyway")
+                        Timber.w("✗ All ${servers.size} servers failed: [$serverNames]")
                         settingsDataStore.saveFirstSyncComplete(true)
                         Result.success()
                     } else {
                         // MARK SYNC AS COMPLETE
                         settingsDataStore.saveLastSyncTime(System.currentTimeMillis())
                         settingsDataStore.saveFirstSyncComplete(true)
-                        Timber.i("✓ Sync complete! Failures: $failureCount/${servers.size}")
+                        Timber.i("✓ Sync complete! ${servers.size - failureCount}/${servers.size} servers OK [$serverNames]")
 
                         // TRIGGER COLLECTION SYNC NOW THAT WE HAVE DATA
                         try {
