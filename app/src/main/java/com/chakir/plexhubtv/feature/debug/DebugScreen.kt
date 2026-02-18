@@ -2,6 +2,9 @@ package com.chakir.plexhubtv.feature.debug
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -62,13 +66,13 @@ fun DebugScreen(
             TopAppBar(
                 title = { Text("Debug Information", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = { onAction(DebugAction.Back) }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    TVIconButton(onClick = { onAction(DebugAction.Back) }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onAction(DebugAction.Refresh) }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                    TVIconButton(onClick = { onAction(DebugAction.Refresh) }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -144,24 +148,22 @@ fun DebugScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
+                            TVButton(
                                 onClick = { onAction(DebugAction.ClearImageCache) },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onPrimary)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Clear Images", fontSize = 12.sp)
+                                Text("Clear Images", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimary)
                             }
-                            Button(
+                            TVButton(
                                 onClick = { onAction(DebugAction.ClearAllCache) },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error
-                                )
+                                containerColor = MaterialTheme.colorScheme.error
                             ) {
-                                Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onError)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Clear All", fontSize = 12.sp)
+                                Text("Clear All", fontSize = 12.sp, color = MaterialTheme.colorScheme.onError)
                             }
                         }
                     }
@@ -224,21 +226,21 @@ fun DebugScreen(
                 item {
                     DebugSection(title = "Actions") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
+                            TVButton(
                                 onClick = { onAction(DebugAction.ForceSync) },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Filled.Sync, contentDescription = null)
+                                Icon(Icons.Filled.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Force Re-Sync")
+                                Text("Force Re-Sync", color = MaterialTheme.colorScheme.onPrimary)
                             }
-                            Button(
+                            TVButton(
                                 onClick = { onAction(DebugAction.ExportLogs) },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Filled.Storage, contentDescription = null)
+                                Icon(Icons.Filled.Storage, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Export Logs")
+                                Text("Export Logs", color = MaterialTheme.colorScheme.onPrimary)
                             }
                         }
                     }
@@ -315,4 +317,81 @@ private fun DebugInfoRow(
 
 private fun formatDate(timestamp: Long): String {
     return SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(Date(timestamp))
+}
+
+/**
+ * TV-friendly button with D-pad focus support
+ */
+@Composable
+private fun TVButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primary,
+    content: @Composable RowScope.() -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isFocused) 1.05f else 1f,
+        label = "buttonScale"
+    )
+
+    Row(
+        modifier = modifier
+            .scale(scale)
+            .background(
+                color = if (isFocused) containerColor else containerColor.copy(alpha = 0.7f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .border(
+                width = if (isFocused) 2.dp else 0.dp,
+                color = MaterialTheme.colorScheme.onPrimary,
+                shape = RoundedCornerShape(8.dp)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        content()
+    }
+}
+
+/**
+ * TV-friendly IconButton with D-pad focus support
+ */
+@Composable
+private fun TVIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isFocused) 1.15f else 1f,
+        label = "iconButtonScale"
+    )
+
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .scale(scale)
+            .background(
+                color = if (isFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) else Color.Transparent,
+                shape = RoundedCornerShape(50)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        content()
+    }
 }

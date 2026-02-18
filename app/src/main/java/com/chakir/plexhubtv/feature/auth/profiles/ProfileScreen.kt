@@ -16,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,6 +63,8 @@ fun ProfileScreen(
         modifier =
             Modifier
                 .fillMaxSize()
+                .testTag("screen_profiles")
+                .semantics { contentDescription = "Écran de sélection de profil" }
                 .background(MaterialTheme.colorScheme.background),
     ) {
         Column(
@@ -75,12 +80,20 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(48.dp))
 
             if (state.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.padding(32.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .padding(32.dp)
+                        .testTag("profile_loading")
+                        .semantics { contentDescription = "Chargement des profils" }
+                )
             } else if (state.error != null) {
                 Text(
                     text = state.error,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .testTag("profile_error")
+                        .semantics { contentDescription = "Erreur: ${state.error}" },
                 )
                 Button(onClick = { onAction(ProfileAction.LoadUsers) }) {
                     Text("Réessayer")
@@ -93,7 +106,10 @@ fun ProfileScreen(
                     contentPadding = PaddingValues(32.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.widthIn(max = 800.dp),
+                    modifier = Modifier
+                        .widthIn(max = 800.dp)
+                        .testTag("profile_list")
+                        .semantics { contentDescription = "Liste des profils" },
                 ) {
                     items(state.users, key = { it.id }) { user ->
                         UserProfileCard(
@@ -120,6 +136,8 @@ fun ProfileScreen(
                 modifier =
                     Modifier
                         .fillMaxSize()
+                        .testTag("profile_switching")
+                        .semantics { contentDescription = "Changement de profil en cours" }
                         .background(Color.Black.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -147,6 +165,8 @@ fun UserProfileCard(
         modifier =
             Modifier
                 .clip(RoundedCornerShape(8.dp))
+                .testTag("profile_card_${user.id}")
+                .semantics { contentDescription = "Profil: ${user.title}" }
                 .clickable { onClick() }
                 .padding(12.dp),
     ) {
@@ -191,7 +211,9 @@ fun PinEntryDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .testTag("profile_pin_dialog")
+                    .semantics { contentDescription = "Dialogue de saisie du code PIN" },
             shape = RoundedCornerShape(16.dp),
         ) {
             Column(

@@ -32,6 +32,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -175,6 +178,8 @@ fun VideoPlayerScreen(
         modifier =
             Modifier
                 .fillMaxSize()
+                .testTag("screen_player")
+                .semantics { contentDescription = "Écran de lecture" }
                 .background(Color.Black)
                 .onKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown) {
@@ -247,6 +252,7 @@ fun VideoPlayerScreen(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                             )
+                        keepScreenOn = true // Prevent sleep mode during MPV playback
                         mpvPlayer.initialize(this)
                     }
                 },
@@ -308,7 +314,12 @@ fun VideoPlayerScreen(
         }
 
         if (uiState.isBuffering) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .testTag("player_loading")
+                    .semantics { contentDescription = "Chargement de la vidéo" }
+            )
         }
 
         // Performance Overlay
@@ -320,7 +331,13 @@ fun VideoPlayerScreen(
         }
 
         if (uiState.error != null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("player_error")
+                    .semantics { contentDescription = "Erreur: ${uiState.error}" },
+                contentAlignment = Alignment.Center
+            ) {
                 Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
             }
         }
@@ -337,6 +354,7 @@ fun VideoPlayerScreen(
                     item = nextItem,
                     onPlayNow = { onAction(PlayerAction.PlayNext) },
                     onCancel = { onAction(PlayerAction.CancelAutoNext) },
+                    modifier = Modifier.testTag("player_auto_next_popup")
                 )
             }
         }
@@ -406,6 +424,7 @@ fun AutoNextPopup(
     item: MediaItem,
     onPlayNow: () -> Unit,
     onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val playFocusRequester = remember { FocusRequester() }
 
@@ -420,7 +439,9 @@ fun AutoNextPopup(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         color = Color.Black.copy(alpha = 0.85f),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-        modifier = Modifier.width(300.dp),
+        modifier = modifier
+            .width(300.dp)
+            .semantics { contentDescription = "Prochain épisode: ${item.title}" },
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Thumbnail
@@ -460,6 +481,7 @@ fun AutoNextPopup(
                         modifier =
                             Modifier
                                 .height(32.dp)
+                                .testTag("auto_next_play_button")
                                 .scale(if (isPlayFocused) 1.1f else 1f)
                                 .focusRequester(playFocusRequester),
                         interactionSource = playInteractionSource,
@@ -482,6 +504,7 @@ fun AutoNextPopup(
                         modifier =
                             Modifier
                                 .height(32.dp)
+                                .testTag("auto_next_cancel_button")
                                 .scale(if (isCancelFocused) 1.1f else 1f),
                         border =
                             androidx.compose.foundation.BorderStroke(

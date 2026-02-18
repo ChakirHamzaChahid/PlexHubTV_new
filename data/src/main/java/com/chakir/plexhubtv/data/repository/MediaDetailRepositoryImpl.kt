@@ -43,16 +43,26 @@ class MediaDetailRepositoryImpl
             // 1. BDD first — synced every 6h, instant access
             val localEntity = mediaDao.getMedia(ratingKey, serverId)
             if (localEntity != null) {
-                val client = serverClientResolver.getClient(serverId)
-                val baseUrl = client?.baseUrl
-                val token = client?.server?.accessToken
-                val domain = mapper.mapEntityToDomain(localEntity)
-                val resolved = if (baseUrl != null && token != null) {
-                    mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
-                        baseUrl = baseUrl, accessToken = token
-                    )
-                } else domain
-                return Result.success(resolved)
+                // CRITICAL FIX: Check if mediaParts have streams (audio/subtitle tracks)
+                // LibrarySyncWorker doesn't sync streams (endpoint /library/sections/{id}/all doesn't return them)
+                // So we must fetch from network if streams are missing, otherwise audio/subtitle selection will be empty
+                val hasStreams = localEntity.mediaParts.isNotEmpty() &&
+                                localEntity.mediaParts.first().streams.isNotEmpty()
+
+                if (hasStreams) {
+                    val client = serverClientResolver.getClient(serverId)
+                    val baseUrl = client?.baseUrl
+                    val token = client?.server?.accessToken
+                    val domain = mapper.mapEntityToDomain(localEntity)
+                    val resolved = if (baseUrl != null && token != null) {
+                        mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                            baseUrl = baseUrl, accessToken = token
+                        )
+                    } else domain
+                    return Result.success(resolved)
+                }
+                // If no streams, fallthrough to network fetch
+                Timber.d("MediaDetail: Room cache missing streams for $ratingKey, fetching from network")
             }
 
             // 2. API fallback — if not in BDD (new media, not yet synced)
@@ -136,13 +146,13 @@ class MediaDetailRepositoryImpl
         }
 
         override suspend fun findRemoteSources(item: MediaItem): List<MediaItem> {
-            // For episodes: match by show title + season title + episode index (unificationId unreliable across servers)
+            // For episodes: match by show title + season index + episode index (unificationId unreliable across servers)
             val entities = if (item.type == com.chakir.plexhubtv.core.model.MediaType.Episode) {
                 val showTitle = item.grandparentTitle
-                val seasonTitle = item.parentTitle
+                val seasonIndex = item.parentIndex
                 val episodeIndex = item.episodeIndex
-                if (showTitle != null && seasonTitle != null && episodeIndex != null) {
-                    mediaDao.findRemoteEpisodeSources(showTitle, seasonTitle, episodeIndex, item.serverId)
+                if (showTitle != null && seasonIndex != null && episodeIndex != null) {
+                    mediaDao.findRemoteEpisodeSources(showTitle, seasonIndex, episodeIndex, item.serverId)
                 } else {
                     emptyList()
                 }
@@ -161,6 +171,21 @@ class MediaDetailRepositoryImpl
                         baseUrl = baseUrl, accessToken = token
                     )
                 } else domain
+            }
+        }
+
+        override suspend fun updateMediaParts(item: MediaItem) {
+            // Persist mediaParts to Room for future sessions (lazy progressive cache)
+            try {
+                val existing = mediaDao.getMedia(item.ratingKey, item.serverId)
+                if (existing != null && item.mediaParts.isNotEmpty()) {
+                    // Update entity with mediaParts while preserving filter/sortOrder/pageOffset
+                    val updated = existing.copy(mediaParts = item.mediaParts)
+                    mediaDao.insertMedia(updated)
+                    Timber.d("MediaParts cached in Room for ${item.title} (${item.ratingKey})")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to cache mediaParts for ${item.ratingKey}")
             }
         }
 

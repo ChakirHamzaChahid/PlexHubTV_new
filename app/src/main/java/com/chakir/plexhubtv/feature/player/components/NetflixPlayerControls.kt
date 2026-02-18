@@ -44,11 +44,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.chakir.plexhubtv.di.designsystem.NetflixRed
+import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.Chapter
 import com.chakir.plexhubtv.core.model.Marker
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -88,6 +91,8 @@ fun NetflixPlayerControls(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("player_controls")
+                .semantics { contentDescription = "Contrôles du lecteur" }
                 .background(Color.Black.copy(alpha = 0.4f)) // Dim background
         ) {
             // Top Bar: Back & Title
@@ -103,10 +108,13 @@ fun NetflixPlayerControls(
                     .padding(16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onStop) {
+                    IconButton(
+                        onClick = onStop,
+                        modifier = Modifier.testTag("player_back_button")
+                    ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = "Retour",
                             tint = Color.White
                         )
                     }
@@ -137,6 +145,7 @@ fun NetflixPlayerControls(
                     onClick = onPlayPauseToggle,
                     modifier = Modifier
                         .size(80.dp)
+                        .testTag("player_playpause_button")
                         .then(
                              if (playPauseFocusRequester != null) Modifier.focusRequester(playPauseFocusRequester) else Modifier
                         ),
@@ -144,7 +153,7 @@ fun NetflixPlayerControls(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = if (isPlaying) "Pause" else "Lecture",
                         modifier = Modifier.size(64.dp)
                     )
                 }
@@ -194,45 +203,69 @@ fun NetflixPlayerControls(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                     IconButton(onClick = onSkipBackward) {
-                        Icon(Icons.Default.FastRewind, "Rewind 10s", tint = Color.White)
+                     IconButton(
+                        onClick = onSkipBackward,
+                        modifier = Modifier.testTag("player_skip_backward")
+                     ) {
+                        Icon(Icons.Default.FastRewind, "Retour 10s", tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(24.dp))
 
-                    IconButton(onClick = onPlayPauseToggle) {
+                    IconButton(
+                        onClick = onPlayPauseToggle,
+                        modifier = Modifier.testTag("player_transport_playpause")
+                    ) {
                          Icon(
                             if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            "Play/Pause",
+                            "Lecture/Pause",
                             tint = Color.White
                         )
                     }
 
                     Spacer(modifier = Modifier.width(24.dp))
-                    IconButton(onClick = onSkipForward) {
-                        Icon(Icons.Default.FastForward, "Forward 30s", tint = Color.White)
+                    IconButton(
+                        onClick = onSkipForward,
+                        modifier = Modifier.testTag("player_skip_forward")
+                    ) {
+                        Icon(Icons.Default.FastForward, "Avance 30s", tint = Color.White)
                     }
 
                     Spacer(modifier = Modifier.width(32.dp))
-                     IconButton(onClick = onNext) {
-                        Icon(Icons.Default.SkipNext, "Next Episode", tint = Color.White)
+                     IconButton(
+                        onClick = onNext,
+                        modifier = Modifier.testTag("player_next_button")
+                     ) {
+                        Icon(Icons.Default.SkipNext, "Épisode suivant", tint = Color.White)
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
-                     IconButton(onClick = onStop) {
-                        Icon(Icons.Default.Stop, "Stop", tint = Color.White)
+                     IconButton(
+                        onClick = onStop,
+                        modifier = Modifier.testTag("player_stop_button")
+                     ) {
+                        Icon(Icons.Default.Stop, "Arrêter", tint = Color.White)
                     }
 
                     Spacer(modifier = Modifier.width(32.dp))
-                    IconButton(onClick = onShowSubtitles) {
-                        Icon(Icons.Default.Subtitles, "Subtitles", tint = Color.White)
+                    IconButton(
+                        onClick = onShowSubtitles,
+                        modifier = Modifier.testTag("player_subtitles_button")
+                    ) {
+                        Icon(Icons.Default.Subtitles, "Sous-titres", tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    IconButton(onClick = onShowAudio) {
+                    IconButton(
+                        onClick = onShowAudio,
+                        modifier = Modifier.testTag("player_audio_button")
+                    ) {
                         Icon(Icons.Default.VolumeUp, "Audio", tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    IconButton(onClick = onShowSettings) {
-                        Icon(Icons.Default.Settings, "Settings", tint = Color.White)
+                    IconButton(
+                        onClick = onShowSettings,
+                        modifier = Modifier.testTag("player_settings_button")
+                    ) {
+                        Icon(Icons.Default.Settings, "Paramètres", tint = Color.White)
                     }
                 }
             }

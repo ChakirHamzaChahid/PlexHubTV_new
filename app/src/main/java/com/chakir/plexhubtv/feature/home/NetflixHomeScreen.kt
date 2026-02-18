@@ -17,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -73,7 +76,10 @@ fun NetflixHomeContent(
 
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("screen_home")
+            .semantics { contentDescription = "Écran d'accueil" },
         contentPadding = PaddingValues(bottom = 50.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
@@ -122,6 +128,7 @@ fun NetflixHomeContent(
                         cardType = CardType.WIDE,
                         onItemClick = { onAction(HomeAction.OpenMedia(it)) },
                         onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                        rowId = "on_deck",
                         modifier = Modifier.focusRequester(firstRowFocusRequester)
                     )
                 }
@@ -154,6 +161,7 @@ fun NetflixHomeContent(
                         cardType = CardType.POSTER,
                         onItemClick = { onAction(HomeAction.OpenMedia(it)) },
                         onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                        rowId = "my_list",
                         modifier = if (!hasContinueWatching) Modifier.focusRequester(firstRowFocusRequester) else Modifier
                     )
                 }
@@ -186,6 +194,7 @@ fun NetflixHomeContent(
                         cardType = CardType.POSTER,
                         onItemClick = { onAction(HomeAction.OpenMedia(it)) },
                         onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                        rowId = hub.hubIdentifier ?: hub.title?.lowercase()?.replace(" ", "_") ?: "hub_$index",
                         modifier = if (isFirstItem) Modifier.focusRequester(firstRowFocusRequester) else Modifier
                     )
                 }

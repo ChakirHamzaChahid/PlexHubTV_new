@@ -42,6 +42,11 @@ class ConnectionManager
         private val _isOffline = MutableStateFlow(false)
         val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
 
+        // Failed servers cache (serverId -> timestamp when it failed)
+        // Skip retrying failed servers for 5 minutes to prevent UI blocking
+        private val failedServers = mutableMapOf<String, Long>()
+        private val FAILED_SERVER_SKIP_DURATION_MS = 5 * 60 * 1000L // 5 minutes
+
         init {
             // Restore persisted connections on cold start
             scope.launch {
@@ -59,8 +64,9 @@ class ConnectionManager
 
         /**
          * Finds the best connection for a server.
-         * Strategy: Race direct candidates first (10s timeout), then fallback to relay (30s timeout).
+         * Strategy: Race direct candidates first (3s timeout), then fallback to relay (5s timeout).
          * This ensures fast servers respond quickly while relay-only servers still get connected.
+         * Failed servers are skipped for 5 minutes to prevent UI blocking.
          */
         suspend fun findBestConnection(server: Server): String? {
             if (_isOffline.value) return null
@@ -68,39 +74,58 @@ class ConnectionManager
             // Check cache first
             _activeConnections.value[server.clientIdentifier]?.let { return it }
 
+            // Skip if server recently failed (fail-fast to prevent UI blocking)
+            val now = System.currentTimeMillis()
+            failedServers[server.clientIdentifier]?.let { failedTime ->
+                if (now - failedTime < FAILED_SERVER_SKIP_DURATION_MS) {
+                    Timber.d("ConnectionManager: Skipping recently failed server ${server.name} (will retry in ${(FAILED_SERVER_SKIP_DURATION_MS - (now - failedTime)) / 1000}s)")
+                    return null
+                } else {
+                    // Timeout expired, remove from failed list and retry
+                    failedServers.remove(server.clientIdentifier)
+                }
+            }
+
             val directCandidates = server.connectionCandidates.filter { !it.relay }.map { it.uri }.distinct()
             val relayCandidates = server.connectionCandidates.filter { it.relay }.map { it.uri }.distinct()
 
-            // 1. Race direct candidates (local + public) with standard timeout
+            // 1. Race direct candidates (local + public) with aggressive timeout (3s)
             if (directCandidates.isNotEmpty()) {
-                val validUrl = raceUrls(directCandidates, server.accessToken ?: "")
+                val validUrl = raceUrls(directCandidates, server.accessToken ?: "", timeoutSeconds = 3)
                 if (validUrl != null) {
                     cacheConnection(server.clientIdentifier, validUrl)
+                    failedServers.remove(server.clientIdentifier) // Clear failed status
                     return validUrl
                 }
             }
 
-            // 2. Fallback: try relay candidates with longer timeout
+            // 2. Fallback: try relay candidates with short timeout (5s instead of 30s)
             if (relayCandidates.isNotEmpty()) {
                 Timber.d("ConnectionManager: Trying relay candidates for ${server.name} (${relayCandidates.size})")
-                val validUrl = raceUrls(relayCandidates, server.accessToken ?: "", timeoutSeconds = 30)
+                val validUrl = raceUrls(relayCandidates, server.accessToken ?: "", timeoutSeconds = 5)
                 if (validUrl != null) {
                     cacheConnection(server.clientIdentifier, validUrl)
+                    failedServers.remove(server.clientIdentifier) // Clear failed status
                     return validUrl
                 }
             }
 
             // 3. Server is relay-capable (server.relay=true) but no candidate has relay flag
-            //    Retry all candidates with longer timeout
+            //    Retry all candidates with short timeout (5s instead of 30s)
             if (server.relay && relayCandidates.isEmpty()) {
                 Timber.d("ConnectionManager: Retrying all candidates with relay timeout for ${server.name}")
                 val allUrls = server.connectionCandidates.map { it.uri }.distinct()
-                val validUrl = raceUrls(allUrls, server.accessToken ?: "", timeoutSeconds = 30)
+                val validUrl = raceUrls(allUrls, server.accessToken ?: "", timeoutSeconds = 5)
                 if (validUrl != null) {
                     cacheConnection(server.clientIdentifier, validUrl)
+                    failedServers.remove(server.clientIdentifier) // Clear failed status
                     return validUrl
                 }
             }
+
+            // All attempts failed - mark server as failed to skip for 5 minutes
+            failedServers[server.clientIdentifier] = now
+            Timber.w("ConnectionManager: Server ${server.name} failed all connection attempts, will skip for 5 minutes")
 
             return null
         }
@@ -166,6 +191,15 @@ class ConnectionManager
 
         fun setOfflineMode(isOffline: Boolean) {
             _isOffline.value = isOffline
+        }
+
+        /**
+         * Clears the failed servers cache, allowing immediate retry of all servers.
+         * Useful for manual "Refresh" actions.
+         */
+        fun clearFailedServers() {
+            failedServers.clear()
+            Timber.d("ConnectionManager: Cleared failed servers cache")
         }
 
         suspend fun checkConnectionStatus(server: Server): ConnectionResult {

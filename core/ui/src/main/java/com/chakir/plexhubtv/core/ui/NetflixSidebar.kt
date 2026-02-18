@@ -21,7 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
@@ -43,6 +46,8 @@ fun NetflixSidebar(
         modifier = modifier
             .fillMaxHeight()
             .width(80.dp)
+            .testTag("sidebar_menu")
+            .semantics { contentDescription = "Menu de navigation" }
             .background(NetflixBlack.copy(alpha = 0.95f))
             .padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -103,10 +108,12 @@ fun NetflixSidebar(
             SidebarIconButton(
                 icon = Icons.Default.Search,
                 contentDescription = "Search",
-                onClick = onSearchClick
+                onClick = onSearchClick,
+                testTag = "sidebar_search_button"
             )
             SidebarProfileAvatar(
-                onClick = onProfileClick
+                onClick = onProfileClick,
+                testTag = "sidebar_profile_button"
             )
         }
     }
@@ -135,9 +142,23 @@ private fun SidebarNavItem(
 
     val scale = if (isFocused) 1.1f else 1f
 
+    val navTag = when (item) {
+        NavigationItem.Home -> "nav_item_home"
+        NavigationItem.Movies -> "nav_item_movies"
+        NavigationItem.TVShows -> "nav_item_tvshows"
+        NavigationItem.Search -> "nav_item_search"
+        NavigationItem.Downloads -> "nav_item_downloads"
+        NavigationItem.Favorites -> "nav_item_favorites"
+        NavigationItem.History -> "nav_item_history"
+        NavigationItem.Settings -> "nav_item_settings"
+        NavigationItem.Iptv -> "nav_item_iptv"
+    }
+
     Box(
         modifier = Modifier
             .scale(scale)
+            .testTag(navTag)
+            .semantics { contentDescription = item.label }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -161,7 +182,8 @@ private fun SidebarNavItem(
 private fun SidebarIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    testTag: String = ""
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -173,6 +195,8 @@ private fun SidebarIconButton(
         modifier = Modifier
             .size(40.dp)
             .scale(scale)
+            .testTag(testTag)
+            .semantics { this.contentDescription = contentDescription }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -182,7 +206,7 @@ private fun SidebarIconButton(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = iconColor,
             modifier = Modifier.size(24.dp)
         )
@@ -191,7 +215,8 @@ private fun SidebarIconButton(
 
 @Composable
 private fun SidebarProfileAvatar(
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    testTag: String = ""
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -203,6 +228,8 @@ private fun SidebarProfileAvatar(
         modifier = Modifier
             .size(40.dp)
             .scale(scale)
+            .testTag(testTag)
+            .semantics { contentDescription = "Profil utilisateur" }
             .clip(CircleShape)
             .background(
                 brush = androidx.compose.ui.graphics.Brush.linearGradient(
@@ -221,7 +248,7 @@ private fun SidebarProfileAvatar(
     ) {
         Icon(
             imageVector = Icons.Default.AccountCircle,
-            contentDescription = "Profile",
+            contentDescription = null,
             tint = Color.White,
             modifier = Modifier.size(24.dp)
         )

@@ -186,8 +186,8 @@ fun PlexHubApp() {
                 ),
         ) {
             SeasonDetailRoute(
-                onNavigateToPlayer = { ratingKey, serverId ->
-                    navController.navigate(Screen.VideoPlayer.createRoute(ratingKey, serverId))
+                onNavigateToPlayer = { ratingKey, serverId, startOffset ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(ratingKey, serverId, startOffset))
                 },
                 onNavigateBack = {
                     navController.popBackStack()

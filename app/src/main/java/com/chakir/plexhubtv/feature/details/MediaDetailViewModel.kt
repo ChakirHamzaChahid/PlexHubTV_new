@@ -40,6 +40,7 @@ class MediaDetailViewModel
         private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
         private val getSimilarMediaUseCase: com.chakir.plexhubtv.domain.usecase.GetSimilarMediaUseCase,
         private val getMediaCollectionsUseCase: com.chakir.plexhubtv.domain.usecase.GetMediaCollectionsUseCase,
+        private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val ratingKey: String = checkNotNull(savedStateHandle["ratingKey"])
@@ -76,9 +77,23 @@ class MediaDetailViewModel
                 is MediaDetailEvent.PlayClicked -> {
                     val media = _uiState.value.media ?: return
                     viewModelScope.launch {
+                        val opId = "playback_movie_${media.ratingKey}_${System.currentTimeMillis()}"
+                        performanceTracker.startOperation(
+                            opId,
+                            com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK,
+                            "Movie/Show PlayClicked → Player",
+                            mapOf(
+                                "title" to media.title,
+                                "type" to media.type.name,
+                                "ratingKey" to media.ratingKey,
+                                "serverId" to media.serverId
+                            )
+                        )
+
                         try {
                             // 1. Resolve Smart Start Element
                             val resolvedItem = getNextEpisodeUseCase(media).getOrNull()
+                            performanceTracker.addCheckpoint(opId, "Smart Start Resolved", mapOf("resolved" to (resolvedItem != null)))
 
                             val startItem =
                                 if (resolvedItem != null) {
@@ -87,6 +102,7 @@ class MediaDetailViewModel
                                     if (media.type == MediaType.Movie || media.type == MediaType.Episode) {
                                         media
                                     } else {
+                                        performanceTracker.endOperation(opId, success = false, errorMessage = "No playable content")
                                         _errorEvents.send(AppError.Media.NoPlayableContent("No playable episode found for this media."))
                                         return@launch
                                     }
@@ -96,22 +112,35 @@ class MediaDetailViewModel
                             // Optimization: Avoid re-running EnrichMediaItemUseCase if loadAvailableServers already did it.
                             val enrichedItem =
                                 if (startItem.ratingKey == media.ratingKey && media.remoteSources.size > 1) {
+                                    performanceTracker.addCheckpoint(opId, "Enrichment (Cache Hit)", mapOf("sources" to media.remoteSources.size))
                                     media // Already enriched by background job
                                 } else {
                                     // Either a different item (Next Episode) or background job not finished yet.
-                                    enrichMediaItemUseCase(startItem)
+                                    val enrichStart = System.currentTimeMillis()
+                                    val enriched = enrichMediaItemUseCase(startItem)
+                                    val enrichDuration = System.currentTimeMillis() - enrichStart
+                                    performanceTracker.addCheckpoint(
+                                        opId,
+                                        "Enrichment (Fresh)",
+                                        mapOf("duration" to enrichDuration, "sources" to enriched.remoteSources.size)
+                                    )
+                                    enriched
                                 }
 
                             _uiState.update { it.copy(selectedPlaybackItem = enrichedItem) }
 
                             // 3. Check for multiple sources on the RESOLVED item
                             if (enrichedItem.remoteSources.size > 1) {
+                                performanceTracker.addCheckpoint(opId, "Source Selection Dialog Shown")
                                 _uiState.update { it.copy(showSourceSelection = true) }
+                                // Will end operation when user selects source (in PlaySource event)
                             } else {
+                                performanceTracker.addCheckpoint(opId, "Single Source - Direct Play")
                                 // Single source or no remoteSources (fallback to direct)
-                                playItem(enrichedItem)
+                                playItem(enrichedItem, opId)
                             }
                         } catch (e: Exception) {
+                            performanceTracker.endOperation(opId, success = false, errorMessage = e.message)
                             _errorEvents.send(AppError.Playback.InitializationFailed(e.message, e))
                         }
                     }
@@ -165,8 +194,13 @@ class MediaDetailViewModel
                     _uiState.update { it.copy(showSourceSelection = false) }
                     val startItem = _uiState.value.selectedPlaybackItem ?: _uiState.value.media ?: return
                     viewModelScope.launch {
+                        // Continue tracking from PlayClicked (find active operation)
+                        val opId = performanceTracker.getSummary(com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK, 1)
+                            .firstOrNull()?.id
+                        opId?.let { performanceTracker.addCheckpoint(it, "User Selected Source", mapOf("serverId" to event.source.serverId)) }
+
                         // Start playback with specific server
-                        playItem(startItem, event.source.serverId)
+                        playItem(startItem, opId, event.source.serverId)
                     }
                 }
                 is MediaDetailEvent.Retry -> {
@@ -178,6 +212,7 @@ class MediaDetailViewModel
 
         private suspend fun playItem(
             item: MediaItem,
+            opId: String? = null,
             forcedServerId: String? = null,
         ) {
             val targetServerId = forcedServerId ?: item.serverId
@@ -186,6 +221,7 @@ class MediaDetailViewModel
                     // Find the source matching forcedServerId and use its ratingKey
                     val source = item.remoteSources.find { it.serverId == forcedServerId }
                     if (source != null) {
+                        opId?.let { performanceTracker.addCheckpoint(it, "Server Switch", mapOf("from" to item.serverId, "to" to source.serverId)) }
                         // We might need to fetch the full detail for this source?
                         // For now, let's assume ratingKey is enough for PlayerViewModel to load it.
                         item.copy(serverId = source.serverId, ratingKey = source.ratingKey)
@@ -197,12 +233,20 @@ class MediaDetailViewModel
                 }
 
             // 2. Build Playback Queue
+            val queueStart = System.currentTimeMillis()
             val queue = getPlayQueueUseCase(finalItem).getOrElse { listOf(finalItem) }
+            val queueDuration = System.currentTimeMillis() - queueStart
+            opId?.let { performanceTracker.addCheckpoint(it, "Queue Built", mapOf("duration" to queueDuration, "items" to queue.size)) }
 
             // 3. Initialize PlaybackManager
             playbackManager.play(finalItem, queue)
+            opId?.let { performanceTracker.addCheckpoint(it, "PlaybackManager Initialized") }
 
             // 4. Navigate
+            opId?.let {
+                performanceTracker.addCheckpoint(it, "Navigation to Player Triggered")
+                performanceTracker.endOperation(it, success = true, additionalMeta = mapOf("finalRatingKey" to finalItem.ratingKey))
+            }
             _navigationEvents.send(MediaDetailNavigationEvent.NavigateToPlayer(finalItem.ratingKey, finalItem.serverId))
         }
 
@@ -220,35 +264,34 @@ class MediaDetailViewModel
                 val startTime = System.currentTimeMillis()
                 Timber.d("SCREEN [Detail]: Loading start for $ratingKey on $serverId")
                 _uiState.update { it.copy(isLoading = true) }
-                getMediaDetailUseCase(ratingKey, serverId).collect { result ->
-                    val duration = System.currentTimeMillis() - startTime
-                    result.fold(
-                        onSuccess = { detail ->
-                            Timber.i(
-                                "SCREEN [Detail] SUCCESS: Load Duration=${duration}ms | Title=${detail.item.title} | Seasons=${detail.children.size}",
+                val result = getMediaDetailUseCase(ratingKey, serverId).first()
+                val duration = System.currentTimeMillis() - startTime
+                result.fold(
+                    onSuccess = { detail ->
+                        Timber.i(
+                            "SCREEN [Detail] SUCCESS: Load Duration=${duration}ms | Title=${detail.item.title} | Seasons=${detail.children.size}",
+                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                media = detail.item,
+                                seasons = detail.children,
+                                isEnriching = true, // Start enriching (looking for other servers)
                             )
-                            _uiState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    media = detail.item,
-                                    seasons = detail.children,
-                                    isEnriching = true, // Start enriching (looking for other servers)
-                                )
-                            }
-                            // Launch ALL secondary fetches in parallel
-                            loadSimilarItems()
-                            loadAvailableServers(detail.item)
-                            loadCollection() // Collections are BDD-local, no need to wait for enrichment
-                        },
-                        onFailure = { error ->
-                            Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
-                            viewModelScope.launch {
-                                _errorEvents.send(AppError.Media.LoadFailed(error.message, error))
-                            }
-                            _uiState.update { it.copy(isLoading = false) }
-                        },
-                    )
-                }
+                        }
+                        // Launch ALL secondary fetches in parallel
+                        loadSimilarItems()
+                        loadAvailableServers(detail.item)
+                        loadCollection() // Collections are BDD-local, no need to wait for enrichment
+                    },
+                    onFailure = { error ->
+                        Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
+                        viewModelScope.launch {
+                            _errorEvents.send(AppError.Media.LoadFailed(error.message, error))
+                        }
+                        _uiState.update { it.copy(isLoading = false) }
+                    },
+                )
             }
         }
 

@@ -23,6 +23,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -68,13 +71,31 @@ fun DownloadsScreen(
         },
         modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .testTag("screen_downloads")
+                .semantics { contentDescription = "Écran des téléchargements" }
+        ) {
             if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("downloads_loading")
+                        .semantics { contentDescription = "Chargement des téléchargements" },
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
             } else if (state.downloads.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("downloads_empty")
+                        .semantics { contentDescription = "Aucun téléchargement" },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text("No downloaded content.")
                 }
             } else {
@@ -83,6 +104,9 @@ fun DownloadsScreen(
                     state = listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier
+                        .testTag("downloads_list")
+                        .semantics { contentDescription = "Liste des téléchargements" }
                 ) {
                     items(state.downloads, key = { it.id }) { item ->
                         DownloadItem(
@@ -114,6 +138,8 @@ fun DownloadItem(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag("download_item_${item.id}")
+                .semantics { contentDescription = "Téléchargement: ${item.title}" }
                 .onFocusChanged { isFocused = it.isFocused }
                 .scale(scale)
                 .background(if (isFocused) Color.White.copy(alpha = 0.05f) else Color.Transparent)

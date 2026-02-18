@@ -1,0 +1,26 @@
+# .maestro/16_iptv.yaml
+appId: com.chakir.plexhubtv
+name: "IPTV - TV en direct"
+tags:
+  - iptv
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers IPTV
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_iptv"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_iptv"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Naviguer dans les chaînes (si configuré)
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Down"
+
+# Vérifier stabilité
+- assertVisible:
+    id: "screen_iptv"

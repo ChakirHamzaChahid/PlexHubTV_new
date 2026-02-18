@@ -27,12 +27,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.chakir.plexhubtv.di.designsystem.NetflixBlack
-import com.chakir.plexhubtv.di.designsystem.NetflixRed
+import com.chakir.plexhubtv.core.designsystem.NetflixBlack
+import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 
 /**
@@ -60,6 +63,8 @@ fun FavoritesScreen(
         modifier =
             Modifier
                 .fillMaxSize()
+                .testTag("screen_favorites")
+                .semantics { contentDescription = "Écran des favoris" }
                 .background(NetflixBlack) // Netflix Black Background
                 .padding(start = 58.dp, end = 58.dp, top = 80.dp), // 56dp TopBar + 24dp content padding
     ) {
@@ -72,11 +77,23 @@ fun FavoritesScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         if (uiState.isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("favorites_loading")
+                    .semantics { contentDescription = "Chargement des favoris" },
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator(color = NetflixRed)
             }
         } else if (uiState.favorites.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("favorites_empty")
+                    .semantics { contentDescription = "Aucun favori" },
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
                     text = "No favorites yet.",
                     style = MaterialTheme.typography.bodyLarge,

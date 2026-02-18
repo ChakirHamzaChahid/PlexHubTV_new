@@ -16,7 +16,7 @@ interface TmdbApiService {
     
     /**
      * Get TV show details including rating by TMDb ID.
-     * 
+     *
      * Example: getTvDetails("1396") // Breaking Bad
      * Returns: { "vote_average": 8.9, "name": "Breaking Bad", ... }
      */
@@ -25,6 +25,18 @@ interface TmdbApiService {
         @Path("tv_id") tmdbId: String,
         @Query("api_key") apiKey: String,
     ): TmdbTvResponse
+
+    /**
+     * Get movie details including rating by TMDb ID.
+     *
+     * Example: getMovieDetails("550") // Fight Club
+     * Returns: { "vote_average": 8.4, "title": "Fight Club", ... }
+     */
+    @GET("/3/movie/{movie_id}")
+    suspend fun getMovieDetails(
+        @Path("movie_id") tmdbId: String,
+        @Query("api_key") apiKey: String,
+    ): TmdbMovieResponse
 }
 
 /**
@@ -33,19 +45,42 @@ interface TmdbApiService {
 data class TmdbTvResponse(
     @SerializedName("id")
     val id: Int,
-    
+
     @SerializedName("name")
     val name: String,
-    
+
     @SerializedName("vote_average")
     val voteAverage: Double?, // 8.9 (out of 10)
-    
+
     @SerializedName("vote_count")
     val voteCount: Int?,
-    
+
     @SerializedName("success")
     val success: Boolean? = null, // false if error
-    
+
+    @SerializedName("status_message")
+    val statusMessage: String? = null, // Error message
+)
+
+/**
+ * TMDb Movie response.
+ */
+data class TmdbMovieResponse(
+    @SerializedName("id")
+    val id: Int,
+
+    @SerializedName("title")
+    val title: String,
+
+    @SerializedName("vote_average")
+    val voteAverage: Double?, // 8.4 (out of 10)
+
+    @SerializedName("vote_count")
+    val voteCount: Int?,
+
+    @SerializedName("success")
+    val success: Boolean? = null, // false if error
+
     @SerializedName("status_message")
     val statusMessage: String? = null, // Error message
 )

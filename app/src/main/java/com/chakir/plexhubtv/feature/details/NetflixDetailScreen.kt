@@ -52,9 +52,9 @@ import coil.request.ImageRequest
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
-import com.chakir.plexhubtv.di.designsystem.NetflixBlack
-import com.chakir.plexhubtv.di.designsystem.NetflixDarkGray
-import com.chakir.plexhubtv.di.designsystem.NetflixLightGray
+import com.chakir.plexhubtv.core.designsystem.NetflixBlack
+import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
+import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 
 @Composable
 fun NetflixDetailScreen(
@@ -315,18 +315,6 @@ fun NetflixDetailScreen(
             }
 
             item(key = "detail_bottom_spacer") { Spacer(modifier = Modifier.height(50.dp)) }
-        }
-
-        // Back Button - Non-focusable (use physical Back button on remote)
-        IconButton(
-            onClick = { onAction(MediaDetailEvent.Back) },
-            modifier = Modifier
-                .padding(32.dp)
-                .align(Alignment.TopEnd)
-                .zIndex(3f)
-                .focusable(false) // Don't trap focus
-        ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(32.dp))
         }
     }
 }

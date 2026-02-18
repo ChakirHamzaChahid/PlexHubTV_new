@@ -27,6 +27,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -111,13 +114,30 @@ fun IptvScreen(
             }
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .testTag("screen_iptv")
+                .semantics { contentDescription = "Écran IPTV" }
+        ) {
             if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("iptv_loading")
+                        .semantics { contentDescription = "Chargement des chaînes IPTV" },
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
             } else if (state.error != null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("iptv_error")
+                        .semantics { contentDescription = "Erreur: ${state.error}" },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text("Error: ${state.error}", color = MaterialTheme.colorScheme.error)
                     Button(onClick = { onEvent(IptvEvent.Refresh) }) {
                         Text("Retry")
@@ -139,6 +159,8 @@ fun IptvScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxSize()
+                        .testTag("iptv_channels_list")
+                        .semantics { contentDescription = "Liste des chaînes IPTV" }
                         .focusRequester(channelListFocusRequester),
                 ) {
                     items(
@@ -163,6 +185,9 @@ fun IptvScreen(
         var text by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { onEvent(IptvEvent.DismissUrlDialog) },
+            modifier = Modifier
+                .testTag("iptv_url_dialog")
+                .semantics { contentDescription = "Dialogue de saisie d'URL M3U" },
             title = { Text("Enter M3U Playlist URL") },
             text = {
                 OutlinedTextField(
@@ -209,6 +234,8 @@ fun ChannelListItem(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("iptv_channel_${channel.name}")
+            .semantics { contentDescription = "Chaîne: ${channel.name}" }
             .onFocusChanged { isFocused = it.isFocused }
             .scale(scale)
             .border(1.dp, borderColor, RoundedCornerShape(8.dp)),

@@ -1,0 +1,50 @@
+# .maestro/04_browse_movies_dpad.yaml
+appId: com.chakir.plexhubtv
+name: "Movies - Navigation D-pad bibliothèque films"
+tags:
+  - movies
+  - navigation
+  - smoke
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers l'écran Films
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_movies"
+
+# Vérifier qu'on est sur l'écran Films
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 60000  # 1 minute
+
+# Vérifier que la grille de films se charge
+- extendedWaitUntil:
+    visible:
+      id: "library_grid"
+    timeout: 60000  # 1 minute pour chargement des médias
+
+# Navigation D-pad dans la grille
+- pressKey: "Remote Dpad Right"
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Right"
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Left"
+- pressKey: "Remote Dpad Up"
+
+# Scroller vers le bas dans la bibliothèque
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Down"
+
+# Retour en haut
+- pressKey: "Remote Dpad Up"
+- pressKey: "Remote Dpad Up"
+- pressKey: "Remote Dpad Up"
+- pressKey: "Remote Dpad Up"
+
+# Vérifier que la grille est toujours visible (pas de crash)
+- assertVisible:
+    id: "library_grid"

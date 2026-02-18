@@ -20,9 +20,9 @@ android {
     defaultConfig {
         applicationId = "com.chakir.plexhubtv"
         minSdk = 27
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
-        versionName = "0.8.0"
+        versionName = "0.10.0"
     }
 
     signingConfigs {
@@ -108,6 +108,10 @@ android {
         }
         jniLibs {
             pickFirsts.add("lib/*/libc++_shared.so")
+            pickFirsts.add("lib/armeabi-v7a/libc++_shared.so")
+            pickFirsts.add("lib/arm64-v8a/libc++_shared.so")
+            pickFirsts.add("lib/x86/libc++_shared.so")
+            pickFirsts.add("lib/x86_64/libc++_shared.so")
         }
     }
 

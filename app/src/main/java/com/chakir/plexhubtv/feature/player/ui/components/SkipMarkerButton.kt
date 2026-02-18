@@ -20,6 +20,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,6 +67,8 @@ fun SkipMarkerButton(
             color = if (isFocused) buttonColor else buttonColor.copy(alpha = 0.8f),
             modifier =
                 Modifier
+                    .testTag("skip_marker_${markerType}")
+                    .semantics { contentDescription = displayText }
                     .scale(scale),
             interactionSource = interactionSource,
         ) {

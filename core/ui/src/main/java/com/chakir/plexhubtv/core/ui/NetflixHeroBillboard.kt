@@ -44,6 +44,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -95,6 +98,8 @@ fun NetflixHeroBillboard(
         modifier = modifier
             .fillMaxWidth()
             .height(450.dp) // Reduced height per design spec
+            .testTag("hero_section")
+            .semantics { contentDescription = "Film à la une: ${currentItem.title}" }
     ) {
         // Background Image — Crossfade instead of AnimatedContent for less memory pressure
         Crossfade(
@@ -110,9 +115,11 @@ fun NetflixHeroBillboard(
                     .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
                     .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                     .build(),
-                contentDescription = null,
+                contentDescription = "Image de fond de ${media.title}",
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("hero_backdrop_${media.ratingKey}")
             )
         }
 
@@ -226,11 +233,15 @@ fun NetflixHeroBillboard(
             ) {
                 NetflixPlayButton(
                     onClick = { onPlay(currentItem) },
-                    modifier = Modifier.focusRequester(playButtonFocusRequester)
+                    modifier = Modifier
+                        .focusRequester(playButtonFocusRequester)
+                        .testTag("hero_play_button")
                 )
                 NetflixInfoButton(
                     onClick = { onInfo(currentItem) },
-                    modifier = Modifier.focusRequester(infoButtonFocusRequester)
+                    modifier = Modifier
+                        .focusRequester(infoButtonFocusRequester)
+                        .testTag("hero_info_button")
                 )
             }
         }
@@ -276,10 +287,11 @@ fun NetflixPlayButton(
         contentPadding = ButtonDefaults.ContentPadding,
         modifier = modifier
             .border(2.dp, if (isFocused) Color.White else Color.Transparent)
+            .semantics { contentDescription = "Lancer la lecture" }
     ) {
         Icon(
             imageVector = Icons.Default.PlayArrow,
-            contentDescription = "Play",
+            contentDescription = null,
             modifier = Modifier.size(28.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -308,10 +320,11 @@ fun NetflixInfoButton(
         interactionSource = interactionSource,
         modifier = modifier
             .border(2.dp, if (isFocused) Color.White else Color.Transparent)
+            .semantics { contentDescription = "Plus d'informations" }
     ) {
         Icon(
             imageVector = Icons.Default.Info,
-            contentDescription = "More Info",
+            contentDescription = null,
             modifier = Modifier.size(28.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))

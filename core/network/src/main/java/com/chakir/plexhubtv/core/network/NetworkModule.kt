@@ -132,7 +132,7 @@ object NetworkModule {
                 // For public domains, use standard hostname verification
                 javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier().verify(hostname, session)
             }
-            .connectTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(3, TimeUnit.SECONDS)   // ⚡ Reduced to 3s to fail fast on slow/offline servers
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
@@ -172,7 +172,7 @@ object NetworkModule {
     @javax.inject.Named("tmdb")
     fun provideTmdbRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
         val tmdbClient = okHttpClient.newBuilder()
-            .connectTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(3, TimeUnit.SECONDS)   // ⚡ Reduced to 3s for fast failure
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
@@ -200,7 +200,7 @@ object NetworkModule {
     @javax.inject.Named("omdb")
     fun provideOmdbRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit {
         val omdbClient = okHttpClient.newBuilder()
-            .connectTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(3, TimeUnit.SECONDS)   // ⚡ Reduced to 3s for fast failure
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
 

@@ -33,14 +33,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.chakir.plexhubtv.di.designsystem.NetflixDarkGray
-import com.chakir.plexhubtv.di.designsystem.NetflixLightGray
+import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
+import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.isRetryable
@@ -112,7 +115,14 @@ fun MediaDetailScreen(
     Scaffold(
         snackbarHost = { ErrorSnackbarHost(snackbarHostState) }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.background)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("screen_media_detail")
+                .semantics { contentDescription = "Écran de détails" }
+                .padding(padding)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
             if (state.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
@@ -157,8 +167,7 @@ fun ActionButtonsRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Play Button
-        val playInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-        val isPlayFocused by playInteractionSource.collectIsFocusedAsState()
+        var isPlayFocused by remember { mutableStateOf(false) }
 
         Button(
             onClick = { onAction(MediaDetailEvent.PlayClicked) },
@@ -172,10 +181,11 @@ fun ActionButtonsRow(
             shape = RoundedCornerShape(4.dp),
             modifier = Modifier
                 .height(40.dp)
+                .testTag("play_button")
+                .semantics { contentDescription = if (state.isPlayButtonLoading) "Chargement..." else "Lancer la lecture" }
                 .scale(if (isPlayFocused) 1.05f else 1f)
                 .then(if (playButtonFocusRequester != null) Modifier.focusRequester(playButtonFocusRequester) else Modifier)
-                .focusable(interactionSource = playInteractionSource),
-            interactionSource = playInteractionSource,
+                .onFocusChanged { isPlayFocused = it.isFocused },
         ) {
             if (state.isPlayButtonLoading) {
                 CircularProgressIndicator(
@@ -193,8 +203,7 @@ fun ActionButtonsRow(
         }
 
         // Download Button
-        val downloadInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-        val isDownloadFocused by downloadInteractionSource.collectIsFocusedAsState()
+        var isDownloadFocused by remember { mutableStateOf(false) }
 
         Button(
             onClick = { onAction(MediaDetailEvent.DownloadClicked) },
@@ -206,8 +215,7 @@ fun ActionButtonsRow(
             modifier = Modifier
                 .height(40.dp)
                 .scale(if (isDownloadFocused) 1.05f else 1f)
-                .focusable(interactionSource = downloadInteractionSource),
-            interactionSource = downloadInteractionSource
+                .onFocusChanged { isDownloadFocused = it.isFocused },
         ) {
             Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(8.dp))
@@ -243,6 +251,8 @@ fun ActionButtonsRow(
             modifier =
                 Modifier
                     .size(40.dp) // Smaller
+                    .testTag("favorite_button")
+                    .semantics { contentDescription = if (media.isFavorite) "Retirer des favoris" else "Ajouter aux favoris" }
                     .onFocusChanged { favFocused = it.isFocused }
                     .background(
                         if (favFocused) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.1f),
@@ -252,7 +262,7 @@ fun ActionButtonsRow(
         ) {
             Icon(
                 imageVector = if (media.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = "Favorite",
+                contentDescription = null,
                 tint = if (media.isFavorite) MaterialTheme.colorScheme.error else Color.White,
                 modifier = Modifier.size(20.dp),
             )

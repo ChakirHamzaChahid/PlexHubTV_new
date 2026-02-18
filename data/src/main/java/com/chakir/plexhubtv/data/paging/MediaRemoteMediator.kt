@@ -95,6 +95,14 @@ class MediaRemoteMediator(
 
             val limit = if (loadType == LoadType.REFRESH) state.config.initialLoadSize else state.config.pageSize
 
+            // Cache-first: Check if we already have this data in Room before making network call
+            val cachedItems = mediaDao.getPagedItems(libraryKey, filter, sortOrder, limit, offset)
+            if (cachedItems.isNotEmpty() && loadType != LoadType.REFRESH) {
+                // We have cached data for this page and it's not an explicit refresh request
+                Timber.d("PAGING [Cache Hit]: Skipping network call, found ${cachedItems.size} items in Room for offset=$offset")
+                return MediatorResult.Success(endOfPaginationReached = cachedItems.size < limit)
+            }
+
             // Construct URL: /library/sections/{id}/all
             val url = "$serverUrl/library/sections/$libraryKey/all"
 
@@ -104,7 +112,7 @@ class MediaRemoteMediator(
 
             val startTime = System.currentTimeMillis()
             Timber.d("--------------------------------------------------")
-            Timber.d("PAGING [Load Request]: type=$loadType offset=$offset limit=$limit for lib=$libraryKey")
+            Timber.d("PAGING [Network Call]: type=$loadType offset=$offset limit=$limit for lib=$libraryKey")
 
             // 1. API Fetch
             val apiStartTime = System.currentTimeMillis()

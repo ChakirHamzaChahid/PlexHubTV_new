@@ -5,6 +5,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -48,6 +51,8 @@ fun AppSidebar(
                 modifier =
                     Modifier
                         .fillMaxHeight()
+                        .testTag("sidebar_menu")
+                        .semantics { contentDescription = "Menu de navigation" }
                         .padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
@@ -55,6 +60,18 @@ fun AppSidebar(
                 items.forEach { item ->
                     val selected = currentRoute == item.route
                     val enabled = !isOffline || (item == NavigationItem.Downloads || item == NavigationItem.Settings || item == NavigationItem.Favorites || item == NavigationItem.History)
+
+                    val navTag = when (item) {
+                        NavigationItem.Home -> "nav_item_home"
+                        NavigationItem.Movies -> "nav_item_movies"
+                        NavigationItem.TVShows -> "nav_item_tvshows"
+                        NavigationItem.Search -> "nav_item_search"
+                        NavigationItem.Downloads -> "nav_item_downloads"
+                        NavigationItem.Favorites -> "nav_item_favorites"
+                        NavigationItem.History -> "nav_item_history"
+                        NavigationItem.Settings -> "nav_item_settings"
+                        NavigationItem.Iptv -> "nav_item_iptv"
+                    }
 
                     NavigationDrawerItem(
                         selected = selected,
@@ -92,7 +109,10 @@ fun AppSidebar(
                                 pressedContentColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
                             ),
                         enabled = enabled,
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .padding(vertical = 4.dp)
+                            .testTag(navTag)
+                            .semantics { contentDescription = item.label },
                     )
                 }
             }

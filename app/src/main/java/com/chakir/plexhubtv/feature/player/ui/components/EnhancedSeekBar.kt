@@ -13,6 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chakir.plexhubtv.core.model.Chapter
@@ -63,6 +66,8 @@ fun EnhancedSeekBar(
                 Modifier
                     .fillMaxWidth()
                     .height(30.dp) // Touch area height
+                    .testTag("player_seekbar")
+                    .semantics { contentDescription = "Barre de progression" }
                     .onSizeChanged { boxWidth = it.width.toFloat() }
                     .focusable(interactionSource = interactionSource)
                     .onKeyEvent { event ->
@@ -178,31 +183,6 @@ fun EnhancedSeekBar(
                             .width(4.dp)
                             .background(Color.Red)
                             .offset(x = (markerStart * boxWidth).dp),
-                )
-            }
-
-            // Current position thumb
-            if (isFocused || isDragging) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(16.dp)
-                            .background(
-                                Color.White,
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                            )
-                            .offset(x = (progress * boxWidth).dp - 8.dp), // center thumb
-                )
-            } else {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(12.dp)
-                            .background(
-                                playedColor,
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                            )
-                            .offset(x = (progress * boxWidth).dp - 6.dp), // center thumb
                 )
             }
         }

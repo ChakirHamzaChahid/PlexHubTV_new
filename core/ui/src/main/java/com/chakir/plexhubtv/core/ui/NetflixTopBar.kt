@@ -25,8 +25,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +57,7 @@ fun NetflixTopBar(
     onSearchClick: () -> Unit,
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
+    appLogoPainter: androidx.compose.ui.graphics.painter.Painter? = null,
     focusRequester: FocusRequester = remember { FocusRequester() },
     onFocusChanged: (Boolean) -> Unit = {},
 ) {
@@ -77,15 +80,49 @@ fun NetflixTopBar(
                 .onFocusChanged { onFocusChanged(it.hasFocus) },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Logo
-            Icon(
-                painter = painterResource(id = R.mipmap.ic_launcher), // Placeholder or actual logo
-                contentDescription = "App Logo",
-                tint = NetflixRed,
-                modifier = Modifier
-                    .size(32.dp)
-                    .padding(end = 24.dp)
-            )
+            // App Logo + Name - PlexHubTV
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(end = 32.dp)
+            ) {
+                if (appLogoPainter != null) {
+                    Icon(
+                        painter = appLogoPainter,
+                        contentDescription = "PlexHub TV Logo",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(40.dp)
+                    )
+                } else {
+                    // Fallback placeholder if no logo provided
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(Color(0xFFE50914), Color(0xFFB81D24))
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "P",
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+            /*    Text(
+                    text = "PlexHub TV",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                )*/
+            }
 
             // Navigation Items
             Row(
@@ -187,12 +224,23 @@ private fun NetflixSearchIcon(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
-    
-    val iconColor = if (isFocused) Color.White else Color.White.copy(alpha = 0.7f)
+
+    // Match NavItem behavior: Red when focused, transparent white otherwise
+    val iconColor by animateColorAsState(
+        targetValue = if (isFocused) NetflixRed else Color.White.copy(alpha = 0.7f),
+        animationSpec = tween(150),
+        label = "searchIconColor"
+    )
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isFocused) 1.15f else 1f,
+        animationSpec = tween(150),
+        label = "searchIconScale"
+    )
 
     Box(
         modifier = Modifier
             .size(32.dp)
+            .scale(scale)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -216,7 +264,7 @@ private fun NetflixProfileAvatar(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    // Premium Netflix-style profile avatar with "P" like Netflix "N"
+    // Settings icon with Netflix-style background
     val borderColor = if (isFocused) Color.White else Color.Transparent
     val scale = if (isFocused) 1.1f else 1f
 
@@ -240,13 +288,11 @@ private fun NetflixProfileAvatar(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "P",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White
-            ),
-            modifier = Modifier.padding(bottom = 2.dp) // Slight adjustment for vertical centering
+        Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = "Settings",
+            tint = Color.White,
+            modifier = Modifier.size(20.dp)
         )
     }
 }

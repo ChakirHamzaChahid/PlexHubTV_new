@@ -29,8 +29,10 @@ import androidx.navigation.navArgument
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.zIndex
-import com.chakir.plexhubtv.di.designsystem.PlexHubTheme
+import com.chakir.plexhubtv.R
+import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.navigation.NavigationItem
 import com.chakir.plexhubtv.core.ui.NetflixTopBar
 import com.chakir.plexhubtv.di.navigation.Screen
@@ -54,22 +56,6 @@ fun MainScreen(
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
-
-    // Auto-redirect to Downloads if offline and on online-only tab
-    LaunchedEffect(uiState.isOffline) {
-        if (uiState.isOffline) {
-            val currentRoute = navController.currentDestination?.route
-            if (currentRoute != Screen.Downloads.route && currentRoute != Screen.Settings.route) {
-                navController.navigate(Screen.Downloads.route) {
-                    popUpTo(navController.graph.findStartDestination().id) {
-                        saveState = true
-                    }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            }
-        }
-    }
 
     // State for TopBar transparency and visibility
     var isTopBarScrolled by remember { mutableStateOf(false) }
@@ -117,15 +103,11 @@ fun MainScreen(
                 .background(MaterialTheme.colorScheme.background),
         ) {
             composable(Screen.Home.route) {
-                if (uiState.isOffline) {
-                    OfflinePlaceholder()
-                } else {
-                    HomeRoute(
-                        onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                        onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
-                        onScrollStateChanged = { isScrolled -> isTopBarScrolled = isScrolled },
-                    )
-                }
+                HomeRoute(
+                    onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                    onScrollStateChanged = { isScrolled -> isTopBarScrolled = isScrolled },
+                )
             }
             composable(
                 route = Screen.Movies.route,
@@ -152,13 +134,9 @@ fun MainScreen(
                 }
             }
             composable(Screen.Search.route) {
-                if (uiState.isOffline) {
-                    OfflinePlaceholder()
-                } else {
-                    SearchRoute(
-                        onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                    )
-                }
+                SearchRoute(
+                    onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                )
             }
             composable(Screen.Downloads.route) {
                 DownloadsRoute(
@@ -170,10 +148,16 @@ fun MainScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToLogin = onLogout,
                     onNavigateToServerStatus = { navController.navigate(Screen.ServerStatus.route) },
+                    onNavigateToDebug = { navController.navigate(Screen.Debug.route) },
                 )
             }
             composable(Screen.ServerStatus.route) {
                 com.chakir.plexhubtv.feature.settings.serverstatus.ServerStatusRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
+            composable(Screen.Debug.route) {
+                com.chakir.plexhubtv.feature.debug.DebugRoute(
                     onNavigateBack = { navController.popBackStack() },
                 )
             }
@@ -218,6 +202,7 @@ fun MainScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .zIndex(1f),
+                appLogoPainter = painterResource(id = R.drawable.ic_launcher_tv),
                 focusRequester = topBarFocusRequester,
                 onFocusChanged = { hasFocus -> isTopBarFocused = hasFocus },
             )

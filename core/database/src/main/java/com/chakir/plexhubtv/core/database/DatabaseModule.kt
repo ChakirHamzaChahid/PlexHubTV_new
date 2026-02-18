@@ -190,6 +190,43 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_26_27 =
+        object : androidx.room.migration.Migration(26, 27) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add parentIndex column for episode matching by season number instead of season title
+                // This eliminates 18 network requests per enrichment by enabling reliable Room-first matching
+                database.execSQL("ALTER TABLE media ADD COLUMN parentIndex INTEGER DEFAULT NULL")
+            }
+        }
+
+    private val MIGRATION_27_28 =
+        object : androidx.room.migration.Migration(27, 28) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add alternativeThumbUrls for fallback image loading from other servers
+                // Stores pipe-separated list of resolvedThumbUrl from all servers for the same media
+                database.execSQL("ALTER TABLE media ADD COLUMN alternativeThumbUrls TEXT DEFAULT NULL")
+            }
+        }
+
+    private val MIGRATION_28_29 =
+        object : androidx.room.migration.Migration(28, 29) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add displayRating: canonical pre-computed rating for sort and display
+                // Formula: COALESCE(scrapedRating, audienceRating, rating, 0.0)
+                database.execSQL("ALTER TABLE media ADD COLUMN displayRating REAL NOT NULL DEFAULT 0.0")
+
+                // Backfill: compute displayRating for all existing rows
+                database.execSQL(
+                    "UPDATE media SET displayRating = COALESCE(scrapedRating, audienceRating, rating, 0.0)"
+                )
+
+                // Add composite index for performant rating sort
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_type_displayRating ON media (type, displayRating)"
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -224,7 +261,10 @@ object DatabaseModule {
                 MIGRATION_22_23,
                 MIGRATION_23_24,
                 MIGRATION_24_25,
-                MIGRATION_25_26
+                MIGRATION_25_26,
+                MIGRATION_26_27,
+                MIGRATION_27_28,
+                MIGRATION_28_29
             )
             .fallbackToDestructiveMigration()
             .build()

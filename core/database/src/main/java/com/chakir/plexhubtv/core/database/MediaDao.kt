@@ -79,6 +79,15 @@ interface MediaDao {
         offset: Int,
     ): List<MediaEntity>
 
+    @Query("SELECT * FROM media WHERE librarySectionId = :libraryId AND filter = :filter AND sortOrder = :sortOrder ORDER BY pageOffset LIMIT :limit OFFSET :offset")
+    suspend fun getPagedItems(
+        libraryId: String,
+        filter: String,
+        sortOrder: String,
+        limit: Int,
+        offset: Int,
+    ): List<MediaEntity>
+
     // Aggregated Queries for Performance (Sorted by Date Added - Default)
     // NOTE: Paging Source queries (below) are preferred for UI.
     // Manual aggregated queries removed as they were unused and had incorrect GROUP BY logic.
@@ -146,11 +155,19 @@ interface MediaDao {
     suspend fun getAllMoviesWithImdbId(): List<String>
 
     /**
+     * Get all unique TMDb IDs for movies.
+     * DISTINCT ensures only 1 API call per unique movie across all servers.
+     * Used when RatingSync is configured to use TMDb for movies instead of OMDb.
+     */
+    @Query("SELECT DISTINCT tmdbId FROM media WHERE type = 'movie' AND tmdbId IS NOT NULL AND tmdbId != ''")
+    suspend fun getAllMoviesWithTmdbId(): List<String>
+
+    /**
      * Update rating by IMDb ID.
      * Updates ALL servers with the same IMDb ID in a single query.
      * @return Number of rows updated (useful for logging)
      */
-    @Query("UPDATE media SET scrapedRating = :rating WHERE imdbId = :imdbId AND (scrapedRating IS NULL OR scrapedRating != :rating)")
+    @Query("UPDATE media SET scrapedRating = :rating, displayRating = :rating WHERE imdbId = :imdbId AND (scrapedRating IS NULL OR scrapedRating != :rating)")
     suspend fun updateRatingByImdbId(
         imdbId: String,
         rating: Double,
@@ -161,7 +178,7 @@ interface MediaDao {
      * Updates ALL servers with the same TMDb ID in a single query.
      * @return Number of rows updated (useful for logging)
      */
-    @Query("UPDATE media SET scrapedRating = :rating WHERE tmdbId = :tmdbId AND (scrapedRating IS NULL OR scrapedRating != :rating)")
+    @Query("UPDATE media SET scrapedRating = :rating, displayRating = :rating WHERE tmdbId = :tmdbId AND (scrapedRating IS NULL OR scrapedRating != :rating)")
     suspend fun updateRatingByTmdbId(
         tmdbId: String,
         rating: Double,
@@ -416,13 +433,13 @@ interface MediaDao {
         excludeServerId: String,
     ): List<MediaEntity>
 
-    // REMOTE SOURCES: Find same episode on other servers by show title + season title + episode index
+    // REMOTE SOURCES: Find same episode on other servers by show title + season index + episode index
     @Query(
         """
         SELECT * FROM media
         WHERE type = 'episode'
         AND grandparentTitle = :showTitle
-        AND parentTitle = :seasonTitle
+        AND parentIndex = :seasonIndex
         AND `index` = :episodeIndex
         AND serverId != :excludeServerId
         GROUP BY serverId
@@ -430,7 +447,7 @@ interface MediaDao {
     )
     suspend fun findRemoteEpisodeSources(
         showTitle: String,
-        seasonTitle: String,
+        seasonIndex: Int,
         episodeIndex: Int,
         excludeServerId: String,
     ): List<MediaEntity>

@@ -1,0 +1,8 @@
+# Lancer l'app et attendre que l'écran d'accueil soit chargé
+appId: com.chakir.plexhubtv
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "screen_home"
+    timeout: 600000 # 10 minutes pour laisser le temps au flow Splash → Auth/Loading → Home

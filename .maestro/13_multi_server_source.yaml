@@ -1,0 +1,45 @@
+# .maestro/13_multi_server_source.yaml
+appId: com.chakir.plexhubtv
+name: "Multi-server - Changement de source serveur"
+tags:
+  - multi-server
+---
+- runFlow: subflows/launch_and_wait.yaml
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_movies"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Sélectionner un film
+- runFlow: subflows/select_first_media.yaml
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Naviguer vers le sélecteur de source (si multi-serveur)
+- scrollUntilVisible:
+    element:
+      id: "source_selector"
+    direction: DOWN
+    timeout: 60000  # Augmenté pour stabilité
+
+# Ouvrir le sélecteur de source
+- pressKey: "Remote Dpad Center"
+
+# Changer de serveur (descendre et sélectionner)
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Center"
+
+# Vérifier que la page détail se recharge avec la nouvelle source
+- extendedWaitUntil:
+    visible:
+      id: "detail_server_source"
+    timeout: 60000  # Augmenté pour stabilité
+
+- pressKey: back

@@ -46,17 +46,23 @@ class SearchViewModel
         fun onAction(action: SearchAction) {
             when (action) {
                 is SearchAction.QueryChange -> {
+                    // Only update the query text, don't trigger search automatically
                     _uiState.update { it.copy(query = action.query) }
                     if (action.query.isBlank()) {
                         _uiState.update { it.copy(searchState = SearchState.Idle, results = emptyList()) }
                         searchJob?.cancel()
-                    } else {
-                        debouncedSearch(action.query)
                     }
                 }
                 is SearchAction.ClearQuery -> {
                     _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = emptyList()) }
                     searchJob?.cancel()
+                }
+                is SearchAction.ExecuteSearch -> {
+                    // Trigger search only when user explicitly submits
+                    val query = _uiState.value.query
+                    if (query.isNotBlank()) {
+                        performSearch(query)
+                    }
                 }
                 is SearchAction.OpenMedia -> {
                     viewModelScope.launch {
@@ -66,16 +72,15 @@ class SearchViewModel
             }
         }
 
-        private fun debouncedSearch(query: String) {
+        private fun performSearch(query: String) {
             searchJob?.cancel()
             searchJob =
                 viewModelScope.launch {
                     val startTime = System.currentTimeMillis()
                     _uiState.update { it.copy(searchState = SearchState.Searching) }
-                    delay(500L) // Debounce 500ms
 
                     searchAcrossServersUseCase(query).collect { result ->
-                        val duration = System.currentTimeMillis() - startTime - 500L // Approx duration after delay
+                        val duration = System.currentTimeMillis() - startTime
                         result.fold(
                             onSuccess = { items ->
                                 Timber.i("SCREEN [Search] SUCCESS: query='$query' Load Duration=${duration}ms | Results=${items.size}")

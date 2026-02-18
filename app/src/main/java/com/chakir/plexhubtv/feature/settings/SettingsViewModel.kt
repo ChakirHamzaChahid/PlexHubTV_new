@@ -169,6 +169,10 @@ class SettingsViewModel
                     _uiState.update { it.copy(omdbApiKey = action.key) }
                     viewModelScope.launch { settingsRepository.saveOmdbApiKey(action.key) }
                 }
+                is SettingsAction.SaveIptvPlaylistUrl -> {
+                    _uiState.update { it.copy(iptvPlaylistUrl = action.url) }
+                    viewModelScope.launch { settingsRepository.saveIptvPlaylistUrl(action.url) }
+                }
                 is SettingsAction.SyncRatings -> {
                     _uiState.update { it.copy(isSyncingRatings = true, ratingSyncMessage = null) }
 
@@ -195,6 +199,29 @@ class SettingsViewModel
                     viewModelScope.launch {
                         kotlinx.coroutines.delay(3000)
                         _uiState.update { it.copy(ratingSyncMessage = null) }
+                    }
+                }
+                // Rating Sync Configuration Actions
+                is SettingsAction.ChangeRatingSyncSource -> {
+                    _uiState.update { it.copy(ratingSyncSource = action.source) }
+                    viewModelScope.launch { settingsRepository.saveRatingSyncSource(action.source) }
+                }
+                is SettingsAction.ChangeRatingSyncDelay -> {
+                    _uiState.update { it.copy(ratingSyncDelay = action.delayMs) }
+                    viewModelScope.launch { settingsRepository.saveRatingSyncDelay(action.delayMs) }
+                }
+                is SettingsAction.ToggleRatingSyncBatching -> {
+                    _uiState.update { it.copy(ratingSyncBatchingEnabled = action.enabled) }
+                    viewModelScope.launch { settingsRepository.saveRatingSyncBatchingEnabled(action.enabled) }
+                }
+                is SettingsAction.ChangeRatingSyncDailyLimit -> {
+                    _uiState.update { it.copy(ratingSyncDailyLimit = action.limit) }
+                    viewModelScope.launch { settingsRepository.saveRatingSyncDailyLimit(action.limit) }
+                }
+                is SettingsAction.ResetRatingSyncProgress -> {
+                    viewModelScope.launch {
+                        settingsRepository.resetRatingSyncProgress()
+                        Timber.d("Rating sync progress reset")
                     }
                 }
             }
@@ -278,6 +305,42 @@ class SettingsViewModel
                 launch {
                     settingsRepository.getOmdbApiKey().collect { key ->
                         _uiState.update { it.copy(omdbApiKey = key ?: "") }
+                    }
+                }
+                launch {
+                    settingsRepository.iptvPlaylistUrl.collect { url ->
+                        _uiState.update { it.copy(iptvPlaylistUrl = url ?: "") }
+                    }
+                }
+                // Rating Sync Configuration
+                launch {
+                    settingsRepository.ratingSyncSource.collect { source ->
+                        _uiState.update { it.copy(ratingSyncSource = source) }
+                    }
+                }
+                launch {
+                    settingsRepository.ratingSyncDelay.collect { delay ->
+                        _uiState.update { it.copy(ratingSyncDelay = delay) }
+                    }
+                }
+                launch {
+                    settingsRepository.ratingSyncBatchingEnabled.collect { enabled ->
+                        _uiState.update { it.copy(ratingSyncBatchingEnabled = enabled) }
+                    }
+                }
+                launch {
+                    settingsRepository.ratingSyncDailyLimit.collect { limit ->
+                        _uiState.update { it.copy(ratingSyncDailyLimit = limit) }
+                    }
+                }
+                launch {
+                    settingsRepository.ratingSyncProgressSeries.collect { progress ->
+                        _uiState.update { it.copy(ratingSyncProgressSeries = progress) }
+                    }
+                }
+                launch {
+                    settingsRepository.ratingSyncProgressMovies.collect { progress ->
+                        _uiState.update { it.copy(ratingSyncProgressMovies = progress) }
                     }
                 }
             }

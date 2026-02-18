@@ -9,6 +9,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -33,7 +36,10 @@ fun LoadingRoute(
 @Composable
 fun LoadingScreen(state: LoadingUiState) {
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("screen_loading")
+            .semantics { contentDescription = "Écran de chargement" },
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(
@@ -63,7 +69,11 @@ fun LoadingScreen(state: LoadingUiState) {
 
             when (state) {
                 is LoadingUiState.Loading -> {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .testTag("loading_progress")
+                            .semantics { contentDescription = "Chargement en cours: ${state.progress.toInt()}%" }
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(
                         text = state.message,
@@ -72,7 +82,10 @@ fun LoadingScreen(state: LoadingUiState) {
                     Spacer(modifier = Modifier.height(16.dp))
                     LinearProgressIndicator(
                         progress = { state.progress / 100f }, // progress is 0..100
-                        modifier = Modifier.fillMaxWidth(0.6f),
+                        modifier = Modifier
+                            .fillMaxWidth(0.6f)
+                            .testTag("sync_progress_bar")
+                            .semantics { contentDescription = "Barre de progression de la synchronisation" },
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -85,12 +98,20 @@ fun LoadingScreen(state: LoadingUiState) {
                         imageVector = androidx.compose.material.icons.Icons.Default.Warning,
                         contentDescription = "Error",
                         tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .testTag("loading_error")
+                            .semantics { contentDescription = "Erreur de chargement: ${state.message}" }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = state.message, color = MaterialTheme.colorScheme.error)
                 }
                 LoadingUiState.Completed -> {
-                    Text("Chargement terminé !")
+                    Text(
+                        "Chargement terminé !",
+                        modifier = Modifier
+                            .testTag("loading_completed")
+                            .semantics { contentDescription = "Chargement terminé" }
+                    )
                 }
             }
         }

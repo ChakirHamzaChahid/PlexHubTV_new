@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 26 : Purge du cache serveurs pour forcer le re-fetch avec toutes les connexions candidates.
+ * Version 29 : Ajout de displayRating (note canonique pré-calculée) + index pour tri par note performant.
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -27,7 +27,7 @@ import androidx.room.TypeConverters
         ProfileEntity::class,
         SearchCacheEntity::class,
     ],
-    version = 26,
+    version = 29,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {

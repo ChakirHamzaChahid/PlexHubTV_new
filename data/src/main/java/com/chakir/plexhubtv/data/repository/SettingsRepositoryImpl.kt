@@ -112,4 +112,45 @@ class SettingsRepositoryImpl
         override suspend fun saveOmdbApiKey(key: String) {
             settingsDataStore.saveOmdbApiKey(key)
         }
+
+        // Rating Sync Configuration
+        override val ratingSyncSource: Flow<String> = settingsDataStore.ratingSyncSource
+        override val ratingSyncDelay: Flow<Long> = settingsDataStore.ratingSyncDelay
+        override val ratingSyncBatchingEnabled: Flow<Boolean> = settingsDataStore.ratingSyncBatchingEnabled
+        override val ratingSyncDailyLimit: Flow<Int> = settingsDataStore.ratingSyncDailyLimit
+        override val ratingSyncProgressSeries: Flow<Int> = settingsDataStore.ratingSyncProgressSeries
+        override val ratingSyncProgressMovies: Flow<Int> = settingsDataStore.ratingSyncProgressMovies
+        override val ratingSyncLastRunDate: Flow<String?> = settingsDataStore.ratingSyncLastRunDate
+
+        override suspend fun saveRatingSyncSource(source: String) {
+            settingsDataStore.saveRatingSyncSource(source)
+        }
+
+        override suspend fun saveRatingSyncDelay(delayMs: Long) {
+            settingsDataStore.saveRatingSyncDelay(delayMs)
+        }
+
+        override suspend fun saveRatingSyncBatchingEnabled(enabled: Boolean) {
+            settingsDataStore.saveRatingSyncBatchingEnabled(enabled)
+        }
+
+        override suspend fun saveRatingSyncDailyLimit(limit: Int) {
+            settingsDataStore.saveRatingSyncDailyLimit(limit)
+        }
+
+        override suspend fun saveRatingSyncProgressSeries(progress: Int) {
+            settingsDataStore.saveRatingSyncProgressSeries(progress)
+        }
+
+        override suspend fun saveRatingSyncProgressMovies(progress: Int) {
+            settingsDataStore.saveRatingSyncProgressMovies(progress)
+        }
+
+        override suspend fun saveRatingSyncLastRunDate(date: String) {
+            settingsDataStore.saveRatingSyncLastRunDate(date)
+        }
+
+        override suspend fun resetRatingSyncProgress() {
+            settingsDataStore.resetRatingSyncProgress()
+        }
     }

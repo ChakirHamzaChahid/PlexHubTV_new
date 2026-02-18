@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.feature.player
 
 import android.content.Context
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.ExoPlayer
@@ -28,7 +29,9 @@ class ExoPlayerFactory
     @Inject
     constructor() : PlayerFactory {
         override fun createExoPlayer(context: Context): ExoPlayer {
-            return ExoPlayer.Builder(context).build()
+            return ExoPlayer.Builder(context)
+                .setWakeMode(C.WAKE_MODE_LOCAL) // Keep screen on during playback to prevent sleep mode
+                .build()
         }
 
         override fun createMediaItem(

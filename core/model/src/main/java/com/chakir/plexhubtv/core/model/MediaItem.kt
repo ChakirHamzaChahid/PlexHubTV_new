@@ -34,6 +34,8 @@ data class MediaItem(
     val type: MediaType,
     val thumbUrl: String? = null,
     val artUrl: String? = null,
+    // Alternative poster URLs from other servers for fallback if primary fails
+    val alternativeThumbUrls: List<String> = emptyList(),
     val summary: String? = null,
     val year: Int? = null,
     val durationMs: Long? = null,

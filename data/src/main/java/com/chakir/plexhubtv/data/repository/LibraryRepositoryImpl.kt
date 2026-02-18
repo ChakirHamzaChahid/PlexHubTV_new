@@ -29,6 +29,7 @@ class LibraryRepositoryImpl
         private val mapper: MediaMapper,
         private val mediaDao: MediaDao,
         private val database: com.chakir.plexhubtv.core.database.PlexDatabase,
+        private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
     ) : LibraryRepository {
         override suspend fun getLibraries(serverId: String): Result<List<LibrarySection>> {
             try {
@@ -150,14 +151,29 @@ class LibraryRepositoryImpl
                 val bindArgs = mutableListOf<Any>()
 
                 if (isUnified) {
-                    sqlBuilder.append("SELECT *, MAX(addedAt) as addedAt, ")
+                    // CRITICAL: Explicit column list to avoid name collision between
+                    // table columns (serverIds, ratingKeys, alternativeThumbUrls) and
+                    // GROUP_CONCAT aliases. SELECT media.* would include the stored NULL
+                    // values AND the computed aliases, causing Room to pick the NULL ones.
                     sqlBuilder.append(
-                        "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as rating, ",
+                        """SELECT media.ratingKey, media.serverId, media.librarySectionId, media.title,
+                        media.titleSortable, media.filter, media.sortOrder, media.pageOffset,
+                        media.type, media.thumbUrl, media.artUrl, media.year, media.duration,
+                        media.summary, media.viewOffset, media.lastViewedAt, media.parentTitle,
+                        media.parentRatingKey, media.parentIndex, media.grandparentTitle,
+                        media.grandparentRatingKey, media.`index`, media.mediaParts, media.guid,
+                        media.imdbId, media.tmdbId, media.rating, media.audienceRating,
+                        media.contentRating, media.genres, media.unificationId,
+                        MAX(media.addedAt) as addedAt, media.updatedAt,
+                        media.parentThumb, media.grandparentThumb,
+                        media.displayRating,
+                        media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
+                        media.scrapedRating,
+                        GROUP_CONCAT(media.ratingKey) as ratingKeys,
+                        GROUP_CONCAT(media.serverId) as serverIds,
+                        GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """,
                     )
-                    sqlBuilder.append(
-                        "(COALESCE(SUM(rating), 0.0) + COALESCE(SUM(audienceRating), 0.0)) / NULLIF(COUNT(rating) + COUNT(audienceRating), 0) as audienceRating, ",
-                    )
-                    sqlBuilder.append("GROUP_CONCAT(ratingKey) as ratingKeys, GROUP_CONCAT(serverId) as serverIds FROM media ")
+                    sqlBuilder.append("FROM media ")
                     sqlBuilder.append("WHERE type = ? ")
                     bindArgs.add(plexTypeStr)
                 } else {
@@ -207,12 +223,13 @@ class LibraryRepositoryImpl
                 val safeDirection = if (isDescending) "DESC" else "ASC"
                 val orderBy =
                     if (isUnified) {
+                        // Use aggregate functions directly in ORDER BY to avoid alias collisions
                         when (baseSort) {
                             "title" -> "title $safeDirection"
                             "year" -> "year $safeDirection, title ASC"
-                            "rating" -> "rating $safeDirection, title ASC"
-                            "addedAt" -> "addedAt $safeDirection"
-                            else -> "addedAt $safeDirection"
+                            "rating" -> "AVG(media.displayRating) $safeDirection, title ASC"
+                            "addedAt" -> "MAX(media.addedAt) $safeDirection"
+                            else -> "MAX(media.addedAt) $safeDirection"
                         }
                     } else {
                         "pageOffset ASC"
@@ -220,6 +237,12 @@ class LibraryRepositoryImpl
                 sqlBuilder.append("ORDER BY $orderBy")
 
                 val rawQuery = SimpleSQLiteQuery(sqlBuilder.toString(), bindArgs.toTypedArray())
+
+                // DEBUG: Log SQL query and sort parameters
+                timber.log.Timber.d("LIBRARY_SORT [baseSort=$baseSort, isDesc=$isDescending] SQL Query: ${sqlBuilder.toString().take(500)}")
+                timber.log.Timber.d("LIBRARY_SORT ORDER BY: $orderBy")
+                timber.log.Timber.d("LIBRARY_SORT Bind Args: ${bindArgs.take(5)}")
+
                 val factory = { mediaDao.getMediaPagedRaw(rawQuery) }
 
                 val remoteMediator =
@@ -244,7 +267,7 @@ class LibraryRepositoryImpl
                         config =
                             androidx.paging.PagingConfig(
                                 pageSize = 50,
-                                prefetchDistance = 50,
+                                prefetchDistance = 15, // TV viewport shows ~15-20 items; 50 caused excessive prefetch
                                 initialLoadSize = 100,
                                 enablePlaceholders = true,
                                 maxSize = 2000,
@@ -265,6 +288,14 @@ class LibraryRepositoryImpl
                     }
                 val tokenMap = allServers.associate { it.clientIdentifier to it.accessToken }
 
+                // Get preferred server for prioritization in multi-server results
+                val defaultServerName = settingsRepository.defaultServer.first()
+                val preferredServerIdForMapping = if (defaultServerName != "all") {
+                    allServers.find { it.name == defaultServerName }?.clientIdentifier
+                } else {
+                    null
+                }
+
                 emitAll(
                     pager.flow.map { pagingData ->
                         pagingData.map { entity ->
@@ -274,8 +305,18 @@ class LibraryRepositoryImpl
 
                             val finalDomain =
                                 if (entity.serverIds != null && entity.ratingKeys != null) {
-                                    val sIds = entity.serverIds!!.split(",")
-                                    val rKeys = entity.ratingKeys!!.split(",")
+                                    var sIds = entity.serverIds!!.split(",")
+                                    var rKeys = entity.ratingKeys!!.split(",")
+
+                                    // Prioritize default server in multi-server results (Kotlin-side, SQLite version independent)
+                                    if (sIds.size == rKeys.size && sIds.size > 1 && preferredServerIdForMapping != null) {
+                                        val preferredIndex = sIds.indexOf(preferredServerIdForMapping)
+                                        if (preferredIndex > 0) { // Only reorder if preferred server is not already first
+                                            // Move preferred server to first position
+                                            sIds = listOf(sIds[preferredIndex]) + sIds.filterIndexed { idx, _ -> idx != preferredIndex }
+                                            rKeys = listOf(rKeys[preferredIndex]) + rKeys.filterIndexed { idx, _ -> idx != preferredIndex }
+                                        }
+                                    }
 
                                     if (sIds.size == rKeys.size && sIds.size > 1) {
                                         val sources =

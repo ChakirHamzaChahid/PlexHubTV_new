@@ -26,5 +26,7 @@ sealed interface SearchAction {
 
     data object ClearQuery : SearchAction
 
+    data object ExecuteSearch : SearchAction
+
     data class OpenMedia(val media: MediaItem) : SearchAction
 }

@@ -12,14 +12,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import com.chakir.plexhubtv.di.designsystem.NetflixBlack
-import com.chakir.plexhubtv.di.designsystem.NetflixWhite
+import com.chakir.plexhubtv.core.designsystem.NetflixBlack
+import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
@@ -40,7 +43,10 @@ fun NetflixSearchScreen(
     }
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("screen_search")
+            .semantics { contentDescription = "Écran de recherche" },
         snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
         containerColor = NetflixBlack
     ) { paddingValues ->
@@ -63,7 +69,10 @@ fun NetflixSearchScreen(
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = NetflixWhite,
-                modifier = Modifier.padding(bottom = 24.dp)
+                modifier = Modifier
+                    .padding(bottom = 24.dp)
+                    .testTag("search_input")
+                    .semantics { contentDescription = "Rechercher: ${state.query.ifEmpty { "vide" }}" }
             )
 
             NetflixOnScreenKeyboard(
@@ -78,7 +87,9 @@ fun NetflixSearchScreen(
                 onClear = {
                     onAction(SearchAction.ClearQuery)
                 },
-                onSearch = {},
+                onSearch = {
+                    onAction(SearchAction.ExecuteSearch)
+                },
                 initialFocusRequester = keyboardFocusRequester
             )
         }
@@ -113,7 +124,10 @@ fun NetflixSearchScreen(
                 }
                 SearchState.NoResults -> {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("search_no_results")
+                            .semantics { contentDescription = "Aucun résultat trouvé" },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(

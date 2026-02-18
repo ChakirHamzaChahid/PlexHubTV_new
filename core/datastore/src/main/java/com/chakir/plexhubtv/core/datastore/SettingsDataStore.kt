@@ -51,6 +51,15 @@ class SettingsDataStore
         private val TMDB_API_KEY = stringPreferencesKey("tmdb_api_key")
         private val OMDB_API_KEY = stringPreferencesKey("omdb_api_key")
 
+        // Rating Sync Configuration
+        private val RATING_SYNC_SOURCE = stringPreferencesKey("rating_sync_source") // "tmdb" or "omdb"
+        private val RATING_SYNC_DELAY = stringPreferencesKey("rating_sync_delay") // delay in ms
+        private val RATING_SYNC_BATCHING_ENABLED = stringPreferencesKey("rating_sync_batching_enabled")
+        private val RATING_SYNC_DAILY_LIMIT = stringPreferencesKey("rating_sync_daily_limit")
+        private val RATING_SYNC_PROGRESS_SERIES = stringPreferencesKey("rating_sync_progress_series")
+        private val RATING_SYNC_PROGRESS_MOVIES = stringPreferencesKey("rating_sync_progress_movies")
+        private val RATING_SYNC_LAST_RUN_DATE = stringPreferencesKey("rating_sync_last_run_date")
+
         init {
             // Migration: move sensitive data from DataStore to EncryptedSharedPreferences
             CoroutineScope(Dispatchers.IO).launch {
@@ -159,6 +168,35 @@ class SettingsDataStore
         val tmdbApiKey: Flow<String?> = securePrefs.tmdbApiKey
 
         val omdbApiKey: Flow<String?> = securePrefs.omdbApiKey
+
+        // Rating Sync Configuration Flows
+        val ratingSyncSource: Flow<String> =
+            dataStore.data
+                .map { preferences -> preferences[RATING_SYNC_SOURCE] ?: "tmdb" } // Default to TMDb
+
+        val ratingSyncDelay: Flow<Long> =
+            dataStore.data
+                .map { preferences -> preferences[RATING_SYNC_DELAY]?.toLongOrNull() ?: 250L } // Default 250ms
+
+        val ratingSyncBatchingEnabled: Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[RATING_SYNC_BATCHING_ENABLED]?.toBoolean() ?: false }
+
+        val ratingSyncDailyLimit: Flow<Int> =
+            dataStore.data
+                .map { preferences -> preferences[RATING_SYNC_DAILY_LIMIT]?.toIntOrNull() ?: 900 } // Default 900/day
+
+        val ratingSyncProgressSeries: Flow<Int> =
+            dataStore.data
+                .map { preferences -> preferences[RATING_SYNC_PROGRESS_SERIES]?.toIntOrNull() ?: 0 }
+
+        val ratingSyncProgressMovies: Flow<Int> =
+            dataStore.data
+                .map { preferences -> preferences[RATING_SYNC_PROGRESS_MOVIES]?.toIntOrNull() ?: 0 }
+
+        val ratingSyncLastRunDate: Flow<String?> =
+            dataStore.data
+                .map { preferences -> preferences[RATING_SYNC_LAST_RUN_DATE] }
 
         suspend fun saveToken(token: String) {
             // Use SecurePreferencesManager for encrypted storage
@@ -328,6 +366,56 @@ class SettingsDataStore
             dataStore.edit { prefs ->
                 val serialized = connections.entries.joinToString("|") { "${it.key}=${it.value}" }
                 prefs[CACHED_CONNECTIONS] = serialized
+            }
+        }
+
+        // Rating Sync Configuration Save Functions
+        suspend fun saveRatingSyncSource(source: String) {
+            dataStore.edit { preferences ->
+                preferences[RATING_SYNC_SOURCE] = source
+            }
+        }
+
+        suspend fun saveRatingSyncDelay(delayMs: Long) {
+            dataStore.edit { preferences ->
+                preferences[RATING_SYNC_DELAY] = delayMs.toString()
+            }
+        }
+
+        suspend fun saveRatingSyncBatchingEnabled(enabled: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[RATING_SYNC_BATCHING_ENABLED] = enabled.toString()
+            }
+        }
+
+        suspend fun saveRatingSyncDailyLimit(limit: Int) {
+            dataStore.edit { preferences ->
+                preferences[RATING_SYNC_DAILY_LIMIT] = limit.toString()
+            }
+        }
+
+        suspend fun saveRatingSyncProgressSeries(progress: Int) {
+            dataStore.edit { preferences ->
+                preferences[RATING_SYNC_PROGRESS_SERIES] = progress.toString()
+            }
+        }
+
+        suspend fun saveRatingSyncProgressMovies(progress: Int) {
+            dataStore.edit { preferences ->
+                preferences[RATING_SYNC_PROGRESS_MOVIES] = progress.toString()
+            }
+        }
+
+        suspend fun saveRatingSyncLastRunDate(date: String) {
+            dataStore.edit { preferences ->
+                preferences[RATING_SYNC_LAST_RUN_DATE] = date
+            }
+        }
+
+        suspend fun resetRatingSyncProgress() {
+            dataStore.edit { preferences ->
+                preferences[RATING_SYNC_PROGRESS_SERIES] = "0"
+                preferences[RATING_SYNC_PROGRESS_MOVIES] = "0"
             }
         }
 

@@ -41,6 +41,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -103,6 +106,16 @@ fun NetflixMediaCard(
     Column(
         modifier = modifier
             .width(cardWidth)
+            .testTag("media_card_${media.ratingKey}")
+            .semantics {
+                contentDescription = when (media.type) {
+                    MediaType.Movie -> "Film: ${media.title}"
+                    MediaType.Show -> "Série: ${media.title}"
+                    MediaType.Episode -> "Épisode: ${media.title}"
+                    MediaType.Season -> "Saison: ${media.title}"
+                    else -> media.title
+                }
+            }
             .zIndex(if (isFocused) 10f else 0f)
             .scale(scale)
             .clickable(
@@ -127,42 +140,76 @@ fun NetflixMediaCard(
                 }
             }
 
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(imageUrl)
-                    .crossfade(false)
-                    // Size images to actual card dimensions (×3 for xxhdpi)
-                    .size(
-                        width = when (cardType) {
-                            CardType.POSTER, CardType.TOP_TEN -> 420
-                            CardType.WIDE -> 720
-                        },
-                        height = when (cardType) {
-                            CardType.POSTER, CardType.TOP_TEN -> 630
-                            CardType.WIDE -> 405
-                        }
-                    )
-                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                    .build(),
-                contentDescription = media.title,
+            FallbackAsyncImage(
+                primaryUrl = imageUrl,
+                alternativeUrls = media.alternativeThumbUrls,
+                contentDescription = "Affiche de ${media.title}",
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+                imageWidth = when (cardType) {
+                    CardType.POSTER, CardType.TOP_TEN -> 420
+                    CardType.WIDE -> 720
+                },
+                imageHeight = when (cardType) {
+                    CardType.POSTER, CardType.TOP_TEN -> 630
+                    CardType.WIDE -> 405
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("media_poster_${media.ratingKey}")
             )
 
-            // Gradient Scrim on Focus (simple conditional instead of AnimatedVisibility)
-            if (isFocused) {
+            // Gradient Scrim on Focus — uses graphicsLayer alpha to avoid layout add/remove
+            val scrimAlpha by animateFloatAsState(
+                targetValue = if (isFocused) 1f else 0f,
+                animationSpec = tween(durationMillis = 200),
+                label = "scrimAlpha"
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = scrimAlpha }
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
+                            startY = 0f,
+                            endY = Float.POSITIVE_INFINITY
+                        )
+                    )
+            )
+
+            // Rating Badge — Always visible in top-right corner
+            val rating = media.rating
+            if (rating != null && rating > 0) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
                         .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
-                                startY = 0f,
-                                endY = Float.POSITIVE_INFINITY
-                            )
+                            color = Color.Black.copy(alpha = 0.75f),
+                            shape = RoundedCornerShape(4.dp)
                         )
-                )
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFD700), // Gold color
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = String.format("%.1f", rating),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             // Progress Bar with Remaining Time
@@ -179,6 +226,7 @@ fun NetflixMediaCard(
                     progress = progress,
                     remainingMs = remainingMs,
                     showRemainingTime = isFocused && cardType == CardType.WIDE,
+                    ratingKey = media.ratingKey,
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
@@ -238,9 +286,16 @@ fun NetflixProgressBar(
     progress: Float,
     remainingMs: Long = 0,
     showRemainingTime: Boolean = false,
+    ratingKey: String = "",
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    val progressPercent = (progress * 100).toInt()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("progress_indicator_$ratingKey")
+            .semantics { contentDescription = "Progression: $progressPercent%" }
+    ) {
         // Remaining Time Text (optional, only for Continue Watching WIDE cards)
         if (showRemainingTime && remainingMs > 0) {
             Box(

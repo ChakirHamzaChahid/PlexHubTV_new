@@ -10,10 +10,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyListState // ✅ State reste dans foundation
@@ -34,6 +38,7 @@ fun NetflixContentRow(
     cardType: CardType = CardType.POSTER,
     onItemClick: (MediaItem) -> Unit,
     onItemPlay: (MediaItem) -> Unit,
+    rowId: String = title.lowercase().replace(" ", "_"),
 ) {
     if (items.isEmpty()) return
 
@@ -42,6 +47,8 @@ fun NetflixContentRow(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .testTag("hub_row_$rowId")
+            .semantics { contentDescription = "Catégorie: $title" }
             .padding(bottom = 24.dp)
     ) {
         // Row Title
@@ -75,11 +82,13 @@ fun NetflixContentRow(
                 items = items,
                 key = { "${it.ratingKey}_${it.serverId}" } // Composite key for uniqueness
             ) { item ->
+                val onClick = remember(item.ratingKey, item.serverId) { { onItemClick(item) } }
+                val onPlay = remember(item.ratingKey, item.serverId) { { onItemPlay(item) } }
                 NetflixMediaCard(
                     media = item,
                     cardType = cardType,
-                    onClick = { onItemClick(item) },
-                    onPlay = { onItemPlay(item) }
+                    onClick = onClick,
+                    onPlay = onPlay
                 )
             }
         }

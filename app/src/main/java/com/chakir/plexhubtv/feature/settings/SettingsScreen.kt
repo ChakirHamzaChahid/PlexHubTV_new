@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
@@ -15,11 +16,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.chakir.plexhubtv.di.designsystem.PlexHubTheme
+import com.chakir.plexhubtv.BuildConfig
+import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 
 /**
  * Écran principal des paramètres.
@@ -31,6 +36,7 @@ fun SettingsRoute(
     onNavigateBack: () -> Unit,
     onNavigateToLogin: () -> Unit,
     onNavigateToServerStatus: () -> Unit,
+    onNavigateToDebug: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -48,6 +54,7 @@ fun SettingsRoute(
     SettingsScreen(
         state = uiState,
         onAction = viewModel::onAction,
+        onNavigateToDebug = onNavigateToDebug,
     )
 }
 
@@ -56,6 +63,7 @@ fun SettingsRoute(
 fun SettingsScreen(
     state: SettingsUiState,
     onAction: (SettingsAction) -> Unit,
+    onNavigateToDebug: () -> Unit = {},
 ) {
     // Dialog States
     var showQualityDialog by remember { mutableStateOf(false) }
@@ -64,6 +72,10 @@ fun SettingsScreen(
     var showSubtitleLangDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
+    var showApiKeysDialog by remember { mutableStateOf(false) }
+    var showRatingSyncSourceDialog by remember { mutableStateOf(false) }
+    var showRatingSyncDelayDialog by remember { mutableStateOf(false) }
+    var showRatingSyncDailyLimitDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
@@ -91,7 +103,9 @@ fun SettingsScreen(
             modifier =
                 Modifier
                     .padding(padding)
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .testTag("screen_settings")
+                    .semantics { contentDescription = "Écran des paramètres" },
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
@@ -265,9 +279,69 @@ fun SettingsScreen(
                 }
             }
 
-            // --- External API Keys ---
+            // --- External API Keys (Submenu) ---
             item {
-                SettingsSection("External API Keys") {
+                SettingsSection("External Services") {
+                    SettingsTile(
+                        title = "API Keys Configuration",
+                        subtitle = "Configure TMDb and OMDb API keys",
+                        icon = Icons.Default.Star,
+                        onClick = { showApiKeysDialog = true },
+                    )
+                }
+            }
+
+            // --- Rating Sync Configuration ---
+            item {
+                SettingsSection("Rating Sync Configuration") {
+                    SettingsTile(
+                        title = "Movie Rating Source",
+                        subtitle = if (state.ratingSyncSource == "tmdb") "TMDb (Recommended)" else "OMDb (IMDb ratings)",
+                        onClick = { showRatingSyncSourceDialog = true },
+                    )
+                    SettingsTile(
+                        title = "Request Delay",
+                        subtitle = "${state.ratingSyncDelay}ms between requests",
+                        onClick = { showRatingSyncDelayDialog = true },
+                    )
+                    SettingsSwitch(
+                        title = "Enable Batching (Multi-day sync)",
+                        subtitle = "Sync large libraries over multiple days",
+                        isChecked = state.ratingSyncBatchingEnabled,
+                        onCheckedChange = { onAction(SettingsAction.ToggleRatingSyncBatching(it)) },
+                    )
+                    if (state.ratingSyncBatchingEnabled) {
+                        SettingsTile(
+                            title = "Daily Limit",
+                            subtitle = "${state.ratingSyncDailyLimit} requests/day",
+                            onClick = { showRatingSyncDailyLimitDialog = true },
+                        )
+                        if (state.ratingSyncProgressSeries > 0 || state.ratingSyncProgressMovies > 0) {
+                            SettingsTile(
+                                title = "Reset Progress",
+                                subtitle = "Series: ${state.ratingSyncProgressSeries}, Movies: ${state.ratingSyncProgressMovies}",
+                                titleColor = MaterialTheme.colorScheme.error,
+                                onClick = { onAction(SettingsAction.ResetRatingSyncProgress) },
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = "Configure how ratings are scraped from external APIs. " +
+                        if (state.ratingSyncBatchingEnabled) {
+                            "Batching enabled: syncs ${state.ratingSyncDailyLimit} items per day to respect API limits."
+                        } else {
+                            "TMDb has generous limits (50 req/sec), OMDb free tier has 1000 req/day."
+                        },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+            }
+
+            // --- IPTV ---
+            item {
+                SettingsSection("IPTV") {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -275,59 +349,40 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
-                            text = "Configure API keys for rating sync feature",
+                            text = "Configure your IPTV playlist URL",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
 
-                        // TMDb API Key
-                        var tmdbKey by remember(state.tmdbApiKey) { mutableStateOf(state.tmdbApiKey) }
+                        var iptvUrl by remember(state.iptvPlaylistUrl) { mutableStateOf(state.iptvPlaylistUrl) }
                         OutlinedTextField(
-                            value = tmdbKey,
-                            onValueChange = { tmdbKey = it },
-                            label = { Text("TMDb API Key") },
-                            placeholder = { Text("Enter TMDb API key") },
+                            value = iptvUrl,
+                            onValueChange = { iptvUrl = it },
+                            label = { Text("IPTV Playlist URL") },
+                            placeholder = { Text("http://example.com/playlist.m3u") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             trailingIcon = {
-                                if (tmdbKey != state.tmdbApiKey) {
-                                    IconButton(onClick = { onAction(SettingsAction.SaveTmdbApiKey(tmdbKey)) }) {
+                                if (iptvUrl != state.iptvPlaylistUrl) {
+                                    IconButton(onClick = { onAction(SettingsAction.SaveIptvPlaylistUrl(iptvUrl)) }) {
                                         Icon(Icons.Default.Done, contentDescription = "Save")
                                     }
                                 }
                             },
                         )
+                    }
+                }
+            }
 
-                        Text(
-                            text = "Get your key at themoviedb.org/settings/api",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-                        )
-
-                        // OMDb API Key
-                        var omdbKey by remember(state.omdbApiKey) { mutableStateOf(state.omdbApiKey) }
-                        OutlinedTextField(
-                            value = omdbKey,
-                            onValueChange = { omdbKey = it },
-                            label = { Text("OMDb API Key") },
-                            placeholder = { Text("Enter OMDb API key") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            trailingIcon = {
-                                if (omdbKey != state.omdbApiKey) {
-                                    IconButton(onClick = { onAction(SettingsAction.SaveOmdbApiKey(omdbKey)) }) {
-                                        Icon(Icons.Default.Done, contentDescription = "Save")
-                                    }
-                                }
-                            },
-                        )
-
-                        Text(
-                            text = "Get your key at omdbapi.com/apikey.aspx",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+            // --- Debug (DEBUG builds only) ---
+            if (BuildConfig.DEBUG) {
+                item {
+                    SettingsSection("Debug") {
+                        SettingsTile(
+                            title = "Debug Information",
+                            subtitle = "View system diagnostics and logs",
+                            icon = Icons.Filled.BugReport,
+                            onClick = onNavigateToDebug,
                         )
                     }
                 }
@@ -440,6 +495,157 @@ fun SettingsScreen(
             onOptionSelected = {
                 onAction(SettingsAction.SelectDefaultServer(it))
                 showServerDialog = false
+            },
+        )
+    }
+
+    if (showApiKeysDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showApiKeysDialog = false },
+            title = {
+                Text(
+                    text = "API Keys Configuration",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Configure your TMDb and OMDb API keys to enable enhanced metadata and ratings.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // TMDb API Key
+                    var tmdbKey by remember(state.tmdbApiKey) { mutableStateOf(state.tmdbApiKey) }
+                    OutlinedTextField(
+                        value = tmdbKey,
+                        onValueChange = { tmdbKey = it },
+                        label = { Text("TMDb API Key") },
+                        placeholder = { Text("Enter your TMDb API key") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            if (tmdbKey != state.tmdbApiKey && tmdbKey.isNotBlank()) {
+                                IconButton(onClick = {
+                                    onAction(SettingsAction.SaveTmdbApiKey(tmdbKey))
+                                }) {
+                                    Icon(Icons.Default.Done, contentDescription = "Save TMDb Key")
+                                }
+                            }
+                        }
+                    )
+                    Text(
+                        text = "Get your API key from: https://www.themoviedb.org/settings/api",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // OMDb API Key
+                    var omdbKey by remember(state.omdbApiKey) { mutableStateOf(state.omdbApiKey) }
+                    OutlinedTextField(
+                        value = omdbKey,
+                        onValueChange = { omdbKey = it },
+                        label = { Text("OMDb API Key") },
+                        placeholder = { Text("Enter your OMDb API key") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            if (omdbKey != state.omdbApiKey && omdbKey.isNotBlank()) {
+                                IconButton(onClick = {
+                                    onAction(SettingsAction.SaveOmdbApiKey(omdbKey))
+                                }) {
+                                    Icon(Icons.Default.Done, contentDescription = "Save OMDb Key")
+                                }
+                            }
+                        }
+                    )
+                    Text(
+                        text = "Get your API key from: https://www.omdbapi.com/apikey.aspx",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showApiKeysDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // Rating Sync Source Dialog
+    if (showRatingSyncSourceDialog) {
+        SettingsDialog(
+            title = "Movie Rating Source",
+            options = listOf("TMDb (Recommended)", "OMDb (IMDb ratings)"),
+            currentValue = if (state.ratingSyncSource == "tmdb") "TMDb (Recommended)" else "OMDb (IMDb ratings)",
+            onDismissRequest = { showRatingSyncSourceDialog = false },
+            onOptionSelected = {
+                val source = if (it.startsWith("TMDb")) "tmdb" else "omdb"
+                onAction(SettingsAction.ChangeRatingSyncSource(source))
+                showRatingSyncSourceDialog = false
+            },
+        )
+    }
+
+    // Rating Sync Delay Dialog
+    if (showRatingSyncDelayDialog) {
+        SettingsDialog(
+            title = "Request Delay",
+            options = listOf("100ms (Fast)", "250ms (Default)", "500ms (Safe)", "1000ms (Very Safe)"),
+            currentValue = when (state.ratingSyncDelay) {
+                100L -> "100ms (Fast)"
+                250L -> "250ms (Default)"
+                500L -> "500ms (Safe)"
+                1000L -> "1000ms (Very Safe)"
+                else -> "${state.ratingSyncDelay}ms"
+            },
+            onDismissRequest = { showRatingSyncDelayDialog = false },
+            onOptionSelected = {
+                val delay = when (it) {
+                    "100ms (Fast)" -> 100L
+                    "250ms (Default)" -> 250L
+                    "500ms (Safe)" -> 500L
+                    "1000ms (Very Safe)" -> 1000L
+                    else -> 250L
+                }
+                onAction(SettingsAction.ChangeRatingSyncDelay(delay))
+                showRatingSyncDelayDialog = false
+            },
+        )
+    }
+
+    // Rating Sync Daily Limit Dialog
+    if (showRatingSyncDailyLimitDialog) {
+        SettingsDialog(
+            title = "Daily Request Limit",
+            options = listOf("500 req/day", "900 req/day (Default)", "1500 req/day", "2500 req/day"),
+            currentValue = when (state.ratingSyncDailyLimit) {
+                500 -> "500 req/day"
+                900 -> "900 req/day (Default)"
+                1500 -> "1500 req/day"
+                2500 -> "2500 req/day"
+                else -> "${state.ratingSyncDailyLimit} req/day"
+            },
+            onDismissRequest = { showRatingSyncDailyLimitDialog = false },
+            onOptionSelected = {
+                val limit = when (it) {
+                    "500 req/day" -> 500
+                    "900 req/day (Default)" -> 900
+                    "1500 req/day" -> 1500
+                    "2500 req/day" -> 2500
+                    else -> 900
+                }
+                onAction(SettingsAction.ChangeRatingSyncDailyLimit(limit))
+                showRatingSyncDailyLimitDialog = false
             },
         )
     }

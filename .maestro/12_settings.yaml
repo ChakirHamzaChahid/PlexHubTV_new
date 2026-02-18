@@ -1,0 +1,47 @@
+# .maestro/12_settings.yaml
+appId: com.chakir.plexhubtv
+name: "Settings - Vérification et modification des paramètres"
+tags:
+  - settings
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers Paramètres
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_settings"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_settings"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Vérifier les éléments principaux
+- assertVisible:
+    id: "settings_theme"
+- assertVisible:
+    id: "settings_video_quality"
+- assertVisible:
+    id: "settings_player_engine"
+
+# Changer le thème
+- pressKey: "Remote Dpad Center" # Focus sur thème
+- pressKey: "Remote Dpad Down" # Sélectionner un autre thème
+- pressKey: "Remote Dpad Center" # Valider
+
+# Naviguer vers le statut serveurs
+- scrollUntilVisible:
+    element:
+      id: "settings_server_status"
+    direction: DOWN
+    timeout: 60000  # Augmenté pour stabilité
+
+- pressKey: "Remote Dpad Center"
+
+# Retour aux settings
+- pressKey: back
+- extendedWaitUntil:
+    visible:
+      id: "screen_settings"
+    timeout: 30000  # Augmenté pour stabilité

@@ -8,6 +8,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.MediaItem
@@ -85,6 +88,8 @@ fun SplashScreen(onVideoEnded: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .testTag("screen_splash")
+            .semantics { contentDescription = "Écran de démarrage" }
             .background(Color.Black), // Netflix black background
         contentAlignment = Alignment.Center
     ) {

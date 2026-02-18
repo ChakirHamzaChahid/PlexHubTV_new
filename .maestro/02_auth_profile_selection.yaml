@@ -1,0 +1,30 @@
+# .maestro/02_auth_profile_selection.yaml
+appId: com.chakir.plexhubtv
+name: "Auth - Sélection profil Plex Home"
+tags:
+  - auth
+  - smoke
+---
+# Prérequis : on est sur l'écran profils (après login)
+- extendedWaitUntil:
+    visible:
+      id: "screen_profiles"
+    timeout: 180000  # 3 minutes au cas où on vient juste de lancer l'app
+
+# Sélectionner le premier profil
+- pressKey: "Remote Dpad Center"
+
+# Attendre la synchronisation initiale
+- extendedWaitUntil:
+    visible:
+      id: "screen_loading"
+    timeout: 30000  # 30 secondes
+
+- assertVisible:
+    id: "sync_progress_bar"
+
+# Attendre que la sync finisse et que l'écran d'accueil s'affiche
+- extendedWaitUntil:
+    visible:
+      id: "screen_home"
+    timeout: 180000  # 3 minutes - la sync initiale peut prendre du temps

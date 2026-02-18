@@ -25,6 +25,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,7 +48,7 @@ import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
 @Composable
 fun SeasonDetailRoute(
     viewModel: SeasonDetailViewModel = hiltViewModel(),
-    onNavigateToPlayer: (String, String) -> Unit,
+    onNavigateToPlayer: (String, String, Long) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -55,7 +58,7 @@ fun SeasonDetailRoute(
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
-                is SeasonDetailNavigationEvent.NavigateToPlayer -> onNavigateToPlayer(event.ratingKey, event.serverId)
+                is SeasonDetailNavigationEvent.NavigateToPlayer -> onNavigateToPlayer(event.ratingKey, event.serverId, event.startOffset)
                 is SeasonDetailNavigationEvent.NavigateBack -> onNavigateBack()
             }
         }
@@ -65,7 +68,6 @@ fun SeasonDetailRoute(
         state = uiState,
         downloadStates = downloadsState,
         onAction = viewModel::onEvent,
-        onNavigateToPlayer = onNavigateToPlayer,
         onNavigateBack = onNavigateBack,
     )
 }
@@ -76,7 +78,6 @@ fun SeasonDetailScreen(
     state: SeasonDetailUiState,
     downloadStates: Map<String, DownloadState>,
     onAction: (SeasonDetailEvent) -> Unit,
-    onNavigateToPlayer: (String, String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     Scaffold(
@@ -93,11 +94,6 @@ fun SeasonDetailScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -118,15 +114,33 @@ fun SeasonDetailScreen(
             )
         },
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .testTag("screen_season_detail")
+                .semantics { contentDescription = "Écran de détails de saison" }
+        ) {
             when {
                 state.isLoading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("season_loading")
+                            .semantics { contentDescription = "Chargement des épisodes" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         CircularProgressIndicator()
                     }
                 }
                 state.error != null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("season_error")
+                            .semantics { contentDescription = "Erreur: ${state.error}" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 Icons.Filled.Error,
@@ -148,7 +162,13 @@ fun SeasonDetailScreen(
                     }
                 }
                 state.episodes.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("season_empty")
+                            .semantics { contentDescription = "Aucun épisode trouvé" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 Icons.Filled.Movie,
@@ -168,7 +188,10 @@ fun SeasonDetailScreen(
                 else -> {
                     val listState = rememberLazyListState()
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("episodes_list")
+                            .semantics { contentDescription = "Liste des épisodes" },
                         state = listState,
                     ) {
                         itemsIndexed(state.episodes, key = { _, episode -> episode.ratingKey }) { index, episode ->
@@ -197,10 +220,20 @@ fun SeasonDetailScreen(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.5f)),
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .testTag("source_resolution_overlay")
+                            .semantics { contentDescription = "Preparing playback" },
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator()
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            "Preparing playback\u2026",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White,
+                        )
+                    }
                 }
             }
 
@@ -244,6 +277,8 @@ fun EnhancedEpisodeItem(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag("episode_item_${episode.ratingKey}")
+                .semantics { contentDescription = "Épisode ${episode.episodeIndex}: ${episode.title}" }
                 .onFocusChanged { isFocused = it.isFocused }
                 .scale(scale)
                 .background(if (isFocused) Color.White.copy(alpha = 0.05f) else Color.Transparent)
@@ -271,7 +306,13 @@ fun EnhancedEpisodeItem(
                     .clip(RoundedCornerShape(6.dp)),
         ) {
             AsyncImage(
-                model = episode.thumbUrl,
+                model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                    .data(episode.thumbUrl)
+                    .size(320, 180)
+                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                    .crossfade(true)
+                    .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -538,7 +579,6 @@ fun SeasonDetailScreenPreview() {
                 ),
             downloadStates = sampleDownloadStates,
             onAction = {},
-            onNavigateToPlayer = { _, _ -> },
             onNavigateBack = {},
         )
     }

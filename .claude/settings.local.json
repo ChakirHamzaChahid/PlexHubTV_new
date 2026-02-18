@@ -3,7 +3,17 @@
     "allow": [
       "Bash(.gradlew.bat:*)",
       "Bash(Select-Object -Last 50)",
-      "Bash(./gradlew.bat:*)"
+      "Bash(./gradlew.bat:*)",
+      "Bash(bash:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(./gradlew :app:compileDebugUnitTestKotlin:*)",
+      "Bash(./gradlew :app:assembleDebug:*)",
+      "Bash(./gradlew :core:ui:assembleDebug:*)",
+      "Bash(./gradlew :core:network:assembleDebug:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(dir:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

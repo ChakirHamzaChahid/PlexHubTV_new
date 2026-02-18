@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.feature.home.MediaCard
@@ -48,16 +51,10 @@ fun CollectionDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text(state.collection?.title ?: "Collection") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 colors =
                     TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black,
                         titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
                     ),
             )
         },
@@ -67,19 +64,27 @@ fun CollectionDetailScreen(
             modifier =
                 Modifier
                     .fillMaxSize()
+                    .testTag("screen_collection_detail")
+                    .semantics { contentDescription = "Écran de détails de collection" }
                     .padding(paddingValues)
                     .background(Color.Black),
         ) {
             if (state.isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .testTag("collection_loading")
+                        .semantics { contentDescription = "Chargement de la collection" },
                     color = MaterialTheme.colorScheme.primary,
                 )
             } else if (state.error != null) {
                 Text(
                     text = state.error,
                     color = Color.Red,
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .testTag("collection_error")
+                        .semantics { contentDescription = "Erreur: ${state.error}" },
                 )
             } else {
                 state.collection?.let { collection ->
@@ -103,7 +108,10 @@ fun CollectionDetailScreen(
                             contentPadding = PaddingValues(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("collection_items_list")
+                                .semantics { contentDescription = "Liste des éléments de la collection" },
                         ) {
                             items(
                                 items = collection.items,

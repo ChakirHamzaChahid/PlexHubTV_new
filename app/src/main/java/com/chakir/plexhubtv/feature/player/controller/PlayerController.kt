@@ -40,6 +40,7 @@ class PlayerController @Inject constructor(
     private val playerScrobbler: PlayerScrobbler,
     private val playerStatsTracker: PlayerStatsTracker,
     private val transcodeUrlBuilder: TranscodeUrlBuilder,
+    private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -156,18 +157,38 @@ class PlayerController @Inject constructor(
             addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     _uiState.update { it.copy(isPlaying = isPlaying) }
+                    if (isPlaying) {
+                        val opId = "player_load_${_uiState.value.currentItem?.ratingKey}"
+                        performanceTracker.addCheckpoint(opId, "🎬 PLAYBACK STARTED (isPlaying=true)")
+                        // End the performance tracking operation when playback actually starts
+                        performanceTracker.endOperation(
+                            opId,
+                            success = true,
+                            additionalMeta = mapOf(
+                                "title" to (_uiState.value.currentItem?.title ?: "unknown"),
+                                "position" to _uiState.value.currentPosition,
+                                "duration" to _uiState.value.duration
+                            )
+                        )
+                    }
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     when (playbackState) {
-                        Player.STATE_BUFFERING -> _uiState.update { it.copy(isBuffering = true, error = null) }
+                        Player.STATE_BUFFERING -> {
+                            _uiState.update { it.copy(isBuffering = true, error = null) }
+                            val opId = "player_load_${_uiState.value.currentItem?.ratingKey}"
+                            performanceTracker.addCheckpoint(opId, "ExoPlayer STATE_BUFFERING")
+                        }
                         Player.STATE_READY -> {
-                            _uiState.update { 
+                            val opId = "player_load_${_uiState.value.currentItem?.ratingKey}"
+                            performanceTracker.addCheckpoint(opId, "ExoPlayer STATE_READY (Buffered)")
+                            _uiState.update {
                                 it.copy(
                                     isBuffering = false,
                                     duration = duration.coerceAtLeast(0),
-                                    error = null 
-                                ) 
+                                    error = null
+                                )
                             }
                             player?.let { p ->
                                 val (newAudio, newSub) = playerTrackController.syncTracksWithExoPlayer(
@@ -234,112 +255,192 @@ class PlayerController @Inject constructor(
 
     fun loadMedia(rKey: String, sId: String, bitrateOverride: Int? = null, audioIndex: Int? = null, subtitleIndex: Int? = null, audioStreamId: String? = null, subtitleStreamId: String? = null) {
         scope.launch {
-            val qualityPref = settingsRepository.getVideoQuality().first()
-            val engine = settingsRepository.playerEngine.first()
-            
+            val opId = "player_load_$rKey"
+            performanceTracker.startOperation(
+                opId,
+                com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK,
+                "PlayerController.loadMedia → Stream Ready",
+                mapOf("ratingKey" to rKey, "serverId" to sId)
+            )
+
+            // Parallel settings queries (P1.3)
+            val settingsStart = System.currentTimeMillis()
+            val (qualityPref, engine, clientId) = coroutineScope {
+                val q = async { settingsRepository.getVideoQuality().first() }
+                val e = async { settingsRepository.playerEngine.first() }
+                val c = async { settingsRepository.clientId.first() ?: "PlexHubTV-Client" }
+                Triple(q.await(), e.await(), c.await())
+            }
+            val settingsDuration = System.currentTimeMillis() - settingsStart
+            performanceTracker.addCheckpoint(opId, "Settings Loaded (Parallel)", mapOf("duration" to settingsDuration))
+
             val bitrate = bitrateOverride ?: when {
                 qualityPref.startsWith("20") -> 20000
                 qualityPref.startsWith("12") -> 12000
                 qualityPref.startsWith("8") -> 8000
                 qualityPref.startsWith("4") -> 4000
                 qualityPref.startsWith("3") -> 3000
-                else -> 200000 
+                else -> 200000
             }
 
-            val qualityObj = _uiState.value.availableQualities.find { it.bitrate == bitrate } 
+            val qualityObj = _uiState.value.availableQualities.find { it.bitrate == bitrate }
                 ?: if (bitrate >= 200000) _uiState.value.availableQualities.first() else _uiState.value.availableQualities.last()
-            
+
             _uiState.update { it.copy(selectedQuality = qualityObj) }
 
             if (engine == "MPV" && !isMpvMode) {
                 switchToMpv()
                 return@launch
             }
-            
+
             _uiState.update { it.copy(isLoading = true, error = null) }
-            getMediaDetailUseCase(rKey, sId).collect { result ->
-                result.onSuccess { detail ->
-                    playerScrobbler.resetAutoNext()
-                    val next = playbackManager.getNextMedia()
-                    
-                    val (audios, subtitles) = playerTrackController.populateTracks(detail.item)
 
-                    _uiState.update {
-                        it.copy(
-                            currentItem = detail.item,
-                            nextItem = next,
-                            showAutoNextPopup = false,
-                            currentPosition = if (it.currentItem?.id != detail.item.id) 0L else it.currentPosition,
-                            audioTracks = audios,
-                            subtitleTracks = subtitles,
-                            selectedAudio = audios.find { t -> t.isSelected },
-                            selectedSubtitle = subtitles.find { t -> t.isSelected } ?: SubtitleTrack.OFF
-                        )
+            // P1.1: Try PlaybackManager cache first to avoid double fetch
+            val cachedMedia = playbackManager.currentMedia.value
+            val mediaFetchStart = System.currentTimeMillis()
+            val media: MediaItem? = if (cachedMedia != null
+                && cachedMedia.ratingKey == rKey
+                && cachedMedia.serverId == sId
+                && cachedMedia.mediaParts.isNotEmpty()
+            ) {
+                val cacheDuration = System.currentTimeMillis() - mediaFetchStart
+                performanceTracker.addCheckpoint(opId, "Media Detail (Cache Hit)", mapOf("duration" to cacheDuration))
+                Timber.d("PlayerController: Using cached media from PlaybackManager for $rKey")
+                cachedMedia
+            } else {
+                // P1.2: Use .first() instead of .collect to avoid infinite flow collection
+                val result = getMediaDetailUseCase(rKey, sId).first()
+                val fetchDuration = System.currentTimeMillis() - mediaFetchStart
+                performanceTracker.addCheckpoint(
+                    opId,
+                    "Media Detail (Network Fetch)",
+                    mapOf("duration" to fetchDuration, "success" to (result.isSuccess))
+                )
+                result.getOrNull()?.item
+            }
+
+            if (media == null) {
+                performanceTracker.endOperation(opId, success = false, errorMessage = "Unable to load media")
+                _uiState.update { it.copy(isLoading = false, error = "Unable to load media") }
+                return@launch
+            }
+
+            performanceTracker.addCheckpoint(opId, "Media Loaded", mapOf("title" to media.title, "parts" to media.mediaParts.size))
+
+            playerScrobbler.resetAutoNext()
+            val next = playbackManager.getNextMedia()
+
+            val tracksStart = System.currentTimeMillis()
+            val (audios, subtitles) = playerTrackController.populateTracks(media)
+            val tracksDuration = System.currentTimeMillis() - tracksStart
+            performanceTracker.addCheckpoint(opId, "Tracks Populated", mapOf("duration" to tracksDuration, "audioTracks" to audios.size, "subtitles" to subtitles.size))
+
+            _uiState.update {
+                it.copy(
+                    currentItem = media,
+                    nextItem = next,
+                    showAutoNextPopup = false,
+                    currentPosition = if (it.currentItem?.id != media.id) 0L else it.currentPosition,
+                    audioTracks = audios,
+                    subtitleTracks = subtitles,
+                    selectedAudio = audios.find { t -> t.isSelected },
+                    selectedSubtitle = subtitles.find { t -> t.isSelected } ?: SubtitleTrack.OFF
+                )
+            }
+
+            chapterMarkerManager.setChapters(media.chapters)
+            chapterMarkerManager.setMarkers(media.markers)
+
+            val part = media.mediaParts.firstOrNull()
+
+            isDirectPlay = bitrate >= 200000 && part?.key != null
+
+            val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
+                 rKey, sId, part, audioStreamId, subtitleStreamId
+            )
+
+            val aIndex = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.find { it.id == finalAudioStreamId }?.index
+            val sIndex = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.SubtitleStream>()?.find { it.id == finalSubtitleStreamId }?.index
+
+            val resolvedAudio = _uiState.value.audioTracks.find { it.streamId == finalAudioStreamId }
+                ?: _uiState.value.audioTracks.firstOrNull()
+            val resolvedSubtitle = _uiState.value.subtitleTracks.find { it.streamId == finalSubtitleStreamId }
+                ?: SubtitleTrack.OFF
+
+            _uiState.update { it.copy(selectedAudio = resolvedAudio, selectedSubtitle = resolvedSubtitle) }
+
+            val urlBuildStart = System.currentTimeMillis()
+            val streamUri = if (part != null) {
+                 transcodeUrlBuilder.buildUrl(
+                     media, part, rKey, isDirectPlay, bitrate, clientId,
+                     finalAudioStreamId, finalSubtitleStreamId, aIndex, sIndex
+                 )
+            } else null
+            val urlBuildDuration = System.currentTimeMillis() - urlBuildStart
+            performanceTracker.addCheckpoint(
+                opId,
+                "Stream URL Built",
+                mapOf("duration" to urlBuildDuration, "directPlay" to isDirectPlay, "bitrate" to bitrate)
+            )
+
+            if (streamUri == null) {
+                performanceTracker.endOperation(opId, success = false, errorMessage = "Invalid stream URL")
+                _uiState.update { it.copy(isLoading = false, error = "Unable to play media: Invalid URL") }
+                return@launch
+            }
+
+            if (isMpvMode) {
+                performanceTracker.addCheckpoint(opId, "MPV Player Mode")
+                mpvPlayer?.play(streamUri.toString())
+
+                val currentPos = _uiState.value.currentPosition
+                val seekTarget = when {
+                    currentPos > 0 -> currentPos
+                    startOffset > 0 -> startOffset
+                    media.viewOffset > 0 -> media.viewOffset
+                    else -> 0L
+                }
+                if (seekTarget > 0) {
+                    mpvPlayer?.seekTo(seekTarget)
+                    performanceTracker.addCheckpoint(opId, "MPV Seek Applied", mapOf("position" to seekTarget))
+                }
+
+                // Track/Sub selection for MPV
+                 if (isDirectPlay && resolvedAudio != null) {
+                     val index = _uiState.value.audioTracks.indexOf(resolvedAudio) + 1
+                     if (index > 0) mpvPlayer?.setAudioId(index.toString())
+                }
+
+                performanceTracker.endOperation(opId, success = true, additionalMeta = mapOf("engine" to "MPV", "streamUrl" to streamUri.toString()))
+            } else {
+                performanceTracker.addCheckpoint(opId, "ExoPlayer Mode")
+                val mediaItemStart = System.currentTimeMillis()
+                val mediaItem = playerFactory.createMediaItem(streamUri, rKey, !isDirectPlay)
+                val mediaItemDuration = System.currentTimeMillis() - mediaItemStart
+                performanceTracker.addCheckpoint(opId, "ExoPlayer MediaItem Created", mapOf("duration" to mediaItemDuration))
+
+                player?.apply {
+                    val prepareStart = System.currentTimeMillis()
+                    setMediaItem(mediaItem)
+                    prepare()
+                    val prepareDuration = System.currentTimeMillis() - prepareStart
+                    performanceTracker.addCheckpoint(opId, "ExoPlayer Prepared", mapOf("duration" to prepareDuration))
+
+                    val currentPos = _uiState.value.currentPosition
+                    val seekTarget = when {
+                        currentPos > 0 -> currentPos
+                        startOffset > 0 -> startOffset
+                        media.viewOffset > 0 -> media.viewOffset
+                        else -> 0L
                     }
-                    
-                    val media = detail.item
-                    chapterMarkerManager.setChapters(media.chapters)
-                    chapterMarkerManager.setMarkers(media.markers)
-                    
-                    val clientId = settingsRepository.clientId.first() ?: "PlexHubTV-Client"
-                    val part = media.mediaParts.firstOrNull()
-                    
-                    // HEVC Logic omitted directly for brevity, assuming standard flow
-                    // isDirectPlay detection
-                    isDirectPlay = bitrate >= 200000 && part?.key != null
-                    
-                    val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
-                         rKey, sId, part, audioStreamId, subtitleStreamId
-                    )
-                    
-                    val aIndex = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.find { it.id == finalAudioStreamId }?.index
-                    val sIndex = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.SubtitleStream>()?.find { it.id == finalSubtitleStreamId }?.index
-                    
-                    val resolvedAudio = _uiState.value.audioTracks.find { it.streamId == finalAudioStreamId } 
-                        ?: _uiState.value.audioTracks.firstOrNull()
-                    val resolvedSubtitle = _uiState.value.subtitleTracks.find { it.streamId == finalSubtitleStreamId } 
-                        ?: SubtitleTrack.OFF
-                        
-                    _uiState.update { it.copy(selectedAudio = resolvedAudio, selectedSubtitle = resolvedSubtitle) }
-
-                    val streamUri = if (part != null) {
-                         transcodeUrlBuilder.buildUrl(
-                             media, part, rKey, isDirectPlay, bitrate, clientId,
-                             finalAudioStreamId, finalSubtitleStreamId, aIndex, sIndex
-                         )
-                    } else null
-
-                    if (streamUri == null) {
-                        _uiState.update { it.copy(error = "Unable to play media: Invalid URL") }
-                        return@collect
+                    if (seekTarget > 0) {
+                        seekTo(seekTarget)
+                        performanceTracker.addCheckpoint(opId, "ExoPlayer Seek Applied", mapOf("position" to seekTarget))
                     }
 
-                    if (isMpvMode) {
-                        mpvPlayer?.play(streamUri.toString())
-                        
-                        val currentPos = _uiState.value.currentPosition
-                        if (currentPos > 0) mpvPlayer?.seekTo(currentPos)
-                        else if (startOffset > 0) mpvPlayer?.seekTo(startOffset)
-                        
-                        // Track/Sub selection for MPV
-                         if (isDirectPlay && resolvedAudio != null) {
-                             val index = _uiState.value.audioTracks.indexOf(resolvedAudio) + 1
-                             if (index > 0) mpvPlayer?.setAudioId(index.toString())
-                        }
-                    } else {
-                        val mediaItem = playerFactory.createMediaItem(streamUri, rKey, !isDirectPlay)
-    
-                        player?.apply {
-                            setMediaItem(mediaItem)
-                            prepare()
-                            val currentPos = _uiState.value.currentPosition
-                            if (currentPos > 0) seekTo(currentPos)
-                            else if (startOffset > 0) seekTo(startOffset)
-                            playWhenReady = true
-                        }
-                    }
-                }.onFailure { e ->
-                    _uiState.update { it.copy(error = e.message) }
+                    playWhenReady = true
+                    performanceTracker.addCheckpoint(opId, "ExoPlayer PlayWhenReady=true")
+                    // Will end operation when buffering complete (see Player.Listener below)
                 }
             }
         }

@@ -14,6 +14,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -56,6 +59,8 @@ fun AuthScreen(
             modifier =
                 Modifier
                     .fillMaxSize()
+                    .testTag("screen_login")
+                    .semantics { contentDescription = "Écran d'authentification" }
                     .padding(padding),
             contentAlignment = Alignment.Center,
         ) {
@@ -103,11 +108,17 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
                 ),
+            modifier = Modifier
+                .testTag("auth_token_field")
+                .semantics { contentDescription = "Champ de saisie du token Plex" }
         )
         Spacer(Modifier.height(8.dp))
         Button(
             onClick = { onAction(AuthEvent.SubmitToken(token)) },
             enabled = token.isNotBlank(),
+            modifier = Modifier
+                .testTag("auth_login_button")
+                .semantics { contentDescription = "Bouton de connexion" }
         ) {
             Text("Login with Token")
         }
@@ -119,7 +130,13 @@ fun AuthenticatingState(
     state: AuthUiState.Authenticating,
     onAction: (AuthEvent) -> Unit,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(32.dp)
+            .testTag("screen_pin_input")
+            .semantics { contentDescription = "État d'authentification avec code PIN" }
+    ) {
         Text("Link Account", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
         Text("Go to: ${state.authUrl}", style = MaterialTheme.typography.bodyLarge)
@@ -127,7 +144,10 @@ fun AuthenticatingState(
             text = state.pinCode,
             style = MaterialTheme.typography.displayMedium,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .padding(16.dp)
+                .testTag("pin_display")
+                .semantics { contentDescription = "Code PIN: ${state.pinCode}" },
         )
         LinearProgressIndicator(
             progress = { state.progress ?: 0f },
@@ -145,7 +165,12 @@ fun ErrorState(
     message: String,
     onAction: (AuthEvent) -> Unit,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .testTag("auth_error_state")
+            .semantics { contentDescription = "Erreur d'authentification: $message" }
+    ) {
         Icon(
             imageVector = Icons.Filled.Warning,
             contentDescription = null,
@@ -161,7 +186,12 @@ fun ErrorState(
 
 @Composable
 fun SuccessState() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .testTag("auth_success_state")
+            .semantics { contentDescription = "Authentification réussie" }
+    ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(16.dp))
         Text("Authentication Successful! Loading...")

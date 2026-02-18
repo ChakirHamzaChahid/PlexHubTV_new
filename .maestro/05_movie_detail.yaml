@@ -1,0 +1,53 @@
+# .maestro/05_movie_detail.yaml
+appId: com.chakir.plexhubtv
+name: "Movies - Page détail d'un film"
+tags:
+  - movies
+  - detail
+  - smoke
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers Films
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_movies"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Sélectionner le premier film
+- runFlow: subflows/select_first_media.yaml
+
+# Vérifier qu'on est sur l'écran détail
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Vérifier les éléments clés de la page détail
+- assertVisible:
+    id: "detail_title"
+
+- assertVisible:
+    id: "play_button"
+
+# Vérifier la présence du backdrop
+- assertVisible:
+    id: "detail_backdrop"
+
+# Naviguer dans la page détail (infos, boutons)
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Right" # Naviguer vers favoris/watchlist
+
+# Retour
+- pressKey: back
+
+# Vérifier qu'on est revenu à la bibliothèque
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 30000  # Augmenté pour stabilité

@@ -16,6 +16,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -43,7 +46,9 @@ fun PlayerSettingsDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 500.dp),
+                    .heightIn(max = 500.dp)
+                    .testTag("dialog_player_settings")
+                    .semantics { contentDescription = "Paramètres de qualité" },
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -108,6 +113,7 @@ fun AudioSelectionDialog(
         itemKey = { it.id },
         onSelect = onSelect,
         onDismiss = onDismiss,
+        dialogTestTag = "dialog_audio_selection"
     )
 }
 
@@ -129,6 +135,7 @@ fun SubtitleSelectionDialog(
         itemKey = { it.id },
         onSelect = onSelect,
         onDismiss = onDismiss,
+        dialogTestTag = "dialog_subtitle_selection"
     )
 }
 
@@ -147,6 +154,7 @@ fun SpeedSelectionDialog(
         itemKey = { it.toString() },
         onSelect = onSelect,
         onDismiss = onDismiss,
+        dialogTestTag = "dialog_speed_selection"
     )
 }
 
@@ -159,6 +167,7 @@ fun <T> SelectionDialog(
     itemKey: (T) -> String,
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
+    dialogTestTag: String = "dialog_selection"
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -167,7 +176,9 @@ fun <T> SelectionDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 500.dp),
+                    .heightIn(max = 500.dp)
+                    .testTag(dialogTestTag)
+                    .semantics { contentDescription = title },
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -220,7 +231,9 @@ fun SyncSettingsDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp),
+                    .heightIn(max = 400.dp)
+                    .testTag("dialog_sync_settings")
+                    .semantics { contentDescription = title },
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),

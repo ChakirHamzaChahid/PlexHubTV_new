@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -66,6 +67,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -81,8 +85,8 @@ import com.chakir.plexhubtv.feature.home.MediaCard
 import timber.log.Timber
 
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
-import com.chakir.plexhubtv.di.designsystem.NetflixBlack
-import com.chakir.plexhubtv.di.designsystem.NetflixRed
+import com.chakir.plexhubtv.core.designsystem.NetflixBlack
+import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
 
@@ -200,31 +204,52 @@ fun LibrariesScreen(
                                 text = serverLabel,
                                 isActive = isServerFiltered,
                                 onClick = { onAction(LibraryAction.OpenServerFilter) },
+                                testTag = "library_filter_server"
                             )
 
-                            val genreLabel = if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Values"
+                            val genreLabel = if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Genre: All"
                             val isGenreFiltered = state.selectedGenre != null
 
                             FilterButton(
                                 text = genreLabel,
                                 isActive = isGenreFiltered,
                                 onClick = { onAction(LibraryAction.OpenGenreFilter) },
+                                testTag = "library_filter_genre"
                             )
 
                             FilterButton(
                                 text = state.currentSort ?: "Title",
                                 isActive = false,
                                 onClick = { onAction(LibraryAction.OpenSortDialog) },
+                                testTag = "library_sort_button"
                             )
 
+                            // Refresh Button
+                            IconButton(
+                                onClick = {
+                                    pagedItems.refresh() // Force network refresh
+                                    onAction(LibraryAction.Refresh)
+                                },
+                                modifier = Modifier.testTag("library_refresh_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Actualiser la bibliothèque",
+                                    tint = Color.White
+                                )
+                            }
+
                             // View Mode Switch
-                            IconButton(onClick = {
-                                val newMode = if (state.viewMode == LibraryViewMode.Grid) LibraryViewMode.List else LibraryViewMode.Grid
-                                onAction(LibraryAction.ChangeViewMode(newMode))
-                            }) {
+                            IconButton(
+                                onClick = {
+                                    val newMode = if (state.viewMode == LibraryViewMode.Grid) LibraryViewMode.List else LibraryViewMode.Grid
+                                    onAction(LibraryAction.ChangeViewMode(newMode))
+                                },
+                                modifier = Modifier.testTag("library_view_mode")
+                            ) {
                                 Icon(
                                     imageVector = if (state.viewMode == LibraryViewMode.Grid) Icons.Default.List else Icons.Default.GridView,
-                                    contentDescription = "Switch View Mode",
+                                    contentDescription = "Changer de mode d'affichage",
                                     tint = Color.White
                                 )
                             }
@@ -286,6 +311,10 @@ fun LibrariesScreen(
                 Modifier
                     .padding(padding)
                     .fillMaxSize()
+                    .testTag(if (state.mediaType == MediaType.Movie) "screen_movies" else "screen_tvshows")
+                    .semantics {
+                        contentDescription = if (state.mediaType == MediaType.Movie) "Écran de films" else "Écran de séries"
+                    }
                     .background(NetflixBlack),
         ) {
             // ... (Dialogs preserved)
@@ -362,6 +391,7 @@ fun FilterButton(
     text: String,
     isActive: Boolean = false,
     onClick: () -> Unit,
+    testTag: String = "",
 ) {
     // Netflix style chips: Dark grey background, White text.
     val containerColor = if (isActive) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
@@ -377,7 +407,9 @@ fun FilterButton(
         ),
         border = borderStroke, // Use border only if active or keep it transparent
         shape = RoundedCornerShape(50),
-        modifier = Modifier.height(32.dp),
+        modifier = Modifier
+            .height(32.dp)
+            .then(if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier),
     ) {
         Text(text = text, style = MaterialTheme.typography.labelMedium)
         Spacer(modifier = Modifier.width(4.dp))
@@ -415,7 +447,10 @@ fun LibraryContent(
                     contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("library_grid")
+                        .semantics { contentDescription = "Grille de la bibliothèque" },
                 ) {
                     items(
                         count = pagedItems.itemCount,
@@ -608,6 +643,9 @@ fun Thumbnail(
                     coil.request.ImageRequest.Builder(LocalContext.current)
                         .data(url)
                         .crossfade(false) // Performance: Disable crossfade for smoother scrolling
+                        .size(180, 270) // Explicit size for 60dp×90dp at xxhdpi (×3 density)
+                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                         .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

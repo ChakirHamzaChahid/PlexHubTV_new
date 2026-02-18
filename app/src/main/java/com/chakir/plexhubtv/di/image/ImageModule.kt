@@ -17,12 +17,23 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object ImageModule {
+
     @Provides
     @Singleton
     fun provideImageLoader(
         @ApplicationContext context: Context,
         okHttpClient: OkHttpClient,
+        performanceImageInterceptor: PerformanceImageInterceptor,
     ): ImageLoader {
+        // Dedicated OkHttpClient for images with shorter timeouts to prevent blocking on slow/offline servers
+        val imageOkHttpClient = okHttpClient.newBuilder()
+            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)  // 5s instead of 10s
+            .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)    // 10s instead of 30s
+            .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)   // 10s instead of 30s
+            .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)    // 15s total max (prevents 60s hangs)
+            .retryOnConnectionFailure(false) // Don't retry failed connections for images
+            .build()
+
         // ✅ ADAPTIVE CACHE: Calculate optimal cache size based on available RAM
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memoryInfo = ActivityManager.MemoryInfo()
@@ -43,9 +54,10 @@ object ImageModule {
         )
 
         return ImageLoader.Builder(context)
-            .okHttpClient(okHttpClient)
+            .okHttpClient(imageOkHttpClient) // Use dedicated image client with shorter timeouts
             .components {
                 add(PlexImageKeyer())
+                add(performanceImageInterceptor)
             }
             .memoryCache {
                 MemoryCache.Builder(context)

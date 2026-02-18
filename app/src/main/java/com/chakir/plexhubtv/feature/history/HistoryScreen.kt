@@ -14,6 +14,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -44,6 +47,8 @@ fun HistoryScreen(
         modifier =
             Modifier
                 .fillMaxSize()
+                .testTag("screen_history")
+                .semantics { contentDescription = "Écran de l'historique" }
                 .background(MaterialTheme.colorScheme.background)
                 .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 80.dp),
     ) {
@@ -56,11 +61,23 @@ fun HistoryScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (uiState.isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("history_loading")
+                    .semantics { contentDescription = "Chargement de l'historique" },
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
         } else if (uiState.historyItems.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("history_empty")
+                    .semantics { contentDescription = "Aucun historique" },
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
                     text = "No history available.",
                     style = MaterialTheme.typography.bodyLarge,

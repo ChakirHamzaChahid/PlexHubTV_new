@@ -14,6 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -68,11 +71,6 @@ fun HubDetailScreen(
                         )
                     }
                 },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 actions = {
                     IconButton(
                         onClick = {
@@ -88,15 +86,33 @@ fun HubDetailScreen(
             )
         },
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .testTag("screen_hub_detail")
+                .semantics { contentDescription = "Écran de détails du hub" }
+        ) {
             when {
                 state.isLoading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("hub_loading")
+                            .semantics { contentDescription = "Chargement du hub" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         CircularProgressIndicator()
                     }
                 }
                 state.error != null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("hub_error")
+                            .semantics { contentDescription = "Erreur: ${state.error}" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 "Error loading hub",
@@ -111,7 +127,13 @@ fun HubDetailScreen(
                     }
                 }
                 state.items.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("hub_empty")
+                            .semantics { contentDescription = "Aucun élément trouvé" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
                             "No items found",
                             style = MaterialTheme.typography.titleLarge,
@@ -128,6 +150,9 @@ fun HubDetailScreen(
                             contentPadding = PaddingValues(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier
+                                .testTag("hub_items_grid")
+                                .semantics { contentDescription = "Grille des éléments du hub" },
                         ) {
                             items(
                                 items = state.items,
@@ -155,6 +180,9 @@ fun HubDetailScreen(
                             columns = GridCells.Fixed(1),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .testTag("hub_items_list")
+                                .semantics { contentDescription = "Liste des éléments du hub" },
                         ) {
                             items(
                                 items = state.items,
