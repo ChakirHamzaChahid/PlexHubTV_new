@@ -4,11 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -17,6 +19,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.chakir.plexhubtv.di.navigation.Screen
 import com.chakir.plexhubtv.feature.auth.AuthRoute
+import com.chakir.plexhubtv.feature.auth.components.SessionExpiredDialog
 import com.chakir.plexhubtv.feature.auth.profiles.ProfileRoute
 import com.chakir.plexhubtv.feature.details.MediaDetailRoute
 import com.chakir.plexhubtv.feature.details.SeasonDetailRoute
@@ -33,6 +36,8 @@ import timber.log.Timber
 class MainActivity : ComponentActivity() {
     @javax.inject.Inject
     lateinit var settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore
+
+    private val mainViewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +63,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    PlexHubApp()
+                    PlexHubApp(mainViewModel = mainViewModel)
                 }
             }
         }
@@ -75,8 +80,22 @@ class MainActivity : ComponentActivity() {
  * - VideoPlayer (avec DeepLink support)
  */
 @Composable
-fun PlexHubApp() {
+fun PlexHubApp(mainViewModel: MainViewModel) {
     val navController = rememberNavController()
+    val showSessionExpiredDialog by mainViewModel.showSessionExpiredDialog.collectAsState()
+
+    // Show session expired dialog if token invalidated
+    if (showSessionExpiredDialog) {
+        SessionExpiredDialog(
+            onDismiss = {
+                mainViewModel.onSessionExpiredDialogDismissed {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
+        )
+    }
 
     NavHost(navController = navController, startDestination = Screen.Splash.route) {
         // Splash Screen (Netflix-style auto-login check)
