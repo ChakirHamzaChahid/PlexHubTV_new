@@ -35,9 +35,9 @@ object ImageModule {
             .build()
 
         // ✅ ADAPTIVE CACHE: Calculate optimal cache size based on available RAM
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
         val memoryInfo = ActivityManager.MemoryInfo()
-        activityManager.getMemoryInfo(memoryInfo)
+        activityManager?.getMemoryInfo(memoryInfo)
 
         val totalRam = memoryInfo.totalMem
         val memoryCacheSize = when {

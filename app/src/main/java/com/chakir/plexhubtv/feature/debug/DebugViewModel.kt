@@ -101,7 +101,8 @@ class DebugViewModel @Inject constructor(
     }
 
     private suspend fun collectSystemInfo(): SystemInfo = withContext(Dispatchers.IO) {
-        val activityManager = application.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val activityManager = application.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            ?: return@withContext SystemInfo()
         val memoryInfo = ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(memoryInfo)
 
@@ -212,7 +213,8 @@ class DebugViewModel @Inject constructor(
 
     private suspend fun collectNetworkInfo(): NetworkInfo = withContext(Dispatchers.IO) {
         try {
-            val connectivityManager = application.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val connectivityManager = application.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                ?: return@withContext NetworkInfo()
             val network = connectivityManager.activeNetwork
             val capabilities = connectivityManager.getNetworkCapabilities(network)
 

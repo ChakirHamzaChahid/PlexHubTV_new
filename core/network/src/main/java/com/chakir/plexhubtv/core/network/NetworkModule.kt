@@ -125,7 +125,8 @@ object NetworkModule {
         val defaultTrustManager =
             trustManagerFactory.trustManagers
                 .filterIsInstance<X509TrustManager>()
-                .first()
+                .firstOrNull()
+                ?: throw IllegalStateException("No X509TrustManager found in system TrustManagers")
 
         val localAwareTrustManager =
             object : X509ExtendedTrustManager() {

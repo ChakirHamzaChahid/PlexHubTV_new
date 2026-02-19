@@ -67,9 +67,10 @@ class SplashViewModel
         private fun tryNavigate() {
             viewModelScope.launch {
                 // Only navigate when BOTH video ended AND authentication is complete
-                if (isVideoComplete && isAuthenticationComplete && authenticationResult != null) {
+                val result = authenticationResult
+                if (isVideoComplete && isAuthenticationComplete && result != null) {
                     Timber.d("SPLASH: Both video and auth complete, navigating...")
-                    _navigationEvent.send(authenticationResult!!)
+                    _navigationEvent.send(result)
                 }
             }
         }

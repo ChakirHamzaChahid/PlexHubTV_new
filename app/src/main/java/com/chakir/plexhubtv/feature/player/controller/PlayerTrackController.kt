@@ -222,7 +222,7 @@ class PlayerTrackController
         ) {
             if (currentItem == null) return
 
-            val subStreamIdToSave = if (track.id == "no" || track.streamId == null) "0" else track.streamId!!
+            val subStreamIdToSave = if (track.id == "no") "0" else (track.streamId ?: "0")
 
             // 1. Persistence
             scope.launch {

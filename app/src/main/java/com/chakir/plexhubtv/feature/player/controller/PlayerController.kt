@@ -105,10 +105,13 @@ class PlayerController @Inject constructor(
             }
         }
 
-        if (directUrl != null) {
-            playDirectUrl(directUrl!!)
-        } else if (ratingKey != null && serverId != null) {
-            loadMedia(ratingKey!!, serverId!!)
+        val initUrl = directUrl
+        val initRKey = ratingKey
+        val initSId = serverId
+        if (initUrl != null) {
+            playDirectUrl(initUrl)
+        } else if (initRKey != null && initSId != null) {
+            loadMedia(initRKey, initSId)
         }
         startPositionTracking()
     }
@@ -256,10 +259,13 @@ class PlayerController @Inject constructor(
         mpvPlayer = playerFactory.createMpvPlayer(application, scope)
         _uiState.update { it.copy(isMpvMode = true, error = null) }
         
-        if (directUrl != null) {
-             scope.launch { mpvPlayer?.play(directUrl!!) }
-        } else if (ratingKey != null && serverId != null) {
-            loadMedia(ratingKey!!, serverId!!)
+        val mpvUrl = directUrl
+        val mpvRKey = ratingKey
+        val mpvSId = serverId
+        if (mpvUrl != null) {
+            scope.launch { mpvPlayer?.play(mpvUrl) }
+        } else if (mpvRKey != null && mpvSId != null) {
+            loadMedia(mpvRKey, mpvSId)
         }
     }
 
@@ -293,8 +299,10 @@ class PlayerController @Inject constructor(
                 else -> 200000
             }
 
-            val qualityObj = _uiState.value.availableQualities.find { it.bitrate == bitrate }
-                ?: if (bitrate >= 200000) _uiState.value.availableQualities.first() else _uiState.value.availableQualities.last()
+            val qualities = _uiState.value.availableQualities
+            val qualityObj = qualities.find { it.bitrate == bitrate }
+                ?: (if (bitrate >= 200000) qualities.firstOrNull() else qualities.lastOrNull())
+                ?: return@launch
 
             _uiState.update { it.copy(selectedQuality = qualityObj) }
 

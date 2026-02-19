@@ -65,7 +65,11 @@ class AuthRepositoryImpl
                 val response = api.getPin(strong = strong, clientId = clientId)
                 val body = response.body()
                 if (response.isSuccessful && body != null) {
-                    Result.success(AuthPin(id = body.id!!.toString(), code = body.code!!))
+                    val pinId = body.id
+                        ?: return Result.failure(AuthException("PIN ID missing in API response"))
+                    val pinCode = body.code
+                        ?: return Result.failure(AuthException("PIN code missing in API response"))
+                    Result.success(AuthPin(id = pinId.toString(), code = pinCode))
                 } else {
                     Result.failure(AuthException("Failed to get PIN: ${response.code()}"))
                 }
@@ -90,7 +94,7 @@ class AuthRepositoryImpl
                 if (response.isSuccessful && body != null) {
                     val authToken = body.authToken
                     if (authToken != null) {
-                        settingsDataStore.saveToken(authToken!!)
+                        settingsDataStore.saveToken(authToken)
                         Result.success(true)
                     } else {
                         Result.success(false) // Not yet linked
@@ -203,8 +207,9 @@ class AuthRepositoryImpl
 
         override suspend fun getServers(forceRefresh: Boolean): Result<List<Server>> {
             // 1. Memory Cache
-            if (!forceRefresh && cachedServers != null) {
-                return Result.success(cachedServers!!)
+            val cached = cachedServers
+            if (!forceRefresh && cached != null) {
+                return Result.success(cached)
             }
 
             // 2. DB Cache

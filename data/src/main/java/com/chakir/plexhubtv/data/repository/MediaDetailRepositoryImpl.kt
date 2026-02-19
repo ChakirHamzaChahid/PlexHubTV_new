@@ -158,8 +158,9 @@ class MediaDetailRepositoryImpl
                 }
             } else {
                 // For movies/shows: match by unificationId
-                if (item.unificationId.isNullOrBlank()) return emptyList()
-                mediaDao.findRemoteSources(item.unificationId!!, item.serverId)
+                val unificationId = item.unificationId
+                if (unificationId.isNullOrBlank()) return emptyList()
+                mediaDao.findRemoteSources(unificationId, item.serverId)
             }
             return entities.map { entity ->
                 val client = serverClientResolver.getClient(entity.serverId)

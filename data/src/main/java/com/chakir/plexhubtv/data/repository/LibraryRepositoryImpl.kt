@@ -303,10 +303,12 @@ class LibraryRepositoryImpl
                             val baseUrl = clientMap[entity.serverId]
                             val token = tokenMap[entity.serverId]
 
+                            val serverIdsStr = entity.serverIds
+                            val ratingKeysStr = entity.ratingKeys
                             val finalDomain =
-                                if (entity.serverIds != null && entity.ratingKeys != null) {
-                                    var sIds = entity.serverIds!!.split(",")
-                                    var rKeys = entity.ratingKeys!!.split(",")
+                                if (serverIdsStr != null && ratingKeysStr != null) {
+                                    var sIds = serverIdsStr.split(",")
+                                    var rKeys = ratingKeysStr.split(",")
 
                                     // Prioritize default server in multi-server results (Kotlin-side, SQLite version independent)
                                     if (sIds.size == rKeys.size && sIds.size > 1 && preferredServerIdForMapping != null) {

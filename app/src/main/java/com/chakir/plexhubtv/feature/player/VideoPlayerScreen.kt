@@ -323,9 +323,10 @@ fun VideoPlayerScreen(
         }
 
         // Performance Overlay
-        if (uiState.showPerformanceOverlay && uiState.playerStats != null) {
+        val playerStats = uiState.playerStats
+        if (uiState.showPerformanceOverlay && playerStats != null) {
             com.chakir.plexhubtv.feature.player.ui.components.PerformanceOverlay(
-                stats = uiState.playerStats!!,
+                stats = playerStats,
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 16.dp),
             )
         }

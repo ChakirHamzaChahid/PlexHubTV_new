@@ -80,7 +80,9 @@ class TrackSelectionUseCase
             }
 
             // Priority 5: Default or first
-            val defaultOrFirst = realTracks.firstOrNull { it.isDefault } ?: realTracks.first()
+            val defaultOrFirst = realTracks.firstOrNull { it.isDefault }
+                ?: realTracks.firstOrNull()
+                ?: return null
             return TrackSelectionResult(defaultOrFirst, TrackSelectionPriority.DEFAULT_TRACK)
         }
 
