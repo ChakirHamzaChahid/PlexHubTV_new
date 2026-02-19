@@ -192,6 +192,14 @@
     <string name="player_loading_description">Chargement de la vidéo</string>
     <string name="player_next_popup_description">Prochain épisode : %1$s</string>
     <string name="player_error_description">Erreur : %1$s</string>
+    <!-- Overlay d'erreur -->
+    <string name="player_error_network_title">Erreur réseau</string>
+    <string name="player_error_network_message">Impossible de se connecter au serveur. Vérifiez votre connexion réseau et réessayez.</string>
+    <string name="player_error_codec_title">Erreur de codec</string>
+    <string name="player_error_codec_message">Ce format vidéo n\'est pas pris en charge par le lecteur actuel.</string>
+    <string name="player_error_generic_title">Erreur de lecture</string>
+    <string name="player_error_retry_count">Tentative %1$d sur %2$d</string>
+    <string name="player_error_switch_to_mpv">Essayer le lecteur MPV</string>
     <string name="player_back_description">Retour</string>
     <string name="player_pause_description">Pause</string>
     <string name="player_play_description">Lecture</string>

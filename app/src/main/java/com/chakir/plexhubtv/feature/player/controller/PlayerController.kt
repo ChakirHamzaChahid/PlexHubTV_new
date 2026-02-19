@@ -197,6 +197,8 @@ class PlayerController @Inject constructor(
                                 "duration" to _uiState.value.duration
                             )
                         )
+                        // Reset retry count on successful playback
+                        _uiState.update { it.copy(networkRetryCount = 0, error = null, errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.None) }
                     }
                 }
 
@@ -246,23 +248,36 @@ class PlayerController @Inject constructor(
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                     val isFormatError = when (error.errorCode) {
+                    val isFormatError = when (error.errorCode) {
                         PlaybackException.ERROR_CODE_DECODING_FAILED,
                         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> true
                         else -> error.cause?.message?.contains("MediaCodec") == true
                     }
-                    
+
+                    val isNetError = isNetworkError(error)
+
                     if (isFormatError && !isMpvMode) {
+                        Timber.d("PlayerController: Codec error detected, switching to MPV")
+                        _uiState.update { it.copy(errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Codec) }
                         switchToMpv()
+                    } else if (isNetError) {
+                        Timber.e(error, "PlayerController: Network error detected")
+                        handleNetworkError(error)
                     } else {
-                        _uiState.update { it.copy(error = error.localizedMessage) }
+                        Timber.e(error, "PlayerController: Generic player error")
+                        _uiState.update {
+                            it.copy(
+                                error = error.localizedMessage,
+                                errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Generic
+                            )
+                        }
                     }
                 }
             })
         }
     }
     
-    private fun switchToMpv() {
+    fun switchToMpv() {
          Log.d("METRICS", "SCREEN [Player] switchToMpv() called")
         if (isMpvMode) return
         isMpvMode = true
@@ -270,10 +285,18 @@ class PlayerController @Inject constructor(
 
         player?.release()
         player = null
-        
+
         mpvPlayer = playerFactory.createMpvPlayer(application, scope)
-        _uiState.update { it.copy(isMpvMode = true, error = null) }
-        
+        _uiState.update {
+            it.copy(
+                isMpvMode = true,
+                error = null,
+                errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.None,
+                networkRetryCount = 0,
+                isBuffering = true
+            )
+        }
+
         val mpvUrl = directUrl
         val mpvRKey = ratingKey
         val mpvSId = serverId
@@ -281,6 +304,94 @@ class PlayerController @Inject constructor(
             scope.launch { mpvPlayer?.play(mpvUrl) }
         } else if (mpvRKey != null && mpvSId != null) {
             loadMedia(mpvRKey, mpvSId)
+        }
+    }
+
+    /**
+     * Détecte si une erreur ExoPlayer est d'origine réseau
+     */
+    private fun isNetworkError(error: PlaybackException): Boolean {
+        val cause = error.cause
+        return when {
+            // Erreurs réseau standard
+            cause is java.net.UnknownHostException -> true
+            cause is java.net.SocketTimeoutException -> true
+            cause is java.net.ConnectException -> true
+            // ExoPlayer HttpDataSource errors
+            cause is androidx.media3.datasource.HttpDataSource.HttpDataSourceException -> true
+            // Check error code
+            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> true
+            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> true
+            error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> true
+            // Check message for network-related keywords
+            error.message?.contains("UnknownHost", ignoreCase = true) == true -> true
+            error.message?.contains("timeout", ignoreCase = true) == true -> true
+            error.message?.contains("network", ignoreCase = true) == true -> true
+            else -> false
+        }
+    }
+
+    /**
+     * Gère une erreur réseau : affiche l'erreur et permet le retry
+     */
+    private fun handleNetworkError(error: PlaybackException) {
+        val currentRetryCount = _uiState.value.networkRetryCount
+        val maxRetries = 3
+
+        Timber.w("Network error (retry $currentRetryCount/$maxRetries): ${error.message}")
+
+        _uiState.update {
+            it.copy(
+                error = error.localizedMessage ?: "Network error during playback",
+                errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Network,
+                networkRetryCount = currentRetryCount,
+                isBuffering = false,
+                isPlaying = false
+            )
+        }
+
+        // Si on a dépassé le nombre max de retry et qu'on n'est pas déjà en MPV, proposer MPV
+        if (currentRetryCount >= maxRetries && !isMpvMode) {
+            Timber.w("Max network retries reached, suggesting MPV fallback")
+            // L'UI affichera l'option de basculer vers MPV
+        }
+    }
+
+    /**
+     * Retry playback après une erreur réseau
+     */
+    fun retryPlayback() {
+        val currentRetryCount = _uiState.value.networkRetryCount
+        Timber.d("Retrying playback (attempt ${currentRetryCount + 1})")
+
+        // Reset error state
+        _uiState.update {
+            it.copy(
+                error = null,
+                errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.None,
+                networkRetryCount = currentRetryCount + 1,
+                isBuffering = true
+            )
+        }
+
+        // Reload current media
+        val rKey = ratingKey
+        val sId = serverId
+        val dUrl = directUrl
+
+        if (dUrl != null) {
+            playDirectUrl(dUrl)
+        } else if (rKey != null && sId != null) {
+            loadMedia(rKey, sId)
+        } else {
+            Timber.e("Cannot retry: no media loaded")
+            _uiState.update {
+                it.copy(
+                    error = "Cannot retry: no media information",
+                    errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Generic,
+                    isBuffering = false
+                )
+            }
         }
     }
 

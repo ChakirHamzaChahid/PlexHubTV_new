@@ -334,18 +334,18 @@ fun VideoPlayerScreen(
             )
         }
 
+        // Error Overlay (replaces simple error display)
         if (uiState.error != null) {
-            val errorDesc = stringResource(R.string.player_error_description, uiState.error)
-            val errorMsg = stringResource(R.string.player_error_prefix, uiState.error)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("player_error")
-                    .semantics { contentDescription = errorDesc },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(errorMsg, color = MaterialTheme.colorScheme.error)
-            }
+            com.chakir.plexhubtv.feature.player.ui.components.PlayerErrorOverlay(
+                errorMessage = uiState.error,
+                errorType = uiState.errorType,
+                retryCount = uiState.networkRetryCount,
+                isMpvMode = uiState.isMpvMode,
+                onRetry = { onAction(PlayerAction.RetryPlayback) },
+                onSwitchToMpv = { onAction(PlayerAction.SwitchToMpv) },
+                onClose = { onAction(PlayerAction.Close) },
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         // Auto-Next Popup

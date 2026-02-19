@@ -216,6 +216,14 @@
     <string name="player_loading_description">Loading video</string>
     <string name="player_next_popup_description">Next episode: %1$s</string>
     <string name="player_error_description">Error: %1$s</string>
+    <!-- Error overlay strings -->
+    <string name="player_error_network_title">Network Error</string>
+    <string name="player_error_network_message">Unable to connect to the server. Check your network connection and try again.</string>
+    <string name="player_error_codec_title">Codec Error</string>
+    <string name="player_error_codec_message">This video format is not supported by the current player.</string>
+    <string name="player_error_generic_title">Playback Error</string>
+    <string name="player_error_retry_count">Attempt %1$d of %2$d</string>
+    <string name="player_error_switch_to_mpv">Try MPV Player</string>
     <string name="player_back_description">Back</string>
     <string name="player_pause_description">Pause</string>
     <string name="player_play_description">Play</string>

@@ -121,11 +121,20 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.DismissDialog -> {
                 playerController.updateState { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false) }
             }
+            is PlayerAction.RetryPlayback -> {
+                playerController.retryPlayback()
+            }
+            is PlayerAction.SwitchToMpv -> {
+                playerController.switchToMpv()
+            }
+            is PlayerAction.TogglePerformanceOverlay -> {
+                playerController.updateState { it.copy(showPerformanceOverlay = !it.showPerformanceOverlay) }
+            }
             is PlayerAction.Close -> {
                 val state = uiState.value
                 if (state.showSettings || state.showAudioSelection || state.showSubtitleSelection || state.showAutoNextPopup || state.showAudioSyncDialog || state.showSubtitleSyncDialog || state.showSpeedSelection) {
                     playerController.updateState { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false) }
-                } 
+                }
                 // Navigation is handled by UI callback usually
             }
             else -> {} // Handled by other VMs
