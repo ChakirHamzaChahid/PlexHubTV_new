@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -25,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.BuildConfig
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
+
+// TODO: Replace with your hosted privacy policy URL (e.g. GitHub Pages)
+private const val PRIVACY_POLICY_URL = "https://github.com/chakir-elarram/PlexHubTV/blob/main/docs/privacy-policy-en.md"
 
 /**
  * Écran principal des paramètres.
@@ -371,6 +375,20 @@ fun SettingsScreen(
                             },
                         )
                     }
+                }
+            }
+
+            // --- Legal ---
+            item {
+                val uriHandler = LocalUriHandler.current
+                SettingsSection("Legal") {
+                    SettingsTile(
+                        title = "Privacy Policy / Politique de confidentialité",
+                        subtitle = "View our privacy policy",
+                        onClick = {
+                            uriHandler.openUri(PRIVACY_POLICY_URL)
+                        },
+                    )
                 }
             }
 
