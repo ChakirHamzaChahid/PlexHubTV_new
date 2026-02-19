@@ -17,6 +17,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 
 /**
  * ViewModel pour la Recherche Globale.
@@ -78,6 +82,10 @@ class SearchViewModel
                 viewModelScope.launch {
                     val startTime = System.currentTimeMillis()
                     _uiState.update { it.copy(searchState = SearchState.Searching) }
+
+                    Firebase.analytics.logEvent("search") {
+                        param(FirebaseAnalytics.Param.SEARCH_TERM, query.take(100))
+                    }
 
                     searchAcrossServersUseCase(query).collect { result ->
                         val duration = System.currentTimeMillis() - startTime

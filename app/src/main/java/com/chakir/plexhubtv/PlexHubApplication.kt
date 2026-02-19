@@ -32,6 +32,9 @@ import timber.log.Timber
 import java.security.Security
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.perf.FirebasePerformance
 
 /**
  * Classe Application personnalisée pour PlexHubTV.
@@ -73,6 +76,8 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
         }
 
         installSecurityProviders()
+
+        initializeFirebase()
 
         // Launch parallel initialization
         initializeAppInParallel()
@@ -271,5 +276,27 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
             // We only warn here because we have Conscrypt as a robust fallback
             Timber.w("GMS Security provider update failed or not available: ${e.message}")
         }
+    }
+
+    /**
+     * Initializes Firebase services with a DEBUG gate.
+     * Collection is disabled in debug builds to avoid noise during development.
+     */
+    private fun initializeFirebase() {
+        FirebaseCrashlytics.getInstance().apply {
+            setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
+            setCustomKey("app_version", BuildConfig.VERSION_NAME)
+            setCustomKey("build_type", BuildConfig.BUILD_TYPE)
+        }
+
+        FirebaseAnalytics.getInstance(this).apply {
+            setAnalyticsCollectionEnabled(!BuildConfig.DEBUG)
+        }
+
+        FirebasePerformance.getInstance().apply {
+            isPerformanceCollectionEnabled = !BuildConfig.DEBUG
+        }
+
+        Timber.i("Firebase initialized (collection=${!BuildConfig.DEBUG})")
     }
 }

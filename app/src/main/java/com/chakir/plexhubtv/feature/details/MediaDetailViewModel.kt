@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 
 /**
  * ViewModel gérant les détails d'un média.
@@ -76,6 +79,11 @@ class MediaDetailViewModel
             when (event) {
                 is MediaDetailEvent.PlayClicked -> {
                     val media = _uiState.value.media ?: return
+                    Firebase.analytics.logEvent("video_play") {
+                        param("media_type", media.type.name)
+                        param("title", media.title.take(100))
+                        param("server_id", media.serverId)
+                    }
                     viewModelScope.launch {
                         val opId = "playback_movie_${media.ratingKey}_${System.currentTimeMillis()}"
                         performanceTracker.startOperation(

@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.*
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 @Singleton
 @OptIn(UnstableApi::class)
@@ -66,6 +67,14 @@ class PlayerController @Inject constructor(
         this.serverId = startServerId
         this.directUrl = startDirectUrl
         this.startOffset = offset
+
+        // Set Crashlytics context for crash diagnostics
+        FirebaseCrashlytics.getInstance().apply {
+            setCustomKey("player_engine", "ExoPlayer")
+            setCustomKey("media_rating_key", startRatingKey ?: "unknown")
+            setCustomKey("server_id", startServerId ?: "unknown")
+            setCustomKey("is_direct_url", (startDirectUrl != null).toString())
+        }
 
         initializePlayer(application)
 
@@ -239,7 +248,8 @@ class PlayerController @Inject constructor(
          Log.d("METRICS", "SCREEN [Player] switchToMpv() called")
         if (isMpvMode) return
         isMpvMode = true
-        
+        FirebaseCrashlytics.getInstance().setCustomKey("player_engine", "MPV")
+
         player?.release()
         player = null
         

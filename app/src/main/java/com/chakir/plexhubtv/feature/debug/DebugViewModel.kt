@@ -27,6 +27,8 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
+import com.chakir.plexhubtv.BuildConfig
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 @HiltViewModel
 class DebugViewModel @Inject constructor(
@@ -55,6 +57,14 @@ class DebugViewModel @Inject constructor(
             is DebugAction.ClearAllCache -> clearAllCache()
             is DebugAction.ExportLogs -> exportLogs()
             is DebugAction.ForceSync -> forceSync()
+            is DebugAction.TestCrash -> testCrash()
+        }
+    }
+
+    private fun testCrash() {
+        if (BuildConfig.DEBUG) {
+            FirebaseCrashlytics.getInstance().log("Test crash triggered from Debug screen")
+            throw RuntimeException("Test crash from PlexHubTV Debug screen")
         }
     }
 

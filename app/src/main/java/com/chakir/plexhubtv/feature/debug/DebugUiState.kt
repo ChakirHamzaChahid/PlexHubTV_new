@@ -116,4 +116,5 @@ sealed interface DebugAction {
     data object ClearAllCache : DebugAction
     data object ExportLogs : DebugAction
     data object ForceSync : DebugAction
+    data object TestCrash : DebugAction
 }

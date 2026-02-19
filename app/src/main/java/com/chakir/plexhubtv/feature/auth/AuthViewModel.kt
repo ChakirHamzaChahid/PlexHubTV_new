@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 
 /**
  * ViewModel gérant le flux d'authentification.
@@ -63,6 +66,9 @@ class AuthViewModel
                         fetchServers()
                     }
                     .onFailure { e ->
+                        Firebase.analytics.logEvent("auth_failed") {
+                            param("method", "token")
+                        }
                         _uiState.value = AuthUiState.Error("Token verification failed: ${e.message}")
                     }
             }
@@ -116,12 +122,16 @@ class AuthViewModel
                     return
                 }
             }
+            Firebase.analytics.logEvent("auth_timeout") {}
             _uiState.value = AuthUiState.Error("Authentication timed out")
         }
 
         private suspend fun fetchServers() {
             authRepository.getServers()
                 .onSuccess { servers ->
+                    Firebase.analytics.logEvent("auth_success") {
+                        param("server_count", servers.size.toLong())
+                    }
                     _uiState.value = AuthUiState.Success(servers)
                 }
                 .onFailure { e ->
