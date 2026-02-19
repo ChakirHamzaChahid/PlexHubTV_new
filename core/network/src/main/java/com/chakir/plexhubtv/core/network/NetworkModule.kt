@@ -79,9 +79,10 @@ object NetworkModule {
     @Singleton
     fun provideAuthInterceptor(
         settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
-        @ApplicationScope scope: CoroutineScope
+        @ApplicationScope scope: CoroutineScope,
+        authEventBus: com.chakir.plexhubtv.core.common.auth.AuthEventBus,
     ): AuthInterceptor {
-        return AuthInterceptor(settingsDataStore, scope)
+        return AuthInterceptor(settingsDataStore, scope, authEventBus)
     }
 
     /**

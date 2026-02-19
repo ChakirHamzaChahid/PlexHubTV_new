@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.core.network
 
 import android.os.Build
+import com.chakir.plexhubtv.core.common.auth.AuthEventBus
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +25,7 @@ class AuthInterceptor
     constructor(
         private val settingsDataStore: SettingsDataStore,
         @ApplicationScope private val scope: CoroutineScope,
+        private val authEventBus: AuthEventBus,
     ) : Interceptor {
 
     private val cachedToken = AtomicReference<String?>(null)
@@ -66,6 +68,13 @@ class AuthInterceptor
         requestBuilder.header("X-Plex-Device", Build.MODEL)
         requestBuilder.header("X-Plex-Model", Build.MODEL)
 
-        return chain.proceed(requestBuilder.build())
+        val response = chain.proceed(requestBuilder.build())
+
+        // Detect 401 and signal token invalidation
+        if (response.code == 401) {
+            authEventBus.emitTokenInvalid()
+        }
+
+        return response
     }
 }
