@@ -170,3 +170,9 @@ test_output.txt
 build_error.log
 build_log2.txt
 compile_error.txt
+*/build
+*/*/build
+*/*/*/build
+.kotlin/errors/errors-1771506729473.log
+app/google-services.json
+nul
