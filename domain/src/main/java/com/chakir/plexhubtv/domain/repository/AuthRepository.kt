@@ -50,4 +50,13 @@ interface AuthRepository {
 
     /** Flux observant l'état global d'authentification (connecté/déconnecté). */
     fun observeAuthState(): Flow<Boolean>
+
+    /** Clears only the authentication token from secure storage. */
+    suspend fun clearToken()
+
+    /**
+     * Clears token + user data + optionally database.
+     * @param clearDatabase If true, wipes all cached media data.
+     */
+    suspend fun clearAllAuthData(clearDatabase: Boolean = true)
 }

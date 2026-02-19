@@ -273,4 +273,16 @@ class AuthRepositoryImpl
         override fun observeAuthState(): Flow<Boolean> {
             return settingsDataStore.plexToken.map { !it.isNullOrBlank() }
         }
+
+        override suspend fun clearToken() {
+            settingsDataStore.clearToken()
+        }
+
+        override suspend fun clearAllAuthData(clearDatabase: Boolean) {
+            settingsDataStore.clearToken()
+            settingsDataStore.clearUser()
+            if (clearDatabase) {
+                database.clearAllTables()
+            }
+        }
     }
