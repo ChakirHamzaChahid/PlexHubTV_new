@@ -88,4 +88,9 @@ dependencies {
     implementation("javax.inject:javax.inject:1")
 
     implementation(libs.androidx.core.ktx)
+
+    // Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.truth)
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
 }
