@@ -1,11 +1,14 @@
 package com.chakir.plexhubtv.feature.auth.profiles
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +17,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -26,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.PlexHomeUser
 
 /**
@@ -100,6 +109,7 @@ fun ProfileScreen(
                 }
             } else {
                 val gridState = rememberLazyGridState()
+                val firstFocusRequester = remember { FocusRequester() }
                 LazyVerticalGrid(
                     state = gridState,
                     columns = GridCells.Adaptive(160.dp),
@@ -111,12 +121,20 @@ fun ProfileScreen(
                         .testTag("profile_list")
                         .semantics { contentDescription = "Liste des profils" },
                 ) {
-                    items(state.users, key = { it.id }) { user ->
+                    itemsIndexed(state.users, key = { _, user -> user.id }) { index, user ->
                         UserProfileCard(
                             user = user,
                             onClick = { onAction(ProfileAction.SelectUser(user)) },
+                            modifier = if (index == 0) {
+                                Modifier.focusRequester(firstFocusRequester)
+                            } else {
+                                Modifier
+                            },
                         )
                     }
+                }
+                LaunchedEffect(Unit) {
+                    firstFocusRequester.requestFocus()
                 }
             }
         }
@@ -159,16 +177,35 @@ fun ProfileScreen(
 fun UserProfileCard(
     user: PlexHomeUser,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.08f else 1.0f,
+        label = "profileCardScale",
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier =
-            Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .testTag("profile_card_${user.id}")
-                .semantics { contentDescription = "Profil: ${user.title}" }
-                .clickable { onClick() }
-                .padding(12.dp),
+        modifier = modifier
+            .onFocusChanged { isFocused = it.isFocused }
+            .scale(scale)
+            .shadow(
+                elevation = if (isFocused) 12.dp else 0.dp,
+                shape = RoundedCornerShape(12.dp),
+                clip = false,
+            )
+            .border(
+                width = if (isFocused) 4.dp else 0.dp,
+                color = if (isFocused) NetflixRed else Color.Transparent,
+                shape = RoundedCornerShape(12.dp),
+            )
+            .clip(RoundedCornerShape(12.dp))
+            .testTag("profile_card_${user.id}")
+            .semantics { contentDescription = "Profil: ${user.title}" }
+            .clickable { onClick() }
+            .focusable()
+            .padding(12.dp),
     ) {
         AsyncImage(
             model = user.thumb,
@@ -185,7 +222,7 @@ fun UserProfileCard(
             text = user.title,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = if (isFocused) NetflixRed else MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
         )
         if (user.protected || user.hasPassword) {
