@@ -17,6 +17,8 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.feature.player.ExoStreamMetadata
 import com.chakir.plexhubtv.feature.player.PlayerFactory
+import com.chakir.plexhubtv.core.common.handler.GlobalCoroutineExceptionHandler
+import com.chakir.plexhubtv.core.di.DefaultDispatcher
 import com.chakir.plexhubtv.feature.player.PlayerUiState
 import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
 import kotlinx.coroutines.*
@@ -42,8 +44,10 @@ class PlayerController @Inject constructor(
     private val playerStatsTracker: PlayerStatsTracker,
     private val transcodeUrlBuilder: TranscodeUrlBuilder,
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
+    private val globalHandler: GlobalCoroutineExceptionHandler,
 ) {
-    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + globalHandler)
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -131,7 +135,7 @@ class PlayerController @Inject constructor(
         // Cancel ALL coroutines (position tracker, scrobbler, stats, collectors)
         scope.cancel()
         // Recreate a fresh scope for the next initialize() cycle
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + globalHandler)
 
         // Reset state so a fresh session doesn't inherit stale values
         _uiState.value = PlayerUiState()
