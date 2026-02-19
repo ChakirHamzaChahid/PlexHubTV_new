@@ -43,7 +43,7 @@ class PlayerController @Inject constructor(
     private val transcodeUrlBuilder: TranscodeUrlBuilder,
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -117,15 +117,26 @@ class PlayerController @Inject constructor(
     }
 
     fun release() {
+        positionTrackerJob?.cancel()
+        positionTrackerJob = null
+
         playerStatsTracker.stopTracking()
         playerScrobbler.stop()
+
         player?.release()
         player = null
         mpvPlayer?.release()
-        positionTrackerJob?.cancel()
-        // scope.cancel() // Don't cancel scope if Singleton, or recreate it on initialize
-        // Actually for Singleton, we should keep scope alive or manage jobs carefully
-        positionTrackerJob?.cancel()
+        mpvPlayer = null
+
+        // Cancel ALL coroutines (position tracker, scrobbler, stats, collectors)
+        scope.cancel()
+        // Recreate a fresh scope for the next initialize() cycle
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+        // Reset state so a fresh session doesn't inherit stale values
+        _uiState.value = PlayerUiState()
+        isMpvMode = false
+        isDirectPlay = false
     }
     
     // ... Copy methods from PlayerViewModel ...
