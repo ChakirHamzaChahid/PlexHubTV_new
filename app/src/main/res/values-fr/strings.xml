@@ -445,4 +445,11 @@
          Écran d\'état du serveur
          ══════════════════════════════════════════════ -->
     <string name="server_status_title">État du serveur</string>
+
+    <!-- ══════════════════════════════════════════════
+         Expiration de session
+         ══════════════════════════════════════════════ -->
+    <string name="session_expired_title">Session expirée</string>
+    <string name="session_expired_message">Votre session Plex a expiré. Veuillez vous reconnecter.</string>
+    <string name="reconnect">Se reconnecter</string>
 </resources>
