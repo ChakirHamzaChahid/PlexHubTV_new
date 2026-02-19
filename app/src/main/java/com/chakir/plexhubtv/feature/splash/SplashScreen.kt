@@ -18,6 +18,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.chakir.plexhubtv.R
+import timber.log.Timber
 
 /**
  * Écran Splash style Netflix.
@@ -47,11 +48,17 @@ fun SplashRoute(
         }
     }
 
-    SplashScreen(onVideoEnded = { isVideoEnded = true })
+    SplashScreen(
+        viewModel = viewModel,
+        onVideoEnded = { isVideoEnded = true }
+    )
 }
 
 @Composable
-fun SplashScreen(onVideoEnded: () -> Unit = {}) {
+fun SplashScreen(
+    viewModel: SplashViewModel,
+    onVideoEnded: () -> Unit = {}
+) {
     val context = LocalContext.current
 
     // Create ExoPlayer and release it when leaving composition
@@ -63,12 +70,23 @@ fun SplashScreen(onVideoEnded: () -> Unit = {}) {
             val videoUri = Uri.parse("android.resource://${context.packageName}/${R.raw.intro}")
             setMediaItem(MediaItem.fromUri(videoUri))
 
-            // Listen for playback end
+            // Listen for playback events
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
                         onVideoEnded()
                     }
+                }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (isPlaying) {
+                        viewModel.onVideoStarted()
+                    }
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    Timber.e(error, "Splash video playback error, falling back")
+                    viewModel.onVideoError()
                 }
             })
 

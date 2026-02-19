@@ -32,15 +32,45 @@ class SplashViewModel
         private var isAuthenticationComplete = false
         private var authenticationResult: SplashNavigationEvent? = null
         private var isVideoComplete = false
+        private var isVideoStarted = false
+        private var hasNavigated = false
+
+        companion object {
+            private const val SPLASH_TIMEOUT_MS = 5000L
+        }
 
         init {
             checkAuthAndNavigate()
+            startTimeoutTimer()
+        }
+
+        fun onVideoStarted() {
+            Timber.d("SPLASH: Video playback started")
+            isVideoStarted = true
         }
 
         fun onVideoEnded() {
             Timber.d("SPLASH: Video playback ended")
             isVideoComplete = true
             tryNavigate()
+        }
+
+        fun onVideoError() {
+            Timber.e("SPLASH: Video playback error, forcing navigation fallback")
+            // Force immediate navigation on video error
+            isVideoComplete = true
+            tryNavigate()
+        }
+
+        private fun startTimeoutTimer() {
+            viewModelScope.launch {
+                delay(SPLASH_TIMEOUT_MS)
+                if (!isVideoStarted && !hasNavigated) {
+                    Timber.w("SPLASH: Video did not start within timeout, forcing fallback navigation")
+                    isVideoComplete = true
+                    tryNavigate()
+                }
+            }
         }
 
         private fun checkAuthAndNavigate() {
@@ -68,8 +98,9 @@ class SplashViewModel
             viewModelScope.launch {
                 // Only navigate when BOTH video ended AND authentication is complete
                 val result = authenticationResult
-                if (isVideoComplete && isAuthenticationComplete && result != null) {
+                if (isVideoComplete && isAuthenticationComplete && result != null && !hasNavigated) {
                     Timber.d("SPLASH: Both video and auth complete, navigating...")
+                    hasNavigated = true
                     _navigationEvent.send(result)
                 }
             }
