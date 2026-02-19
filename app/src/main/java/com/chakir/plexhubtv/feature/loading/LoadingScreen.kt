@@ -10,10 +10,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 
 @Composable
 fun LoadingRoute(
@@ -35,11 +37,13 @@ fun LoadingRoute(
 
 @Composable
 fun LoadingScreen(state: LoadingUiState) {
+    val screenDesc = stringResource(R.string.loading_screen_description)
+
     Surface(
         modifier = Modifier
             .fillMaxSize()
             .testTag("screen_loading")
-            .semantics { contentDescription = "Écran de chargement" },
+            .semantics { contentDescription = screenDesc },
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(
@@ -52,7 +56,7 @@ fun LoadingScreen(state: LoadingUiState) {
         ) {
             // Logo or App Name
             Text(
-                text = "Welcome to PlexHub TV",
+                text = stringResource(R.string.loading_welcome),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -60,7 +64,7 @@ fun LoadingScreen(state: LoadingUiState) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Veuillez patienter pendant le chargement de vos médias...",
+                text = stringResource(R.string.loading_please_wait),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -69,10 +73,13 @@ fun LoadingScreen(state: LoadingUiState) {
 
             when (state) {
                 is LoadingUiState.Loading -> {
+                    val progressDesc = stringResource(R.string.loading_progress_description, state.progress.toInt())
+                    val syncBarDesc = stringResource(R.string.loading_sync_bar_description)
+
                     CircularProgressIndicator(
                         modifier = Modifier
                             .testTag("loading_progress")
-                            .semantics { contentDescription = "Chargement en cours: ${state.progress.toInt()}%" }
+                            .semantics { contentDescription = progressDesc }
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(
@@ -85,7 +92,7 @@ fun LoadingScreen(state: LoadingUiState) {
                         modifier = Modifier
                             .fillMaxWidth(0.6f)
                             .testTag("sync_progress_bar")
-                            .semantics { contentDescription = "Barre de progression de la synchronisation" },
+                            .semantics { contentDescription = syncBarDesc },
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -94,23 +101,29 @@ fun LoadingScreen(state: LoadingUiState) {
                     )
                 }
                 is LoadingUiState.Error -> {
+                    val errorIconDesc = stringResource(R.string.loading_error_icon_description)
+                    val errorDesc = stringResource(R.string.loading_error_description, state.message)
+
                     Icon(
                         imageVector = androidx.compose.material.icons.Icons.Default.Warning,
-                        contentDescription = "Error",
+                        contentDescription = errorIconDesc,
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier
                             .testTag("loading_error")
-                            .semantics { contentDescription = "Erreur de chargement: ${state.message}" }
+                            .semantics { contentDescription = errorDesc }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = state.message, color = MaterialTheme.colorScheme.error)
                 }
                 LoadingUiState.Completed -> {
+                    val completeText = stringResource(R.string.loading_complete)
+                    val completeDesc = stringResource(R.string.loading_completed_description)
+
                     Text(
-                        "Chargement terminé !",
+                        completeText,
                         modifier = Modifier
                             .testTag("loading_completed")
-                            .semantics { contentDescription = "Chargement terminé" }
+                            .semantics { contentDescription = completeDesc }
                     )
                 }
             }

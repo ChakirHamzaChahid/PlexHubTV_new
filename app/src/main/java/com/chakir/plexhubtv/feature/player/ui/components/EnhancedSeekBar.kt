@@ -14,10 +14,12 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.Chapter
 import com.chakir.plexhubtv.core.model.Marker
 import kotlin.math.max
@@ -50,6 +52,9 @@ fun EnhancedSeekBar(
     val progress = if (duration > 0) displayPosition.toFloat() / duration.toFloat() else 0f
     var boxWidth by remember { mutableStateOf(0f) }
 
+    val seekbarDesc = stringResource(R.string.player_seekbar_description)
+    val chaptersLabel = stringResource(R.string.player_chapters_count, chapters.size)
+
     Column(
         modifier =
             modifier
@@ -67,7 +72,7 @@ fun EnhancedSeekBar(
                     .fillMaxWidth()
                     .height(30.dp) // Touch area height
                     .testTag("player_seekbar")
-                    .semantics { contentDescription = "Barre de progression" }
+                    .semantics { contentDescription = seekbarDesc }
                     .onSizeChanged { boxWidth = it.width.toFloat() }
                     .focusable(interactionSource = interactionSource)
                     .onKeyEvent { event ->
@@ -219,7 +224,7 @@ fun EnhancedSeekBar(
                         .padding(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-            ) { Text(text = "Chapitres: ${chapters.size}", color = Color.Gray, fontSize = 10.sp) }
+            ) { Text(text = chaptersLabel, color = Color.Gray, fontSize = 10.sp) }
         }
     }
 }

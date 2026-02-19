@@ -19,10 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.feature.home.MediaCard
 
 @Composable
@@ -47,10 +49,15 @@ fun CollectionDetailScreen(
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
+    val collectionTitle = stringResource(R.string.collection_title)
+    val screenDesc = stringResource(R.string.collection_screen_description)
+    val loadingDesc = stringResource(R.string.collection_loading_description)
+    val itemsDesc = stringResource(R.string.collection_items_description)
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.collection?.title ?: "Collection") },
+                title = { Text(state.collection?.title ?: collectionTitle) },
                 colors =
                     TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black,
@@ -65,7 +72,7 @@ fun CollectionDetailScreen(
                 Modifier
                     .fillMaxSize()
                     .testTag("screen_collection_detail")
-                    .semantics { contentDescription = "Écran de détails de collection" }
+                    .semantics { contentDescription = screenDesc }
                     .padding(paddingValues)
                     .background(Color.Black),
         ) {
@@ -74,17 +81,18 @@ fun CollectionDetailScreen(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .testTag("collection_loading")
-                        .semantics { contentDescription = "Chargement de la collection" },
+                        .semantics { contentDescription = loadingDesc },
                     color = MaterialTheme.colorScheme.primary,
                 )
             } else if (state.error != null) {
+                val errorDesc = stringResource(R.string.collection_error_description, state.error)
                 Text(
                     text = state.error,
                     color = Color.Red,
                     modifier = Modifier
                         .align(Alignment.Center)
                         .testTag("collection_error")
-                        .semantics { contentDescription = "Erreur: ${state.error}" },
+                        .semantics { contentDescription = errorDesc },
                 )
             } else {
                 state.collection?.let { collection ->
@@ -111,7 +119,7 @@ fun CollectionDetailScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .testTag("collection_items_list")
-                                .semantics { contentDescription = "Liste des éléments de la collection" },
+                                .semantics { contentDescription = itemsDesc },
                         ) {
                             items(
                                 items = collection.items,

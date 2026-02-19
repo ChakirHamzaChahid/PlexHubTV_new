@@ -45,12 +45,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.Chapter
 import com.chakir.plexhubtv.core.model.Marker
@@ -82,6 +84,20 @@ fun NetflixPlayerControls(
     onShowSettings: () -> Unit = {},
     playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null
 ) {
+    val controlsDesc = stringResource(R.string.player_controls_description)
+    val unknownTitle = stringResource(R.string.player_unknown_title)
+    val server = stringResource(R.string.player_server)
+    val backDesc = stringResource(R.string.player_back)
+    val pauseDesc = stringResource(R.string.player_pause)
+    val playDesc = stringResource(R.string.player_play)
+    val rewindDesc = stringResource(R.string.player_rewind_10s)
+    val forwardDesc = stringResource(R.string.player_forward_30s)
+    val playPauseDesc = stringResource(R.string.player_play_pause)
+    val stopDesc = stringResource(R.string.player_stop)
+    val subtitlesDesc = stringResource(R.string.player_subtitles)
+    val audioDesc = stringResource(R.string.player_audio)
+    val settingsDesc = stringResource(R.string.player_settings)
+
     AnimatedVisibility(
         visible = isVisible,
         enter = fadeIn(),
@@ -92,7 +108,7 @@ fun NetflixPlayerControls(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("player_controls")
-                .semantics { contentDescription = "Contrôles du lecteur" }
+                .semantics { contentDescription = controlsDesc }
                 .background(Color.Black.copy(alpha = 0.4f)) // Dim background
         ) {
             // Top Bar: Back & Title
@@ -114,21 +130,22 @@ fun NetflixPlayerControls(
                     ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Retour",
+                            contentDescription = backDesc,
                             tint = Color.White
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(
-                            text = media?.title ?: "Unknown Title",
+                            text = media?.title ?: unknownTitle,
                             style = MaterialTheme.typography.titleLarge,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                         if (media?.grandparentTitle != null) {
+                            val playingFrom = stringResource(R.string.player_playing_from, media.remoteSources.firstOrNull { it.serverId == media.serverId }?.serverName ?: server)
                             Text(
-                                text = "${media.grandparentTitle} - Playing from ${media.remoteSources.firstOrNull { it.serverId == media.serverId }?.serverName ?: "Server"}",
+                                text = "${media.grandparentTitle} - $playingFrom",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
@@ -153,7 +170,7 @@ fun NetflixPlayerControls(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Lecture",
+                        contentDescription = if (isPlaying) pauseDesc else playDesc,
                         modifier = Modifier.size(64.dp)
                     )
                 }
@@ -207,7 +224,7 @@ fun NetflixPlayerControls(
                         onClick = onSkipBackward,
                         modifier = Modifier.testTag("player_skip_backward")
                      ) {
-                        Icon(Icons.Default.FastRewind, "Retour 10s", tint = Color.White)
+                        Icon(Icons.Default.FastRewind, rewindDesc, tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(24.dp))
 
@@ -217,7 +234,7 @@ fun NetflixPlayerControls(
                     ) {
                          Icon(
                             if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            "Lecture/Pause",
+                            playPauseDesc,
                             tint = Color.White
                         )
                     }
@@ -227,7 +244,7 @@ fun NetflixPlayerControls(
                         onClick = onSkipForward,
                         modifier = Modifier.testTag("player_skip_forward")
                     ) {
-                        Icon(Icons.Default.FastForward, "Avance 30s", tint = Color.White)
+                        Icon(Icons.Default.FastForward, forwardDesc, tint = Color.White)
                     }
 
                     Spacer(modifier = Modifier.width(32.dp))
@@ -235,7 +252,8 @@ fun NetflixPlayerControls(
                         onClick = onNext,
                         modifier = Modifier.testTag("player_next_button")
                      ) {
-                        Icon(Icons.Default.SkipNext, "Épisode suivant", tint = Color.White)
+                        val nextEpisodeDesc = stringResource(R.string.player_next_episode)
+                        Icon(Icons.Default.SkipNext, nextEpisodeDesc, tint = Color.White)
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -243,7 +261,7 @@ fun NetflixPlayerControls(
                         onClick = onStop,
                         modifier = Modifier.testTag("player_stop_button")
                      ) {
-                        Icon(Icons.Default.Stop, "Arrêter", tint = Color.White)
+                        Icon(Icons.Default.Stop, stopDesc, tint = Color.White)
                     }
 
                     Spacer(modifier = Modifier.width(32.dp))
@@ -251,21 +269,21 @@ fun NetflixPlayerControls(
                         onClick = onShowSubtitles,
                         modifier = Modifier.testTag("player_subtitles_button")
                     ) {
-                        Icon(Icons.Default.Subtitles, "Sous-titres", tint = Color.White)
+                        Icon(Icons.Default.Subtitles, subtitlesDesc, tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     IconButton(
                         onClick = onShowAudio,
                         modifier = Modifier.testTag("player_audio_button")
                     ) {
-                        Icon(Icons.Default.VolumeUp, "Audio", tint = Color.White)
+                        Icon(Icons.Default.VolumeUp, audioDesc, tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     IconButton(
                         onClick = onShowSettings,
                         modifier = Modifier.testTag("player_settings_button")
                     ) {
-                        Icon(Icons.Default.Settings, "Paramètres", tint = Color.White)
+                        Icon(Icons.Default.Settings, settingsDesc, tint = Color.White)
                     }
                 }
             }

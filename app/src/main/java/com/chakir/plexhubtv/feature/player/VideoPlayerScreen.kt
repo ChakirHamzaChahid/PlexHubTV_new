@@ -33,12 +33,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -314,11 +316,12 @@ fun VideoPlayerScreen(
         }
 
         if (uiState.isBuffering) {
+            val loadingDesc = stringResource(R.string.player_loading_description)
             CircularProgressIndicator(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .testTag("player_loading")
-                    .semantics { contentDescription = "Chargement de la vidéo" }
+                    .semantics { contentDescription = loadingDesc }
             )
         }
 
@@ -332,14 +335,16 @@ fun VideoPlayerScreen(
         }
 
         if (uiState.error != null) {
+            val errorDesc = stringResource(R.string.player_error_description, uiState.error)
+            val errorMsg = stringResource(R.string.player_error_prefix, uiState.error)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("player_error")
-                    .semantics { contentDescription = "Erreur: ${uiState.error}" },
+                    .semantics { contentDescription = errorDesc },
                 contentAlignment = Alignment.Center
             ) {
-                Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
+                Text(errorMsg, color = MaterialTheme.colorScheme.error)
             }
         }
 
@@ -428,6 +433,8 @@ fun AutoNextPopup(
     modifier: Modifier = Modifier,
 ) {
     val playFocusRequester = remember { FocusRequester() }
+    val nextEpisodeDesc = stringResource(R.string.player_next_episode_title, item.title)
+    val nextEpisodeLabel = stringResource(R.string.player_next_episode_label)
 
     // Auto-focus the "Play Now" button when popup appears
     LaunchedEffect(Unit) {
@@ -442,7 +449,7 @@ fun AutoNextPopup(
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
         modifier = modifier
             .width(300.dp)
-            .semantics { contentDescription = "Prochain épisode: ${item.title}" },
+            .semantics { contentDescription = nextEpisodeDesc },
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Thumbnail
@@ -460,7 +467,7 @@ fun AutoNextPopup(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Next Episode",
+                    text = nextEpisodeLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -493,7 +500,7 @@ fun AutoNextPopup(
                                 ButtonDefaults.buttonColors()
                             },
                     ) {
-                        Text("Play Now", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.player_play_now), style = MaterialTheme.typography.labelSmall)
                     }
 
                     val cancelInteractionSource = remember { MutableInteractionSource() }
@@ -515,7 +522,7 @@ fun AutoNextPopup(
                         interactionSource = cancelInteractionSource,
                     ) {
                         Text(
-                            "Cancel",
+                            stringResource(R.string.action_cancel),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isCancelFocused) MaterialTheme.colorScheme.primary else Color.White,
                         )

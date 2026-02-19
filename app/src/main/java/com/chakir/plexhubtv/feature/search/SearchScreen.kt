@@ -19,11 +19,13 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import coil.compose.AsyncImage
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
@@ -83,12 +85,12 @@ fun SearchScreen(
                 onSearch = { keyboardController?.hide() },
                 active = false,
                 onActiveChange = {},
-                placeholder = { Text("Search movies, shows...") },
+                placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (state.query.isNotEmpty()) {
                         IconButton(onClick = { onAction(SearchAction.ClearQuery) }) {
-                            Icon(Icons.Filled.Clear, contentDescription = "Clear")
+                            Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.action_clear))
                         }
                     }
                 },
@@ -102,7 +104,7 @@ fun SearchScreen(
             when (state.searchState) {
                 SearchState.Idle -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Type to start searching", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.search_idle_message), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 SearchState.Searching -> {
@@ -112,13 +114,13 @@ fun SearchScreen(
                 }
                 SearchState.NoResults -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No results found for \"${state.query}\"", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.search_no_results, state.query), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 SearchState.Error -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "An error occurred while searching",
+                            text = stringResource(R.string.search_error_message),
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center,
                         )

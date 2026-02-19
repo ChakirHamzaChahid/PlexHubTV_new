@@ -13,12 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.chakir.plexhubtv.R
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
@@ -37,6 +39,10 @@ fun NetflixSearchScreen(
     modifier: Modifier = Modifier
 ) {
     val keyboardFocusRequester = remember { FocusRequester() }
+    val screenDesc = stringResource(R.string.search_screen_description)
+    val searchTitle = stringResource(R.string.search_title)
+    val searchEmpty = stringResource(R.string.search_empty)
+    val noResultsDesc = stringResource(R.string.search_no_results_description)
 
     LaunchedEffect(Unit) {
         keyboardFocusRequester.requestFocus()
@@ -46,7 +52,7 @@ fun NetflixSearchScreen(
         modifier = modifier
             .fillMaxSize()
             .testTag("screen_search")
-            .semantics { contentDescription = "Écran de recherche" },
+            .semantics { contentDescription = screenDesc },
         snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
         containerColor = NetflixBlack
     ) { paddingValues ->
@@ -64,15 +70,16 @@ fun NetflixSearchScreen(
                 .weight(0.35f)
                 .fillMaxHeight()
         ) {
+            val queryDesc = stringResource(R.string.search_query_description, state.query.ifEmpty { searchEmpty })
             Text(
-                text = if (state.query.isEmpty()) "Search" else state.query,
+                text = if (state.query.isEmpty()) searchTitle else state.query,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = NetflixWhite,
                 modifier = Modifier
                     .padding(bottom = 24.dp)
                     .testTag("search_input")
-                    .semantics { contentDescription = "Rechercher: ${state.query.ifEmpty { "vide" }}" }
+                    .semantics { contentDescription = queryDesc }
             )
 
             NetflixOnScreenKeyboard(
@@ -107,7 +114,7 @@ fun NetflixSearchScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Type to start searching",
+                            text = stringResource(R.string.search_idle_message),
                             color = NetflixWhite.copy(alpha = 0.6f),
                             fontSize = 18.sp,
                             textAlign = TextAlign.Center
@@ -127,11 +134,11 @@ fun NetflixSearchScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .testTag("search_no_results")
-                            .semantics { contentDescription = "Aucun résultat trouvé" },
+                            .semantics { contentDescription = noResultsDesc },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No results found for \"${state.query}\"",
+                            text = stringResource(R.string.search_no_results, state.query),
                             color = NetflixWhite.copy(alpha = 0.6f),
                             fontSize = 18.sp,
                             textAlign = TextAlign.Center
@@ -146,7 +153,7 @@ fun NetflixSearchScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Search failed. Please try again.",
+                            text = stringResource(R.string.search_error_message),
                             color = NetflixWhite.copy(alpha = 0.6f),
                             fontSize = 18.sp,
                             textAlign = TextAlign.Center
@@ -166,11 +173,11 @@ fun NetflixSearchScreen(
                         groupedResults.forEach { (type, items) ->
                             item(key = "search_row_${type.name}") {
                                 val title = when (type) {
-                                    MediaType.Movie -> "Movies"
-                                    MediaType.Show -> "TV Shows"
-                                    MediaType.Episode -> "Episodes"
-                                    MediaType.Season -> "Seasons"
-                                    else -> "Results"
+                                    MediaType.Movie -> stringResource(R.string.search_type_movies)
+                                    MediaType.Show -> stringResource(R.string.search_type_shows)
+                                    MediaType.Episode -> stringResource(R.string.search_type_episodes)
+                                    MediaType.Season -> stringResource(R.string.search_type_seasons)
+                                    else -> stringResource(R.string.search_type_results)
                                 }
                                 val cardType = when (type) {
                                     MediaType.Episode -> CardType.WIDE

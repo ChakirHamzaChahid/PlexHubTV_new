@@ -21,11 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.Marker
 
 /** Bouton animé qui apparaît pendant les intros ou les crédits pour les passer. */
@@ -39,9 +41,9 @@ fun SkipMarkerButton(
 ) {
     val displayText =
         when (markerType) {
-            "intro" -> "Passer l'intro"
-            "credits" -> "Passer les crédits"
-            else -> "Passer"
+            "intro" -> stringResource(R.string.player_skip_intro)
+            "credits" -> stringResource(R.string.player_skip_credits)
+            else -> stringResource(R.string.player_skip)
         }
 
     val buttonColor =

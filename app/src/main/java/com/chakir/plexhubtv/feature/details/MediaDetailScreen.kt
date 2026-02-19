@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -112,6 +114,7 @@ fun MediaDetailScreen(
     onCollectionClicked: (String, String) -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
+    val detailScreenDesc = stringResource(R.string.detail_screen_description)
     Scaffold(
         snackbarHost = { ErrorSnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -119,7 +122,7 @@ fun MediaDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("screen_media_detail")
-                .semantics { contentDescription = "Écran de détails" }
+                .semantics { contentDescription = detailScreenDesc }
                 .padding(padding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
@@ -159,6 +162,12 @@ fun ActionButtonsRow(
     onAction: (MediaDetailEvent) -> Unit,
     playButtonFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
 ) {
+    val playLoadingDesc = stringResource(R.string.detail_loading_description)
+    val playDesc = stringResource(R.string.detail_play_description)
+    val removeFavDesc = stringResource(R.string.detail_remove_favorite_description)
+    val addFavDesc = stringResource(R.string.detail_add_favorite_description)
+    val watchStatusDesc = stringResource(R.string.detail_watch_status_description)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
