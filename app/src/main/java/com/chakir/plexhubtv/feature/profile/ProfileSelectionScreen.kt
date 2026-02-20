@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
@@ -19,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -86,6 +87,8 @@ fun ProfileSelectionScreen(
     onManageProfiles: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val firstFocusRequester = remember { FocusRequester() }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -108,10 +111,15 @@ fun ProfileSelectionScreen(
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 modifier = Modifier.padding(horizontal = 48.dp)
             ) {
-                profiles.forEach { profile ->
+                profiles.forEachIndexed { index, profile ->
                     ProfileCard(
                         profile = profile,
-                        onClick = { onProfileSelected(profile) }
+                        onClick = { onProfileSelected(profile) },
+                        modifier = if (index == 0) {
+                            Modifier.focusRequester(firstFocusRequester)
+                        } else {
+                            Modifier
+                        }
                     )
                 }
 
@@ -131,6 +139,11 @@ fun ProfileSelectionScreen(
                 Text(stringResource(R.string.profile_selection_manage))
             }
         }
+    }
+
+    // Request focus on first profile when screen is displayed
+    LaunchedEffect(Unit) {
+        firstFocusRequester.requestFocus()
     }
 }
 
