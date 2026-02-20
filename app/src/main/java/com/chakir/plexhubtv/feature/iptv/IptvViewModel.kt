@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.feature.iptv
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.IptvChannel
 import com.chakir.plexhubtv.domain.repository.IptvRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -53,7 +54,13 @@ class IptvViewModel
                 _uiState.update { it.copy(isLoading = true, error = null) }
 
                 // Initial load from repository (which might be empty initially)
-                repository.getChannels().collect { channels ->
+                repository.getChannels().safeCollectIn(
+                    scope = viewModelScope,
+                    onError = { e ->
+                        timber.log.Timber.e(e, "IptvViewModel: loadChannels failed")
+                        _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    }
+                ) { channels ->
                     if (channels.isEmpty()) {
                         // Trigger fetch if empty
                         val url = repository.getM3uUrl()

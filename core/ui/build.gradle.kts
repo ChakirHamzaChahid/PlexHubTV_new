@@ -74,10 +74,8 @@ dependencies {
     implementation(libs.androidx.compose.navigation)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
+    implementation(libs.coil.network.okhttp)
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
-    
-    // Image Loading
-    implementation(libs.coil.compose)
     
     // Hilt
     implementation(libs.hilt.android)

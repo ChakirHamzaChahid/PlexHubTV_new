@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.core.image
 
 import android.net.Uri
-import coil.key.Keyer
-import coil.request.Options
+import coil3.key.Keyer
+import coil3.request.Options
 import java.net.URLDecoder
 
 /**

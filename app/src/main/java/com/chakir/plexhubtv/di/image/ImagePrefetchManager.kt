@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.di.image
 
 import android.content.Context
-import coil.ImageLoader
-import coil.request.ImageRequest
+import coil3.ImageLoader
+import coil3.request.ImageRequest
 import com.chakir.plexhubtv.core.network.PlexImageHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject

@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.feature.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.SearchAcrossServersUseCase
@@ -87,7 +88,24 @@ class SearchViewModel
                         param(FirebaseAnalytics.Param.SEARCH_TERM, query.take(100))
                     }
 
-                    searchAcrossServersUseCase(query).collect { result ->
+                    searchAcrossServersUseCase(query).safeCollectIn(
+                        scope = viewModelScope,
+                        onError = { error ->
+                            val duration = System.currentTimeMillis() - startTime
+                            Timber.e(error, "SearchViewModel: searchAcrossServersUseCase failed")
+                            val appError = if (query.length < 2) {
+                                AppError.Search.QueryTooShort(error.message)
+                            } else {
+                                AppError.Search.SearchFailed(error.message, error)
+                            }
+                            viewModelScope.launch {
+                                _errorEvents.send(appError)
+                            }
+                            _uiState.update {
+                                it.copy(searchState = SearchState.Error)
+                            }
+                        }
+                    ) { result ->
                         val duration = System.currentTimeMillis() - startTime
                         result.fold(
                             onSuccess = { items ->

@@ -156,11 +156,12 @@ private fun SidebarNavItem(
         NavigationItem.Iptv -> "nav_item_iptv"
     }
 
+    val labelText = stringResource(item.labelResId)
     Box(
         modifier = Modifier
             .scale(scale)
             .testTag(navTag)
-            .semantics { contentDescription = item.label }
+            .semantics { contentDescription = labelText }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -170,7 +171,7 @@ private fun SidebarNavItem(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = item.label,
+            text = labelText,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = fontWeight,
                 color = textColor

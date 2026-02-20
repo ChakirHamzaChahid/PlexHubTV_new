@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.feature.downloads
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.domain.repository.DownloadsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -63,19 +64,29 @@ class DownloadsViewModel
         }
 
         private fun loadDownloads() {
-            viewModelScope.launch {
-                val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [Downloads]: Loading start")
-                _uiState.update { it.copy(isLoading = true) }
-                downloadsRepository.getAllDownloads().collect { items ->
+            val startTime = System.currentTimeMillis()
+            Timber.d("SCREEN [Downloads]: Loading start")
+            _uiState.update { it.copy(isLoading = true) }
+            downloadsRepository.getAllDownloads().safeCollectIn(
+                scope = viewModelScope,
+                onError = { e ->
                     val duration = System.currentTimeMillis() - startTime
-                    Timber.i("SCREEN [Downloads] SUCCESS: duration=${duration}ms | items=${items.size}")
+                    Timber.e(e, "DownloadsViewModel: loadDownloads failed")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            downloads = items,
+                            error = e.message ?: "Failed to load downloads"
                         )
                     }
+                }
+            ) { items ->
+                val duration = System.currentTimeMillis() - startTime
+                Timber.i("SCREEN [Downloads] SUCCESS: duration=${duration}ms | items=${items.size}")
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        downloads = items,
+                    )
                 }
             }
         }

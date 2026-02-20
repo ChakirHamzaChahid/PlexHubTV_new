@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.FavoritesRepository
@@ -58,7 +59,13 @@ class HomeViewModel
                     _uiState.update { it.copy(isInitialSync = true) }
 
                     workManager.getWorkInfosForUniqueWorkFlow("LibrarySync_Initial")
-                        .collect { workInfos ->
+                        .safeCollectIn(
+                            scope = viewModelScope,
+                            onError = { e ->
+                                Timber.e(e, "HomeViewModel: checkInitialSync failed")
+                                _uiState.update { it.copy(isInitialSync = false) }
+                            }
+                        ) { workInfos ->
                             val initialSyncWork = workInfos.firstOrNull()
                             if (initialSyncWork != null) {
                                 val progress = initialSyncWork.progress.getFloat("progress", 0f)
@@ -106,13 +113,30 @@ class HomeViewModel
                 _uiState.update { it.copy(isLoading = it.onDeck.isEmpty() && it.hubs.isEmpty()) }
 
                 // Launch Favorites Collection
-                launch {
-                    favoritesRepository.getFavorites().collect { favorites ->
-                        _uiState.update { it.copy(favorites = favorites) }
+                favoritesRepository.getFavorites().safeCollectIn(
+                    scope = viewModelScope,
+                    onError = { e ->
+                        Timber.e(e, "HomeViewModel: getFavorites failed")
                     }
+                ) { favorites ->
+                    _uiState.update { it.copy(favorites = favorites) }
                 }
 
-                getUnifiedHomeContentUseCase().collect { result ->
+                getUnifiedHomeContentUseCase().safeCollectIn(
+                    scope = viewModelScope,
+                    onError = { error ->
+                        val duration = System.currentTimeMillis() - startTime
+                        Timber.e(error, "HomeViewModel: getUnifiedHomeContentUseCase failed")
+
+                        // Emit error via channel for snackbar display
+                        viewModelScope.launch {
+                            val appError = error.toAppError()
+                            _errorEvents.send(appError)
+                        }
+
+                        _uiState.update { it.copy(isLoading = false) }
+                    }
+                ) { result ->
                     val duration = System.currentTimeMillis() - startTime
                     result.fold(
                         onSuccess = { content ->

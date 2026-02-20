@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -60,6 +61,7 @@ fun AppSidebar(
                 items.forEach { item ->
                     val selected = currentRoute == item.route
                     val enabled = !isOffline || (item == NavigationItem.Downloads || item == NavigationItem.Settings || item == NavigationItem.Favorites || item == NavigationItem.History)
+                    val itemLabel = stringResource(item.labelResId)
 
                     val navTag = when (item) {
                         NavigationItem.Home -> "nav_item_home"
@@ -89,14 +91,14 @@ fun AppSidebar(
                         leadingContent = {
                             Icon(
                                 imageVector = item.icon,
-                                contentDescription = item.label,
+                                contentDescription = itemLabel,
                                 modifier = Modifier.size(20.dp),
                             )
                         },
                         content = {
                             if (isExpanded) {
                                 Text(
-                                    text = item.label,
+                                    text = itemLabel,
                                     modifier = Modifier.padding(start = 12.dp),
                                 )
                             }
@@ -112,7 +114,7 @@ fun AppSidebar(
                         modifier = Modifier
                             .padding(vertical = 4.dp)
                             .testTag(navTag)
-                            .semantics { contentDescription = item.label },
+                            .semantics { contentDescription = itemLabel },
                     )
                 }
             }

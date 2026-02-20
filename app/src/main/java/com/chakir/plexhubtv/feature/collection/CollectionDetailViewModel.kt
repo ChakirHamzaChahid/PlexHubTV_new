@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.collection
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.domain.usecase.GetCollectionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -27,14 +28,18 @@ class CollectionDetailViewModel
         }
 
         private fun loadCollection() {
-            viewModelScope.launch {
-                _uiState.update { it.copy(isLoading = true) }
-                getCollectionUseCase(collectionId, serverId).collect { collection ->
-                    if (collection != null) {
-                        _uiState.update { it.copy(isLoading = false, collection = collection) }
-                    } else {
-                        _uiState.update { it.copy(isLoading = false, error = "Collection not found") }
-                    }
+            _uiState.update { it.copy(isLoading = true) }
+            getCollectionUseCase(collectionId, serverId).safeCollectIn(
+                scope = viewModelScope,
+                onError = { e ->
+                    timber.log.Timber.e(e, "CollectionDetailViewModel: loadCollection failed")
+                    _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load collection") }
+                }
+            ) { collection ->
+                if (collection != null) {
+                    _uiState.update { it.copy(isLoading = false, collection = collection) }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = "Collection not found") }
                 }
             }
         }

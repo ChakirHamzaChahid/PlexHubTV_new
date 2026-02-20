@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv
 
 import android.app.Application
+import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
@@ -8,8 +9,8 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import coil.ImageLoader
-import coil.ImageLoaderFactory
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.IoDispatcher
@@ -48,7 +49,7 @@ import com.google.firebase.perf.FirebasePerformance
  * - Lancement de la synchronisation périodique en arrière-plan
  */
 @HiltAndroidApp
-class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Provider {
+class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     @Inject lateinit var okHttpClient: okhttp3.OkHttpClient
@@ -281,7 +282,7 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
         Timber.d("TV Channel: Periodic worker scheduled (every 3h)")
     }
 
-    override fun newImageLoader(): ImageLoader {
+    override fun newImageLoader(context: Context): ImageLoader {
         return imageLoader
     }
 

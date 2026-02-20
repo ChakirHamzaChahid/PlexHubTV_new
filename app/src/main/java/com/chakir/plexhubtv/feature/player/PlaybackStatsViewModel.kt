@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.feature.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
 import com.chakir.plexhubtv.feature.player.controller.PlayerStatsTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,10 +25,14 @@ class PlaybackStatsViewModel @Inject constructor(
                 playerController.updateState { it.copy(showPerformanceOverlay = newState) }
                 
                 if (newState) {
-                     viewModelScope.launch {
-                         playerStatsTracker.stats.collect { stats ->
-                             playerController.updateState { it.copy(playerStats = stats) }
+                     playerStatsTracker.stats.safeCollectIn(
+                         scope = viewModelScope,
+                         onError = { e ->
+                             timber.log.Timber.e(e, "PlaybackStatsViewModel: stats collection failed")
+                             playerController.updateState { it.copy(showPerformanceOverlay = false, playerStats = null) }
                          }
+                     ) { stats ->
+                         playerController.updateState { it.copy(playerStats = stats) }
                      }
                 } else {
                     playerController.updateState { it.copy(playerStats = null) }

@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.hub
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.repository.HubsRepository
@@ -54,24 +55,29 @@ class HubDetailViewModel
         }
 
         private fun loadHubDetail() {
-            viewModelScope.launch {
-                val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [HubDetail]: Loading start for $hubKey on $serverId")
-                _uiState.update { it.copy(isLoading = true) }
-                // In a real app, we'd fetch specific hub content.
-                // For now, we reuse the detail or fetch from repository if implemented.
-                // Since unified hubs were already fetched, we might just filter them.
-                hubsRepository.getUnifiedHubs().collect { hubs ->
+            val startTime = System.currentTimeMillis()
+            Timber.d("SCREEN [HubDetail]: Loading start for $hubKey on $serverId")
+            _uiState.update { it.copy(isLoading = true) }
+            // In a real app, we'd fetch specific hub content.
+            // For now, we reuse the detail or fetch from repository if implemented.
+            // Since unified hubs were already fetched, we might just filter them.
+            hubsRepository.getUnifiedHubs().safeCollectIn(
+                scope = viewModelScope,
+                onError = { e ->
                     val duration = System.currentTimeMillis() - startTime
-                    val hub = hubs.find { it.serverId == serverId && it.key == hubKey }
-                    if (hub != null) {
-                        Timber.i("SCREEN [HubDetail] PROGRESS: Duration=${duration}ms | HubTitle=${hub.title} | Items=${hub.items.size}")
-                        _uiState.update { it.copy(hub = hub, items = hub.items, isLoading = false, error = null) }
-                    } else if (hubs.isNotEmpty()) {
-                        Timber.w("SCREEN [HubDetail] NOT FOUND: hub $hubKey not in current batch after ${duration}ms")
-                        // If we have hubs but not this one, it might still be loading or missing.
-                        // We stay in whatever state we are, hoping for the next emission.
-                    }
+                    Timber.e(e, "HubDetailViewModel: loadHubDetail failed")
+                    _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load hub") }
+                }
+            ) { hubs ->
+                val duration = System.currentTimeMillis() - startTime
+                val hub = hubs.find { it.serverId == serverId && it.key == hubKey }
+                if (hub != null) {
+                    Timber.i("SCREEN [HubDetail] PROGRESS: Duration=${duration}ms | HubTitle=${hub.title} | Items=${hub.items.size}")
+                    _uiState.update { it.copy(hub = hub, items = hub.items, isLoading = false, error = null) }
+                } else if (hubs.isNotEmpty()) {
+                    Timber.w("SCREEN [HubDetail] NOT FOUND: hub $hubKey not in current batch after ${duration}ms")
+                    // If we have hubs but not this one, it might still be loading or missing.
+                    // We stay in whatever state we are, hoping for the next emission.
                 }
             }
         }

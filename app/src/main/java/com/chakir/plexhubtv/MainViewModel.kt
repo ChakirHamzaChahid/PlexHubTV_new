@@ -2,6 +2,7 @@ package com.chakir.plexhubtv
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.common.auth.AuthEvent
 import com.chakir.plexhubtv.core.common.auth.AuthEventBus
 import com.chakir.plexhubtv.domain.repository.AuthRepository
@@ -32,11 +33,14 @@ class MainViewModel @Inject constructor(
     val showSessionExpiredDialog: StateFlow<Boolean> = _showSessionExpiredDialog.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            authEventBus.events.collect { event ->
-                when (event) {
-                    AuthEvent.TokenInvalid -> handleTokenInvalid()
-                }
+        authEventBus.events.safeCollectIn(
+            scope = viewModelScope,
+            onError = { e ->
+                Timber.e(e, "MainViewModel: auth events collection failed")
+            }
+        ) { event ->
+            when (event) {
+                AuthEvent.TokenInvalid -> handleTokenInvalid()
             }
         }
     }

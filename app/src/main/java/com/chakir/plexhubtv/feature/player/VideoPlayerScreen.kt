@@ -453,7 +453,7 @@ fun AutoNextPopup(
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Thumbnail
-            coil.compose.AsyncImage(
+            coil3.compose.AsyncImage(
                 model = item.thumbUrl,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,

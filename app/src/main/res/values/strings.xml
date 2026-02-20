@@ -87,6 +87,15 @@
          Sidebar / Navigation
          ══════════════════════════════════════════════ -->
     <string name="sidebar_navigation_description">Navigation menu</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_movies">Movies</string>
+    <string name="nav_tv_shows">TV Shows</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_downloads">Downloads</string>
+    <string name="nav_favorites">My List</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_live_tv">Live TV</string>
 
     <!-- ══════════════════════════════════════════════
          Home Screen

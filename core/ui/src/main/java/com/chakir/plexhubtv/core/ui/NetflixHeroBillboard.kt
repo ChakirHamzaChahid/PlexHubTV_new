@@ -53,8 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
@@ -112,10 +112,7 @@ fun NetflixHeroBillboard(
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(media.artUrl ?: media.thumbUrl)
-                    .crossfade(false) // Crossfade composable handles transition
                     .size(1920, 1080) // TV max resolution, not Size.ORIGINAL
-                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                     .build(),
                 contentDescription = "Image de fond de ${media.title}",
                 contentScale = ContentScale.Crop,

@@ -29,8 +29,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -235,9 +235,8 @@ fun AnimatedBackground(
         Box(modifier = modifier.fillMaxSize()) {
             AsyncImage(
                 model =
-                    coil.request.ImageRequest.Builder(LocalContext.current)
+                    coil3.request.ImageRequest.Builder(LocalContext.current)
                         .data(targetUrl)
-                        .crossfade(true)
                         .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

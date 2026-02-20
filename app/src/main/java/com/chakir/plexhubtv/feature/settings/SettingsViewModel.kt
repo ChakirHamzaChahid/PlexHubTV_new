@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -261,36 +262,26 @@ class SettingsViewModel
                 }
 
                 // Load settings
-                launch {
-                    settingsRepository.appTheme.collect { themeName ->
-                        val themeEnum =
-                            try {
-                                AppTheme.valueOf(themeName)
-                            } catch (e: Exception) {
-                                AppTheme.Plex
-                            }
-                        _uiState.update { it.copy(theme = themeEnum) }
-                    }
+                settingsRepository.appTheme.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: appTheme failed") }) { themeName ->
+                    val themeEnum =
+                        try {
+                            AppTheme.valueOf(themeName)
+                        } catch (e: Exception) {
+                            AppTheme.Plex
+                        }
+                    _uiState.update { it.copy(theme = themeEnum) }
                 }
-                launch {
-                    settingsRepository.getVideoQuality().collect { quality: String ->
-                        _uiState.update { it.copy(videoQuality = quality) }
-                    }
+                settingsRepository.getVideoQuality().safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: videoQuality failed") }) { quality: String ->
+                    _uiState.update { it.copy(videoQuality = quality) }
                 }
-                launch {
-                    settingsRepository.isCacheEnabled.collect { enabled ->
-                        _uiState.update { it.copy(isCacheEnabled = enabled) }
-                    }
+                settingsRepository.isCacheEnabled.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: isCacheEnabled failed") }) { enabled ->
+                    _uiState.update { it.copy(isCacheEnabled = enabled) }
                 }
-                launch {
-                    settingsRepository.defaultServer.collect { server ->
-                        _uiState.update { it.copy(defaultServer = server) }
-                    }
+                settingsRepository.defaultServer.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: defaultServer failed") }) { server ->
+                    _uiState.update { it.copy(defaultServer = server) }
                 }
-                launch {
-                    settingsRepository.playerEngine.collect { engine ->
-                        _uiState.update { it.copy(playerEngine = engine) }
-                    }
+                settingsRepository.playerEngine.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: playerEngine failed") }) { engine ->
+                    _uiState.update { it.copy(playerEngine = engine) }
                 }
 
                 // Fetch Servers
@@ -307,66 +298,42 @@ class SettingsViewModel
                     }
                 }
 
-                launch {
-                    settingsRepository.preferredAudioLanguage.collect { lang ->
-                        _uiState.update { it.copy(preferredAudioLanguage = lang) }
-                    }
+                settingsRepository.preferredAudioLanguage.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: preferredAudioLanguage failed") }) { lang ->
+                    _uiState.update { it.copy(preferredAudioLanguage = lang) }
                 }
-                launch {
-                    settingsRepository.preferredSubtitleLanguage.collect { lang ->
-                        _uiState.update { it.copy(preferredSubtitleLanguage = lang) }
-                    }
+                settingsRepository.preferredSubtitleLanguage.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: preferredSubtitleLanguage failed") }) { lang ->
+                    _uiState.update { it.copy(preferredSubtitleLanguage = lang) }
                 }
-                launch {
-                    settingsRepository.excludedServerIds.collect { excluded ->
-                        _uiState.update { it.copy(excludedServerIds = excluded) }
-                    }
+                settingsRepository.excludedServerIds.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: excludedServerIds failed") }) { excluded ->
+                    _uiState.update { it.copy(excludedServerIds = excluded) }
                 }
-                launch {
-                    settingsRepository.getTmdbApiKey().collect { key ->
-                        _uiState.update { it.copy(tmdbApiKey = key ?: "") }
-                    }
+                settingsRepository.getTmdbApiKey().safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: tmdbApiKey failed") }) { key ->
+                    _uiState.update { it.copy(tmdbApiKey = key ?: "") }
                 }
-                launch {
-                    settingsRepository.getOmdbApiKey().collect { key ->
-                        _uiState.update { it.copy(omdbApiKey = key ?: "") }
-                    }
+                settingsRepository.getOmdbApiKey().safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: omdbApiKey failed") }) { key ->
+                    _uiState.update { it.copy(omdbApiKey = key ?: "") }
                 }
-                launch {
-                    settingsRepository.iptvPlaylistUrl.collect { url ->
-                        _uiState.update { it.copy(iptvPlaylistUrl = url ?: "") }
-                    }
+                settingsRepository.iptvPlaylistUrl.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: iptvPlaylistUrl failed") }) { url ->
+                    _uiState.update { it.copy(iptvPlaylistUrl = url ?: "") }
                 }
                 // Rating Sync Configuration
-                launch {
-                    settingsRepository.ratingSyncSource.collect { source ->
-                        _uiState.update { it.copy(ratingSyncSource = source) }
-                    }
+                settingsRepository.ratingSyncSource.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncSource failed") }) { source ->
+                    _uiState.update { it.copy(ratingSyncSource = source) }
                 }
-                launch {
-                    settingsRepository.ratingSyncDelay.collect { delay ->
-                        _uiState.update { it.copy(ratingSyncDelay = delay) }
-                    }
+                settingsRepository.ratingSyncDelay.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncDelay failed") }) { delay ->
+                    _uiState.update { it.copy(ratingSyncDelay = delay) }
                 }
-                launch {
-                    settingsRepository.ratingSyncBatchingEnabled.collect { enabled ->
-                        _uiState.update { it.copy(ratingSyncBatchingEnabled = enabled) }
-                    }
+                settingsRepository.ratingSyncBatchingEnabled.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncBatchingEnabled failed") }) { enabled ->
+                    _uiState.update { it.copy(ratingSyncBatchingEnabled = enabled) }
                 }
-                launch {
-                    settingsRepository.ratingSyncDailyLimit.collect { limit ->
-                        _uiState.update { it.copy(ratingSyncDailyLimit = limit) }
-                    }
+                settingsRepository.ratingSyncDailyLimit.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncDailyLimit failed") }) { limit ->
+                    _uiState.update { it.copy(ratingSyncDailyLimit = limit) }
                 }
-                launch {
-                    settingsRepository.ratingSyncProgressSeries.collect { progress ->
-                        _uiState.update { it.copy(ratingSyncProgressSeries = progress) }
-                    }
+                settingsRepository.ratingSyncProgressSeries.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncProgressSeries failed") }) { progress ->
+                    _uiState.update { it.copy(ratingSyncProgressSeries = progress) }
                 }
-                launch {
-                    settingsRepository.ratingSyncProgressMovies.collect { progress ->
-                        _uiState.update { it.copy(ratingSyncProgressMovies = progress) }
-                    }
+                settingsRepository.ratingSyncProgressMovies.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncProgressMovies failed") }) { progress ->
+                    _uiState.update { it.copy(ratingSyncProgressMovies = progress) }
                 }
             }
         }

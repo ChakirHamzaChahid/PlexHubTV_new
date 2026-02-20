@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.feature.favorites
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.usecase.GetFavoritesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,20 +39,30 @@ class FavoritesViewModel
         }
 
         private fun loadFavorites() {
-            viewModelScope.launch {
-                val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [Favorites]: Loading start")
-                getFavoritesUseCase()
-                    .collect { items ->
+            val startTime = System.currentTimeMillis()
+            Timber.d("SCREEN [Favorites]: Loading start")
+            getFavoritesUseCase()
+                .safeCollectIn(
+                    scope = viewModelScope,
+                    onError = { e ->
                         val duration = System.currentTimeMillis() - startTime
-                        Timber.i("SCREEN [Favorites] SUCCESS: duration=${duration}ms | items=${items.size}")
+                        Timber.e(e, "FavoritesViewModel: loadFavorites failed")
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                favorites = items,
+                                error = e.message ?: "Failed to load favorites"
                             )
                         }
                     }
-            }
+                ) { items ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.i("SCREEN [Favorites] SUCCESS: duration=${duration}ms | items=${items.size}")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            favorites = items,
+                        )
+                    }
+                }
         }
     }

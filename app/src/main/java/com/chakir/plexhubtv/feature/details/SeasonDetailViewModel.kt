@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.details
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.data.usecase.ResolveEpisodeSourcesUseCase
@@ -85,21 +86,27 @@ class SeasonDetailViewModel
         }
 
         private fun checkFavoriteStatus() {
-            viewModelScope.launch {
-                isFavoriteUseCase(ratingKey, serverId).collect { isFav ->
-                    val current = _uiState.value.season
-                    if (current != null) {
-                        _uiState.update { it.copy(season = current.copy(isFavorite = isFav)) }
-                    }
+            isFavoriteUseCase(ratingKey, serverId).safeCollectIn(
+                scope = viewModelScope,
+                onError = { e ->
+                    Timber.e(e, "SeasonDetailViewModel: checkFavoriteStatus failed")
+                }
+            ) { isFav ->
+                val current = _uiState.value.season
+                if (current != null) {
+                    _uiState.update { it.copy(season = current.copy(isFavorite = isFav)) }
                 }
             }
         }
 
         private fun observeOfflineMode() {
-            viewModelScope.launch {
-                isOfflineMode.collect { offline ->
-                    _uiState.update { it.copy(isOfflineMode = offline) }
+            isOfflineMode.safeCollectIn(
+                scope = viewModelScope,
+                onError = { e ->
+                    Timber.e(e, "SeasonDetailViewModel: observeOfflineMode failed")
                 }
+            ) { offline ->
+                _uiState.update { it.copy(isOfflineMode = offline) }
             }
         }
         // Mock download states or integrate with DownloadManager

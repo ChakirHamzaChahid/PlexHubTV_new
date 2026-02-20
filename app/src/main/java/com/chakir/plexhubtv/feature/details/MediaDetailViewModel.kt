@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.details
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
@@ -64,12 +65,15 @@ class MediaDetailViewModel
         }
 
         private fun checkFavoriteStatus() {
-            viewModelScope.launch {
-                isFavoriteUseCase(ratingKey, serverId).collect { isFav ->
-                    val current = _uiState.value.media
-                    if (current != null) {
-                        _uiState.update { it.copy(media = current.copy(isFavorite = isFav)) }
-                    }
+            isFavoriteUseCase(ratingKey, serverId).safeCollectIn(
+                scope = viewModelScope,
+                onError = { e ->
+                    Timber.e(e, "MediaDetailViewModel: checkFavoriteStatus failed")
+                }
+            ) { isFav ->
+                val current = _uiState.value.media
+                if (current != null) {
+                    _uiState.update { it.copy(media = current.copy(isFavorite = isFav)) }
                 }
             }
         }

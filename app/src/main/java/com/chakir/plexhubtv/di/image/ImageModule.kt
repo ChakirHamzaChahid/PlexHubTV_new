@@ -2,16 +2,20 @@ package com.chakir.plexhubtv.di.image
 
 import android.app.ActivityManager
 import android.content.Context
-import coil.ImageLoader
-import coil.disk.DiskCache
-import coil.memory.MemoryCache
+import coil3.ImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.size.Precision
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
+import okio.Path.Companion.toOkioPath
 import timber.log.Timber
+import java.io.File
 import javax.inject.Singleton
 
 @Module
@@ -54,26 +58,23 @@ object ImageModule {
         )
 
         return ImageLoader.Builder(context)
-            .okHttpClient(imageOkHttpClient) // Use dedicated image client with shorter timeouts
             .components {
+                add(OkHttpNetworkFetcherFactory(callFactory = { imageOkHttpClient }))
                 add(PlexImageKeyer())
                 add(performanceImageInterceptor)
             }
             .memoryCache {
-                MemoryCache.Builder(context)
-                    .maxSizeBytes(memoryCacheSize.toInt()) // ✅ Adaptive cache size
+                MemoryCache.Builder()
+                    .maxSizeBytes(memoryCacheSize) // ✅ Adaptive cache size
                     .build()
             }
             .diskCache {
                 DiskCache.Builder()
-                    .directory(context.cacheDir.resolve("image_cache"))
+                    .directory(File(context.cacheDir, "image_cache").toOkioPath())
                     .maxSizeBytes(512L * 1024 * 1024) // 512 MB disk (reduced from 1GB)
                     .build()
             }
-            .allowHardware(true)
-            .precision(coil.size.Precision.INEXACT)
-            .respectCacheHeaders(false) // Force cache even if server says funky things
-            .crossfade(false) // Instant pop-in, no fade (faster feel)
+            .precision(Precision.INEXACT)
             .build()
     }
 }

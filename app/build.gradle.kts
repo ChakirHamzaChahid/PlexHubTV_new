@@ -158,6 +158,7 @@ dependencies {
     implementation(libs.androidx.compose.navigation)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
+    implementation(libs.coil.network.okhttp)
 
     // --- Networking & Data ---
     implementation(libs.kotlinx.serialization.json)

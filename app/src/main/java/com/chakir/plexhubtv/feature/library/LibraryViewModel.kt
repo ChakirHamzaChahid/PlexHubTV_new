@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
@@ -169,10 +170,13 @@ class LibraryViewModel
                 loadMetadata(initialMediaType)
 
                 // Collect excluded servers
-                launch {
-                    settingsRepository.excludedServerIds.collect { excluded ->
-                        _uiState.update { it.copy(excludedServerIds = excluded) }
+                settingsRepository.excludedServerIds.safeCollectIn(
+                    scope = viewModelScope,
+                    onError = { e ->
+                        Timber.e(e, "LibraryViewModel: excludedServerIds collection failed")
                     }
+                ) { excluded ->
+                    _uiState.update { it.copy(excludedServerIds = excluded) }
                 }
 
                 // Apply Default Server Preference after metadata (to ensure map is ready or concurrently)

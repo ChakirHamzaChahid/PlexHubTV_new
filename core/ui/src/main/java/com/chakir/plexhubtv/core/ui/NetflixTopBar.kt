@@ -211,7 +211,7 @@ private fun NetflixNavItem(
             )
     ) {
         Text(
-            text = item.label,
+            text = stringResource(item.labelResId),
             style = MaterialTheme.typography.labelLarge.copy(
                 fontWeight = fontWeight,
                 color = textColor

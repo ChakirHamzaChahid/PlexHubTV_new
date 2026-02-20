@@ -9,9 +9,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.request.ImageRequest
 import timber.log.Timber
 
 /**
@@ -60,12 +60,9 @@ fun FallbackAsyncImage(
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
             .data(currentUrl)
-            .crossfade(false)
             .size(imageWidth, imageHeight)
-            .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-            .diskCachePolicy(coil.request.CachePolicy.ENABLED)
             .listener(
-                onError = { _, result ->
+                onError = { request, result ->
                     val nextIndex = currentUrlIndex + 1
                     if (nextIndex < allUrls.size) {
                         Timber.w("Image load failed for URL $currentUrl (${result.throwable.message}), trying fallback ${nextIndex + 1}/${allUrls.size}")
@@ -74,7 +71,7 @@ fun FallbackAsyncImage(
                         Timber.e("All ${allUrls.size} image URLs failed for $primaryUrl")
                     }
                 },
-                onSuccess = { _, _ ->
+                onSuccess = { request, result ->
                     if (currentUrlIndex > 0) {
                         Timber.i("Image loaded successfully from fallback URL #${currentUrlIndex + 1}: $currentUrl")
                     }

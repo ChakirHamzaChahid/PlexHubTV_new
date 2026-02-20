@@ -37,9 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.CachePolicy
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import com.chakir.plexhubtv.core.common.util.FormatUtils
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
@@ -104,10 +104,7 @@ fun SeasonDetailScreen(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(backdropUrl)
-                        .crossfade(true)
                         .size(1920, 1080)
-                        .memoryCachePolicy(CachePolicy.ENABLED)
-                        .diskCachePolicy(CachePolicy.ENABLED)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -472,9 +469,6 @@ fun EnhancedEpisodeItem(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(episode.thumbUrl)
                     .size(360, 202)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .crossfade(true)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

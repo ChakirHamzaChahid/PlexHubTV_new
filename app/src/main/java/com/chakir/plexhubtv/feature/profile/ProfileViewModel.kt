@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.feature.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.Profile
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -55,7 +56,18 @@ class ProfileViewModel @Inject constructor(
                 profileRepository.ensureDefaultProfile()
 
                 // Observe all profiles
-                profileRepository.getAllProfiles().collect { profiles ->
+                profileRepository.getAllProfiles().safeCollectIn(
+                    scope = viewModelScope,
+                    onError = { e ->
+                        Timber.e(e, "ProfileViewModel: loadProfiles failed")
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = e.message ?: "Failed to load profiles"
+                            )
+                        }
+                    }
+                ) { profiles ->
                     _uiState.update {
                         it.copy(
                             profiles = profiles,
@@ -77,10 +89,13 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun observeActiveProfile() {
-        viewModelScope.launch {
-            profileRepository.getActiveProfileFlow().collect { profile ->
-                _uiState.update { it.copy(activeProfile = profile) }
+        profileRepository.getActiveProfileFlow().safeCollectIn(
+            scope = viewModelScope,
+            onError = { e ->
+                Timber.e(e, "ProfileViewModel: observeActiveProfile failed")
             }
+        ) { profile ->
+            _uiState.update { it.copy(activeProfile = profile) }
         }
     }
 

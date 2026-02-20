@@ -1,7 +1,7 @@
 package com.chakir.plexhubtv.di.image
 
-import coil.intercept.Interceptor
-import coil.request.ImageResult
+import coil3.intercept.Interceptor
+import coil3.request.ImageResult
 import com.chakir.plexhubtv.core.common.PerformanceTracker
 import com.chakir.plexhubtv.core.common.PerfCategory
 import timber.log.Timber
@@ -35,15 +35,15 @@ class PerformanceImageInterceptor @Inject constructor(
         )
 
         return try {
-            val result = chain.proceed(request)
+            val result = chain.proceed()
 
             // Detect cache source from result type
             val cacheSource = when (result) {
-                is coil.request.SuccessResult -> {
+                is coil3.request.SuccessResult -> {
                     when (result.dataSource) {
-                        coil.decode.DataSource.MEMORY_CACHE -> "MEMORY"
-                        coil.decode.DataSource.DISK -> "DISK"
-                        coil.decode.DataSource.NETWORK -> "NETWORK"
+                        coil3.decode.DataSource.MEMORY_CACHE -> "MEMORY"
+                        coil3.decode.DataSource.DISK -> "DISK"
+                        coil3.decode.DataSource.NETWORK -> "NETWORK"
                         else -> "UNKNOWN"
                     }
                 }
@@ -52,7 +52,7 @@ class PerformanceImageInterceptor @Inject constructor(
 
             performanceTracker.endOperation(
                 opId,
-                success = result is coil.request.SuccessResult,
+                success = result is coil3.request.SuccessResult,
                 additionalMeta = mapOf("cacheSource" to cacheSource)
             )
 

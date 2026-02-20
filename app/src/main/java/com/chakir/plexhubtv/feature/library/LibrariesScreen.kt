@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -78,7 +79,8 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.feature.home.MediaCard
@@ -176,7 +178,7 @@ fun LibrariesScreen(
                         // Left side: Title
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (state.mediaType == MediaType.Movie) "Movies" else "TV Shows",
+                                text = stringResource(if (state.mediaType == MediaType.Movie) R.string.library_movies else R.string.library_tv_shows),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -184,7 +186,7 @@ fun LibrariesScreen(
                             if (state.totalItems > 0) {
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    text = "${state.totalItems} Titles",
+                                    text = stringResource(R.string.library_title_count, state.totalItems),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White.copy(alpha = 0.5f),
                                 )
@@ -234,7 +236,7 @@ fun LibrariesScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Actualiser la bibliothèque",
+                                    contentDescription = stringResource(R.string.library_refresh_description),
                                     tint = Color.White
                                 )
                             }
@@ -249,7 +251,7 @@ fun LibrariesScreen(
                             ) {
                                 Icon(
                                     imageVector = if (state.viewMode == LibraryViewMode.Grid) Icons.Default.List else Icons.Default.GridView,
-                                    contentDescription = "Changer de mode d'affichage",
+                                    contentDescription = stringResource(R.string.library_view_mode_description),
                                     tint = Color.White
                                 )
                             }
@@ -580,7 +582,7 @@ fun RecommendedContent(
     if (hubs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                text = "No recommendations found.",
+                text = stringResource(R.string.library_no_recommendations),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -640,12 +642,9 @@ fun Thumbnail(
         if (url != null) {
             AsyncImage(
                 model =
-                    coil.request.ImageRequest.Builder(LocalContext.current)
+                    coil3.request.ImageRequest.Builder(LocalContext.current)
                         .data(url)
-                        .crossfade(false) // Performance: Disable crossfade for smoother scrolling
                         .size(180, 270) // Explicit size for 60dp×90dp at xxhdpi (×3 density)
-                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                         .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

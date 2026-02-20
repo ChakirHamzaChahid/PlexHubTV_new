@@ -19,7 +19,7 @@ tvprovider = "1.0.0"
 room = "2.8.4"
 hilt = "2.58"
 media3 = "1.5.1"
-coil = "2.7.0"
+coil = "3.3.0"
 timber = "5.0.1"
 workManager = "2.11.0"
 paging = "3.3.6"
@@ -96,8 +96,9 @@ media3-session = { group = "androidx.media3", name = "media3-session", version.r
 # Serialization & Utils
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-coil-video = { group = "io.coil-kt", name = "coil-video", version.ref = "coil" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-video = { group = "io.coil-kt.coil3", name = "coil-video", version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Paging
 paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
