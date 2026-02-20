@@ -27,6 +27,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.PlexHomeUser
 
@@ -73,7 +75,7 @@ fun ProfileScreen(
             Modifier
                 .fillMaxSize()
                 .testTag("screen_profiles")
-                .semantics { contentDescription = "Écran de sélection de profil" }
+                .semantics { contentDescription = stringResource(R.string.profile_screen_description) }
                 .background(MaterialTheme.colorScheme.background),
     ) {
         Column(
@@ -82,7 +84,7 @@ fun ProfileScreen(
         ) {
             Spacer(modifier = Modifier.height(48.dp))
             Text(
-                text = "Qui regarde ?",
+                text = stringResource(R.string.profile_who_is_watching),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -93,7 +95,7 @@ fun ProfileScreen(
                     modifier = Modifier
                         .padding(32.dp)
                         .testTag("profile_loading")
-                        .semantics { contentDescription = "Chargement des profils" }
+                        .semantics { contentDescription = stringResource(R.string.profile_loading_description) }
                 )
             } else if (state.error != null) {
                 Text(
@@ -105,7 +107,7 @@ fun ProfileScreen(
                         .semantics { contentDescription = "Erreur: ${state.error}" },
                 )
                 Button(onClick = { onAction(ProfileAction.LoadUsers) }) {
-                    Text("Réessayer")
+                    Text(stringResource(R.string.action_retry))
                 }
             } else {
                 val gridState = rememberLazyGridState()
@@ -119,7 +121,7 @@ fun ProfileScreen(
                     modifier = Modifier
                         .widthIn(max = 800.dp)
                         .testTag("profile_list")
-                        .semantics { contentDescription = "Liste des profils" },
+                        .semantics { contentDescription = stringResource(R.string.profile_list_description) },
                 ) {
                     itemsIndexed(state.users, key = { _, user -> user.id }) { index, user ->
                         UserProfileCard(
@@ -155,7 +157,7 @@ fun ProfileScreen(
                     Modifier
                         .fillMaxSize()
                         .testTag("profile_switching")
-                        .semantics { contentDescription = "Changement de profil en cours" }
+                        .semantics { contentDescription = stringResource(R.string.profile_switching_description) }
                         .background(Color.Black.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -168,7 +170,7 @@ fun ProfileScreen(
             onClick = onBack,
             modifier = Modifier.padding(16.dp).align(Alignment.BottomStart),
         ) {
-            Text("Retour")
+            Text(stringResource(R.string.action_back))
         }
     }
 }
@@ -250,7 +252,7 @@ fun PinEntryDialog(
                     .fillMaxWidth()
                     .padding(16.dp)
                     .testTag("profile_pin_dialog")
-                    .semantics { contentDescription = "Dialogue de saisie du code PIN" },
+                    .semantics { contentDescription = stringResource(R.string.profile_pin_dialog_description) },
             shape = RoundedCornerShape(16.dp),
         ) {
             Column(
@@ -258,7 +260,7 @@ fun PinEntryDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "Code PIN pour ${user.title}",
+                    text = stringResource(R.string.profile_pin_title, user.title),
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -282,13 +284,15 @@ fun PinEntryDialog(
                 }
 
                 // Numeric Keypad
+                val cancelText = stringResource(R.string.action_cancel)
+                val clearText = stringResource(R.string.profile_pin_clear)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val rows =
                         listOf(
                             listOf("1", "2", "3"),
                             listOf("4", "5", "6"),
                             listOf("7", "8", "9"),
-                            listOf("Annuler", "0", "Effacer"),
+                            listOf(cancelText, "0", clearText),
                         )
 
                     rows.forEach { row ->
@@ -297,14 +301,14 @@ fun PinEntryDialog(
                                 Button(
                                     onClick = {
                                         when (key) {
-                                            "Annuler" -> onCancel()
-                                            "Effacer" -> onClear()
+                                            cancelText -> onCancel()
+                                            clearText -> onClear()
                                             else -> onDigitEnter(key)
                                         }
                                     },
                                     modifier = Modifier.size(width = 80.dp, height = 48.dp),
                                     colors =
-                                        if (key == "Annuler") {
+                                        if (key == cancelText) {
                                             ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.error,
                                             )

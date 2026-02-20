@@ -44,9 +44,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import com.chakir.plexhubtv.core.ui.R
 
 @Composable
 fun NetflixTopBar(
@@ -88,7 +90,7 @@ fun NetflixTopBar(
                 if (appLogoPainter != null) {
                     Icon(
                         painter = appLogoPainter,
-                        contentDescription = "PlexHub TV Logo",
+                        contentDescription = stringResource(R.string.topbar_logo_description),
                         tint = Color.Unspecified,
                         modifier = Modifier.size(40.dp)
                     )
@@ -250,7 +252,7 @@ private fun NetflixSearchIcon(
     ) {
         Icon(
             imageVector = Icons.Default.Search,
-            contentDescription = "Search",
+            contentDescription = stringResource(R.string.topbar_search_description),
             tint = iconColor,
             modifier = Modifier.size(24.dp)
         )
@@ -290,7 +292,7 @@ private fun NetflixProfileAvatar(
     ) {
         Icon(
             imageVector = Icons.Default.Settings,
-            contentDescription = "Settings",
+            contentDescription = stringResource(R.string.topbar_settings_description),
             tint = Color.White,
             modifier = Modifier.size(20.dp)
         )

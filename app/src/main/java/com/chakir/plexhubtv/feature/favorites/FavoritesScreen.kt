@@ -31,7 +31,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.chakir.plexhubtv.R
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
@@ -64,12 +66,12 @@ fun FavoritesScreen(
             Modifier
                 .fillMaxSize()
                 .testTag("screen_favorites")
-                .semantics { contentDescription = "Écran des favoris" }
+                .semantics { contentDescription = stringResource(R.string.favorites_screen_description) }
                 .background(NetflixBlack) // Netflix Black Background
                 .padding(start = 58.dp, end = 58.dp, top = 80.dp), // 56dp TopBar + 24dp content padding
     ) {
         Text(
-            text = "My List", // Netflix "My List"
+            text = stringResource(R.string.favorites_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -81,7 +83,7 @@ fun FavoritesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("favorites_loading")
-                    .semantics { contentDescription = "Chargement des favoris" },
+                    .semantics { contentDescription = stringResource(R.string.favorites_loading_description) },
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = NetflixRed)
@@ -91,11 +93,11 @@ fun FavoritesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("favorites_empty")
-                    .semantics { contentDescription = "Aucun favori" },
+                    .semantics { contentDescription = stringResource(R.string.favorites_empty_description) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No favorites yet.",
+                    text = stringResource(R.string.favorites_empty),
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.White.copy(alpha = 0.6f),
                 )

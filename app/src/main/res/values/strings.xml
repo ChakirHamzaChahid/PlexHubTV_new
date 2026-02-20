@@ -45,6 +45,14 @@
     <string name="profile_switch_title">Switch Profile</string>
     <string name="profile_no_profiles">No profiles available</string>
     <string name="profile_current_description">Current profile</string>
+    <string name="profile_screen_description">Profile selection screen</string>
+    <string name="profile_loading_description">Loading profiles</string>
+    <string name="profile_list_description">Profile list</string>
+    <string name="profile_switching_description">Switching profile</string>
+    <string name="profile_pin_dialog_description">PIN code entry dialog</string>
+    <string name="profile_selection_manage">Manage Profiles</string>
+    <string name="profile_selection_add">Add Profile</string>
+    <string name="profile_selection_add_description">Add Profile</string>
 
     <!-- ══════════════════════════════════════════════
          Loading Screen
@@ -76,6 +84,18 @@
     <string name="home_continue_watching">Continue Watching</string>
     <string name="home_my_list">My List</string>
     <string name="home_screen_description">Home screen</string>
+
+    <!-- Top Bar -->
+    <string name="topbar_title">PlexHub TV</string>
+    <string name="topbar_logo_description">PlexHub TV Logo</string>
+    <string name="topbar_search_description">Search</string>
+    <string name="topbar_settings_description">Settings</string>
+
+    <!-- Hero Billboard -->
+    <string name="hero_play_button">Play</string>
+    <string name="hero_more_info_button">More Info</string>
+    <string name="hero_play_description">Start playback</string>
+    <string name="hero_transition_label">HeroImageTransition</string>
 
     <!-- ══════════════════════════════════════════════
          Discover / Empty States
@@ -109,6 +129,20 @@
     <string name="library_refresh_description">Refresh library</string>
     <string name="library_view_mode_description">Change display mode</string>
     <string name="library_no_recommendations">No recommendations found.</string>
+
+    <!-- ══════════════════════════════════════════════
+         Technical Badges
+         ══════════════════════════════════════════════ -->
+    <string name="badge_hdr">HDR</string>
+    <string name="badge_dolby_vision">DOLBY VISION</string>
+    <string name="badge_dolby_digital">DOLBY DIGITAL</string>
+    <string name="badge_dolby_digital_plus">DOLBY DIGITAL PLUS</string>
+    <string name="badge_dts">DTS</string>
+    <string name="badge_aac">AAC</string>
+    <string name="badge_stereo">STEREO</string>
+    <string name="badge_mono">MONO</string>
+    <string name="badge_atmos">ATMOS</string>
+    <string name="badge_audio">AUDIO</string>
 
     <!-- ══════════════════════════════════════════════
          Detail Screens (MediaDetail, NetflixDetail, Collection)
@@ -273,6 +307,18 @@
          ══════════════════════════════════════════════ -->
     <string name="settings_title">Settings</string>
     <string name="settings_screen_description">Settings screen</string>
+    <string name="settings_back_description">Back</string>
+    <string name="settings_save_description">Save</string>
+    <string name="settings_close_description">Close</string>
+    <string name="settings_quality_original">Original</string>
+    <string name="settings_quality_1080p_20">20 Mbps 1080p</string>
+    <string name="settings_quality_1080p_12">12 Mbps 1080p</string>
+    <string name="settings_quality_1080p_8">8 Mbps 1080p</string>
+    <string name="settings_quality_720p_4">4 Mbps 720p</string>
+    <string name="settings_quality_720p_3">3 Mbps 720p</string>
+    <string name="settings_player_exoplayer">ExoPlayer</string>
+    <string name="settings_player_mpv">MPV</string>
+    <string name="settings_syncing_message">Syncing…</string>
 
     <!-- Appearance -->
     <string name="settings_section_appearance">Appearance</string>
@@ -442,12 +488,17 @@
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">My List</string>
     <string name="favorites_empty">No favorites yet.</string>
+    <string name="favorites_screen_description">Favorites screen</string>
+    <string name="favorites_loading_description">Loading favorites</string>
+    <string name="favorites_empty_description">No favorites</string>
 
     <!-- ══════════════════════════════════════════════
          History Screen
          ══════════════════════════════════════════════ -->
     <string name="history_title">Watch History</string>
     <string name="history_empty">No history available.</string>
+    <string name="history_screen_description">Watch history screen</string>
+    <string name="history_empty_description">No history</string>
 
     <!-- ══════════════════════════════════════════════
          IPTV Screen

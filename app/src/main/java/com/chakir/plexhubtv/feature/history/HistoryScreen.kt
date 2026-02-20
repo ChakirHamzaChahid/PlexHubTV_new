@@ -18,7 +18,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.chakir.plexhubtv.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.feature.home.MediaCard
 
@@ -48,12 +50,12 @@ fun HistoryScreen(
             Modifier
                 .fillMaxSize()
                 .testTag("screen_history")
-                .semantics { contentDescription = "Écran de l'historique" }
+                .semantics { contentDescription = stringResource(R.string.history_screen_description) }
                 .background(MaterialTheme.colorScheme.background)
                 .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 80.dp),
     ) {
         Text(
-            text = "Watch History",
+            text = stringResource(R.string.history_title),
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -65,7 +67,7 @@ fun HistoryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("history_loading")
-                    .semantics { contentDescription = "Chargement de l'historique" },
+                    .semantics { contentDescription = stringResource(R.string.loading_please_wait) },
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
@@ -75,11 +77,11 @@ fun HistoryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("history_empty")
-                    .semantics { contentDescription = "Aucun historique" },
+                    .semantics { contentDescription = stringResource(R.string.history_empty_description) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No history available.",
+                    text = stringResource(R.string.history_empty),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                 )

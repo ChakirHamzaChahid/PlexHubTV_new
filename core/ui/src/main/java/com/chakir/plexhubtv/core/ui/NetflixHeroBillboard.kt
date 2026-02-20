@@ -28,6 +28,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +60,7 @@ import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.ui.R
 import kotlinx.coroutines.delay
 
 @Composable
@@ -105,7 +107,7 @@ fun NetflixHeroBillboard(
         Crossfade(
             targetState = currentItem,
             animationSpec = tween(500),
-            label = "HeroImageTransition"
+            label = stringResource(R.string.hero_transition_label)
         ) { media ->
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -287,7 +289,7 @@ fun NetflixPlayButton(
         contentPadding = ButtonDefaults.ContentPadding,
         modifier = modifier
             .border(2.dp, if (isFocused) Color.White else Color.Transparent)
-            .semantics { contentDescription = "Lancer la lecture" }
+            .semantics { contentDescription = stringResource(R.string.hero_play_description) }
     ) {
         Icon(
             imageVector = Icons.Default.PlayArrow,
@@ -296,7 +298,7 @@ fun NetflixPlayButton(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Play",
+            text = stringResource(R.string.hero_play_button),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -320,7 +322,7 @@ fun NetflixInfoButton(
         interactionSource = interactionSource,
         modifier = modifier
             .border(2.dp, if (isFocused) Color.White else Color.Transparent)
-            .semantics { contentDescription = "Plus d'informations" }
+            .semantics { contentDescription = stringResource(R.string.detail_loading_description) }
     ) {
         Icon(
             imageVector = Icons.Default.Info,
@@ -329,7 +331,7 @@ fun NetflixInfoButton(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "More Info",
+            text = stringResource(R.string.hero_more_info_button),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )

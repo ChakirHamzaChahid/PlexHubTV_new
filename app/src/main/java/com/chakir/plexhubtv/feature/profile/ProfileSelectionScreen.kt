@@ -22,9 +22,11 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.Profile
 
 /**
@@ -126,7 +128,7 @@ fun ProfileSelectionScreen(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
-                Text("Manage Profiles")
+                Text(stringResource(R.string.profile_selection_manage))
             }
         }
     }
@@ -210,7 +212,7 @@ private fun ProfileCard(
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
-                    text = "KIDS",
+                    text = stringResource(R.string.profile_kids),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -267,7 +269,7 @@ private fun AddProfileCard(
         ) {
             Icon(
                 imageVector = Icons.Filled.Add,
-                contentDescription = "Add Profile",
+                contentDescription = stringResource(R.string.profile_selection_add_description),
                 tint = if (isFocused) {
                     MaterialTheme.colorScheme.primary
                 } else {
@@ -279,7 +281,7 @@ private fun AddProfileCard(
 
         // Label
         Text(
-            text = "Add Profile",
+            text = stringResource(R.string.profile_selection_add),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
             color = if (isFocused) {

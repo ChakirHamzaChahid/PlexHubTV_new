@@ -45,6 +45,14 @@
     <string name="profile_switch_title">Changer de profil</string>
     <string name="profile_no_profiles">Aucun profil disponible</string>
     <string name="profile_current_description">Profil actuel</string>
+    <string name="profile_screen_description">Écran de sélection de profil</string>
+    <string name="profile_loading_description">Chargement des profils</string>
+    <string name="profile_list_description">Liste des profils</string>
+    <string name="profile_switching_description">Changement de profil en cours</string>
+    <string name="profile_pin_dialog_description">Dialogue de saisie du code PIN</string>
+    <string name="profile_selection_manage">Gérer les profils</string>
+    <string name="profile_selection_add">Ajouter un profil</string>
+    <string name="profile_selection_add_description">Ajouter un profil</string>
 
     <!-- ══════════════════════════════════════════════
          Écran de chargement
@@ -76,6 +84,18 @@
     <string name="home_continue_watching">Continuer à regarder</string>
     <string name="home_my_list">Ma liste</string>
     <string name="home_screen_description">Écran d\'accueil</string>
+
+    <!-- Barre supérieure -->
+    <string name="topbar_title">PlexHub TV</string>
+    <string name="topbar_logo_description">Logo PlexHub TV</string>
+    <string name="topbar_search_description">Recherche</string>
+    <string name="topbar_settings_description">Paramètres</string>
+
+    <!-- Bannière héros -->
+    <string name="hero_play_button">Lecture</string>
+    <string name="hero_more_info_button">Plus d\'infos</string>
+    <string name="hero_play_description">Lancer la lecture</string>
+    <string name="hero_transition_label">TransitionImageHéros</string>
 
     <!-- ══════════════════════════════════════════════
          Découvrir / États vides
@@ -111,6 +131,20 @@
     <string name="library_no_recommendations">Aucune recommandation trouvée.</string>
 
     <!-- ══════════════════════════════════════════════
+         Badges techniques
+         ══════════════════════════════════════════════ -->
+    <string name="badge_hdr">HDR</string>
+    <string name="badge_dolby_vision">DOLBY VISION</string>
+    <string name="badge_dolby_digital">DOLBY DIGITAL</string>
+    <string name="badge_dolby_digital_plus">DOLBY DIGITAL PLUS</string>
+    <string name="badge_dts">DTS</string>
+    <string name="badge_aac">AAC</string>
+    <string name="badge_stereo">STEREO</string>
+    <string name="badge_mono">MONO</string>
+    <string name="badge_atmos">ATMOS</string>
+    <string name="badge_audio">AUDIO</string>
+
+    <!-- ══════════════════════════════════════════════
          Écrans de détails (Films, Séries, Collections)
          ══════════════════════════════════════════════ -->
     <string name="detail_loading">Chargement…</string>
@@ -133,10 +167,15 @@
     <string name="detail_tab_collections">COLLECTIONS</string>
     <string name="detail_screen_description">Écran de détails</string>
     <string name="detail_collection_fallback">Collection</string>
+    <string name="collection_title">Collection</string>
     <string name="detail_collection_screen_description">Écran de détails de collection</string>
+    <string name="collection_screen_description">Écran de détails de collection</string>
     <string name="detail_collection_loading_description">Chargement de la collection</string>
+    <string name="collection_loading_description">Chargement de la collection</string>
     <string name="detail_collection_error_description">Erreur : %1$s</string>
+    <string name="collection_error_description">Erreur : %1$s</string>
     <string name="detail_collection_items_description">Liste des éléments de la collection</string>
+    <string name="collection_items_description">Liste des éléments de la collection</string>
 
     <!-- ══════════════════════════════════════════════
          Écran de détails de saison
@@ -162,31 +201,50 @@
          ══════════════════════════════════════════════ -->
     <string name="search_placeholder">Rechercher des films, séries…</string>
     <string name="search_type_to_start">Tapez pour lancer une recherche</string>
+    <string name="search_idle_message">Tapez pour lancer une recherche</string>
     <string name="search_no_results">Aucun résultat pour « %1$s »</string>
     <string name="search_error">Une erreur est survenue lors de la recherche</string>
+    <string name="search_error_message">La recherche a échoué. Veuillez réessayer.</string>
     <string name="search_title">Recherche</string>
     <string name="search_failed">La recherche a échoué. Veuillez réessayer.</string>
     <string name="search_type_movies">Films</string>
+    <string name="search_type_shows">Séries TV</string>
     <string name="search_type_tv_shows">Séries TV</string>
     <string name="search_type_episodes">Épisodes</string>
     <string name="search_type_seasons">Saisons</string>
     <string name="search_type_results">Résultats</string>
     <string name="search_screen_description">Écran de recherche</string>
     <string name="search_input_description">Recherche : %1$s</string>
+    <string name="search_query_description">Recherche : %1$s</string>
     <string name="search_input_empty">vide</string>
+    <string name="search_empty">vide</string>
     <string name="search_no_results_description">Aucun résultat trouvé</string>
 
     <!-- ══════════════════════════════════════════════
          Lecteur – Général
          ══════════════════════════════════════════════ -->
     <string name="player_error">Erreur : %1$s</string>
+    <string name="player_error_prefix">Erreur : %1$s</string>
     <string name="player_audio_sync">Synchronisation audio</string>
     <string name="player_subtitle_sync">Synchronisation des sous-titres</string>
     <string name="player_next_episode">Épisode suivant</string>
+    <string name="player_next_episode_label">Épisode suivant</string>
+    <string name="player_next_episode_title">Prochain épisode : %1$s</string>
     <string name="player_play_now">Lire maintenant</string>
     <string name="player_unknown_title">Titre inconnu</string>
-    <string name="player_playing_from">%1$s – Lecture depuis %2$s</string>
+    <string name="player_playing_from">Lecture depuis %1$s</string>
+    <string name="player_server">Serveur</string>
     <string name="player_server_fallback">Serveur</string>
+    <string name="player_back">Retour</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_play">Lecture</string>
+    <string name="player_rewind_10s">Retour 10s</string>
+    <string name="player_forward_30s">Avance 30s</string>
+    <string name="player_play_pause">Lecture/Pause</string>
+    <string name="player_stop">Arrêter</string>
+    <string name="player_subtitles">Sous-titres</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_settings">Paramètres</string>
     <string name="player_screen_description">Écran de lecture</string>
     <string name="player_controls_description">Contrôles du lecteur</string>
     <string name="player_loading_description">Chargement de la vidéo</string>
@@ -249,6 +307,18 @@
          ══════════════════════════════════════════════ -->
     <string name="settings_title">Paramètres</string>
     <string name="settings_screen_description">Écran des paramètres</string>
+    <string name="settings_back_description">Retour</string>
+    <string name="settings_save_description">Enregistrer</string>
+    <string name="settings_close_description">Fermer</string>
+    <string name="settings_quality_original">Original</string>
+    <string name="settings_quality_1080p_20">20 Mbps 1080p</string>
+    <string name="settings_quality_1080p_12">12 Mbps 1080p</string>
+    <string name="settings_quality_1080p_8">8 Mbps 1080p</string>
+    <string name="settings_quality_720p_4">4 Mbps 720p</string>
+    <string name="settings_quality_720p_3">3 Mbps 720p</string>
+    <string name="settings_player_exoplayer">ExoPlayer</string>
+    <string name="settings_player_mpv">MPV</string>
+    <string name="settings_syncing_message">Synchronisation…</string>
 
     <!-- Apparence -->
     <string name="settings_section_appearance">Apparence</string>
@@ -418,12 +488,17 @@
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">Ma liste</string>
     <string name="favorites_empty">Aucun favori pour le moment.</string>
+    <string name="favorites_screen_description">Écran des favoris</string>
+    <string name="favorites_loading_description">Chargement des favoris</string>
+    <string name="favorites_empty_description">Aucun favori</string>
 
     <!-- ══════════════════════════════════════════════
          Écran de l\'historique
          ══════════════════════════════════════════════ -->
     <string name="history_title">Historique de visionnage</string>
     <string name="history_empty">Aucun historique disponible.</string>
+    <string name="history_screen_description">Écran d\'historique</string>
+    <string name="history_empty_description">Aucun historique</string>
 
     <!-- ══════════════════════════════════════════════
          Écran IPTV

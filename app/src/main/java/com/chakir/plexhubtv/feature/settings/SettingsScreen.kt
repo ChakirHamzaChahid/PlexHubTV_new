@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.BuildConfig
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 
 // TODO: Replace with your hosted privacy policy URL (e.g. GitHub Pages)
@@ -85,10 +87,10 @@ fun SettingsScreen(
         modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { onAction(SettingsAction.Back) }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.settings_back_description))
                     }
                 },
                 colors =
@@ -109,15 +111,15 @@ fun SettingsScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .testTag("screen_settings")
-                    .semantics { contentDescription = "Écran des paramètres" },
+                    .semantics { contentDescription = stringResource(R.string.settings_screen_description) },
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             // --- Appearance ---
             item {
-                SettingsSection("Appearance") {
+                SettingsSection(stringResource(R.string.settings_section_appearance)) {
                     SettingsTile(
-                        title = "App Theme",
+                        title = stringResource(R.string.settings_app_theme),
                         subtitle = state.theme.name,
                         onClick = { showThemeDialog = true },
                     )
@@ -126,14 +128,14 @@ fun SettingsScreen(
 
             // --- Playback ---
             item {
-                SettingsSection("Playback") {
+                SettingsSection(stringResource(R.string.settings_section_playback)) {
                     SettingsTile(
-                        title = "Video Quality",
+                        title = stringResource(R.string.settings_video_quality),
                         subtitle = state.videoQuality,
                         onClick = { showQualityDialog = true },
                     )
                     SettingsTile(
-                        title = "Player Engine",
+                        title = stringResource(R.string.settings_player_engine),
                         subtitle = state.playerEngine,
                         onClick = { showPlayerEngineDialog = true },
                     )
@@ -142,15 +144,15 @@ fun SettingsScreen(
 
             // --- Languages ---
             item {
-                SettingsSection("Languages") {
+                SettingsSection(stringResource(R.string.settings_section_languages)) {
                     // Find display name for stored code
                     val audioOptions = getAudioLanguageOptions()
                     val currentAudioDisplay =
                         audioOptions.find { it.second == state.preferredAudioLanguage }?.first
-                            ?: state.preferredAudioLanguage ?: "Original"
+                            ?: state.preferredAudioLanguage ?: stringResource(R.string.settings_lang_original)
 
                     SettingsTile(
-                        title = "Preferred Audio Language",
+                        title = stringResource(R.string.settings_preferred_audio),
                         subtitle = currentAudioDisplay,
                         onClick = { showAudioLangDialog = true },
                     )
@@ -158,10 +160,10 @@ fun SettingsScreen(
                     val subtitleOptions = getSubtitleLanguageOptions()
                     val currentSubtitleDisplay =
                         subtitleOptions.find { it.second == state.preferredSubtitleLanguage }?.first
-                            ?: state.preferredSubtitleLanguage ?: "None"
+                            ?: state.preferredSubtitleLanguage ?: stringResource(R.string.settings_lang_none)
 
                     SettingsTile(
-                        title = "Preferred Subtitle Language",
+                        title = stringResource(R.string.settings_preferred_subtitle),
                         subtitle = currentSubtitleDisplay,
                         onClick = { showSubtitleLangDialog = true },
                     )
@@ -170,9 +172,9 @@ fun SettingsScreen(
 
             // --- Server ---
             item {
-                SettingsSection("Server") {
+                SettingsSection(stringResource(R.string.settings_section_server)) {
                     SettingsTile(
-                        title = "Default Server",
+                        title = stringResource(R.string.settings_default_server),
                         subtitle = state.defaultServer,
                         onClick = {
                             if (state.availableServers.isNotEmpty()) {
@@ -182,15 +184,15 @@ fun SettingsScreen(
                         trailingContent =
                             if (state.availableServers.isEmpty()) {
                                 {
-                                    Text("Scanning...", style = MaterialTheme.typography.bodySmall)
+                                    Text(stringResource(R.string.settings_scanning), style = MaterialTheme.typography.bodySmall)
                                 }
                             } else {
                                 null
                             },
                     )
                     SettingsTile(
-                        title = "Check Server Status",
-                        subtitle = "View connection details and latency",
+                        title = stringResource(R.string.settings_check_server),
+                        subtitle = stringResource(R.string.settings_check_server_subtitle),
                         icon = Icons.Filled.Info,
                         onClick = { onAction(SettingsAction.CheckServerStatus) },
                     )
@@ -199,10 +201,10 @@ fun SettingsScreen(
 
             // --- Server Visibility ---
             item {
-                SettingsSection("Server Visibility") {
+                SettingsSection(stringResource(R.string.settings_section_server_visibility)) {
                     if (state.availableServersMap.isEmpty()) {
                         Text(
-                            text = "No servers found",
+                            text = stringResource(R.string.settings_no_servers_found),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp),
@@ -218,7 +220,7 @@ fun SettingsScreen(
                     }
                 }
                 Text(
-                    text = "Uncheck servers to hide them from unified libraries.",
+                    text = stringResource(R.string.settings_server_visibility_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.padding(horizontal = 24.dp),
@@ -227,10 +229,10 @@ fun SettingsScreen(
 
             // --- Data & Sync ---
             item {
-                SettingsSection("Data & Sync") {
+                SettingsSection(stringResource(R.string.settings_section_data_sync)) {
                     SettingsTile(
-                        title = "Synchronise Library",
-                        subtitle = if (state.isSyncing) state.syncMessage ?: "Syncing..." else "Update local database from Plex",
+                        title = stringResource(R.string.settings_sync_library),
+                        subtitle = if (state.isSyncing) state.syncMessage ?: stringResource(R.string.settings_syncing_message) else stringResource(R.string.settings_sync_library_subtitle),
                         icon = Icons.Filled.Cached,
                         onClick = { onAction(SettingsAction.ForceSync) },
                         trailingContent =
@@ -244,15 +246,15 @@ fun SettingsScreen(
                     )
 
                     SettingsTile(
-                        title = "Sync Watchlist",
-                        subtitle = "Import Plex watchlist favorites",
+                        title = stringResource(R.string.settings_sync_watchlist),
+                        subtitle = stringResource(R.string.settings_sync_watchlist_subtitle),
                         icon = Icons.Filled.Cached,
                         onClick = { onAction(SettingsAction.SyncWatchlist) },
                     )
 
                     SettingsTile(
-                        title = "Sync Media Ratings",
-                        subtitle = if (state.isSyncingRatings) "Syncing ratings..." else state.ratingSyncMessage ?: "Update IMDb/TMDb ratings",
+                        title = stringResource(R.string.settings_sync_ratings),
+                        subtitle = if (state.isSyncingRatings) stringResource(R.string.settings_syncing_ratings) else state.ratingSyncMessage ?: stringResource(R.string.settings_sync_ratings_subtitle),
                         icon = Icons.Default.Star,
                         onClick = { onAction(SettingsAction.SyncRatings) },
                         trailingContent =
@@ -266,8 +268,8 @@ fun SettingsScreen(
                     )
 
                     SettingsTile(
-                        title = "Clear Cache & Data",
-                        subtitle = "Used: ${state.cacheSize}",
+                        title = stringResource(R.string.settings_clear_cache),
+                        subtitle = stringResource(R.string.settings_clear_cache_subtitle, state.cacheSize),
                         icon = Icons.Filled.Delete,
                         titleColor = MaterialTheme.colorScheme.error,
                         onClick = { onAction(SettingsAction.ClearCache) },
@@ -285,10 +287,10 @@ fun SettingsScreen(
 
             // --- External API Keys (Submenu) ---
             item {
-                SettingsSection("External Services") {
+                SettingsSection(stringResource(R.string.settings_section_external)) {
                     SettingsTile(
-                        title = "API Keys Configuration",
-                        subtitle = "Configure TMDb and OMDb API keys",
+                        title = stringResource(R.string.settings_api_keys),
+                        subtitle = stringResource(R.string.settings_api_keys_subtitle),
                         icon = Icons.Default.Star,
                         onClick = { showApiKeysDialog = true },
                     )
@@ -297,33 +299,33 @@ fun SettingsScreen(
 
             // --- Rating Sync Configuration ---
             item {
-                SettingsSection("Rating Sync Configuration") {
+                SettingsSection(stringResource(R.string.settings_section_rating_sync)) {
                     SettingsTile(
-                        title = "Movie Rating Source",
-                        subtitle = if (state.ratingSyncSource == "tmdb") "TMDb (Recommended)" else "OMDb (IMDb ratings)",
+                        title = stringResource(R.string.settings_rating_source),
+                        subtitle = if (state.ratingSyncSource == "tmdb") stringResource(R.string.settings_rating_tmdb) else stringResource(R.string.settings_rating_omdb),
                         onClick = { showRatingSyncSourceDialog = true },
                     )
                     SettingsTile(
-                        title = "Request Delay",
-                        subtitle = "${state.ratingSyncDelay}ms between requests",
+                        title = stringResource(R.string.settings_request_delay),
+                        subtitle = stringResource(R.string.settings_request_delay_subtitle, state.ratingSyncDelay.toInt()),
                         onClick = { showRatingSyncDelayDialog = true },
                     )
                     SettingsSwitch(
-                        title = "Enable Batching (Multi-day sync)",
-                        subtitle = "Sync large libraries over multiple days",
+                        title = stringResource(R.string.settings_enable_batching),
+                        subtitle = stringResource(R.string.settings_enable_batching_subtitle),
                         isChecked = state.ratingSyncBatchingEnabled,
                         onCheckedChange = { onAction(SettingsAction.ToggleRatingSyncBatching(it)) },
                     )
                     if (state.ratingSyncBatchingEnabled) {
                         SettingsTile(
-                            title = "Daily Limit",
-                            subtitle = "${state.ratingSyncDailyLimit} requests/day",
+                            title = stringResource(R.string.settings_daily_limit),
+                            subtitle = stringResource(R.string.settings_daily_limit_subtitle, state.ratingSyncDailyLimit),
                             onClick = { showRatingSyncDailyLimitDialog = true },
                         )
                         if (state.ratingSyncProgressSeries > 0 || state.ratingSyncProgressMovies > 0) {
                             SettingsTile(
-                                title = "Reset Progress",
-                                subtitle = "Series: ${state.ratingSyncProgressSeries}, Movies: ${state.ratingSyncProgressMovies}",
+                                title = stringResource(R.string.settings_reset_progress),
+                                subtitle = stringResource(R.string.settings_reset_progress_subtitle, state.ratingSyncProgressSeries, state.ratingSyncProgressMovies),
                                 titleColor = MaterialTheme.colorScheme.error,
                                 onClick = { onAction(SettingsAction.ResetRatingSyncProgress) },
                             )
@@ -331,12 +333,11 @@ fun SettingsScreen(
                     }
                 }
                 Text(
-                    text = "Configure how ratings are scraped from external APIs. " +
-                        if (state.ratingSyncBatchingEnabled) {
-                            "Batching enabled: syncs ${state.ratingSyncDailyLimit} items per day to respect API limits."
-                        } else {
-                            "TMDb has generous limits (50 req/sec), OMDb free tier has 1000 req/day."
-                        },
+                    text = if (state.ratingSyncBatchingEnabled) {
+                        stringResource(R.string.settings_rating_hint_batching, state.ratingSyncDailyLimit)
+                    } else {
+                        stringResource(R.string.settings_rating_hint_no_batching)
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.padding(horizontal = 24.dp),
@@ -345,7 +346,7 @@ fun SettingsScreen(
 
             // --- IPTV ---
             item {
-                SettingsSection("IPTV") {
+                SettingsSection(stringResource(R.string.settings_section_iptv)) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -353,7 +354,7 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
-                            text = "Configure your IPTV playlist URL",
+                            text = stringResource(R.string.settings_iptv_description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -362,14 +363,14 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = iptvUrl,
                             onValueChange = { iptvUrl = it },
-                            label = { Text("IPTV Playlist URL") },
-                            placeholder = { Text("http://example.com/playlist.m3u") },
+                            label = { Text(stringResource(R.string.settings_iptv_url_label)) },
+                            placeholder = { Text(stringResource(R.string.settings_iptv_url_placeholder)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             trailingIcon = {
                                 if (iptvUrl != state.iptvPlaylistUrl) {
                                     IconButton(onClick = { onAction(SettingsAction.SaveIptvPlaylistUrl(iptvUrl)) }) {
-                                        Icon(Icons.Default.Done, contentDescription = "Save")
+                                        Icon(Icons.Default.Done, contentDescription = stringResource(R.string.settings_save_description))
                                     }
                                 }
                             },
@@ -381,10 +382,10 @@ fun SettingsScreen(
             // --- Legal ---
             item {
                 val uriHandler = LocalUriHandler.current
-                SettingsSection("Legal") {
+                SettingsSection(stringResource(R.string.settings_section_legal)) {
                     SettingsTile(
-                        title = "Privacy Policy / Politique de confidentialité",
-                        subtitle = "View our privacy policy",
+                        title = stringResource(R.string.settings_privacy_policy),
+                        subtitle = stringResource(R.string.settings_privacy_policy_subtitle),
                         onClick = {
                             uriHandler.openUri(PRIVACY_POLICY_URL)
                         },
@@ -395,10 +396,10 @@ fun SettingsScreen(
             // --- Debug (DEBUG builds only) ---
             if (BuildConfig.DEBUG) {
                 item {
-                    SettingsSection("Debug") {
+                    SettingsSection(stringResource(R.string.settings_section_debug)) {
                         SettingsTile(
-                            title = "Debug Information",
-                            subtitle = "View system diagnostics and logs",
+                            title = stringResource(R.string.settings_debug_info),
+                            subtitle = stringResource(R.string.settings_debug_info_subtitle),
                             icon = Icons.Filled.BugReport,
                             onClick = onNavigateToDebug,
                         )
@@ -408,9 +409,9 @@ fun SettingsScreen(
 
             // --- Account ---
             item {
-                SettingsSection("Account") {
+                SettingsSection(stringResource(R.string.settings_section_account)) {
                     SettingsTile(
-                        title = "Logout",
+                        title = stringResource(R.string.settings_logout),
                         icon = Icons.Filled.Logout,
                         titleColor = MaterialTheme.colorScheme.error,
                         onClick = { onAction(SettingsAction.Logout) },
@@ -421,7 +422,7 @@ fun SettingsScreen(
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Version ${state.appVersion}",
+                        text = stringResource(R.string.settings_version, state.appVersion),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
@@ -433,9 +434,9 @@ fun SettingsScreen(
     // --- Dialogs ---
 
     if (showQualityDialog) {
-        val options = listOf("Original", "20 Mbps 1080p", "12 Mbps 1080p", "8 Mbps 1080p", "4 Mbps 720p", "3 Mbps 720p")
+        val options = listOf(stringResource(R.string.settings_quality_original), stringResource(R.string.settings_quality_1080p_20), stringResource(R.string.settings_quality_1080p_12), stringResource(R.string.settings_quality_1080p_8), stringResource(R.string.settings_quality_720p_4), stringResource(R.string.settings_quality_720p_3))
         SettingsDialog(
-            title = "Video Quality",
+            title = stringResource(R.string.settings_video_quality),
             options = options,
             currentValue = state.videoQuality,
             onDismissRequest = { showQualityDialog = false },
@@ -447,9 +448,9 @@ fun SettingsScreen(
     }
 
     if (showPlayerEngineDialog) {
-        val options = listOf("ExoPlayer", "MPV")
+        val options = listOf(stringResource(R.string.settings_player_exoplayer), stringResource(R.string.settings_player_mpv))
         SettingsDialog(
-            title = "Player Engine",
+            title = stringResource(R.string.settings_player_engine),
             options = options,
             currentValue = state.playerEngine,
             onDismissRequest = { showPlayerEngineDialog = false },
@@ -463,7 +464,7 @@ fun SettingsScreen(
     if (showThemeDialog) {
         val options = AppTheme.values().map { it.name }
         SettingsDialog(
-            title = "App Theme",
+            title = stringResource(R.string.settings_app_theme),
             options = options,
             currentValue = state.theme.name,
             onDismissRequest = { showThemeDialog = false },
@@ -477,9 +478,9 @@ fun SettingsScreen(
     if (showAudioLangDialog) {
         val audioOptions = getAudioLanguageOptions()
         SettingsDialog(
-            title = "Preferred Audio Language",
+            title = stringResource(R.string.settings_preferred_audio),
             options = audioOptions.map { it.first },
-            currentValue = audioOptions.find { it.second == state.preferredAudioLanguage }?.first ?: "Original",
+            currentValue = audioOptions.find { it.second == state.preferredAudioLanguage }?.first ?: stringResource(R.string.settings_lang_original),
             onDismissRequest = { showAudioLangDialog = false },
             onOptionSelected = { selectedName ->
                 val isoCode = audioOptions.find { it.first == selectedName }?.second
@@ -492,9 +493,9 @@ fun SettingsScreen(
     if (showSubtitleLangDialog) {
         val subtitleOptions = getSubtitleLanguageOptions()
         SettingsDialog(
-            title = "Preferred Subtitle Language",
+            title = stringResource(R.string.settings_preferred_subtitle),
             options = subtitleOptions.map { it.first },
-            currentValue = subtitleOptions.find { it.second == state.preferredSubtitleLanguage }?.first ?: "None",
+            currentValue = subtitleOptions.find { it.second == state.preferredSubtitleLanguage }?.first ?: stringResource(R.string.settings_lang_none),
             onDismissRequest = { showSubtitleLangDialog = false },
             onOptionSelected = { selectedName ->
                 val isoCode = subtitleOptions.find { it.first == selectedName }?.second
@@ -506,7 +507,7 @@ fun SettingsScreen(
 
     if (showServerDialog) {
         SettingsDialog(
-            title = "Default Server",
+            title = stringResource(R.string.settings_default_server),
             options = state.availableServers,
             currentValue = state.defaultServer,
             onDismissRequest = { showServerDialog = false },
@@ -522,7 +523,7 @@ fun SettingsScreen(
             onDismissRequest = { showApiKeysDialog = false },
             title = {
                 Text(
-                    text = "API Keys Configuration",
+                    text = stringResource(R.string.settings_api_keys),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -533,7 +534,7 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Configure your TMDb and OMDb API keys to enable enhanced metadata and ratings.",
+                        text = stringResource(R.string.settings_api_keys_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -543,8 +544,8 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = tmdbKey,
                         onValueChange = { tmdbKey = it },
-                        label = { Text("TMDb API Key") },
-                        placeholder = { Text("Enter your TMDb API key") },
+                        label = { Text(stringResource(R.string.settings_tmdb_api_key)) },
+                        placeholder = { Text(stringResource(R.string.settings_tmdb_api_key_placeholder)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         trailingIcon = {
@@ -552,13 +553,13 @@ fun SettingsScreen(
                                 IconButton(onClick = {
                                     onAction(SettingsAction.SaveTmdbApiKey(tmdbKey))
                                 }) {
-                                    Icon(Icons.Default.Done, contentDescription = "Save TMDb Key")
+                                    Icon(Icons.Default.Done, contentDescription = stringResource(R.string.settings_save_tmdb_description))
                                 }
                             }
                         }
                     )
                     Text(
-                        text = "Get your API key from: https://www.themoviedb.org/settings/api",
+                        text = stringResource(R.string.settings_tmdb_api_key_hint),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
@@ -570,8 +571,8 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = omdbKey,
                         onValueChange = { omdbKey = it },
-                        label = { Text("OMDb API Key") },
-                        placeholder = { Text("Enter your OMDb API key") },
+                        label = { Text(stringResource(R.string.settings_omdb_api_key)) },
+                        placeholder = { Text(stringResource(R.string.settings_omdb_api_key_placeholder)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         trailingIcon = {
@@ -579,13 +580,13 @@ fun SettingsScreen(
                                 IconButton(onClick = {
                                     onAction(SettingsAction.SaveOmdbApiKey(omdbKey))
                                 }) {
-                                    Icon(Icons.Default.Done, contentDescription = "Save OMDb Key")
+                                    Icon(Icons.Default.Done, contentDescription = stringResource(R.string.settings_save_omdb_description))
                                 }
                             }
                         }
                     )
                     Text(
-                        text = "Get your API key from: https://www.omdbapi.com/apikey.aspx",
+                        text = stringResource(R.string.settings_omdb_api_key_hint),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
@@ -593,7 +594,7 @@ fun SettingsScreen(
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = { showApiKeysDialog = false }) {
-                    Text("Close")
+                    Text(stringResource(R.string.settings_close_description))
                 }
             }
         )
@@ -602,9 +603,9 @@ fun SettingsScreen(
     // Rating Sync Source Dialog
     if (showRatingSyncSourceDialog) {
         SettingsDialog(
-            title = "Movie Rating Source",
-            options = listOf("TMDb (Recommended)", "OMDb (IMDb ratings)"),
-            currentValue = if (state.ratingSyncSource == "tmdb") "TMDb (Recommended)" else "OMDb (IMDb ratings)",
+            title = stringResource(R.string.settings_rating_source),
+            options = listOf(stringResource(R.string.settings_rating_tmdb), stringResource(R.string.settings_rating_omdb)),
+            currentValue = if (state.ratingSyncSource == "tmdb") stringResource(R.string.settings_rating_tmdb) else stringResource(R.string.settings_rating_omdb),
             onDismissRequest = { showRatingSyncSourceDialog = false },
             onOptionSelected = {
                 val source = if (it.startsWith("TMDb")) "tmdb" else "omdb"
@@ -617,22 +618,22 @@ fun SettingsScreen(
     // Rating Sync Delay Dialog
     if (showRatingSyncDelayDialog) {
         SettingsDialog(
-            title = "Request Delay",
-            options = listOf("100ms (Fast)", "250ms (Default)", "500ms (Safe)", "1000ms (Very Safe)"),
+            title = stringResource(R.string.settings_request_delay),
+            options = listOf(stringResource(R.string.settings_delay_100), stringResource(R.string.settings_delay_250), stringResource(R.string.settings_delay_500), stringResource(R.string.settings_delay_1000)),
             currentValue = when (state.ratingSyncDelay) {
-                100L -> "100ms (Fast)"
-                250L -> "250ms (Default)"
-                500L -> "500ms (Safe)"
-                1000L -> "1000ms (Very Safe)"
+                100L -> stringResource(R.string.settings_delay_100)
+                250L -> stringResource(R.string.settings_delay_250)
+                500L -> stringResource(R.string.settings_delay_500)
+                1000L -> stringResource(R.string.settings_delay_1000)
                 else -> "${state.ratingSyncDelay}ms"
             },
             onDismissRequest = { showRatingSyncDelayDialog = false },
             onOptionSelected = {
                 val delay = when (it) {
-                    "100ms (Fast)" -> 100L
-                    "250ms (Default)" -> 250L
-                    "500ms (Safe)" -> 500L
-                    "1000ms (Very Safe)" -> 1000L
+                    stringResource(R.string.settings_delay_100) -> 100L
+                    stringResource(R.string.settings_delay_250) -> 250L
+                    stringResource(R.string.settings_delay_500) -> 500L
+                    stringResource(R.string.settings_delay_1000) -> 1000L
                     else -> 250L
                 }
                 onAction(SettingsAction.ChangeRatingSyncDelay(delay))
@@ -644,22 +645,22 @@ fun SettingsScreen(
     // Rating Sync Daily Limit Dialog
     if (showRatingSyncDailyLimitDialog) {
         SettingsDialog(
-            title = "Daily Request Limit",
-            options = listOf("500 req/day", "900 req/day (Default)", "1500 req/day", "2500 req/day"),
+            title = stringResource(R.string.settings_daily_request_limit),
+            options = listOf(stringResource(R.string.settings_limit_500), stringResource(R.string.settings_limit_900), stringResource(R.string.settings_limit_1500), stringResource(R.string.settings_limit_2500)),
             currentValue = when (state.ratingSyncDailyLimit) {
-                500 -> "500 req/day"
-                900 -> "900 req/day (Default)"
-                1500 -> "1500 req/day"
-                2500 -> "2500 req/day"
+                500 -> stringResource(R.string.settings_limit_500)
+                900 -> stringResource(R.string.settings_limit_900)
+                1500 -> stringResource(R.string.settings_limit_1500)
+                2500 -> stringResource(R.string.settings_limit_2500)
                 else -> "${state.ratingSyncDailyLimit} req/day"
             },
             onDismissRequest = { showRatingSyncDailyLimitDialog = false },
             onOptionSelected = {
                 val limit = when (it) {
-                    "500 req/day" -> 500
-                    "900 req/day (Default)" -> 900
-                    "1500 req/day" -> 1500
-                    "2500 req/day" -> 2500
+                    stringResource(R.string.settings_limit_500) -> 500
+                    stringResource(R.string.settings_limit_900) -> 900
+                    stringResource(R.string.settings_limit_1500) -> 1500
+                    stringResource(R.string.settings_limit_2500) -> 2500
                     else -> 900
                 }
                 onAction(SettingsAction.ChangeRatingSyncDailyLimit(limit))
@@ -670,32 +671,34 @@ fun SettingsScreen(
 }
 
 // Helpers for Language Options
+@Composable
 private fun getAudioLanguageOptions() =
     listOf(
-        "Original" to null,
-        "English" to "eng",
-        "French" to "fra",
-        "German" to "deu",
-        "Spanish" to "spa",
-        "Italian" to "ita",
-        "Japanese" to "jpn",
-        "Korean" to "kor",
-        "Russian" to "rus",
-        "Portuguese" to "por",
+        stringResource(R.string.settings_lang_original) to null,
+        stringResource(R.string.settings_lang_english) to "eng",
+        stringResource(R.string.settings_lang_french) to "fra",
+        stringResource(R.string.settings_lang_german) to "deu",
+        stringResource(R.string.settings_lang_spanish) to "spa",
+        stringResource(R.string.settings_lang_italian) to "ita",
+        stringResource(R.string.settings_lang_japanese) to "jpn",
+        stringResource(R.string.settings_lang_korean) to "kor",
+        stringResource(R.string.settings_lang_russian) to "rus",
+        stringResource(R.string.settings_lang_portuguese) to "por",
     )
 
+@Composable
 private fun getSubtitleLanguageOptions() =
     listOf(
-        "None" to null,
-        "English" to "eng",
-        "French" to "fra",
-        "German" to "deu",
-        "Spanish" to "spa",
-        "Italian" to "ita",
-        "Japanese" to "jpn",
-        "Korean" to "kor",
-        "Russian" to "rus",
-        "Portuguese" to "por",
+        stringResource(R.string.settings_lang_none) to null,
+        stringResource(R.string.settings_lang_english) to "eng",
+        stringResource(R.string.settings_lang_french) to "fra",
+        stringResource(R.string.settings_lang_german) to "deu",
+        stringResource(R.string.settings_lang_spanish) to "spa",
+        stringResource(R.string.settings_lang_italian) to "ita",
+        stringResource(R.string.settings_lang_japanese) to "jpn",
+        stringResource(R.string.settings_lang_korean) to "kor",
+        stringResource(R.string.settings_lang_russian) to "rus",
+        stringResource(R.string.settings_lang_portuguese) to "por",
     )
 
 @Preview(showBackground = true)

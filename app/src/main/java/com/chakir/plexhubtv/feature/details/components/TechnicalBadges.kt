@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.VideoStream
@@ -55,23 +57,23 @@ fun TechnicalBadges(
             // Plex usually puts "HDR" or "Dolby Vision" in displayTitle or sometimes 'colorSpace' but we don't have that yet?
             // Let's assume if displayTitle string contains HDR.
             if (video.displayTitle?.contains("HDR", ignoreCase = true) == true) {
-                Badge(text = "HDR", color = Color(0xFFFFD700)) // Gold
+                Badge(text = stringResource(R.string.badge_hdr), color = Color(0xFFFFD700)) // Gold
             }
             if (video.displayTitle?.contains("Dolby Vision", ignoreCase = true) == true || video.displayTitle?.contains("DoVi", ignoreCase = true) == true) {
-                Badge(text = "DOLBY VISION", color = Color(0xFFE91E63)) // Pinkish
+                Badge(text = stringResource(R.string.badge_dolby_vision), color = Color(0xFFE91E63)) // Pinkish
             }
         }
 
         // Audio Badge
         audioStream?.let { audio ->
             // Codec
-            val codec = audio.codec?.uppercase() ?: "AUDIO"
+            val codec = audio.codec?.uppercase() ?: stringResource(R.string.badge_audio)
             val displayCodec =
                 when (codec) {
-                    "AC3" -> "DOLBY DIGITAL"
-                    "EAC3" -> "DOLBY DIGITAL PLUS"
-                    "DCA" -> "DTS"
-                    "AAC" -> "AAC"
+                    "AC3" -> stringResource(R.string.badge_dolby_digital)
+                    "EAC3" -> stringResource(R.string.badge_dolby_digital_plus)
+                    "DCA" -> stringResource(R.string.badge_dts)
+                    "AAC" -> stringResource(R.string.badge_aac)
                     "MP3" -> "MP3"
                     else -> codec
                 }
@@ -83,15 +85,15 @@ fun TechnicalBadges(
                 when (channels) {
                     8 -> "7.1"
                     6 -> "5.1"
-                    2 -> "STEREO" // Or 2.0
-                    1 -> "MONO"
+                    2 -> stringResource(R.string.badge_stereo) // Or 2.0
+                    1 -> stringResource(R.string.badge_mono)
                     else -> "$channels CH"
                 }
             Badge(text = channelText)
 
             // Atmos Check
             if (audio.displayTitle?.contains("Atmos", ignoreCase = true) == true) {
-                Badge(text = "ATMOS", color = Color(0xFF00B0FF)) // Blue
+                Badge(text = stringResource(R.string.badge_atmos), color = Color(0xFF00B0FF)) // Blue
             }
         }
     }
