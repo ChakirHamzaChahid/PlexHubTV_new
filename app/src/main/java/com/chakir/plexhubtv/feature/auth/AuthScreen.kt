@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -25,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.BuildConfig
+import com.chakir.plexhubtv.R
 
 /**
  * Écran d'authentification principal.
@@ -54,13 +56,15 @@ fun AuthScreen(
     state: AuthUiState,
     onAction: (AuthEvent) -> Unit,
 ) {
+    val screenDescription = stringResource(R.string.auth_screen_description)
+
     Scaffold { padding ->
         Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .testTag("screen_login")
-                    .semantics { contentDescription = stringResource(R.string.auth_screen_description) }
+                    .semantics { contentDescription = screenDescription }
                     .padding(padding),
             contentAlignment = Alignment.Center,
         ) {
@@ -77,6 +81,8 @@ fun AuthScreen(
 @Composable
 fun IdleState(onAction: (AuthEvent) -> Unit) {
     var token by remember { mutableStateOf(BuildConfig.PLEX_TOKEN) }
+    val tokenFieldDescription = stringResource(R.string.auth_token_field_description)
+    val loginButtonDescription = stringResource(R.string.auth_login_button_description)
 
     // Auto-login if test token is set
     LaunchedEffect(Unit) {
@@ -110,7 +116,7 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
                 ),
             modifier = Modifier
                 .testTag("auth_token_field")
-                .semantics { contentDescription = stringResource(R.string.auth_token_field_description) }
+                .semantics { contentDescription = tokenFieldDescription }
         )
         Spacer(Modifier.height(8.dp))
         Button(
@@ -118,7 +124,7 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
             enabled = token.isNotBlank(),
             modifier = Modifier
                 .testTag("auth_login_button")
-                .semantics { contentDescription = stringResource(R.string.auth_login_button_description) }
+                .semantics { contentDescription = loginButtonDescription }
         ) {
             Text(stringResource(R.string.auth_login_with_token))
         }
@@ -130,12 +136,15 @@ fun AuthenticatingState(
     state: AuthUiState.Authenticating,
     onAction: (AuthEvent) -> Unit,
 ) {
+    val pinScreenDescription = stringResource(R.string.auth_pin_screen_description)
+    val pinDisplayDescription = stringResource(R.string.auth_pin_display_description, state.pinCode)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .padding(32.dp)
             .testTag("screen_pin_input")
-            .semantics { contentDescription = stringResource(R.string.auth_pin_screen_description) }
+            .semantics { contentDescription = pinScreenDescription }
     ) {
         Text(stringResource(R.string.auth_link_account), style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
@@ -147,7 +156,7 @@ fun AuthenticatingState(
             modifier = Modifier
                 .padding(16.dp)
                 .testTag("pin_display")
-                .semantics { contentDescription = stringResource(R.string.auth_pin_display_description, state.pinCode) },
+                .semantics { contentDescription = pinDisplayDescription },
         )
         LinearProgressIndicator(
             progress = { state.progress ?: 0f },
@@ -165,11 +174,13 @@ fun ErrorState(
     message: String,
     onAction: (AuthEvent) -> Unit,
 ) {
+    val errorDescription = stringResource(R.string.auth_error_description, message)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .testTag("auth_error_state")
-            .semantics { contentDescription = stringResource(R.string.auth_error_description, message) }
+            .semantics { contentDescription = errorDescription }
     ) {
         Icon(
             imageVector = Icons.Filled.Warning,
@@ -186,11 +197,13 @@ fun ErrorState(
 
 @Composable
 fun SuccessState() {
+    val successDescription = stringResource(R.string.auth_success_description)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .testTag("auth_success_state")
-            .semantics { contentDescription = stringResource(R.string.auth_success_description) }
+            .semantics { contentDescription = successDescription }
     ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(16.dp))
