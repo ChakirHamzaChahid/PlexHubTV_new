@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">PlexHubTV</string>
+    <string name="browse_title">Vidéos de votre société</string>
+    <string name="related_movies">Vidéos similaires</string>
+    <string name="grid_view">Vue en grille</string>
+    <string name="error_fragment">Fragment d\'erreur</string>
+    <string name="personal_settings">Paramètres personnels</string>
+    <string name="watch_trailer_1">Regarder la bande-annonce</string>
+    <string name="watch_trailer_2">GRATUIT</string>
+    <string name="rent_1">Louer par jour</string>
+    <string name="rent_2">À partir de 1,99 $</string>
+    <string name="buy_1">Acheter et posséder</string>
+    <string name="buy_2">À 9,99 $</string>
+    <string name="movie">Film</string>
+
+    <!-- Error messages -->
+    <string name="error_fragment_message">Une erreur est survenue</string>
+    <string name="dismiss_error">Fermer</string>
+
+    <!-- Barre supérieure -->
+    <string name="topbar_title">PlexHub TV</string>
+    <string name="topbar_logo_description">Logo PlexHub TV</string>
+    <string name="topbar_search_description">Recherche</string>
+    <string name="topbar_settings_description">Paramètres</string>
+
+    <!-- Bannière héros -->
+    <string name="hero_play_button">Lecture</string>
+    <string name="hero_more_info_button">Plus d\'infos</string>
+    <string name="hero_play_description">Lancer la lecture</string>
+    <string name="hero_more_info_description">Plus d\'informations</string>
+    <string name="hero_transition_label">TransitionImageHéros</string>
+</resources>

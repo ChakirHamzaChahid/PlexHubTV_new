@@ -278,6 +278,8 @@ fun NetflixPlayButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val playDescription = stringResource(R.string.hero_play_description)
+    val playText = stringResource(R.string.hero_play_button)
 
     Button(
         onClick = onClick,
@@ -289,7 +291,7 @@ fun NetflixPlayButton(
         contentPadding = ButtonDefaults.ContentPadding,
         modifier = modifier
             .border(2.dp, if (isFocused) Color.White else Color.Transparent)
-            .semantics { contentDescription = stringResource(R.string.hero_play_description) }
+            .semantics { contentDescription = playDescription }
     ) {
         Icon(
             imageVector = Icons.Default.PlayArrow,
@@ -298,7 +300,7 @@ fun NetflixPlayButton(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.hero_play_button),
+            text = playText,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -312,6 +314,8 @@ fun NetflixInfoButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val moreInfoDescription = stringResource(R.string.hero_more_info_description)
+    val moreInfoText = stringResource(R.string.hero_more_info_button)
 
     Button(
         onClick = onClick,
@@ -322,7 +326,7 @@ fun NetflixInfoButton(
         interactionSource = interactionSource,
         modifier = modifier
             .border(2.dp, if (isFocused) Color.White else Color.Transparent)
-            .semantics { contentDescription = stringResource(R.string.detail_loading_description) }
+            .semantics { contentDescription = moreInfoDescription }
     ) {
         Icon(
             imageVector = Icons.Default.Info,
@@ -331,7 +335,7 @@ fun NetflixInfoButton(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.hero_more_info_button),
+            text = moreInfoText,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
