@@ -31,6 +31,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.zIndex
+import com.chakir.plexhubtv.BuildConfig
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.navigation.NavigationItem
@@ -156,10 +157,13 @@ fun MainScreen(
                     onNavigateBack = { navController.popBackStack() },
                 )
             }
-            composable(Screen.Debug.route) {
-                com.chakir.plexhubtv.feature.debug.DebugRoute(
-                    onNavigateBack = { navController.popBackStack() },
-                )
+            // Debug screen only available in DEBUG builds
+            if (BuildConfig.DEBUG) {
+                composable(Screen.Debug.route) {
+                    com.chakir.plexhubtv.feature.debug.DebugRoute(
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                }
             }
             composable(Screen.Favorites.route) {
                 com.chakir.plexhubtv.feature.favorites.FavoritesRoute(
