@@ -70,12 +70,17 @@ fun ProfileScreen(
     onAction: (ProfileAction) -> Unit,
     onBack: () -> Unit,
 ) {
+    val screenDescription = stringResource(R.string.profile_screen_description)
+    val loadingDescription = stringResource(R.string.profile_loading_description)
+    val listDescription = stringResource(R.string.profile_list_description)
+    val switchingDescription = stringResource(R.string.profile_switching_description)
+
     Box(
         modifier =
             Modifier
                 .fillMaxSize()
                 .testTag("screen_profiles")
-                .semantics { contentDescription = stringResource(R.string.profile_screen_description) }
+                .semantics { contentDescription = screenDescription }
                 .background(MaterialTheme.colorScheme.background),
     ) {
         Column(
@@ -95,7 +100,7 @@ fun ProfileScreen(
                     modifier = Modifier
                         .padding(32.dp)
                         .testTag("profile_loading")
-                        .semantics { contentDescription = stringResource(R.string.profile_loading_description) }
+                        .semantics { contentDescription = loadingDescription }
                 )
             } else if (state.error != null) {
                 Text(
@@ -121,7 +126,7 @@ fun ProfileScreen(
                     modifier = Modifier
                         .widthIn(max = 800.dp)
                         .testTag("profile_list")
-                        .semantics { contentDescription = stringResource(R.string.profile_list_description) },
+                        .semantics { contentDescription = listDescription },
                 ) {
                     itemsIndexed(state.users, key = { _, user -> user.id }) { index, user ->
                         UserProfileCard(
@@ -157,7 +162,7 @@ fun ProfileScreen(
                     Modifier
                         .fillMaxSize()
                         .testTag("profile_switching")
-                        .semantics { contentDescription = stringResource(R.string.profile_switching_description) }
+                        .semantics { contentDescription = switchingDescription }
                         .background(Color.Black.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -245,6 +250,8 @@ fun PinEntryDialog(
     onCancel: () -> Unit,
     onClear: () -> Unit,
 ) {
+    val dialogDescription = stringResource(R.string.profile_pin_dialog_description)
+
     Dialog(onDismissRequest = onCancel) {
         Card(
             modifier =
@@ -252,7 +259,7 @@ fun PinEntryDialog(
                     .fillMaxWidth()
                     .padding(16.dp)
                     .testTag("profile_pin_dialog")
-                    .semantics { contentDescription = stringResource(R.string.profile_pin_dialog_description) },
+                    .semantics { contentDescription = dialogDescription },
             shape = RoundedCornerShape(16.dp),
         ) {
             Column(

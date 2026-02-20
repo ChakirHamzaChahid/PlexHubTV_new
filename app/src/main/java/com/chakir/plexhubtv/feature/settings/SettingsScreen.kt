@@ -103,6 +103,7 @@ fun SettingsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
+        val screenDescription = stringResource(R.string.settings_screen_description)
         val listState = rememberLazyListState()
         LazyColumn(
             state = listState,
@@ -111,7 +112,7 @@ fun SettingsScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .testTag("screen_settings")
-                    .semantics { contentDescription = stringResource(R.string.settings_screen_description) },
+                    .semantics { contentDescription = screenDescription },
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
@@ -617,23 +618,28 @@ fun SettingsScreen(
 
     // Rating Sync Delay Dialog
     if (showRatingSyncDelayDialog) {
+        val delay100 = stringResource(R.string.settings_delay_100)
+        val delay250 = stringResource(R.string.settings_delay_250)
+        val delay500 = stringResource(R.string.settings_delay_500)
+        val delay1000 = stringResource(R.string.settings_delay_1000)
+
         SettingsDialog(
             title = stringResource(R.string.settings_request_delay),
-            options = listOf(stringResource(R.string.settings_delay_100), stringResource(R.string.settings_delay_250), stringResource(R.string.settings_delay_500), stringResource(R.string.settings_delay_1000)),
+            options = listOf(delay100, delay250, delay500, delay1000),
             currentValue = when (state.ratingSyncDelay) {
-                100L -> stringResource(R.string.settings_delay_100)
-                250L -> stringResource(R.string.settings_delay_250)
-                500L -> stringResource(R.string.settings_delay_500)
-                1000L -> stringResource(R.string.settings_delay_1000)
+                100L -> delay100
+                250L -> delay250
+                500L -> delay500
+                1000L -> delay1000
                 else -> "${state.ratingSyncDelay}ms"
             },
             onDismissRequest = { showRatingSyncDelayDialog = false },
             onOptionSelected = {
                 val delay = when (it) {
-                    stringResource(R.string.settings_delay_100) -> 100L
-                    stringResource(R.string.settings_delay_250) -> 250L
-                    stringResource(R.string.settings_delay_500) -> 500L
-                    stringResource(R.string.settings_delay_1000) -> 1000L
+                    delay100 -> 100L
+                    delay250 -> 250L
+                    delay500 -> 500L
+                    delay1000 -> 1000L
                     else -> 250L
                 }
                 onAction(SettingsAction.ChangeRatingSyncDelay(delay))
@@ -644,23 +650,28 @@ fun SettingsScreen(
 
     // Rating Sync Daily Limit Dialog
     if (showRatingSyncDailyLimitDialog) {
+        val limit500 = stringResource(R.string.settings_limit_500)
+        val limit900 = stringResource(R.string.settings_limit_900)
+        val limit1500 = stringResource(R.string.settings_limit_1500)
+        val limit2500 = stringResource(R.string.settings_limit_2500)
+
         SettingsDialog(
             title = stringResource(R.string.settings_daily_request_limit),
-            options = listOf(stringResource(R.string.settings_limit_500), stringResource(R.string.settings_limit_900), stringResource(R.string.settings_limit_1500), stringResource(R.string.settings_limit_2500)),
+            options = listOf(limit500, limit900, limit1500, limit2500),
             currentValue = when (state.ratingSyncDailyLimit) {
-                500 -> stringResource(R.string.settings_limit_500)
-                900 -> stringResource(R.string.settings_limit_900)
-                1500 -> stringResource(R.string.settings_limit_1500)
-                2500 -> stringResource(R.string.settings_limit_2500)
+                500 -> limit500
+                900 -> limit900
+                1500 -> limit1500
+                2500 -> limit2500
                 else -> "${state.ratingSyncDailyLimit} req/day"
             },
             onDismissRequest = { showRatingSyncDailyLimitDialog = false },
             onOptionSelected = {
                 val limit = when (it) {
-                    stringResource(R.string.settings_limit_500) -> 500
-                    stringResource(R.string.settings_limit_900) -> 900
-                    stringResource(R.string.settings_limit_1500) -> 1500
-                    stringResource(R.string.settings_limit_2500) -> 2500
+                    limit500 -> 500
+                    limit900 -> 900
+                    limit1500 -> 1500
+                    limit2500 -> 2500
                     else -> 900
                 }
                 onAction(SettingsAction.ChangeRatingSyncDailyLimit(limit))

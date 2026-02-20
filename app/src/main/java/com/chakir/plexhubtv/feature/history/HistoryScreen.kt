@@ -45,12 +45,16 @@ fun HistoryScreen(
     uiState: HistoryUiState,
     onMediaClick: (com.chakir.plexhubtv.core.model.MediaItem) -> Unit,
 ) {
+    val screenDescription = stringResource(R.string.history_screen_description)
+    val loadingDescription = stringResource(R.string.loading_please_wait)
+    val emptyDescription = stringResource(R.string.history_empty_description)
+
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .testTag("screen_history")
-                .semantics { contentDescription = stringResource(R.string.history_screen_description) }
+                .semantics { contentDescription = screenDescription }
                 .background(MaterialTheme.colorScheme.background)
                 .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 80.dp),
     ) {
@@ -67,7 +71,7 @@ fun HistoryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("history_loading")
-                    .semantics { contentDescription = stringResource(R.string.loading_please_wait) },
+                    .semantics { contentDescription = loadingDescription },
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
@@ -77,7 +81,7 @@ fun HistoryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("history_empty")
-                    .semantics { contentDescription = stringResource(R.string.history_empty_description) },
+                    .semantics { contentDescription = emptyDescription },
                 contentAlignment = Alignment.Center
             ) {
                 Text(

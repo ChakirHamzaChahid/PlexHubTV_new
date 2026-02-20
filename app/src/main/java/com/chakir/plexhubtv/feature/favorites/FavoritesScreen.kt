@@ -61,12 +61,16 @@ fun FavoritesScreen(
     uiState: FavoritesUiState,
     onMediaClick: (com.chakir.plexhubtv.core.model.MediaItem) -> Unit,
 ) {
+    val screenDescription = stringResource(R.string.favorites_screen_description)
+    val loadingDescription = stringResource(R.string.favorites_loading_description)
+    val emptyDescription = stringResource(R.string.favorites_empty_description)
+
     Column(
         modifier =
             Modifier
                 .fillMaxSize()
                 .testTag("screen_favorites")
-                .semantics { contentDescription = stringResource(R.string.favorites_screen_description) }
+                .semantics { contentDescription = screenDescription }
                 .background(NetflixBlack) // Netflix Black Background
                 .padding(start = 58.dp, end = 58.dp, top = 80.dp), // 56dp TopBar + 24dp content padding
     ) {
@@ -83,7 +87,7 @@ fun FavoritesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("favorites_loading")
-                    .semantics { contentDescription = stringResource(R.string.favorites_loading_description) },
+                    .semantics { contentDescription = loadingDescription },
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = NetflixRed)
@@ -93,7 +97,7 @@ fun FavoritesScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("favorites_empty")
-                    .semantics { contentDescription = stringResource(R.string.favorites_empty_description) },
+                    .semantics { contentDescription = emptyDescription },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
