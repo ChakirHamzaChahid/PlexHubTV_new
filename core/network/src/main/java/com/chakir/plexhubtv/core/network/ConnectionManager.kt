@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,7 +46,8 @@ class ConnectionManager
 
         // Failed servers cache (serverId -> timestamp when it failed)
         // Skip retrying failed servers for 5 minutes to prevent UI blocking
-        private val failedServers = mutableMapOf<String, Long>()
+        // Thread-safe for concurrent access from multiple coroutines
+        private val failedServers = ConcurrentHashMap<String, Long>()
         private val FAILED_SERVER_SKIP_DURATION_MS = 5 * 60 * 1000L // 5 minutes
 
         init {
@@ -139,7 +142,7 @@ class ConnectionManager
                 if (urls.isEmpty()) return@coroutineScope null
 
                 val winner = kotlinx.coroutines.CompletableDeferred<String?>()
-                var completedCount = 0
+                val completedCount = AtomicInteger(0)
 
                 val jobs =
                     urls.map { url ->
@@ -152,8 +155,8 @@ class ConnectionManager
                             } catch (e: Exception) {
                                 // Ignore individual test failures
                             } finally {
-                                completedCount++
-                                if (completedCount == urls.size && !winner.isCompleted) {
+                                // Thread-safe increment and check
+                                if (completedCount.incrementAndGet() == urls.size && !winner.isCompleted) {
                                     winner.complete(null)
                                 }
                             }
