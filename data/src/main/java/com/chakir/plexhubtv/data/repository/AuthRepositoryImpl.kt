@@ -259,8 +259,30 @@ class AuthRepositoryImpl
                     Result.failure(AuthException("Failed to get servers: ${response.code()}"))
                 }
             } catch (e: IOException) {
-                Timber.e(e, "Network error fetching servers")
-                Result.failure(NetworkException("Network error", e))
+                val errorMessage = when (e) {
+                    is java.net.UnknownHostException ->
+                        "Unable to connect to Plex servers. Check your internet connection."
+                    is java.net.SocketTimeoutException ->
+                        "Connection timeout. Plex servers are not responding."
+                    else ->
+                        "Network error: ${e.message ?: "Unable to reach Plex servers"}"
+                }
+                Timber.e(e, "Network error fetching servers (Fix with AI)")
+
+                // Fallback to DB cache on network error
+                try {
+                    val dbServers = database.serverDao().getAllServers().first()
+                    if (dbServers.isNotEmpty()) {
+                        val domainServers = dbServers.map { serverMapper.mapEntityToDomain(it) }
+                        cachedServers = domainServers
+                        Timber.w("Using cached servers due to network error (${dbServers.size} servers)")
+                        return Result.success(domainServers)
+                    }
+                } catch (dbError: Exception) {
+                    Timber.e(dbError, "DB fallback also failed")
+                }
+
+                Result.failure(NetworkException(errorMessage, e))
             } catch (e: HttpException) {
                 Timber.e(e, "HTTP error ${e.code()} fetching servers")
                 Result.failure(e)
