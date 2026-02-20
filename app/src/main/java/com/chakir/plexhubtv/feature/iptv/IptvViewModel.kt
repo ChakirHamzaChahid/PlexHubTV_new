@@ -28,6 +28,8 @@ sealed class IptvEvent {
 
     object Refresh : IptvEvent()
 
+    object ShowUrlDialog : IptvEvent()
+
     object DismissUrlDialog : IptvEvent()
 }
 
@@ -96,7 +98,7 @@ class IptvViewModel
                     viewModelScope.launch {
                         val url = repository.getM3uUrl()
                         if (url != null) {
-                            _uiState.update { it.copy(isLoading = true) }
+                            _uiState.update { it.copy(isLoading = true, error = null) }
                             fetchChannels(url)
                         } else {
                             _uiState.update { it.copy(showUrlDialog = true) }
@@ -105,6 +107,9 @@ class IptvViewModel
                 }
                 is IptvEvent.SaveUrl -> {
                     saveIptvUrl(event.url)
+                }
+                is IptvEvent.ShowUrlDialog -> {
+                    _uiState.update { it.copy(showUrlDialog = true) }
                 }
                 is IptvEvent.DismissUrlDialog -> {
                     _uiState.update { it.copy(showUrlDialog = false) }

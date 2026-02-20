@@ -138,9 +138,48 @@ fun IptvScreen(
                         .semantics { contentDescription = "Erreur: ${state.error}" },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Error: ${state.error}", color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { onEvent(IptvEvent.Refresh) }) {
-                        Text("Retry")
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tv,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = "Connection Error",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = state.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.widthIn(max = 600.dp)
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            val retryFocusRequester = remember { FocusRequester() }
+                            LaunchedEffect(Unit) {
+                                retryFocusRequester.requestFocus()
+                            }
+                            Button(
+                                onClick = { onEvent(IptvEvent.Refresh) },
+                                modifier = Modifier.focusRequester(retryFocusRequester)
+                            ) {
+                                Text("Retry")
+                            }
+                            OutlinedButton(
+                                onClick = { onEvent(IptvEvent.ShowUrlDialog) }
+                            ) {
+                                Text("Change URL")
+                            }
+                        }
                     }
                 }
             } else {
