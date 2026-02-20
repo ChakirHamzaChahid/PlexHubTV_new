@@ -60,7 +60,7 @@ fun AuthScreen(
                 Modifier
                     .fillMaxSize()
                     .testTag("screen_login")
-                    .semantics { contentDescription = "Écran d'authentification" }
+                    .semantics { contentDescription = stringResource(R.string.auth_screen_description) }
                     .padding(padding),
             contentAlignment = Alignment.Center,
         ) {
@@ -86,7 +86,7 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("PlexHubTV", style = MaterialTheme.typography.headlineLarge)
+        Text(stringResource(R.string.auth_title), style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(32.dp))
         /*
         Button(onClick = { onAction(AuthEvent.StartAuth) }) {
@@ -99,7 +99,7 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
         OutlinedTextField(
             value = token,
             onValueChange = { token = it },
-            label = { Text("Plex Token") },
+            label = { Text(stringResource(R.string.auth_plex_token_label)) },
             maxLines = 1,
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
@@ -110,7 +110,7 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
                 ),
             modifier = Modifier
                 .testTag("auth_token_field")
-                .semantics { contentDescription = "Champ de saisie du token Plex" }
+                .semantics { contentDescription = stringResource(R.string.auth_token_field_description) }
         )
         Spacer(Modifier.height(8.dp))
         Button(
@@ -118,9 +118,9 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
             enabled = token.isNotBlank(),
             modifier = Modifier
                 .testTag("auth_login_button")
-                .semantics { contentDescription = "Bouton de connexion" }
+                .semantics { contentDescription = stringResource(R.string.auth_login_button_description) }
         ) {
-            Text("Login with Token")
+            Text(stringResource(R.string.auth_login_with_token))
         }
     }
 }
@@ -135,11 +135,11 @@ fun AuthenticatingState(
         modifier = Modifier
             .padding(32.dp)
             .testTag("screen_pin_input")
-            .semantics { contentDescription = "État d'authentification avec code PIN" }
+            .semantics { contentDescription = stringResource(R.string.auth_pin_screen_description) }
     ) {
-        Text("Link Account", style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.auth_link_account), style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
-        Text("Go to: ${state.authUrl}", style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(R.string.auth_go_to_url, state.authUrl), style = MaterialTheme.typography.bodyLarge)
         Text(
             text = state.pinCode,
             style = MaterialTheme.typography.displayMedium,
@@ -147,7 +147,7 @@ fun AuthenticatingState(
             modifier = Modifier
                 .padding(16.dp)
                 .testTag("pin_display")
-                .semantics { contentDescription = "Code PIN: ${state.pinCode}" },
+                .semantics { contentDescription = stringResource(R.string.auth_pin_display_description, state.pinCode) },
         )
         LinearProgressIndicator(
             progress = { state.progress ?: 0f },
@@ -155,7 +155,7 @@ fun AuthenticatingState(
         )
         Spacer(Modifier.height(16.dp))
         TextButton(onClick = { onAction(AuthEvent.Cancel) }) {
-            Text("Cancel")
+            Text(stringResource(R.string.action_cancel))
         }
     }
 }
@@ -169,7 +169,7 @@ fun ErrorState(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .testTag("auth_error_state")
-            .semantics { contentDescription = "Erreur d'authentification: $message" }
+            .semantics { contentDescription = stringResource(R.string.auth_error_description, message) }
     ) {
         Icon(
             imageVector = Icons.Filled.Warning,
@@ -179,7 +179,7 @@ fun ErrorState(
         Text(text = message, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
         Spacer(Modifier.height(16.dp))
         Button(onClick = { onAction(AuthEvent.Retry) }) {
-            Text("Retry")
+            Text(stringResource(R.string.action_retry))
         }
     }
 }
@@ -190,11 +190,11 @@ fun SuccessState() {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .testTag("auth_success_state")
-            .semantics { contentDescription = "Authentification réussie" }
+            .semantics { contentDescription = stringResource(R.string.auth_success_description) }
     ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(16.dp))
-        Text("Authentication Successful! Loading...")
+        Text(stringResource(R.string.auth_success_message))
     }
 }
 

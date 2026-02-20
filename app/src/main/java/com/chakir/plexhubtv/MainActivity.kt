@@ -132,6 +132,11 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                         popUpTo(Screen.Loading.route) { inclusive = true }
                     }
                 },
+                onNavigateToAuth = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }  // Clear all back stack
+                    }
+                },
             )
         }
 

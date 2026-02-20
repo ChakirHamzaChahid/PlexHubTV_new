@@ -29,4 +29,8 @@
     <string name="hero_play_description">Lancer la lecture</string>
     <string name="hero_more_info_description">Plus d\'informations</string>
     <string name="hero_transition_label">TransitionImageHéros</string>
+
+    <!-- Barre latérale -->
+    <string name="sidebar_navigation_description">Menu de navigation</string>
+    <string name="sidebar_profile_description">Profil utilisateur</string>
 </resources>

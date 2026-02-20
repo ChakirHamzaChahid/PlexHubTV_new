@@ -72,6 +72,12 @@ class LoadingViewModel
         fun onRetry() {
             checkSyncStatus()
         }
+
+        fun onExit() {
+            viewModelScope.launch {
+                _navigationEvent.emit(LoadingNavigationEvent.NavigateToAuth)
+            }
+        }
     }
 
 sealed class LoadingUiState {
@@ -84,4 +90,5 @@ sealed class LoadingUiState {
 
 sealed class LoadingNavigationEvent {
     data object NavigateToMain : LoadingNavigationEvent()
+    data object NavigateToAuth : LoadingNavigationEvent()
 }

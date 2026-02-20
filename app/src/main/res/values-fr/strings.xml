@@ -66,6 +66,16 @@
     <string name="loading_error_description">Erreur de chargement : %1$s</string>
     <string name="loading_error_icon_description">Erreur</string>
     <string name="loading_completed_description">Chargement terminé</string>
+    <string name="loading_exit_button">Quitter</string>
+
+    <!-- ══════════════════════════════════════════════
+         Workers / Synchronisation en arrière-plan
+         ══════════════════════════════════════════════ -->
+    <string name="sync_notification_title">PlexHubTV</string>
+    <string name="sync_library_channel_name">Synchronisation de la bibliothèque</string>
+    <string name="sync_library_in_progress">Synchronisation des médias en cours…</string>
+    <string name="sync_collection_channel_name">Synchronisation des collections</string>
+    <string name="sync_collection_in_progress">Synchronisation des collections en cours…</string>
 
     <!-- ══════════════════════════════════════════════
          Écran principal

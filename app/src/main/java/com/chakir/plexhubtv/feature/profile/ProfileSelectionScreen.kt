@@ -100,7 +100,7 @@ fun ProfileSelectionScreen(
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
             Text(
-                text = "Who's watching?",
+                text = stringResource(R.string.profile_who_is_watching),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground

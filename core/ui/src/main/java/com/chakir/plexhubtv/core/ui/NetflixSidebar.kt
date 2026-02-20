@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -47,7 +48,7 @@ fun NetflixSidebar(
             .fillMaxHeight()
             .width(80.dp)
             .testTag("sidebar_menu")
-            .semantics { contentDescription = "Menu de navigation" }
+            .semantics { contentDescription = stringResource(R.string.sidebar_navigation_description) }
             .background(NetflixBlack.copy(alpha = 0.95f))
             .padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -229,7 +230,7 @@ private fun SidebarProfileAvatar(
             .size(40.dp)
             .scale(scale)
             .testTag(testTag)
-            .semantics { contentDescription = "Profil utilisateur" }
+            .semantics { contentDescription = stringResource(R.string.sidebar_profile_description) }
             .clip(CircleShape)
             .background(
                 brush = androidx.compose.ui.graphics.Brush.linearGradient(

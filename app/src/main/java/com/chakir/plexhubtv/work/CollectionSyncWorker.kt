@@ -189,7 +189,7 @@ class CollectionSyncWorker
         private fun updateNotification(text: String) {
             val notification =
                 androidx.core.app.NotificationCompat.Builder(applicationContext, channelId)
-                    .setContentTitle("PlexHubTV")
+                    .setContentTitle(applicationContext.getString(R.string.sync_notification_title))
                     .setContentText(text)
                     .setSmallIcon(android.R.drawable.stat_notify_sync)
                     .setOngoing(true)
@@ -203,7 +203,7 @@ class CollectionSyncWorker
                 val channel =
                     android.app.NotificationChannel(
                         channelId,
-                        "Synchronisation des Collections",
+                        applicationContext.getString(R.string.sync_collection_channel_name),
                         android.app.NotificationManager.IMPORTANCE_LOW,
                     )
                 notificationManager.createNotificationChannel(channel)
@@ -211,8 +211,8 @@ class CollectionSyncWorker
 
             val notification =
                 androidx.core.app.NotificationCompat.Builder(applicationContext, channelId)
-                    .setContentTitle("PlexHubTV")
-                    .setContentText("Synchronisation des collections en cours...")
+                    .setContentTitle(applicationContext.getString(R.string.sync_notification_title))
+                    .setContentText(applicationContext.getString(R.string.sync_collection_in_progress))
                     .setSmallIcon(android.R.drawable.stat_notify_sync)
                     .setOngoing(true)
                     .build()

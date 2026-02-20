@@ -66,6 +66,16 @@
     <string name="loading_error_description">Loading error: %1$s</string>
     <string name="loading_error_icon_description">Error</string>
     <string name="loading_completed_description">Loading complete</string>
+    <string name="loading_exit_button">Exit</string>
+
+    <!-- ══════════════════════════════════════════════
+         Workers / Background Sync
+         ══════════════════════════════════════════════ -->
+    <string name="sync_notification_title">PlexHubTV</string>
+    <string name="sync_library_channel_name">Library Synchronization</string>
+    <string name="sync_library_in_progress">Synchronizing media…</string>
+    <string name="sync_collection_channel_name">Collection Synchronization</string>
+    <string name="sync_collection_in_progress">Synchronizing collections…</string>
 
     <!-- ══════════════════════════════════════════════
          Main Screen

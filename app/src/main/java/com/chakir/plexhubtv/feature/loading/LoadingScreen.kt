@@ -7,7 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -21,6 +24,7 @@ import com.chakir.plexhubtv.R
 fun LoadingRoute(
     viewModel: LoadingViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
+    onNavigateToAuth: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -28,15 +32,24 @@ fun LoadingRoute(
         viewModel.navigationEvent.collect { event ->
             when (event) {
                 LoadingNavigationEvent.NavigateToMain -> onNavigateToMain()
+                LoadingNavigationEvent.NavigateToAuth -> onNavigateToAuth()
             }
         }
     }
 
-    LoadingScreen(state = uiState)
+    LoadingScreen(
+        state = uiState,
+        onRetryClicked = { viewModel.onRetry() },
+        onExitClicked = { viewModel.onExit() }
+    )
 }
 
 @Composable
-fun LoadingScreen(state: LoadingUiState) {
+fun LoadingScreen(
+    state: LoadingUiState,
+    onRetryClicked: () -> Unit = {},
+    onExitClicked: () -> Unit = {},
+) {
     val screenDesc = stringResource(R.string.loading_screen_description)
 
     Surface(
@@ -109,11 +122,47 @@ fun LoadingScreen(state: LoadingUiState) {
                         contentDescription = errorIconDesc,
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier
+                            .size(64.dp)
                             .testTag("loading_error")
                             .semantics { contentDescription = errorDesc }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Boutons d'action
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(horizontal = 48.dp)
+                    ) {
+                        // Bouton Réessayer (focus principal)
+                        val retryFocusRequester = remember { FocusRequester() }
+                        Button(
+                            onClick = onRetryClicked,
+                            modifier = Modifier
+                                .focusRequester(retryFocusRequester)
+                                .weight(1f)
+                        ) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+
+                        // Bouton Quitter
+                        OutlinedButton(
+                            onClick = onExitClicked,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.loading_exit_button))
+                        }
+
+                        LaunchedEffect(Unit) {
+                            retryFocusRequester.requestFocus()
+                        }
+                    }
                 }
                 LoadingUiState.Completed -> {
                     val completeText = stringResource(R.string.loading_complete)

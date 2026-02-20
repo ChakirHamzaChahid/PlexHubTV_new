@@ -29,4 +29,8 @@
     <string name="hero_play_description">Start playback</string>
     <string name="hero_more_info_description">More information</string>
     <string name="hero_transition_label">HeroImageTransition</string>
+
+    <!-- Sidebar -->
+    <string name="sidebar_navigation_description">Navigation menu</string>
+    <string name="sidebar_profile_description">User profile</string>
 </resources>
