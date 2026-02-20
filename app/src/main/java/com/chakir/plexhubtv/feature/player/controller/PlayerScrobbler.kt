@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.player.controller
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.util.WatchNextHelper
+import com.chakir.plexhubtv.data.util.TvChannelManager
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import com.chakir.plexhubtv.domain.usecase.PrefetchNextEpisodeUseCase
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,7 @@ class PlayerScrobbler
     constructor(
         private val playbackRepository: PlaybackRepository,
         private val watchNextHelper: WatchNextHelper,
+        private val tvChannelManager: TvChannelManager,
         private val prefetchNextEpisodeUseCase: PrefetchNextEpisodeUseCase,
     ) {
         private var scrobbleJob: Job? = null
@@ -65,6 +67,13 @@ class PlayerScrobbler
                                 watchNextHelper.updateWatchNext(item, position, duration)
                             } catch (e: Exception) {
                                 Timber.w("WatchNext update failed: ${e.message}")
+                            }
+
+                            // Update TV Channel
+                            try {
+                                tvChannelManager.updateContinueWatching()
+                            } catch (e: Exception) {
+                                Timber.e(e, "TV Channel: Post-playback update failed")
                             }
 
                             // Prefetch next episode at 80% progress
