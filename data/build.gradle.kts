@@ -112,6 +112,10 @@ dependencies {
 
     // Timber for logging
     implementation(libs.timber)
+
+    // TvProvider (for TvChannelManager)
+    implementation(libs.androidx.tv.provider)
+
    // --- TEST ---
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
