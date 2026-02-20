@@ -4,8 +4,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.chakir.plexhubtv.core.di.ApplicationScope
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -13,6 +15,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Wrapper autour de DataStore Preferences pour un accès typé aux paramètres de l'application.
@@ -26,11 +29,14 @@ import javax.inject.Inject
  * Les données sensibles (tokens, API keys) sont stockées dans [SecurePreferencesManager]
  * avec chiffrement AES-256-GCM. Les autres préférences utilisent DataStore.
  */
+@Singleton
 class SettingsDataStore
     @Inject
     constructor(
         private val dataStore: DataStore<Preferences>,
         private val securePrefs: SecurePreferencesManager,
+        @ApplicationScope private val appScope: CoroutineScope,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
         // Deprecated: kept for migration only
         private val PLEX_TOKEN = stringPreferencesKey("plex_token")
@@ -65,7 +71,7 @@ class SettingsDataStore
 
         init {
             // Migration: move sensitive data from DataStore to EncryptedSharedPreferences
-            CoroutineScope(Dispatchers.IO).launch {
+            appScope.launch(ioDispatcher) {
                 try {
                     val prefs = dataStore.data.first()
 
