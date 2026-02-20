@@ -148,6 +148,54 @@ class ConnectionManagerTest {
     }
 
     /**
+     * Test immediate failures (no delay) to ensure race completion logic works
+     * even with instant results
+     */
+    @Test
+    fun `raceUrls completes immediately when all URLs fail instantly`() = runTest {
+        val candidates = listOf(
+            ConnectionCandidate("http", "server1.local", 32400, "http://server1.local:32400", true, false),
+            ConnectionCandidate("http", "server2.local", 32400, "http://server2.local:32400", true, false),
+            ConnectionCandidate("http", "server3.local", 32400, "http://server3.local:32400", true, false)
+        )
+
+        // All URLs fail INSTANTLY (no delay)
+        coEvery { connectionTester.testConnection(any(), any(), any()) } returns
+            ConnectionResult("Failed", false, 0, 503)
+
+        val server = createTestServer(candidates)
+
+        // Act: Should complete immediately without hang
+        val result = connectionManager.findBestConnection(server)
+
+        // Assert: Should return null quickly
+        assertNull("Should return null for instant failures", result)
+        coVerify(exactly = 3) { connectionTester.testConnection(any(), any(), any()) }
+    }
+
+    /**
+     * Test single URL success to ensure race completes with one candidate
+     */
+    @Test
+    fun `raceUrls returns result when only one URL is tested and succeeds`() = runTest {
+        val singleUrl = "http://192.168.1.100:32400"
+        val candidates = listOf(
+            ConnectionCandidate("http", "192.168.1.100", 32400, singleUrl, true, false)
+        )
+
+        coEvery { connectionTester.testConnection(singleUrl, any(), any()) } returns
+            ConnectionResult("Success", true, 10, 200)
+
+        val server = createTestServer(candidates)
+
+        // Act: Single URL should return immediately
+        val result = connectionManager.findBestConnection(server)
+
+        // Assert: Should return the only URL
+        assertEquals("Should return the single successful URL", singleUrl, result)
+    }
+
+    /**
      * Test failedServers ConcurrentHashMap thread-safety
      */
     @Test
