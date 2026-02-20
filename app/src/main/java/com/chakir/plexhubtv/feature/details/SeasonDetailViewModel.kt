@@ -64,8 +64,8 @@ class SeasonDetailViewModel
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
-        private val ratingKey: String = checkNotNull(savedStateHandle["ratingKey"])
-        private val serverId: String = checkNotNull(savedStateHandle["serverId"])
+        private val ratingKey: String? = savedStateHandle["ratingKey"]
+        private val serverId: String? = savedStateHandle["serverId"]
 
         private val _uiState = MutableStateFlow(SeasonDetailUiState(isLoading = true))
         val uiState: StateFlow<SeasonDetailUiState> = _uiState.asStateFlow()
@@ -80,13 +80,20 @@ class SeasonDetailViewModel
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         init {
-            loadSeason()
-            observeOfflineMode()
-            checkFavoriteStatus()
+            if (ratingKey == null || serverId == null) {
+                Timber.e("SeasonDetailViewModel: missing required navigation args (ratingKey=$ratingKey, serverId=$serverId)")
+                _uiState.update { it.copy(isLoading = false, error = "Invalid navigation arguments") }
+            } else {
+                loadSeason()
+                observeOfflineMode()
+                checkFavoriteStatus()
+            }
         }
 
         private fun checkFavoriteStatus() {
-            isFavoriteUseCase(ratingKey, serverId).safeCollectIn(
+            val rk = ratingKey ?: return
+            val sid = serverId ?: return
+            isFavoriteUseCase(rk, sid).safeCollectIn(
                 scope = viewModelScope,
                 onError = { e ->
                     Timber.e(e, "SeasonDetailViewModel: checkFavoriteStatus failed")
@@ -249,11 +256,13 @@ class SeasonDetailViewModel
         }
 
         private fun loadSeason() {
+            val rk = ratingKey ?: return
+            val sid = serverId ?: return
             viewModelScope.launch {
                 val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [SeasonDetail]: Loading start for $ratingKey on $serverId")
+                Timber.d("SCREEN [SeasonDetail]: Loading start for $rk on $sid")
                 _uiState.update { it.copy(isLoading = true, error = null) }
-                val result = getMediaDetailUseCase(ratingKey, serverId).first()
+                val result = getMediaDetailUseCase(rk, sid).first()
                 val duration = System.currentTimeMillis() - startTime
                 result.fold(
                     onSuccess = { detail ->

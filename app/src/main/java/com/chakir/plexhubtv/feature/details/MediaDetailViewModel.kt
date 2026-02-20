@@ -47,8 +47,8 @@ class MediaDetailViewModel
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
-        private val ratingKey: String = checkNotNull(savedStateHandle["ratingKey"])
-        private val serverId: String = checkNotNull(savedStateHandle["serverId"])
+        private val ratingKey: String? = savedStateHandle["ratingKey"]
+        private val serverId: String? = savedStateHandle["serverId"]
 
         private val _uiState = MutableStateFlow(MediaDetailUiState(isLoading = true))
         val uiState: StateFlow<MediaDetailUiState> = _uiState.asStateFlow()
@@ -60,12 +60,19 @@ class MediaDetailViewModel
         val errorEvents = _errorEvents.receiveAsFlow()
 
         init {
-            loadDetail()
-            checkFavoriteStatus()
+            if (ratingKey == null || serverId == null) {
+                Timber.e("MediaDetailViewModel: missing required navigation args (ratingKey=$ratingKey, serverId=$serverId)")
+                _uiState.update { it.copy(isLoading = false, error = "Invalid navigation arguments") }
+            } else {
+                loadDetail()
+                checkFavoriteStatus()
+            }
         }
 
         private fun checkFavoriteStatus() {
-            isFavoriteUseCase(ratingKey, serverId).safeCollectIn(
+            val rk = ratingKey ?: return
+            val sid = serverId ?: return
+            isFavoriteUseCase(rk, sid).safeCollectIn(
                 scope = viewModelScope,
                 onError = { e ->
                     Timber.e(e, "MediaDetailViewModel: checkFavoriteStatus failed")
@@ -272,11 +279,13 @@ class MediaDetailViewModel
         }
 
         private fun loadDetail() {
+            val rk = ratingKey ?: return
+            val sid = serverId ?: return
             viewModelScope.launch {
                 val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [Detail]: Loading start for $ratingKey on $serverId")
-                _uiState.update { it.copy(isLoading = true) }
-                val result = getMediaDetailUseCase(ratingKey, serverId).first()
+                Timber.d("SCREEN [Detail]: Loading start for $rk on $sid")
+                _uiState.update { it.copy(isLoading = true, error = null) }
+                val result = getMediaDetailUseCase(rk, sid).first()
                 val duration = System.currentTimeMillis() - startTime
                 result.fold(
                     onSuccess = { detail ->
@@ -330,8 +339,10 @@ class MediaDetailViewModel
         }
 
         private fun loadSimilarItems() {
+            val rk = ratingKey ?: return
+            val sid = serverId ?: return
             viewModelScope.launch {
-                getSimilarMediaUseCase(ratingKey, serverId)
+                getSimilarMediaUseCase(rk, sid)
                     .onSuccess { items ->
                         Timber.d("VM: Loaded ${items.size} similar items for $ratingKey")
                         _uiState.update { it.copy(similarItems = items) }

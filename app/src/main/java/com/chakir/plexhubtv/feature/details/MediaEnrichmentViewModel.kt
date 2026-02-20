@@ -33,14 +33,18 @@ class MediaEnrichmentViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val ratingKey: String = checkNotNull(savedStateHandle["ratingKey"])
-    private val serverId: String = checkNotNull(savedStateHandle["serverId"])
+    private val ratingKey: String? = savedStateHandle["ratingKey"]
+    private val serverId: String? = savedStateHandle["serverId"]
 
     private val _uiState = MutableStateFlow(MediaEnrichmentUiState())
     val uiState: StateFlow<MediaEnrichmentUiState> = _uiState.asStateFlow()
 
     init {
-        loadSimilarItems()
+        if (ratingKey == null || serverId == null) {
+            Timber.e("MediaEnrichmentViewModel: missing required navigation args (ratingKey=$ratingKey, serverId=$serverId)")
+        } else {
+            loadSimilarItems()
+        }
     }
 
     // Called by UI or Parent VM when primary media is loaded
@@ -49,9 +53,11 @@ class MediaEnrichmentViewModel @Inject constructor(
     }
 
     private fun loadSimilarItems() {
+        val rk = ratingKey ?: return
+        val sid = serverId ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingSimilar = true) }
-            getSimilarMediaUseCase(ratingKey, serverId)
+            getSimilarMediaUseCase(rk, sid)
                 .onSuccess { items ->
                     _uiState.update { it.copy(similarItems = items, isLoadingSimilar = false) }
                 }

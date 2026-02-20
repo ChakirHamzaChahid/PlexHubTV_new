@@ -17,19 +17,26 @@ class CollectionDetailViewModel
         private val getCollectionUseCase: GetCollectionUseCase,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
-        private val collectionId: String = checkNotNull(savedStateHandle["collectionId"])
-        private val serverId: String = checkNotNull(savedStateHandle["serverId"])
+        private val collectionId: String? = savedStateHandle["collectionId"]
+        private val serverId: String? = savedStateHandle["serverId"]
 
         private val _uiState = MutableStateFlow(CollectionDetailUiState(isLoading = true))
         val uiState: StateFlow<CollectionDetailUiState> = _uiState.asStateFlow()
 
         init {
-            loadCollection()
+            if (collectionId == null || serverId == null) {
+                timber.log.Timber.e("CollectionDetailViewModel: missing required navigation args (collectionId=$collectionId, serverId=$serverId)")
+                _uiState.update { it.copy(isLoading = false, error = "Invalid navigation arguments") }
+            } else {
+                loadCollection()
+            }
         }
 
         private fun loadCollection() {
+            val cid = collectionId ?: return
+            val sid = serverId ?: return
             _uiState.update { it.copy(isLoading = true) }
-            getCollectionUseCase(collectionId, serverId).safeCollectIn(
+            getCollectionUseCase(cid, sid).safeCollectIn(
                 scope = viewModelScope,
                 onError = { e ->
                     timber.log.Timber.e(e, "CollectionDetailViewModel: loadCollection failed")

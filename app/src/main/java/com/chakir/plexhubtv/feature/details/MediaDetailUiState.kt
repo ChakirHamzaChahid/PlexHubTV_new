@@ -18,6 +18,7 @@ data class MediaDetailUiState(
     val isOffline: Boolean = false,
     val isEnriching: Boolean = false, // Indicates if we are currently searching for other servers
     val isLoadingCollections: Boolean = false, // Indicates if we are currently loading collections
+    val error: String? = null,
 ) {
     // Play button waits for enrichment — Room-first is ~5ms (imperceptible), network fallback properly blocks
     val isPlayButtonLoading: Boolean

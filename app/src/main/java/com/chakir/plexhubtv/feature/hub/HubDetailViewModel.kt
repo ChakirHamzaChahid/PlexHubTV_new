@@ -44,19 +44,26 @@ class HubDetailViewModel
         private val hubsRepository: HubsRepository,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
-        private val hubKey: String = checkNotNull(savedStateHandle["hubKey"])
-        private val serverId: String = checkNotNull(savedStateHandle["serverId"])
+        private val hubKey: String? = savedStateHandle["hubKey"]
+        private val serverId: String? = savedStateHandle["serverId"]
 
         private val _uiState = MutableStateFlow(HubDetailUiState())
         val uiState = _uiState.asStateFlow()
 
         init {
-            loadHubDetail()
+            if (hubKey == null || serverId == null) {
+                Timber.e("HubDetailViewModel: missing required navigation args (hubKey=$hubKey, serverId=$serverId)")
+                _uiState.update { it.copy(error = "Invalid navigation arguments") }
+            } else {
+                loadHubDetail()
+            }
         }
 
         private fun loadHubDetail() {
+            val hk = hubKey ?: return
+            val sid = serverId ?: return
             val startTime = System.currentTimeMillis()
-            Timber.d("SCREEN [HubDetail]: Loading start for $hubKey on $serverId")
+            Timber.d("SCREEN [HubDetail]: Loading start for $hk on $sid")
             _uiState.update { it.copy(isLoading = true) }
             // In a real app, we'd fetch specific hub content.
             // For now, we reuse the detail or fetch from repository if implemented.
@@ -70,12 +77,12 @@ class HubDetailViewModel
                 }
             ) { hubs ->
                 val duration = System.currentTimeMillis() - startTime
-                val hub = hubs.find { it.serverId == serverId && it.key == hubKey }
+                val hub = hubs.find { it.serverId == sid && it.key == hk }
                 if (hub != null) {
                     Timber.i("SCREEN [HubDetail] PROGRESS: Duration=${duration}ms | HubTitle=${hub.title} | Items=${hub.items.size}")
                     _uiState.update { it.copy(hub = hub, items = hub.items, isLoading = false, error = null) }
                 } else if (hubs.isNotEmpty()) {
-                    Timber.w("SCREEN [HubDetail] NOT FOUND: hub $hubKey not in current batch after ${duration}ms")
+                    Timber.w("SCREEN [HubDetail] NOT FOUND: hub $hk not in current batch after ${duration}ms")
                     // If we have hubs but not this one, it might still be loading or missing.
                     // We stay in whatever state we are, hoping for the next emission.
                 }
