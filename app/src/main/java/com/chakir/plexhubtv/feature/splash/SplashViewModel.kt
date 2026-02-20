@@ -6,7 +6,11 @@ import com.chakir.plexhubtv.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -29,11 +33,19 @@ class SplashViewModel
         private val _navigationEvent = Channel<SplashNavigationEvent>()
         val navigationEvent = _navigationEvent.receiveAsFlow()
 
-        private var isAuthenticationComplete = false
-        private var authenticationResult: SplashNavigationEvent? = null
-        private var isVideoComplete = false
-        private var isVideoStarted = false
-        private var hasNavigated = false
+        private data class TransitionState(
+            val isVideoStarted: Boolean = false,
+            val isVideoComplete: Boolean = false,
+            val isAuthenticationComplete: Boolean = false,
+            val authenticationResult: SplashNavigationEvent? = null,
+            val hasNavigated: Boolean = false,
+        ) {
+            val readyToNavigate: Boolean
+                get() = isVideoComplete && isAuthenticationComplete &&
+                    authenticationResult != null && !hasNavigated
+        }
+
+        private val transitionState = MutableStateFlow(TransitionState())
 
         companion object {
             private const val SPLASH_TIMEOUT_MS = 5000L
@@ -42,67 +54,72 @@ class SplashViewModel
         init {
             checkAuthAndNavigate()
             startTimeoutTimer()
+            observeTransitionState()
         }
 
         fun onVideoStarted() {
             Timber.d("SPLASH: Video playback started")
-            isVideoStarted = true
+            transitionState.update { it.copy(isVideoStarted = true) }
         }
 
         fun onVideoEnded() {
             Timber.d("SPLASH: Video playback ended")
-            isVideoComplete = true
-            tryNavigate()
+            transitionState.update { it.copy(isVideoComplete = true) }
         }
 
         fun onVideoError() {
             Timber.e("SPLASH: Video playback error, forcing navigation fallback")
-            // Force immediate navigation on video error
-            isVideoComplete = true
-            tryNavigate()
+            transitionState.update { it.copy(isVideoComplete = true) }
         }
 
         private fun startTimeoutTimer() {
             viewModelScope.launch {
                 delay(SPLASH_TIMEOUT_MS)
-                if (!isVideoStarted && !hasNavigated) {
+                val state = transitionState.value
+                if (!state.isVideoStarted && !state.hasNavigated) {
                     Timber.w("SPLASH: Video did not start within timeout, forcing fallback navigation")
-                    isVideoComplete = true
-                    tryNavigate()
+                    transitionState.update { it.copy(isVideoComplete = true) }
                 }
             }
         }
 
         private fun checkAuthAndNavigate() {
             viewModelScope.launch {
-                try {
-                    val isAuthenticated = authRepository.checkAuthentication()
-                    Timber.d("SPLASH: Authentication check result = $isAuthenticated")
-
-                    authenticationResult = if (isAuthenticated) {
-                        SplashNavigationEvent.NavigateToLoading
-                    } else {
+                val result =
+                    try {
+                        val isAuthenticated = authRepository.checkAuthentication()
+                        Timber.d("SPLASH: Authentication check result = $isAuthenticated")
+                        if (isAuthenticated) {
+                            SplashNavigationEvent.NavigateToLoading
+                        } else {
+                            SplashNavigationEvent.NavigateToLogin
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "SPLASH: Error checking authentication")
                         SplashNavigationEvent.NavigateToLogin
                     }
-                } catch (e: Exception) {
-                    Timber.e(e, "SPLASH: Error checking authentication")
-                    authenticationResult = SplashNavigationEvent.NavigateToLogin
-                }
 
-                isAuthenticationComplete = true
-                tryNavigate()
+                transitionState.update {
+                    it.copy(isAuthenticationComplete = true, authenticationResult = result)
+                }
             }
         }
 
-        private fun tryNavigate() {
+        /**
+         * Reactively waits for both video and auth to complete, then navigates exactly once.
+         * Uses [MutableStateFlow.filter] + [first] to guarantee single-shot navigation
+         * without manual tryNavigate() calls.
+         */
+        private fun observeTransitionState() {
             viewModelScope.launch {
-                // Only navigate when BOTH video ended AND authentication is complete
-                val result = authenticationResult
-                if (isVideoComplete && isAuthenticationComplete && result != null && !hasNavigated) {
-                    Timber.d("SPLASH: Both video and auth complete, navigating...")
-                    hasNavigated = true
-                    _navigationEvent.send(result)
-                }
+                val state =
+                    transitionState
+                        .filter { it.readyToNavigate }
+                        .first()
+
+                Timber.d("SPLASH: Both video and auth complete, navigating...")
+                transitionState.update { it.copy(hasNavigated = true) }
+                _navigationEvent.send(state.authenticationResult!!)
             }
         }
     }
