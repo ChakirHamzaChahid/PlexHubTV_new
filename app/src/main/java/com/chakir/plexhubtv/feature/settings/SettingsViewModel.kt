@@ -3,7 +3,6 @@ package com.chakir.plexhubtv.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
-import com.chakir.plexhubtv.core.common.safeCollectIn
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -13,11 +12,16 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
 import com.chakir.plexhubtv.work.RatingSyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -54,9 +58,12 @@ class SettingsViewModel
                 initialValue = true
             )
 
+        private var settingsJob: Job? = null
+
         init {
             Timber.d("SCREEN [Settings]: Opened")
-            loadSettings()
+            loadOneTimeData()
+            observeSettings()
         }
 
         fun onAction(action: SettingsAction) {
@@ -253,89 +260,111 @@ class SettingsViewModel
             }
         }
 
-        private fun loadSettings() {
+        private fun loadOneTimeData() {
             viewModelScope.launch {
-                // Calculate cache size
-                launch {
-                    val size = settingsRepository.getCacheSize()
-                    _uiState.update { it.copy(cacheSize = formatFileSize(size)) }
-                }
-
-                // Load settings
-                settingsRepository.appTheme.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: appTheme failed") }) { themeName ->
-                    val themeEnum =
-                        try {
-                            AppTheme.valueOf(themeName)
-                        } catch (e: Exception) {
-                            AppTheme.Plex
-                        }
-                    _uiState.update { it.copy(theme = themeEnum) }
-                }
-                settingsRepository.getVideoQuality().safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: videoQuality failed") }) { quality: String ->
-                    _uiState.update { it.copy(videoQuality = quality) }
-                }
-                settingsRepository.isCacheEnabled.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: isCacheEnabled failed") }) { enabled ->
-                    _uiState.update { it.copy(isCacheEnabled = enabled) }
-                }
-                settingsRepository.defaultServer.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: defaultServer failed") }) { server ->
-                    _uiState.update { it.copy(defaultServer = server) }
-                }
-                settingsRepository.playerEngine.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: playerEngine failed") }) { engine ->
-                    _uiState.update { it.copy(playerEngine = engine) }
-                }
-
-                // Fetch Servers
-                launch {
-                    val serverStart = System.currentTimeMillis()
-                    val serversResult = authRepository.getServers()
-                    val duration = System.currentTimeMillis() - serverStart
-
-                    serversResult.getOrNull()?.let { servers ->
-                        Timber.i("SCREEN [Settings] SUCCESS: Servers loaded in ${duration}ms | Count=${servers.size}")
-                        val serverNames = servers.map { it.name }
-                        val serverMap = servers.associate { it.name to it.clientIdentifier }
-                        _uiState.update { it.copy(availableServers = serverNames, availableServersMap = serverMap) }
-                    }
-                }
-
-                settingsRepository.preferredAudioLanguage.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: preferredAudioLanguage failed") }) { lang ->
-                    _uiState.update { it.copy(preferredAudioLanguage = lang) }
-                }
-                settingsRepository.preferredSubtitleLanguage.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: preferredSubtitleLanguage failed") }) { lang ->
-                    _uiState.update { it.copy(preferredSubtitleLanguage = lang) }
-                }
-                settingsRepository.excludedServerIds.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: excludedServerIds failed") }) { excluded ->
-                    _uiState.update { it.copy(excludedServerIds = excluded) }
-                }
-                settingsRepository.getTmdbApiKey().safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: tmdbApiKey failed") }) { key ->
-                    _uiState.update { it.copy(tmdbApiKey = key ?: "") }
-                }
-                settingsRepository.getOmdbApiKey().safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: omdbApiKey failed") }) { key ->
-                    _uiState.update { it.copy(omdbApiKey = key ?: "") }
-                }
-                settingsRepository.iptvPlaylistUrl.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: iptvPlaylistUrl failed") }) { url ->
-                    _uiState.update { it.copy(iptvPlaylistUrl = url ?: "") }
-                }
-                // Rating Sync Configuration
-                settingsRepository.ratingSyncSource.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncSource failed") }) { source ->
-                    _uiState.update { it.copy(ratingSyncSource = source) }
-                }
-                settingsRepository.ratingSyncDelay.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncDelay failed") }) { delay ->
-                    _uiState.update { it.copy(ratingSyncDelay = delay) }
-                }
-                settingsRepository.ratingSyncBatchingEnabled.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncBatchingEnabled failed") }) { enabled ->
-                    _uiState.update { it.copy(ratingSyncBatchingEnabled = enabled) }
-                }
-                settingsRepository.ratingSyncDailyLimit.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncDailyLimit failed") }) { limit ->
-                    _uiState.update { it.copy(ratingSyncDailyLimit = limit) }
-                }
-                settingsRepository.ratingSyncProgressSeries.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncProgressSeries failed") }) { progress ->
-                    _uiState.update { it.copy(ratingSyncProgressSeries = progress) }
-                }
-                settingsRepository.ratingSyncProgressMovies.safeCollectIn(viewModelScope, { e -> Timber.e(e, "SettingsViewModel: ratingSyncProgressMovies failed") }) { progress ->
-                    _uiState.update { it.copy(ratingSyncProgressMovies = progress) }
+                val size = settingsRepository.getCacheSize()
+                _uiState.update { it.copy(cacheSize = formatFileSize(size)) }
+            }
+            viewModelScope.launch {
+                val serverStart = System.currentTimeMillis()
+                val serversResult = authRepository.getServers()
+                val duration = System.currentTimeMillis() - serverStart
+                serversResult.getOrNull()?.let { servers ->
+                    Timber.i("SCREEN [Settings] SUCCESS: Servers loaded in ${duration}ms | Count=${servers.size}")
+                    val serverNames = servers.map { it.name }
+                    val serverMap = servers.associate { it.name to it.clientIdentifier }
+                    _uiState.update { it.copy(availableServers = serverNames, availableServersMap = serverMap) }
                 }
             }
+        }
+
+        private fun observeSettings() {
+            settingsJob?.cancel()
+
+            // Group 1: Core settings (5 flows)
+            val core = combine(
+                settingsRepository.appTheme,
+                settingsRepository.getVideoQuality(),
+                settingsRepository.isCacheEnabled,
+                settingsRepository.defaultServer,
+                settingsRepository.playerEngine,
+            ) { theme, quality, cacheEnabled, server, engine ->
+                val themeEnum = try { AppTheme.valueOf(theme) } catch (_: Exception) { AppTheme.Plex }
+                { s: SettingsUiState ->
+                    s.copy(
+                        theme = themeEnum,
+                        videoQuality = quality,
+                        isCacheEnabled = cacheEnabled,
+                        defaultServer = server,
+                        playerEngine = engine,
+                    )
+                }
+            }
+
+            // Group 2: Language & exclusion preferences (3 flows)
+            val prefs = combine(
+                settingsRepository.preferredAudioLanguage,
+                settingsRepository.preferredSubtitleLanguage,
+                settingsRepository.excludedServerIds,
+            ) { audio, subtitle, excluded ->
+                { s: SettingsUiState ->
+                    s.copy(
+                        preferredAudioLanguage = audio,
+                        preferredSubtitleLanguage = subtitle,
+                        excludedServerIds = excluded,
+                    )
+                }
+            }
+
+            // Group 3: External API keys (3 flows)
+            val apiKeys = combine(
+                settingsRepository.getTmdbApiKey(),
+                settingsRepository.getOmdbApiKey(),
+                settingsRepository.iptvPlaylistUrl,
+            ) { tmdb, omdb, iptv ->
+                { s: SettingsUiState ->
+                    s.copy(
+                        tmdbApiKey = tmdb ?: "",
+                        omdbApiKey = omdb ?: "",
+                        iptvPlaylistUrl = iptv ?: "",
+                    )
+                }
+            }
+
+            // Group 4: Rating sync configuration (4 flows)
+            val ratingSyncConfig = combine(
+                settingsRepository.ratingSyncSource,
+                settingsRepository.ratingSyncDelay,
+                settingsRepository.ratingSyncBatchingEnabled,
+                settingsRepository.ratingSyncDailyLimit,
+            ) { source, delay, batching, limit ->
+                { s: SettingsUiState ->
+                    s.copy(
+                        ratingSyncSource = source,
+                        ratingSyncDelay = delay,
+                        ratingSyncBatchingEnabled = batching,
+                        ratingSyncDailyLimit = limit,
+                    )
+                }
+            }
+
+            // Group 5: Rating sync progress (2 flows)
+            val ratingSyncProgress = combine(
+                settingsRepository.ratingSyncProgressSeries,
+                settingsRepository.ratingSyncProgressMovies,
+            ) { series, movies ->
+                { s: SettingsUiState ->
+                    s.copy(ratingSyncProgressSeries = series, ratingSyncProgressMovies = movies)
+                }
+            }
+
+            // Single combined collector — applies all groups to the current state
+            settingsJob = combine(core, prefs, apiKeys, ratingSyncConfig, ratingSyncProgress) { c, p, a, rc, rp ->
+                { state: SettingsUiState -> rp(rc(a(p(c(state))))) }
+            }
+                .onEach { updater -> _uiState.update { current -> updater(current) } }
+                .catch { e -> Timber.e(e, "SettingsViewModel: settings observation failed") }
+                .launchIn(viewModelScope)
         }
 
         private fun formatFileSize(size: Long): String {
