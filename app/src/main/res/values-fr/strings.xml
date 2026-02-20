@@ -435,6 +435,11 @@
     <string name="settings_debug_info">Informations de débogage</string>
     <string name="settings_debug_info_subtitle">Voir les diagnostics système et les journaux</string>
 
+    <!-- Chaînes TV -->
+    <string name="settings_section_tv_channels">Chaînes TV</string>
+    <string name="settings_tv_channels_title">Chaînes TV</string>
+    <string name="settings_tv_channels_summary">Afficher la chaîne \"Continuer à regarder\" dans le lanceur Android TV</string>
+
     <!-- Compte -->
     <string name="settings_section_account">Compte</string>
     <string name="settings_logout">Déconnexion</string>

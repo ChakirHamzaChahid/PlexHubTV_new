@@ -435,6 +435,11 @@
     <string name="settings_debug_info">Debug Information</string>
     <string name="settings_debug_info_subtitle">View system diagnostics and logs</string>
 
+    <!-- TV Channels -->
+    <string name="settings_section_tv_channels">TV Channels</string>
+    <string name="settings_tv_channels_title">TV Channels</string>
+    <string name="settings_tv_channels_summary">Show Continue Watching channel in Android TV launcher</string>
+
     <!-- Account -->
     <string name="settings_section_account">Account</string>
     <string name="settings_logout">Logout</string>

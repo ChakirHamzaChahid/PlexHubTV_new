@@ -60,6 +60,9 @@ class SettingsDataStore
         private val RATING_SYNC_PROGRESS_MOVIES = stringPreferencesKey("rating_sync_progress_movies")
         private val RATING_SYNC_LAST_RUN_DATE = stringPreferencesKey("rating_sync_last_run_date")
 
+        // TV Channels Configuration
+        private val TV_CHANNELS_ENABLED = stringPreferencesKey("tv_channels_enabled")
+
         init {
             // Migration: move sensitive data from DataStore to EncryptedSharedPreferences
             CoroutineScope(Dispatchers.IO).launch {
@@ -197,6 +200,11 @@ class SettingsDataStore
         val ratingSyncLastRunDate: Flow<String?> =
             dataStore.data
                 .map { preferences -> preferences[RATING_SYNC_LAST_RUN_DATE] }
+
+        // TV Channels Configuration Flow
+        val isTvChannelsEnabled: Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[TV_CHANNELS_ENABLED]?.toBoolean() ?: true }
 
         suspend fun saveToken(token: String) {
             // Use SecurePreferencesManager for encrypted storage
@@ -416,6 +424,12 @@ class SettingsDataStore
             dataStore.edit { preferences ->
                 preferences[RATING_SYNC_PROGRESS_SERIES] = "0"
                 preferences[RATING_SYNC_PROGRESS_MOVIES] = "0"
+            }
+        }
+
+        suspend fun setTvChannelsEnabled(enabled: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[TV_CHANNELS_ENABLED] = enabled.toString()
             }
         }
 
