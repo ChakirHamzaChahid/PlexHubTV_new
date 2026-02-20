@@ -16,6 +16,8 @@ import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
+import com.chakir.plexhubtv.work.ChannelSyncWorker
+import com.chakir.plexhubtv.data.util.TvChannelManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -65,6 +67,8 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
 
     @Inject lateinit var authRepository: AuthRepository
 
+    @Inject lateinit var tvChannelManager: TvChannelManager
+
     private val _appReady = MutableStateFlow(false)
     val appReady: StateFlow<Boolean> = _appReady.asStateFlow()
 
@@ -83,6 +87,15 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
         initializeAppInParallel()
 
         setupBackgroundSync()
+
+        // Initialize TV Channel (if enabled)
+        appScope.launch {
+            try {
+                tvChannelManager.createChannelIfNeeded()
+            } catch (e: Exception) {
+                Timber.e(e, "TV Channel: Initialization failed")
+            }
+        }
     }
 
     /**
@@ -248,6 +261,24 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
             ExistingPeriodicWorkPolicy.KEEP,
             collectionSyncRequest,
         )
+
+        // 4. Schedule periodic channel sync (every 3 hours)
+        val channelSyncRequest = PeriodicWorkRequestBuilder<ChannelSyncWorker>(
+            repeatInterval = 3,
+            repeatIntervalTimeUnit = TimeUnit.HOURS
+        ).setConstraints(
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "ChannelSync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            channelSyncRequest
+        )
+
+        Timber.d("TV Channel: Periodic worker scheduled (every 3h)")
     }
 
     override fun newImageLoader(): ImageLoader {
