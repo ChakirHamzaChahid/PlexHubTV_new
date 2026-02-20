@@ -11,7 +11,8 @@
         Android NSC does not support IP range wildcards, so HTTP-only servers on private
         IPs require HTTPS migration or will be blocked.
     -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- TODO: Re-enable cleartext blocking after debugging network issues -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
