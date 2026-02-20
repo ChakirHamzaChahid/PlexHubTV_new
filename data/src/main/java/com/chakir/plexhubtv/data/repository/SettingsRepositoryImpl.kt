@@ -153,4 +153,11 @@ class SettingsRepositoryImpl
         override suspend fun resetRatingSyncProgress() {
             settingsDataStore.resetRatingSyncProgress()
         }
+
+        // TV Channels
+        override val isTvChannelsEnabled: Flow<Boolean> = settingsDataStore.isTvChannelsEnabled
+
+        override suspend fun setTvChannelsEnabled(enabled: Boolean) {
+            settingsDataStore.setTvChannelsEnabled(enabled)
+        }
     }

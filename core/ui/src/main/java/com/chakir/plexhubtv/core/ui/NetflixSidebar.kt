@@ -43,12 +43,13 @@ fun NetflixSidebar(
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val sidebarDescription = stringResource(R.string.sidebar_navigation_description)
     Column(
         modifier = modifier
             .fillMaxHeight()
             .width(80.dp)
             .testTag("sidebar_menu")
-            .semantics { contentDescription = stringResource(R.string.sidebar_navigation_description) }
+            .semantics { contentDescription = sidebarDescription }
             .background(NetflixBlack.copy(alpha = 0.95f))
             .padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -224,13 +225,14 @@ private fun SidebarProfileAvatar(
 
     val borderColor = if (isFocused) Color.White else Color.Transparent
     val scale = if (isFocused) 1.1f else 1f
+    val profileDescription = stringResource(R.string.sidebar_profile_description)
 
     Box(
         modifier = Modifier
             .size(40.dp)
             .scale(scale)
             .testTag(testTag)
-            .semantics { contentDescription = stringResource(R.string.sidebar_profile_description) }
+            .semantics { contentDescription = profileDescription }
             .clip(CircleShape)
             .background(
                 brush = androidx.compose.ui.graphics.Brush.linearGradient(

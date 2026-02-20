@@ -14,9 +14,11 @@ import com.chakir.plexhubtv.work.RatingSyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -36,11 +38,20 @@ class SettingsViewModel
         private val workManager: WorkManager,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
     ) : ViewModel() {
+        @Inject
+        lateinit var tvChannelManager: com.chakir.plexhubtv.data.util.TvChannelManager
         private val _uiState = MutableStateFlow(SettingsUiState())
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
         private val _navigationEvents = Channel<SettingsNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
+
+        val isTvChannelsEnabled: StateFlow<Boolean> = settingsRepository.isTvChannelsEnabled
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = true
+            )
 
         init {
             Timber.d("SCREEN [Settings]: Opened")
@@ -223,6 +234,20 @@ class SettingsViewModel
                         settingsRepository.resetRatingSyncProgress()
                         Timber.d("Rating sync progress reset")
                     }
+                }
+            }
+        }
+
+        fun setTvChannelsEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                settingsRepository.setTvChannelsEnabled(enabled)
+
+                // Trigger immediate action based on state
+                if (!enabled) {
+                    tvChannelManager.deleteChannel()
+                } else {
+                    tvChannelManager.createChannelIfNeeded()
+                    tvChannelManager.updateContinueWatching()
                 }
             }
         }

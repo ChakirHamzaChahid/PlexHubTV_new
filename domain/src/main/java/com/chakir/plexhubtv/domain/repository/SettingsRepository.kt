@@ -101,4 +101,9 @@ interface SettingsRepository {
     suspend fun saveRatingSyncLastRunDate(date: String)
 
     suspend fun resetRatingSyncProgress()
+
+    // --- TV Channels ---
+    val isTvChannelsEnabled: Flow<Boolean>
+
+    suspend fun setTvChannelsEnabled(enabled: Boolean)
 }

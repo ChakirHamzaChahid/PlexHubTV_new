@@ -46,6 +46,7 @@ fun SettingsRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
+    val isTvChannelsEnabled by viewModel.isTvChannelsEnabled.collectAsState()
 
     LaunchedEffect(events) {
         events.collect { event ->
@@ -61,6 +62,8 @@ fun SettingsRoute(
         state = uiState,
         onAction = viewModel::onAction,
         onNavigateToDebug = onNavigateToDebug,
+        isTvChannelsEnabled = isTvChannelsEnabled,
+        onTvChannelsEnabledChange = viewModel::setTvChannelsEnabled,
     )
 }
 
@@ -70,6 +73,8 @@ fun SettingsScreen(
     state: SettingsUiState,
     onAction: (SettingsAction) -> Unit,
     onNavigateToDebug: () -> Unit = {},
+    isTvChannelsEnabled: Boolean = true,
+    onTvChannelsEnabledChange: (Boolean) -> Unit = {},
 ) {
     // Dialog States
     var showQualityDialog by remember { mutableStateOf(false) }
@@ -226,6 +231,18 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
+            }
+
+            // --- TV Channels ---
+            item {
+                SettingsSection(stringResource(R.string.settings_tv_channels_title)) {
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_tv_channels_title),
+                        subtitle = stringResource(R.string.settings_tv_channels_summary),
+                        isChecked = isTvChannelsEnabled,
+                        onCheckedChange = onTvChannelsEnabledChange
+                    )
+                }
             }
 
             // --- Data & Sync ---
