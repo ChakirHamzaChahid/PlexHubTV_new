@@ -3,7 +3,7 @@ package com.chakir.plexhubtv.feature.player.controller
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.util.WatchNextHelper
-import com.chakir.plexhubtv.data.util.TvChannelManager
+import com.chakir.plexhubtv.domain.service.TvChannelManager
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import com.chakir.plexhubtv.domain.usecase.PrefetchNextEpisodeUseCase
 import kotlinx.coroutines.CoroutineScope

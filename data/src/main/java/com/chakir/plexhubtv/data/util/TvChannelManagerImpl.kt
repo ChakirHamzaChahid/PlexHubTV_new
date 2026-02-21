@@ -23,11 +23,11 @@ import javax.inject.Singleton
  * (which handles single-item Watch Next).
  */
 @Singleton
-class TvChannelManager @Inject constructor(
+class TvChannelManagerImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val onDeckRepository: OnDeckRepository,
     private val settingsDataStore: SettingsDataStore
-) {
+) : com.chakir.plexhubtv.domain.service.TvChannelManager {
     companion object {
         const val CHANNEL_NAME = "PlexHubTV - Continue Watching"
         const val CHANNEL_DESCRIPTION = "Resume watching your favorite content"
@@ -38,7 +38,7 @@ class TvChannelManager @Inject constructor(
      * Creates the TV Channel if it doesn't exist.
      * @return Channel ID or null if creation failed or disabled
      */
-    suspend fun createChannelIfNeeded(): Long? {
+    override suspend fun createChannelIfNeeded(): Long? {
         if (!settingsDataStore.isTvChannelsEnabled.first()) {
             Timber.d("TV Channel: Creation skipped (disabled in settings)")
             return null
@@ -87,7 +87,7 @@ class TvChannelManager @Inject constructor(
      * - Deletes old programs
      * - Inserts new programs
      */
-    suspend fun updateContinueWatching() {
+    override suspend fun updateContinueWatching() {
         if (!settingsDataStore.isTvChannelsEnabled.first()) {
             Timber.d("TV Channel: Update skipped (disabled in settings)")
             return
@@ -125,7 +125,7 @@ class TvChannelManager @Inject constructor(
     /**
      * Deletes the channel and all its programs.
      */
-    suspend fun deleteChannel() {
+    override suspend fun deleteChannel() {
         try {
             val channelId = findExistingChannelId() ?: run {
                 Timber.d("TV Channel: Delete skipped (channel not found)")

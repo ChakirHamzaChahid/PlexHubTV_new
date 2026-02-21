@@ -18,7 +18,7 @@ import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
 import com.chakir.plexhubtv.work.ChannelSyncWorker
-import com.chakir.plexhubtv.data.util.TvChannelManager
+import com.chakir.plexhubtv.domain.service.TvChannelManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope

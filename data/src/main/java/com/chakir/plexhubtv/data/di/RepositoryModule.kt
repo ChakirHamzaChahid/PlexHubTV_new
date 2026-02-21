@@ -145,4 +145,10 @@ abstract class RepositoryModule {
     abstract fun bindResolveEpisodeSourcesUseCase(
         impl: com.chakir.plexhubtv.data.usecase.ResolveEpisodeSourcesUseCaseImpl,
     ): com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase
+
+    @Binds
+    @Singleton
+    abstract fun bindTvChannelManager(
+        impl: com.chakir.plexhubtv.data.util.TvChannelManagerImpl,
+    ): com.chakir.plexhubtv.domain.service.TvChannelManager
 }
