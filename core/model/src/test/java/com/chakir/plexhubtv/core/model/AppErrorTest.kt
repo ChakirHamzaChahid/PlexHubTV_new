@@ -208,4 +208,30 @@ class AppErrorTest {
         // Storage errors are not marked as retryable by default
         assertThat(error.isRetryable()).isFalse()
     }
+
+    // --- New tests: AppError extends Exception ---
+
+    @Test
+    fun `AppError is an instance of Exception`() {
+        val error = AppError.Network.NoConnection("test")
+        assertThat(error).isInstanceOf(Exception::class.java)
+    }
+
+    @Test
+    fun `AppError can be thrown and caught as Exception`() {
+        val caught = try {
+            throw AppError.Auth.InvalidToken("expired")
+        } catch (e: Exception) {
+            e
+        }
+        assertThat(caught).isInstanceOf(AppError.Auth.InvalidToken::class.java)
+        assertThat(caught.message).isEqualTo("expired")
+    }
+
+    @Test
+    fun `toAppError returns same instance for AppError input`() {
+        val original = AppError.Media.NotFound("test")
+        val result = original.toAppError()
+        assertThat(result).isSameInstanceAs(original)
+    }
 }
