@@ -1,9 +1,8 @@
 package com.chakir.plexhubtv.data.repository
 
-import com.chakir.plexhubtv.core.common.exception.AuthException
-import com.chakir.plexhubtv.core.common.exception.NetworkException
-import com.chakir.plexhubtv.core.common.exception.ServerUnavailableException
+import com.chakir.plexhubtv.core.common.safeApiCall
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.network.ConnectionManager
@@ -18,9 +17,7 @@ import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import retrofit2.HttpException
 import timber.log.Timber
-import java.io.IOException
 import javax.inject.Inject
 
 class PlaybackRepositoryImpl
@@ -41,31 +38,19 @@ class PlaybackRepositoryImpl
             media: MediaItem,
             isWatched: Boolean,
         ): Result<Unit> {
-            return try {
-                val client = getClient(media.serverId) ?: return Result.failure(ServerUnavailableException(media.serverId))
+            val client = getClient(media.serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server ${media.serverId} unavailable"))
+
+            return safeApiCall("toggleWatchStatus") {
                 val response = if (isWatched) client.scrobble(media.ratingKey) else client.unscrobble(media.ratingKey)
 
-                if (response.isSuccessful) {
-                    // Invalidate cache to reflect new watch status immediately
-                    val cacheKey = "${media.serverId}:/library/metadata/${media.ratingKey}"
-                    apiCache.evict(cacheKey)
-                    Result.success(Unit)
-                } else {
-                    Result.failure(Exception("API Error: ${response.code()}"))
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("API Error: ${response.code()}")
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Network error toggling watch status for ${media.ratingKey}")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} toggling watch status for ${media.ratingKey}")
-                if (e.code() == 401) {
-                    Result.failure(AuthException("Unauthorized", e))
-                } else {
-                    Result.failure(e)
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Error toggling watch status for ${media.ratingKey}")
-                Result.failure(e)
+
+                // Invalidate cache to reflect new watch status immediately
+                val cacheKey = "${media.serverId}:/library/metadata/${media.ratingKey}"
+                apiCache.evict(cacheKey)
             }
         }
 
@@ -73,8 +58,10 @@ class PlaybackRepositoryImpl
             media: MediaItem,
             positionMs: Long,
         ): Result<Unit> {
-            return try {
-                val client = getClient(media.serverId) ?: return Result.failure(ServerUnavailableException(media.serverId))
+            val client = getClient(media.serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server ${media.serverId} unavailable"))
+
+            val result = safeApiCall("updatePlaybackProgress") {
                 val response =
                     client.updateTimeline(
                         ratingKey = media.ratingKey,
@@ -83,36 +70,28 @@ class PlaybackRepositoryImpl
                         durationMs = media.durationMs ?: 0L,
                     )
 
-                if (response.isSuccessful) {
-                    // Invalidate cache so that "Resume" position is updated
-                    val cacheKey = "${media.serverId}:/library/metadata/${media.ratingKey}"
-                    apiCache.evict(cacheKey)
-                    Result.success(Unit)
-                } else {
-                    Result.failure(Exception("API Error: ${response.code()}"))
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("API Error: ${response.code()}")
                 }
-            } catch (e: IOException) {
-                Timber.w("Network error updating progress for ${media.ratingKey}", e)
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.w("HTTP error ${e.code()} updating progress for ${media.ratingKey}", e)
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Error updating progress for ${media.ratingKey}")
-                Result.failure(e)
-            } finally {
-                // Update local DB regardless of network status (Optimistic UI / Offline support)
-                try {
-                    mediaDao.updateProgress(
-                        ratingKey = media.ratingKey,
-                        serverId = media.serverId,
-                        viewOffset = positionMs,
-                        lastViewedAt = System.currentTimeMillis(),
-                    )
-                } catch (e: Exception) {
-                    Timber.e(e, "Failed to update local progress for ${media.ratingKey}")
-                }
+
+                // Invalidate cache so that "Resume" position is updated
+                val cacheKey = "${media.serverId}:/library/metadata/${media.ratingKey}"
+                apiCache.evict(cacheKey)
             }
+
+            // Update local DB regardless of network status (Optimistic UI / Offline support)
+            try {
+                mediaDao.updateProgress(
+                    ratingKey = media.ratingKey,
+                    serverId = media.serverId,
+                    viewOffset = positionMs,
+                    lastViewedAt = System.currentTimeMillis(),
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to update local progress for ${media.ratingKey}")
+            }
+
+            return result
         }
 
         override suspend fun getNextMedia(currentItem: MediaItem): MediaItem? {
@@ -179,8 +158,10 @@ class PlaybackRepositoryImpl
             audioStreamId: String?,
             subtitleStreamId: String?,
         ): Result<Unit> {
-            return try {
-                val client = getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
+            val client = getClient(serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
+
+            return safeApiCall("updateStreamSelection") {
                 val url = "${client.baseUrl}library/parts/$partId"
                 val response =
                     api.putStreamSelection(
@@ -189,16 +170,10 @@ class PlaybackRepositoryImpl
                         subtitleStreamID = subtitleStreamId,
                         token = client.server.accessToken ?: "",
                     )
-                if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("API Error: ${response.code()}"))
-            } catch (e: IOException) {
-                Timber.e(e, "Network error updating stream selection for part $partId")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} updating stream selection for part $partId")
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Error updating stream selection for part $partId")
-                Result.failure(e)
+
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("API Error: ${response.code()}")
+                }
             }
         }
 
