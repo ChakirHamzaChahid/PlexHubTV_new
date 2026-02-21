@@ -1,7 +1,9 @@
 package com.chakir.plexhubtv.data.repository
 
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Server
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
@@ -42,7 +44,8 @@ class SyncRepositoryImpl
                     Timber.d("Starting sync for server: ${server.name}")
                     // 1. Get Libraries
                     val librariesResult = libraryRepository.getLibraries(server.clientIdentifier)
-                    val libraries = librariesResult.getOrNull() ?: return@withContext Result.failure(Exception("Failed to fetch libraries for ${server.name}"))
+                    val libraries = librariesResult.getOrNull()
+                        ?: return@withContext Result.failure(AppError.Network.ServerError("Failed to fetch libraries for ${server.name}"))
 
                     // 2. Filter to syncable libraries (movies and shows)
                     libraries.forEach { Timber.d("Found library: ${it.title} (type=${it.type})") }
@@ -74,7 +77,7 @@ class SyncRepositoryImpl
                     Result.success(Unit)
                 } catch (e: Exception) {
                     Timber.e("Critical failure syncing server ${server.name}: ${e.message}")
-                    Result.failure(e)
+                    Result.failure(e.toAppError())
                 }
             }
 
@@ -92,7 +95,8 @@ class SyncRepositoryImpl
         ): Result<Unit> =
             withContext(Dispatchers.IO) {
                 try {
-                    val baseUrl = connectionManager.findBestConnection(server) ?: return@withContext Result.failure(Exception("No connection to ${server.name}"))
+                    val baseUrl = connectionManager.findBestConnection(server)
+                        ?: return@withContext Result.failure(AppError.Network.NoConnection("No connection to ${server.name}"))
                     val client = PlexClient(server, api, baseUrl)
 
                     var start = 0
@@ -170,7 +174,7 @@ class SyncRepositoryImpl
                         } else {
                             val errorDuration = System.currentTimeMillis() - startTime
                             Timber.e("SYNC FAILED: lib=$libraryKey code=${response.code()} duration=${errorDuration}ms")
-                            return@withContext Result.failure(Exception("Failed to fetch page: ${response.code()}"))
+                            return@withContext Result.failure(AppError.Network.ServerError("Failed to fetch page: ${response.code()}"))
                         }
                     }
 
@@ -178,7 +182,7 @@ class SyncRepositoryImpl
                     Result.success(Unit)
                 } catch (e: Exception) {
                     Timber.e("Error in syncLibrary $libraryKey: ${e.message}")
-                    Result.failure(e)
+                    Result.failure(e.toAppError())
                 }
             }
     }
