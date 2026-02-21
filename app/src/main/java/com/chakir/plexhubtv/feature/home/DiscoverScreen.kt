@@ -80,6 +80,24 @@ fun HomeRoute(
     val errorEvents = viewModel.errorEvents
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // derivedStateOf: only recomputes when the underlying lists actually change,
+    // preventing child recompositions when unrelated uiState fields (isLoading, etc.) change.
+    val continueWatchingItems by remember {
+        derivedStateOf { uiState.onDeck.filter { (it.playbackPositionMs ?: 0) > 0 } }
+    }
+    val hasContinueWatching by remember {
+        derivedStateOf { continueWatchingItems.isNotEmpty() }
+    }
+    val hasMyList by remember {
+        derivedStateOf { uiState.favorites.isNotEmpty() }
+    }
+    val isFirstHub by remember {
+        derivedStateOf { !hasContinueWatching && !hasMyList }
+    }
+    val heroItems by remember {
+        derivedStateOf { uiState.onDeck.take(10) }
+    }
+
     // Handle navigation events
     LaunchedEffect(events) {
         events.collect { event ->
@@ -102,6 +120,11 @@ fun HomeRoute(
 
     DiscoverScreen(
         state = uiState,
+        continueWatchingItems = continueWatchingItems,
+        hasContinueWatching = hasContinueWatching,
+        hasMyList = hasMyList,
+        isFirstHub = isFirstHub,
+        heroItems = heroItems,
         onAction = viewModel::onAction,
         snackbarHostState = snackbarHostState,
         onScrollStateChanged = onScrollStateChanged,
@@ -111,6 +134,11 @@ fun HomeRoute(
 @Composable
 fun DiscoverScreen(
     state: HomeUiState,
+    continueWatchingItems: List<MediaItem>,
+    hasContinueWatching: Boolean,
+    hasMyList: Boolean,
+    isFirstHub: Boolean,
+    heroItems: List<MediaItem>,
     onAction: (HomeAction) -> Unit,
     snackbarHostState: SnackbarHostState,
     onScrollStateChanged: (Boolean) -> Unit = {},
@@ -137,9 +165,13 @@ fun DiscoverScreen(
                 state.onDeck.isEmpty() && state.hubs.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
                 else ->
                     NetflixHomeContent(
-                        onDeck = state.onDeck,
                         hubs = state.hubs,
                         favorites = state.favorites,
+                        continueWatchingItems = continueWatchingItems,
+                        hasContinueWatching = hasContinueWatching,
+                        hasMyList = hasMyList,
+                        isFirstHub = isFirstHub,
+                        heroItems = heroItems,
                         onAction = onAction,
                         onScrollStateChanged = onScrollStateChanged,
                     )

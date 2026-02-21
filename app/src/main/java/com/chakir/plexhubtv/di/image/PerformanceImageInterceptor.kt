@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.di.image
 
 import coil3.intercept.Interceptor
 import coil3.request.ImageResult
+import com.chakir.plexhubtv.BuildConfig
 import com.chakir.plexhubtv.core.common.PerformanceTracker
 import com.chakir.plexhubtv.core.common.PerfCategory
 import timber.log.Timber
@@ -15,6 +16,8 @@ class PerformanceImageInterceptor @Inject constructor(
 ) : Interceptor {
 
     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
+        if (!BuildConfig.DEBUG) return chain.proceed()
+
         val request = chain.request
         val url = request.data.toString()
 

@@ -1,15 +1,15 @@
 package com.chakir.plexhubtv.feature.player.controller
 
 import androidx.media3.exoplayer.ExoPlayer
-import com.chakir.plexhubtv.core.database.TrackPreferenceDao
-import com.chakir.plexhubtv.core.database.TrackPreferenceEntity
 import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.AudioTrack
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.SubtitleStream
 import com.chakir.plexhubtv.core.model.SubtitleTrack
+import com.chakir.plexhubtv.domain.model.TrackPreference
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import com.chakir.plexhubtv.domain.repository.TrackPreferenceRepository
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -22,7 +22,7 @@ class PlayerTrackController
     @Inject
     constructor(
         private val settingsRepository: SettingsRepository,
-        private val trackPreferenceDao: TrackPreferenceDao,
+        private val trackPreferenceRepository: TrackPreferenceRepository,
         private val playbackRepository: PlaybackRepository,
     ) {
         /**
@@ -41,7 +41,7 @@ class PlayerTrackController
 
             if (finalAudioStreamId == null || finalSubtitleStreamId == null) {
                 // Level 2: DB
-                val dbPref = trackPreferenceDao.getPreferenceSync(ratingKey, serverId)
+                val dbPref = trackPreferenceRepository.getPreference(ratingKey, serverId)
 
                 // Audio
                 if (finalAudioStreamId == null) {
@@ -104,19 +104,15 @@ class PlayerTrackController
             // 1. Persistence
             scope.launch {
                 try {
-                    var pref = trackPreferenceDao.getPreferenceSync(currentItem.ratingKey, currentItem.serverId)
-                    if (pref == null) {
-                        pref =
-                            TrackPreferenceEntity(
-                                currentItem.ratingKey,
-                                currentItem.serverId,
-                                audioStreamId = track.streamId,
-                                subtitleStreamId = currentSubtitleStreamId,
-                            )
-                    } else {
-                        pref = pref.copy(audioStreamId = track.streamId, lastUpdated = System.currentTimeMillis())
-                    }
-                    trackPreferenceDao.upsertPreference(pref)
+                    val existing = trackPreferenceRepository.getPreference(currentItem.ratingKey, currentItem.serverId)
+                    trackPreferenceRepository.savePreference(
+                        TrackPreference(
+                            ratingKey = currentItem.ratingKey,
+                            serverId = currentItem.serverId,
+                            audioStreamId = track.streamId,
+                            subtitleStreamId = existing?.subtitleStreamId ?: currentSubtitleStreamId,
+                        )
+                    )
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to persist audio preference")
                 }
@@ -227,19 +223,15 @@ class PlayerTrackController
             // 1. Persistence
             scope.launch {
                 try {
-                    var pref = trackPreferenceDao.getPreferenceSync(currentItem.ratingKey, currentItem.serverId)
-                    if (pref == null) {
-                        pref =
-                            TrackPreferenceEntity(
-                                currentItem.ratingKey,
-                                currentItem.serverId,
-                                audioStreamId = currentAudioStreamId,
-                                subtitleStreamId = subStreamIdToSave,
-                            )
-                    } else {
-                        pref = pref.copy(subtitleStreamId = subStreamIdToSave, lastUpdated = System.currentTimeMillis())
-                    }
-                    trackPreferenceDao.upsertPreference(pref)
+                    val existing = trackPreferenceRepository.getPreference(currentItem.ratingKey, currentItem.serverId)
+                    trackPreferenceRepository.savePreference(
+                        TrackPreference(
+                            ratingKey = currentItem.ratingKey,
+                            serverId = currentItem.serverId,
+                            audioStreamId = existing?.audioStreamId ?: currentAudioStreamId,
+                            subtitleStreamId = subStreamIdToSave,
+                        )
+                    )
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to persist subtitle preference")
                 }

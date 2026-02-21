@@ -1,12 +1,12 @@
 package com.chakir.plexhubtv.feature.player.controller
 
-import com.chakir.plexhubtv.core.database.TrackPreferenceDao
-import com.chakir.plexhubtv.core.database.TrackPreferenceEntity
 import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaPart
 import com.chakir.plexhubtv.core.model.SubtitleStream
+import com.chakir.plexhubtv.domain.model.TrackPreference
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import com.chakir.plexhubtv.domain.repository.TrackPreferenceRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.every
@@ -17,13 +17,13 @@ import org.junit.Test
 
 class PlayerTrackControllerTest {
     private val settingsRepository: SettingsRepository = mockk()
-    private val trackPreferenceDao: TrackPreferenceDao = mockk()
+    private val trackPreferenceRepository: TrackPreferenceRepository = mockk()
     private val playbackRepository: PlaybackRepository = mockk()
 
     private val controller =
         PlayerTrackController(
             settingsRepository,
-            trackPreferenceDao,
+            trackPreferenceRepository,
             playbackRepository,
         )
 
@@ -68,13 +68,12 @@ class PlayerTrackControllerTest {
     fun `resolveInitialTracks - falls back to DB if arguments are null`() =
         runTest {
             // Mock DB
-            coEvery { trackPreferenceDao.getPreferenceSync("1", "s1") } returns
-                TrackPreferenceEntity(
+            coEvery { trackPreferenceRepository.getPreference("1", "s1") } returns
+                TrackPreference(
                     ratingKey = "1",
                     serverId = "s1",
                     audioStreamId = "dbAudio",
                     subtitleStreamId = "dbSub",
-                    lastUpdated = 0,
                 )
 
             val result =
@@ -94,7 +93,7 @@ class PlayerTrackControllerTest {
     fun `resolveInitialTracks - falls back to Settings if DB is empty`() =
         runTest {
             // Mock DB empty
-            coEvery { trackPreferenceDao.getPreferenceSync(any(), any()) } returns null
+            coEvery { trackPreferenceRepository.getPreference(any(), any()) } returns null
 
             // Mock Settings
             every { settingsRepository.preferredAudioLanguage } returns flowOf("fr")
@@ -118,7 +117,7 @@ class PlayerTrackControllerTest {
     fun `resolveInitialTracks - falls back to Plex defaults (selected flag) if no pref`() =
         runTest {
             // Mock DB empty
-            coEvery { trackPreferenceDao.getPreferenceSync(any(), any()) } returns null
+            coEvery { trackPreferenceRepository.getPreference(any(), any()) } returns null
 
             // Mock Settings empty
             every { settingsRepository.preferredAudioLanguage } returns flowOf(null)

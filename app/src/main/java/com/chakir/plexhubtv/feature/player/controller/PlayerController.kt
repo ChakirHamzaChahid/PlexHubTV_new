@@ -19,6 +19,7 @@ import com.chakir.plexhubtv.feature.player.ExoStreamMetadata
 import com.chakir.plexhubtv.feature.player.PlayerFactory
 import com.chakir.plexhubtv.core.common.handler.GlobalCoroutineExceptionHandler
 import com.chakir.plexhubtv.core.di.DefaultDispatcher
+import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.feature.player.PlayerUiState
 import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
 import kotlinx.coroutines.*
@@ -37,13 +38,13 @@ class PlayerController @Inject constructor(
     private val playbackRepository: PlaybackRepository,
     private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
     private val settingsRepository: SettingsRepository,
-    private val trackPreferenceDao: com.chakir.plexhubtv.core.database.TrackPreferenceDao,
     private val chapterMarkerManager: ChapterMarkerManager,
     private val playerTrackController: PlayerTrackController,
     private val playerScrobbler: PlayerScrobbler,
     private val playerStatsTracker: PlayerStatsTracker,
     private val transcodeUrlBuilder: TranscodeUrlBuilder,
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
+    private val connectionManager: ConnectionManager,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     private val globalHandler: GlobalCoroutineExceptionHandler,
 ) {
@@ -80,7 +81,8 @@ class PlayerController @Inject constructor(
             setCustomKey("is_direct_url", (startDirectUrl != null).toString())
         }
 
-        initializePlayer(application)
+        val isRelay = isLikelyRelay(startServerId, startDirectUrl)
+        initializePlayer(application, isRelay)
 
         playerScrobbler.start(
             scope = scope,
@@ -179,8 +181,28 @@ class PlayerController @Inject constructor(
         }
     }
 
-    private fun initializePlayer(context: Application) {
-        player = playerFactory.createExoPlayer(context).apply {
+    /**
+     * Determines if the connection for this server is likely relay/remote.
+     * Uses ConnectionManager's cached URL: private IPs → LAN, everything else → relay.
+     */
+    private fun isLikelyRelay(serverId: String?, directUrl: String?): Boolean {
+        // External URLs (IPTV, etc.) — unknown network, use conservative buffers
+        if (directUrl != null) return true
+        if (serverId == null) return true
+
+        val cachedUrl = connectionManager.getCachedUrl(serverId) ?: return true
+        val host = android.net.Uri.parse(cachedUrl).host ?: return true
+
+        // RFC1918 private IPs → LAN
+        return !(host.startsWith("192.168.") ||
+                host.startsWith("10.") ||
+                host.startsWith("172.") ||
+                host == "localhost" ||
+                host == "127.0.0.1")
+    }
+
+    private fun initializePlayer(context: Application, isRelay: Boolean = false) {
+        player = playerFactory.createExoPlayer(context, isRelay).apply {
             addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     _uiState.update { it.copy(isPlaying = isPlaying) }

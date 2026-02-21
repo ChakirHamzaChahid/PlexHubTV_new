@@ -56,6 +56,7 @@ import com.chakir.plexhubtv.core.ui.showError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,6 +104,34 @@ fun LibraryRoute(
     val pagedItems = viewModel.pagedItems.collectAsLazyPagingItems()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // derivedStateOf: recompute only when the relevant fields change,
+    // not on every uiState change (22 fields)
+    val visibleTabs by remember {
+        derivedStateOf { LibraryTab.values().filter { it == LibraryTab.Browse } }
+    }
+    val selectedTabIndex by remember {
+        derivedStateOf { visibleTabs.indexOf(state.selectedTab).coerceAtLeast(0) }
+    }
+    val showSidebar by remember {
+        derivedStateOf { state.currentSort == "Title" }
+    }
+    val serverLabel by remember {
+        derivedStateOf {
+            if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server: All"
+        }
+    }
+    val isServerFiltered by remember {
+        derivedStateOf { state.selectedServerFilter != null }
+    }
+    val genreLabel by remember {
+        derivedStateOf {
+            if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Genre: All"
+        }
+    }
+    val isGenreFiltered by remember {
+        derivedStateOf { state.selectedGenre != null }
+    }
+
     // Handle navigation events
     LaunchedEffect(viewModel.navigationEvents) {
         viewModel.navigationEvents.collect { event ->
@@ -130,7 +159,14 @@ fun LibraryRoute(
         onAction = viewModel::onAction,
         scrollRequest = state.initialScrollIndex,
         onScrollConsumed = { },
-        snackbarHostState = snackbarHostState
+        snackbarHostState = snackbarHostState,
+        visibleTabs = visibleTabs,
+        selectedTabIndex = selectedTabIndex,
+        showSidebar = showSidebar,
+        serverLabel = serverLabel,
+        isServerFiltered = isServerFiltered,
+        genreLabel = genreLabel,
+        isGenreFiltered = isGenreFiltered,
     )
 }
 
@@ -143,6 +179,13 @@ fun LibrariesScreen(
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
     snackbarHostState: SnackbarHostState,
+    visibleTabs: List<LibraryTab> = emptyList(),
+    selectedTabIndex: Int = 0,
+    showSidebar: Boolean = false,
+    serverLabel: String = "Server: All",
+    isServerFiltered: Boolean = false,
+    genreLabel: String = "Genre: All",
+    isGenreFiltered: Boolean = false,
 ) {
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
@@ -198,19 +241,13 @@ fun LibrariesScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Filter Buttons
-                            val serverLabel = if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server: All"
-                            val isServerFiltered = state.selectedServerFilter != null
-
+                            // Filter Buttons (derived via derivedStateOf at Route level)
                             FilterButton(
                                 text = serverLabel,
                                 isActive = isServerFiltered,
                                 onClick = { onAction(LibraryAction.OpenServerFilter) },
                                 testTag = "library_filter_server"
                             )
-
-                            val genreLabel = if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Genre: All"
-                            val isGenreFiltered = state.selectedGenre != null
 
                             FilterButton(
                                 text = genreLabel,
@@ -259,17 +296,7 @@ fun LibrariesScreen(
                     }
                 }
 
-                // Tabs
-                // Use a smaller height for the tab row
-                val visibleTabs =
-                    remember(state.selectedTab) {
-                        LibraryTab.values().filter { it == LibraryTab.Browse }
-                    }
-                val selectedTabIndex = visibleTabs.indexOf(state.selectedTab).coerceAtLeast(0)
-
-                // Simplified Tab Row or remove if only Browse exists often?
-                // The code filters to only Browse? "filter { it == LibraryTab.Browse }" means only Browse is visible?
-                // If so, we can skip the TabRow if there's only one.
+                // Tabs (derived via derivedStateOf at Route level)
                 if (visibleTabs.size > 1) {
                     ScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,
@@ -376,7 +403,7 @@ fun LibrariesScreen(
                             onAction = onAction,
                             gridState = gridState,
                             listState = listState,
-                            showSidebar = state.currentSort == "Title",
+                            showSidebar = showSidebar,
                             scrollRequest = scrollRequest,
                             onScrollConsumed = onScrollConsumed,
                             lastFocusedId = state.lastFocusedId,

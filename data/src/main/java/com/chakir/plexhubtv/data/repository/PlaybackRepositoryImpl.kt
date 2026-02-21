@@ -7,7 +7,7 @@ import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiCache
+import com.chakir.plexhubtv.core.network.ApiCache
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
@@ -31,7 +31,7 @@ class PlaybackRepositoryImpl
         private val connectionManager: ConnectionManager,
         private val api: PlexApiService,
         private val mediaDao: MediaDao,
-        private val plexApiCache: PlexApiCache,
+        private val apiCache: ApiCache,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDetailRepository: MediaDetailRepository,
@@ -48,7 +48,7 @@ class PlaybackRepositoryImpl
                 if (response.isSuccessful) {
                     // Invalidate cache to reflect new watch status immediately
                     val cacheKey = "${media.serverId}:/library/metadata/${media.ratingKey}"
-                    plexApiCache.evict(cacheKey)
+                    apiCache.evict(cacheKey)
                     Result.success(Unit)
                 } else {
                     Result.failure(Exception("API Error: ${response.code()}"))
@@ -86,7 +86,7 @@ class PlaybackRepositoryImpl
                 if (response.isSuccessful) {
                     // Invalidate cache so that "Resume" position is updated
                     val cacheKey = "${media.serverId}:/library/metadata/${media.ratingKey}"
-                    plexApiCache.evict(cacheKey)
+                    apiCache.evict(cacheKey)
                     Result.success(Unit)
                 } else {
                     Result.failure(Exception("API Error: ${response.code()}"))

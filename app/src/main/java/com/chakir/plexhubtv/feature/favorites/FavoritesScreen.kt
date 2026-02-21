@@ -126,7 +126,7 @@ fun FavoritesScreen(
                             media = media,
                             onClick = { onMediaClick(media) },
                             onPlay = { /* Optional direct play */ },
-                            onFocus = { isFocused = true },
+                            onFocus = { focused -> isFocused = focused },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(2f/3f)

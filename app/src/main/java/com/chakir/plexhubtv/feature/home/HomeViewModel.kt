@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.chakir.plexhubtv.di.image.*
@@ -47,8 +49,20 @@ class HomeViewModel
 
         init {
             // PERFORMANCE: Load content immediately to unblock UI (Cold Start Optimization)
+            observeFavorites()
             loadContent()
             checkInitialSync()
+        }
+
+        private fun observeFavorites() {
+            favoritesRepository.getFavorites().safeCollectIn(
+                scope = viewModelScope,
+                onError = { e ->
+                    Timber.e(e, "HomeViewModel: getFavorites failed")
+                }
+            ) { favorites ->
+                _uiState.update { it.copy(favorites = favorites) }
+            }
         }
 
         private fun checkInitialSync() {
@@ -104,88 +118,68 @@ class HomeViewModel
             }
         }
 
+        private var contentJob: Job? = null
+
         private fun loadContent() {
-            viewModelScope.launch {
+            contentJob?.cancel()
+            contentJob = viewModelScope.launch {
                 val startTime = System.currentTimeMillis()
                 Timber.d("SCREEN [Home]: Loading start")
 
                 // Avoid showing full-screen loading if we already have some data (e.g., from previous session or quick refresh)
                 _uiState.update { it.copy(isLoading = it.onDeck.isEmpty() && it.hubs.isEmpty()) }
 
-                // Launch Favorites Collection
-                favoritesRepository.getFavorites().safeCollectIn(
-                    scope = viewModelScope,
-                    onError = { e ->
-                        Timber.e(e, "HomeViewModel: getFavorites failed")
-                    }
-                ) { favorites ->
-                    _uiState.update { it.copy(favorites = favorites) }
-                }
-
-                getUnifiedHomeContentUseCase().safeCollectIn(
-                    scope = viewModelScope,
-                    onError = { error ->
+                getUnifiedHomeContentUseCase()
+                    .catch { error ->
                         val duration = System.currentTimeMillis() - startTime
                         Timber.e(error, "HomeViewModel: getUnifiedHomeContentUseCase failed")
-
-                        // Emit error via channel for snackbar display
-                        viewModelScope.launch {
-                            val appError = error.toAppError()
-                            _errorEvents.send(appError)
-                        }
-
+                        viewModelScope.launch { _errorEvents.send(error.toAppError()) }
                         _uiState.update { it.copy(isLoading = false) }
                     }
-                ) { result ->
-                    val duration = System.currentTimeMillis() - startTime
-                    result.fold(
-                        onSuccess = { content ->
-                            Timber.i(
-                                "SCREEN [Home] PROGRESS: Duration=${duration}ms | OnDeck=${content.onDeck.size} | Hubs=${content.hubs.size}",
-                            )
-
-                            // FIX: Filter empty hubs and deduplicate by title to reduce UI clutter
-                            val filteredHubs =
-                                content.hubs
-                                    .filter { it.items.isNotEmpty() }
-                                    .distinctBy { it.title }
-
-                            // PERFORMANCE: Prefetch images for On Deck and the first few hubs
-                            // REDUCED: Prefetch only immediate viewport items to prevent network saturation/UI jank
-                            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                val urlsToPrefetch =
-                                    content.onDeck.take(5).flatMap { listOfNotNull(it.thumbUrl, it.artUrl) } +
-                                        filteredHubs.take(1).flatMap { hub ->
-                                            hub.items.take(5).flatMap { listOfNotNull(it.thumbUrl, it.artUrl) }
-                                        }
-                                if (urlsToPrefetch.isNotEmpty()) {
-                                    Timber.d("Prefetching ${urlsToPrefetch.size} images for Home")
-                                    imagePrefetchManager.prefetchImages(urlsToPrefetch)
-                                }
-                            }
-
-                            val newState =
-                                _uiState.value.copy(
-                                    isLoading = false,
-                                    onDeck = content.onDeck,
-                                    hubs = filteredHubs,
+                    .collect { result ->
+                        val duration = System.currentTimeMillis() - startTime
+                        result.fold(
+                            onSuccess = { content ->
+                                Timber.i(
+                                    "SCREEN [Home] PROGRESS: Duration=${duration}ms | OnDeck=${content.onDeck.size} | Hubs=${content.hubs.size}",
                                 )
 
-                            _uiState.update { newState }
-                        },
-                        onFailure = { error ->
-                            Timber.e("SCREEN [Home] FAILED: duration=${duration}ms error=${error.message}")
+                                // FIX: Filter empty hubs and deduplicate by title to reduce UI clutter
+                                val filteredHubs =
+                                    content.hubs
+                                        .filter { it.items.isNotEmpty() }
+                                        .distinctBy { it.title }
 
-                            // Emit error via channel for snackbar display
-                            viewModelScope.launch {
-                                val appError = error.toAppError()
-                                _errorEvents.send(appError)
-                            }
+                                // PERFORMANCE: Prefetch images for On Deck and the first few hubs
+                                // REDUCED: Prefetch only immediate viewport items to prevent network saturation/UI jank
+                                viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    val urlsToPrefetch =
+                                        content.onDeck.take(5).flatMap { listOfNotNull(it.thumbUrl, it.artUrl) } +
+                                            filteredHubs.take(1).flatMap { hub ->
+                                                hub.items.take(5).flatMap { listOfNotNull(it.thumbUrl, it.artUrl) }
+                                            }
+                                    if (urlsToPrefetch.isNotEmpty()) {
+                                        Timber.d("Prefetching ${urlsToPrefetch.size} images for Home")
+                                        imagePrefetchManager.prefetchImages(urlsToPrefetch)
+                                    }
+                                }
 
-                            _uiState.update { it.copy(isLoading = false) }
-                        },
-                    )
-                }
+                                val newState =
+                                    _uiState.value.copy(
+                                        isLoading = false,
+                                        onDeck = content.onDeck,
+                                        hubs = filteredHubs,
+                                    )
+
+                                _uiState.update { newState }
+                            },
+                            onFailure = { error ->
+                                Timber.e("SCREEN [Home] FAILED: duration=${duration}ms error=${error.message}")
+                                viewModelScope.launch { _errorEvents.send(error.toAppError()) }
+                                _uiState.update { it.copy(isLoading = false) }
+                            },
+                        )
+                    }
             }
         }
     }

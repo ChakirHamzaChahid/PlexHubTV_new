@@ -5,7 +5,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -28,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,7 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -74,10 +78,8 @@ fun NetflixMediaCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    // Notify parent of focus changes
-    androidx.compose.runtime.LaunchedEffect(isFocused) {
-        onFocus(isFocused)
-    }
+    // Notify parent of focus changes — SideEffect avoids coroutine creation per focus change
+    SideEffect { onFocus(isFocused) }
 
     // Animations
     val scale by animateFloatAsState(
@@ -117,7 +119,10 @@ fun NetflixMediaCard(
                 }
             }
             .zIndex(if (isFocused) 10f else 0f)
-            .scale(scale)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -130,7 +135,18 @@ fun NetflixMediaCard(
                 .aspectRatio(cardAspectRatio)
                 .clip(RoundedCornerShape(8.dp)) // Rounded corners like modern Netflix
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .border(2.dp, borderColor, RoundedCornerShape(8.dp))
+                .drawWithContent {
+                    drawContent()
+                    val strokeWidthPx = 2.dp.toPx()
+                    val halfStroke = strokeWidthPx / 2
+                    drawRoundRect(
+                        color = borderColor,
+                        topLeft = Offset(halfStroke, halfStroke),
+                        size = Size(size.width - strokeWidthPx, size.height - strokeWidthPx),
+                        cornerRadius = CornerRadius(8.dp.toPx() - halfStroke),
+                        style = Stroke(width = strokeWidthPx)
+                    )
+                }
         ) {
             // Image Logic
             val imageUrl = remember(media.ratingKey, cardType) {

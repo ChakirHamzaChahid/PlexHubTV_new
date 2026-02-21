@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -163,16 +164,18 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                                 Timber.d("Init: Pre-warming server connections...")
                                 val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: emptyList()
                                 if (servers.isNotEmpty()) {
-                                    // Test all server connections in parallel (fire-and-forget per server)
-                                    servers.map { server ->
-                                        async {
-                                            try {
-                                                connectionManager.findBestConnection(server)
-                                            } catch (e: Exception) {
-                                                Timber.w(e, "Init: Connection test failed for ${server.name}")
+                                    // Test all server connections in parallel, capped at 5s to avoid blocking cold start
+                                    withTimeoutOrNull(5_000L) {
+                                        servers.map { server ->
+                                            async {
+                                                try {
+                                                    connectionManager.findBestConnection(server)
+                                                } catch (e: Exception) {
+                                                    Timber.w(e, "Init: Connection test failed for ${server.name}")
+                                                }
                                             }
-                                        }
-                                    }.awaitAll()
+                                        }.awaitAll()
+                                    }
                                     Timber.d("Init: Server connections warmed (${servers.size} servers)")
                                 } else {
                                     Timber.d("Init: No servers to warm")

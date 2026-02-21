@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
+import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
@@ -34,6 +35,7 @@ import com.chakir.plexhubtv.core.ui.NetflixOnScreenKeyboard
 @Composable
 fun NetflixSearchScreen(
     state: SearchUiState,
+    groupedResults: Map<MediaType, List<MediaItem>> = emptyMap(),
     onAction: (SearchAction) -> Unit,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
@@ -161,11 +163,7 @@ fun NetflixSearchScreen(
                     }
                 }
                 SearchState.Results -> {
-                    // Group results by type for Netflix-style horizontal rows
-                    val groupedResults = remember(state.results) {
-                        state.results.groupBy { it.type }
-                    }
-
+                    // groupedResults derived via derivedStateOf at Route level
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 32.dp),

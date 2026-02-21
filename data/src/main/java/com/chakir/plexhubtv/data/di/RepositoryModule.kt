@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.data.di
 
+import com.chakir.plexhubtv.core.network.ApiCache
+import com.chakir.plexhubtv.data.cache.RoomApiCache
 import com.chakir.plexhubtv.data.repository.AuthRepositoryImpl
 import com.chakir.plexhubtv.data.repository.DownloadsRepositoryImpl
 import com.chakir.plexhubtv.data.repository.LibraryRepositoryImpl
@@ -127,4 +129,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindProfileRepository(impl: ProfileRepositoryImpl): ProfileRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindApiCache(impl: RoomApiCache): ApiCache
+
+    @Binds
+    @Singleton
+    abstract fun bindTrackPreferenceRepository(
+        impl: com.chakir.plexhubtv.data.repository.TrackPreferenceRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.TrackPreferenceRepository
 }

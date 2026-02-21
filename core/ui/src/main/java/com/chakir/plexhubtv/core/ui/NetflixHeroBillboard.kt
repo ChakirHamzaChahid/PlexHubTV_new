@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,6 +45,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -61,6 +64,9 @@ import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.R
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 
 @Composable
@@ -78,14 +84,17 @@ fun NetflixHeroBillboard(
 
     var currentIndex by remember { mutableIntStateOf(0) }
     val currentItem = items[currentIndex]
+    var isVisibleOnScreen by remember { mutableStateOf(true) }
 
     // Focus requesters for navigation flow
     val playButtonFocusRequester = buttonsFocusRequester ?: remember { FocusRequester() }
     val infoButtonFocusRequester = remember { FocusRequester() }
 
-    // Auto-rotation logic
-    LaunchedEffect(items, autoRotateIntervalMs) {
-        if (items.size > 1) {
+    // Auto-rotation logic — stops when scrolled off-screen or app in background
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(items, autoRotateIntervalMs, isVisibleOnScreen) {
+        if (!isVisibleOnScreen || items.size <= 1) return@LaunchedEffect
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 delay(autoRotateIntervalMs)
                 currentIndex = (currentIndex + 1) % items.size
@@ -100,6 +109,10 @@ fun NetflixHeroBillboard(
         modifier = modifier
             .fillMaxWidth()
             .height(450.dp) // Reduced height per design spec
+            .onGloballyPositioned { coordinates ->
+                val bounds = coordinates.boundsInWindow()
+                isVisibleOnScreen = !bounds.isEmpty && bounds.bottom > 0f
+            }
             .testTag("hero_section")
             .semantics { contentDescription = "Film à la une: ${currentItem.title}" }
     ) {

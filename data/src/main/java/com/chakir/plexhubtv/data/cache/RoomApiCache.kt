@@ -1,32 +1,28 @@
-package com.chakir.plexhubtv.core.network
+package com.chakir.plexhubtv.data.cache
 
 import com.chakir.plexhubtv.core.database.ApiCacheDao
 import com.chakir.plexhubtv.core.database.ApiCacheEntity
+import com.chakir.plexhubtv.core.network.ApiCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Helper class to manage API response caching with TTL support.
- * Mimics Plezy's _fetchWithCacheFallback behavior using Room.
+ * Room-backed implementation of [ApiCache].
+ * Manages API response caching with TTL support using Room.
  */
 @Singleton
-class PlexApiCache
+class RoomApiCache
     @Inject
     constructor(
         private val apiCacheDao: ApiCacheDao,
-    ) {
-        /**
-         * Tries to get value from cache.
-         * Returns null if not found or expired.
-         */
-        suspend fun get(cacheKey: String): String? {
+    ) : ApiCache {
+        override suspend fun get(cacheKey: String): String? {
             return withContext(Dispatchers.IO) {
                 val entry = apiCacheDao.getEntry(cacheKey)
                 if (entry != null) {
                     if (entry.isExpired()) {
-                        // Lazy expiration: delete if expired
                         apiCacheDao.deleteEntry(cacheKey)
                         null
                     } else {
@@ -38,13 +34,10 @@ class PlexApiCache
             }
         }
 
-        /**
-         * Stores value in cache with specified TTL.
-         */
-        suspend fun put(
+        override suspend fun put(
             cacheKey: String,
             data: String,
-            ttlSeconds: Int = 3600,
+            ttlSeconds: Int,
         ) {
             withContext(Dispatchers.IO) {
                 val entry =
@@ -58,10 +51,7 @@ class PlexApiCache
             }
         }
 
-        /**
-         * Clears specific entry.
-         */
-        suspend fun evict(cacheKey: String) {
+        override suspend fun evict(cacheKey: String) {
             withContext(Dispatchers.IO) {
                 apiCacheDao.deleteEntry(cacheKey)
             }

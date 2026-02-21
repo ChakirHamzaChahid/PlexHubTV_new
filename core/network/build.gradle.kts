@@ -70,7 +70,6 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:common"))
     implementation(project(":core:datastore"))
-    implementation(project(":core:database"))
 
     // Retrofit & Networking
     implementation(libs.retrofit)

@@ -32,9 +32,13 @@ import com.chakir.plexhubtv.core.ui.NetflixHeroBillboard
 
 @Composable
 fun NetflixHomeContent(
-    onDeck: List<MediaItem>,
     hubs: List<Hub>,
     favorites: List<MediaItem>,
+    continueWatchingItems: List<MediaItem>,
+    hasContinueWatching: Boolean,
+    hasMyList: Boolean,
+    isFirstHub: Boolean,
+    heroItems: List<MediaItem>,
     onAction: (HomeAction) -> Unit,
     onScrollStateChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier
@@ -68,12 +72,6 @@ fun NetflixHomeContent(
         }
     }
 
-    // Calculate which rows will be visible (outside LazyColumn scope)
-    val continueWatchingItems = onDeck.filter { (it.playbackPositionMs ?: 0) > 0 }
-    val hasContinueWatching = continueWatchingItems.isNotEmpty()
-    val hasMyList = favorites.isNotEmpty()
-    val isFirstHub = !hasContinueWatching && !hasMyList
-
     LazyColumn(
         state = listState,
         modifier = modifier
@@ -90,7 +88,6 @@ fun NetflixHomeContent(
 
         // 1. Hero Billboard
         item(key = "hero_billboard") {
-            val heroItems = remember(onDeck) { onDeck.take(10) }
             Box(
                 modifier = Modifier.onFocusChanged { focusState ->
                     isBillboardFocused = focusState.hasFocus

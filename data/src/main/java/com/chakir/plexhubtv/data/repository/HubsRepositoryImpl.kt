@@ -5,7 +5,7 @@ import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiCache
+import com.chakir.plexhubtv.core.network.ApiCache
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.GenericPlexResponse
@@ -32,7 +32,7 @@ class HubsRepositoryImpl
         private val api: PlexApiService,
         private val mediaDao: MediaDao,
         private val homeContentDao: HomeContentDao,
-        private val plexApiCache: PlexApiCache,
+        private val apiCache: ApiCache,
         private val mapper: MediaMapper,
         private val serverClientResolver: ServerClientResolver,
         private val authRepository: AuthRepository,
@@ -62,7 +62,7 @@ class HubsRepositoryImpl
                                         val cacheKey = "$serverId:/hubs"
 
                                         // 1. Try Cache First
-                                        val cachedJson = plexApiCache.get(cacheKey)
+                                        val cachedJson = apiCache.get(cacheKey)
                                         if (cachedJson != null) {
                                             try {
                                                 val cachedBody = gson.fromJson(cachedJson, GenericPlexResponse::class.java)
@@ -80,7 +80,7 @@ class HubsRepositoryImpl
                                             Timber.i("REPO [Hubs] NETWORK SUCCESS: server=$serverId")
 
                                             // Save to cache
-                                            plexApiCache.put(
+                                            apiCache.put(
                                                 cacheKey = cacheKey,
                                                 data = gson.toJson(body),
                                                 ttlSeconds = 3600, // 1 hour for hubs

@@ -46,6 +46,12 @@ fun SearchRoute(
     val errorEvents = viewModel.errorEvents
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // derivedStateOf: groupBy only recomputes when results actually change,
+    // not on every uiState change (e.g. query text changes while results stay the same)
+    val groupedResults by remember {
+        derivedStateOf { uiState.results.groupBy { it.type } }
+    }
+
     // Handle navigation events
     LaunchedEffect(events) {
         events.collect { event ->
@@ -64,6 +70,7 @@ fun SearchRoute(
 
     NetflixSearchScreen(
         state = uiState,
+        groupedResults = groupedResults,
         onAction = viewModel::onAction,
         snackbarHostState = snackbarHostState,
     )
