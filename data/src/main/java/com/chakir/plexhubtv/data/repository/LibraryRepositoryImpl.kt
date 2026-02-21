@@ -4,8 +4,10 @@ import androidx.paging.ExperimentalPagingApi
 import androidx.paging.map
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.LibrarySection
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
@@ -44,7 +46,7 @@ class LibraryRepositoryImpl
                                 },
                             )
                         }
-                        return Result.failure(Exception("Server offline and no cache"))
+                        return Result.failure(AppError.Network.NoConnection("Server offline and no cache"))
                     }
 
                 val response = client.getSections()
@@ -74,9 +76,9 @@ class LibraryRepositoryImpl
 
                     return Result.success(domainSections)
                 }
-                return Result.failure(Exception("Failed to fetch sections"))
+                return Result.failure(AppError.Network.ServerError("Failed to fetch sections"))
             } catch (e: Exception) {
-                return Result.failure(e)
+                return Result.failure(e.toAppError())
             }
         }
 
