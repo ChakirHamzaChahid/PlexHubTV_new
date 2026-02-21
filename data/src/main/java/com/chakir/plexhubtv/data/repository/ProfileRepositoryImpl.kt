@@ -4,6 +4,7 @@ import com.chakir.plexhubtv.core.database.ProfileDao
 import com.chakir.plexhubtv.core.database.toEntity
 import com.chakir.plexhubtv.core.database.toProfile
 import com.chakir.plexhubtv.core.model.AgeRating
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Profile
 import com.chakir.plexhubtv.core.model.VideoQuality
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
@@ -55,7 +56,7 @@ class ProfileRepositoryImpl @Inject constructor(
             Result.success(profile)
         } catch (e: Exception) {
             Timber.e(e, "Failed to create profile: ${profile.name}")
-            Result.failure(e)
+            Result.failure(AppError.Storage.WriteError("Failed to create profile", e))
         }
     }
 
@@ -66,7 +67,7 @@ class ProfileRepositoryImpl @Inject constructor(
             Result.success(profile)
         } catch (e: Exception) {
             Timber.e(e, "Failed to update profile: ${profile.name}")
-            Result.failure(e)
+            Result.failure(AppError.Storage.WriteError("Failed to update profile", e))
         }
     }
 
@@ -75,13 +76,13 @@ class ProfileRepositoryImpl @Inject constructor(
             // Check if it's the active profile
             val activeProfile = getActiveProfile()
             if (activeProfile?.id == profileId) {
-                return Result.failure(Exception("Cannot delete active profile. Switch to another profile first."))
+                return Result.failure(AppError.Validation("Cannot delete active profile. Switch to another profile first."))
             }
 
             // Check if it's the last profile
             val profileCount = getProfileCount()
             if (profileCount <= 1) {
-                return Result.failure(Exception("Cannot delete the last profile."))
+                return Result.failure(AppError.Validation("Cannot delete the last profile."))
             }
 
             profileDao.deleteProfileById(profileId)
@@ -89,14 +90,14 @@ class ProfileRepositoryImpl @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Failed to delete profile: $profileId")
-            Result.failure(e)
+            Result.failure(AppError.Storage.WriteError("Failed to delete profile", e))
         }
     }
 
     override suspend fun switchProfile(profileId: String): Result<Profile> {
         return try {
             val profile = getProfileById(profileId)
-                ?: return Result.failure(Exception("Profile not found"))
+                ?: return Result.failure(AppError.Validation("Profile not found"))
 
             // Deactivate all profiles
             profileDao.deactivateAllProfiles()
@@ -108,7 +109,7 @@ class ProfileRepositoryImpl @Inject constructor(
             Result.success(profile.copy(isActive = true, lastUsed = System.currentTimeMillis()))
         } catch (e: Exception) {
             Timber.e(e, "Failed to switch profile: $profileId")
-            Result.failure(e)
+            Result.failure(AppError.Storage.WriteError("Failed to switch profile", e))
         }
     }
 
@@ -151,12 +152,15 @@ class ProfileRepositoryImpl @Inject constructor(
                     firstProfile?.let {
                         switchProfile(it.id)
                         it.copy(isActive = true)
-                    } ?: throw Exception("No profiles found")
+                    } ?: throw AppError.Storage.WriteError("No profiles found")
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: AppError) {
             Timber.e(e, "Failed to ensure default profile")
             throw e
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to ensure default profile")
+            throw AppError.Storage.WriteError("Failed to ensure default profile", e)
         }
     }
 }
