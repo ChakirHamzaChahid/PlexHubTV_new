@@ -3,7 +3,9 @@ package com.chakir.plexhubtv.data.repository
 import com.chakir.plexhubtv.core.database.SearchCacheDao
 import com.chakir.plexhubtv.core.database.SearchCacheEntity
 import com.chakir.plexhubtv.core.database.ServerDao
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
@@ -92,7 +94,7 @@ class SearchRepositoryImpl
                             Timber.e(e, "Global search failed")
                         }
                     }
-                    Result.failure(e)
+                    Result.failure(e.toAppError())
                 }
             }
 
@@ -125,7 +127,7 @@ class SearchRepositoryImpl
                         val fallback = gson.fromJson(cached.resultsJson, Array<MediaItem>::class.java).toList()
                         Result.success(fallback)
                     } else {
-                        Result.failure(Exception("No connection and no cache"))
+                        Result.failure(AppError.Network.NoConnection("No connection and no cache"))
                     }
 
                 val client = PlexClient(server, api, baseUrl)
@@ -160,7 +162,7 @@ class SearchRepositoryImpl
 
                     Result.success(items)
                 } else {
-                    Result.failure(Exception("Search failed: ${response.code()}"))
+                    Result.failure(AppError.Network.ServerError("Search failed: ${response.code()}"))
                 }
             } catch (e: Exception) {
                 // Don't log cancellations as errors - they're expected when user types quickly
@@ -181,10 +183,10 @@ class SearchRepositoryImpl
                         Timber.d("Network error, serving cached results for '$query'")
                         Result.success(fallback)
                     } catch (parseError: Exception) {
-                        Result.failure(e)
+                        Result.failure(e.toAppError())
                     }
                 } else {
-                    Result.failure(e)
+                    Result.failure(e.toAppError())
                 }
             }
         }
