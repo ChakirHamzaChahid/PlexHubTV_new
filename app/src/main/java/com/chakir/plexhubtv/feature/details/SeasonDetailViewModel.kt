@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
-import com.chakir.plexhubtv.data.usecase.ResolveEpisodeSourcesUseCase
+import com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel

@@ -139,4 +139,10 @@ abstract class RepositoryModule {
     abstract fun bindTrackPreferenceRepository(
         impl: com.chakir.plexhubtv.data.repository.TrackPreferenceRepositoryImpl,
     ): com.chakir.plexhubtv.domain.repository.TrackPreferenceRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindResolveEpisodeSourcesUseCase(
+        impl: com.chakir.plexhubtv.data.usecase.ResolveEpisodeSourcesUseCaseImpl,
+    ): com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase
 }

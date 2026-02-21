@@ -32,7 +32,7 @@ import javax.inject.Inject
  *    - Explore les enfants de la saison pour trouver l'ÉPISODE correspondant (par index).
  *    C'est plus lent (plusieurs appels API) mais extrêmement fiable (garantit le bon épisode).
  */
-class ResolveEpisodeSourcesUseCase
+class ResolveEpisodeSourcesUseCaseImpl
     @Inject
     constructor(
         private val authRepository: AuthRepository,
@@ -40,12 +40,12 @@ class ResolveEpisodeSourcesUseCase
         private val connectionManager: ConnectionManager,
         private val api: PlexApiService,
         private val mapper: MediaMapper,
-    ) {
+    ) : com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase {
         /**
          * @param episode L'épisode source.
          * @return Liste de [MediaSource] pointant vers les fichiers correspondants sur les autres serveurs.
          */
-        suspend operator fun invoke(episode: MediaItem): List<MediaSource> =
+        override suspend operator fun invoke(episode: MediaItem): List<MediaSource> =
             coroutineScope {
                 val serversResult = authRepository.getServers()
                 val allServers = serversResult.getOrNull() ?: return@coroutineScope emptyList()
