@@ -1,10 +1,8 @@
 package com.chakir.plexhubtv.data.repository
 
-import com.chakir.plexhubtv.core.common.exception.AuthException
-import com.chakir.plexhubtv.core.common.exception.MediaNotFoundException
-import com.chakir.plexhubtv.core.common.exception.NetworkException
-import com.chakir.plexhubtv.core.common.exception.ServerUnavailableException
+import com.chakir.plexhubtv.core.common.safeApiCall
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Collection
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
@@ -15,9 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import retrofit2.HttpException
 import timber.log.Timber
-import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -66,34 +62,18 @@ class MediaDetailRepositoryImpl
             }
 
             // 2. API fallback — if not in BDD (new media, not yet synced)
-            return try {
-                val client = serverClientResolver.getClient(serverId)
-                    ?: return Result.failure(ServerUnavailableException(serverId))
+            val client = serverClientResolver.getClient(serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
 
+            return safeApiCall("getMediaDetail") {
                 val response = client.getMetadata(ratingKey)
                 if (response.isSuccessful) {
                     val metadata = response.body()?.mediaContainer?.metadata?.firstOrNull()
                     if (metadata != null) {
-                        return Result.success(
-                            mapper.mapDtoToDomain(metadata, serverId, client.baseUrl, client.server.accessToken)
-                        )
+                        return@safeApiCall mapper.mapDtoToDomain(metadata, serverId, client.baseUrl, client.server.accessToken)
                     }
                 }
-
-                Result.failure(MediaNotFoundException("Media $ratingKey not found on server $serverId"))
-            } catch (e: IOException) {
-                Timber.e(e, "Network error fetching media detail $ratingKey")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} fetching media detail $ratingKey")
-                if (e.code() == 401) {
-                    Result.failure(AuthException("Unauthorized", e))
-                } else {
-                    Result.failure(e)
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Unknown error fetching media detail $ratingKey")
-                Result.failure(e)
+                throw AppError.Media.NotFound("Media $ratingKey not found on server $serverId")
             }
         }
 
@@ -120,29 +100,21 @@ class MediaDetailRepositoryImpl
             }
 
             // 2. API fallback: Only if not in cache (new season, not yet synced)
-            try {
+            return safeApiCall("getSeasonEpisodes") {
                 val client = serverClientResolver.getClient(serverId)
                 if (client != null) {
                     val response = client.getChildren(ratingKey)
                     if (response.isSuccessful) {
                         val metadata = response.body()?.mediaContainer?.metadata
                         if (metadata != null) {
-                            val items = metadata.map {
+                            return@safeApiCall metadata.map {
                                 mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
                             }
-                            return Result.success(items)
                         }
                     }
                 }
-            } catch (e: IOException) {
-                Timber.w(e, "Network error fetching episodes for $ratingKey")
-            } catch (e: HttpException) {
-                Timber.w(e, "HTTP error ${e.code()} fetching episodes for $ratingKey")
-            } catch (e: Exception) {
-                Timber.e(e, "Error fetching episodes for $ratingKey")
+                throw AppError.Media.NotFound("Episodes for $ratingKey not found")
             }
-
-            return Result.failure(MediaNotFoundException("Episodes for $ratingKey not found"))
         }
 
         override suspend fun findRemoteSources(item: MediaItem): List<MediaItem> {
@@ -209,42 +181,33 @@ class MediaDetailRepositoryImpl
                 return Result.success(cached.second)
             }
 
-            return try {
-                val client = serverClientResolver.getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
+            val client = serverClientResolver.getClient(serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
+
+            return safeApiCall("getSimilarMedia") {
                 val response = client.getRelated(ratingKey)
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    if (body != null) {
-                        val hubs = body.mediaContainer?.hubs ?: emptyList()
-                        Timber.d("Similar: Received ${hubs.size} hubs for $ratingKey")
-
-                        val similarHub = hubs.find { it.hubIdentifier == "similar" } ?: hubs.firstOrNull()
-                        val metadata = similarHub?.metadata ?: emptyList()
-
-                        Timber.d("Similar: Found ${metadata.size} items in similar hub")
-
-                        val items = metadata.map {
-                            mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
-                        }
-                        similarCache[cacheKey] = System.currentTimeMillis() to items
-                        Result.success(items)
-                    } else {
-                        Timber.w("Similar: Response body is null for $ratingKey")
-                        Result.success(emptyList())
-                    }
-                } else {
-                    Timber.w("Similar: API returned ${response.code()} for $ratingKey")
-                    Result.failure(Exception("API Error: ${response.code()}"))
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("Similar: API returned ${response.code()} for $ratingKey")
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Network error fetching similar media for $ratingKey")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} fetching similar media for $ratingKey")
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Error fetching similar media for $ratingKey")
-                Result.failure(e)
+
+                val body = response.body()
+                if (body == null) {
+                    Timber.w("Similar: Response body is null for $ratingKey")
+                    return@safeApiCall emptyList<MediaItem>()
+                }
+
+                val hubs = body.mediaContainer?.hubs ?: emptyList()
+                Timber.d("Similar: Received ${hubs.size} hubs for $ratingKey")
+
+                val similarHub = hubs.find { it.hubIdentifier == "similar" } ?: hubs.firstOrNull()
+                val metadata = similarHub?.metadata ?: emptyList()
+                Timber.d("Similar: Found ${metadata.size} items in similar hub")
+
+                val items = metadata.map {
+                    mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
+                }
+                similarCache[cacheKey] = System.currentTimeMillis() to items
+                items
             }
         }
 
