@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.core.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Représente un flux élémentaire (Stream) au sein d'un fichier média.
  *
@@ -13,7 +15,7 @@ package com.chakir.plexhubtv.core.model
  * @property selected Indique si ce flux est sélectionné par défaut.
  */
 
-
+@Serializable
 sealed class MediaStream {
     abstract val id: String
     abstract val index: Int?
@@ -25,6 +27,7 @@ sealed class MediaStream {
     abstract val selected: Boolean
 }
 
+@Serializable
 data class AudioStream(
     override val id: String,
     override val index: Int?,
@@ -37,6 +40,7 @@ data class AudioStream(
     val channels: Int?,
 ) : MediaStream()
 
+@Serializable
 data class SubtitleStream(
     override val id: String,
     override val index: Int?,
@@ -52,6 +56,7 @@ data class SubtitleStream(
     val isExternal: Boolean get() = !key.isNullOrEmpty()
 }
 
+@Serializable
 data class VideoStream(
     override val id: String,
     override val index: Int?,
@@ -67,6 +72,7 @@ data class VideoStream(
     val hasHDR: Boolean = false,
 ) : MediaStream()
 
+@Serializable
 data class UnknownStream(
     override val id: String,
     override val index: Int?,

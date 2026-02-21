@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.core.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Représente un fichier physique ou une partie d'un média.
  *
@@ -14,7 +16,7 @@ package com.chakir.plexhubtv.core.model
  * @property streams Liste des flux audio/vidéo/sous-titres contenus dans ce fichier.
  */
 
-
+@Serializable
 data class MediaPart(
     val id: String,
     val key: String,
