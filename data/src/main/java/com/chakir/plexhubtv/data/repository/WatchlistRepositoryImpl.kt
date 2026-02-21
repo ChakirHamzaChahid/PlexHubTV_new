@@ -1,9 +1,11 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.common.safeApiCall
 import com.chakir.plexhubtv.core.database.FavoriteDao
 import com.chakir.plexhubtv.core.database.FavoriteEntity
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.MediaMapper
@@ -27,14 +29,12 @@ class WatchlistRepositoryImpl
         private val favoriteDao: FavoriteDao,
     ) : WatchlistRepository {
         override suspend fun getWatchlist(): Result<List<MediaItem>> {
-            return try {
-                val token =
-                    settingsDataStore.plexToken.first()
-                        ?: return Result.failure(Exception("Not authenticated"))
-                val clientId =
-                    settingsDataStore.clientId.first()
-                        ?: return Result.failure(Exception("Client ID not found"))
+            val token = settingsDataStore.plexToken.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Not authenticated"))
+            val clientId = settingsDataStore.clientId.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Client ID not found"))
 
+            return safeApiCall("getWatchlist") {
                 val allItems = mutableListOf<MediaItem>()
                 var offset = 0
                 val pageSize = 100
@@ -47,11 +47,13 @@ class WatchlistRepositoryImpl
                             start = offset,
                             size = pageSize,
                         )
-                    val body = response.body()
 
-                    if (!response.isSuccessful || body == null) {
-                        return Result.failure(Exception("Failed to fetch watchlist: ${response.code()} ${response.message()}"))
+                    if (!response.isSuccessful) {
+                        throw AppError.Network.ServerError("Failed to fetch watchlist: ${response.code()} ${response.message()}")
                     }
+
+                    val body = response.body()
+                        ?: throw AppError.Network.ServerError("Empty watchlist response")
 
                     val container = body.mediaContainer
                     val items =
@@ -67,21 +69,17 @@ class WatchlistRepositoryImpl
                     // Continue if there are more items to fetch
                 } while (offset < (body.mediaContainer?.totalSize ?: 0))
 
-                Result.success(allItems)
-            } catch (e: Exception) {
-                Result.failure(e)
+                allItems
             }
         }
 
         override suspend fun addToWatchlist(ratingKey: String): Result<Unit> {
-            return try {
-                val token =
-                    settingsDataStore.plexToken.first()
-                        ?: return Result.failure(Exception("Not authenticated"))
-                val clientId =
-                    settingsDataStore.clientId.first()
-                        ?: return Result.failure(Exception("Client ID not found"))
+            val token = settingsDataStore.plexToken.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Not authenticated"))
+            val clientId = settingsDataStore.clientId.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Client ID not found"))
 
+            return safeApiCall("addToWatchlist") {
                 val response =
                     api.addToWatchlist(
                         ratingKey = ratingKey,
@@ -89,25 +87,19 @@ class WatchlistRepositoryImpl
                         clientId = clientId,
                     )
 
-                if (response.isSuccessful) {
-                    Result.success(Unit)
-                } else {
-                    Result.failure(Exception("Failed to add to watchlist: ${response.code()} ${response.message()}"))
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("Failed to add to watchlist: ${response.code()} ${response.message()}")
                 }
-            } catch (e: Exception) {
-                Result.failure(e)
             }
         }
 
         override suspend fun removeFromWatchlist(ratingKey: String): Result<Unit> {
-            return try {
-                val token =
-                    settingsDataStore.plexToken.first()
-                        ?: return Result.failure(Exception("Not authenticated"))
-                val clientId =
-                    settingsDataStore.clientId.first()
-                        ?: return Result.failure(Exception("Client ID not found"))
+            val token = settingsDataStore.plexToken.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Not authenticated"))
+            val clientId = settingsDataStore.clientId.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Client ID not found"))
 
+            return safeApiCall("removeFromWatchlist") {
                 val response =
                     api.removeFromWatchlist(
                         ratingKey = ratingKey,
@@ -115,56 +107,52 @@ class WatchlistRepositoryImpl
                         clientId = clientId,
                     )
 
-                if (response.isSuccessful) {
-                    Result.success(Unit)
-                } else {
-                    Result.failure(Exception("Failed to remove from watchlist: ${response.code()} ${response.message()}"))
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("Failed to remove from watchlist: ${response.code()} ${response.message()}")
                 }
-            } catch (e: Exception) {
-                Result.failure(e)
             }
         }
 
         override suspend fun syncWatchlist(): Result<Unit> =
             withContext(Dispatchers.IO) {
-                try {
-                    val token = settingsDataStore.plexToken.first() ?: return@withContext Result.failure(Exception("No token"))
-                    val clientId = settingsDataStore.clientId.first() ?: return@withContext Result.failure(Exception("No client ID"))
+                val token = settingsDataStore.plexToken.first()
+                    ?: return@withContext Result.failure(AppError.Auth.InvalidToken("No token"))
+                val clientId = settingsDataStore.clientId.first()
+                    ?: return@withContext Result.failure(AppError.Auth.InvalidToken("No client ID"))
 
+                safeApiCall("syncWatchlist") {
                     val response = api.getWatchlist(token, clientId)
-                    if (response.isSuccessful) {
-                        val metadata = response.body()?.mediaContainer?.metadata ?: emptyList()
 
-                        // For each item in watchlist, check if we have it locally matching by GUID
-                        metadata.forEach { item ->
-                            val guid = item.guid // This is the Plex GUID e.g. plex://movie/5d77682...
-                            if (guid != null) {
-                                // Find local item(s) that match this GUID
-                                val localItems = mediaDao.getAllMediaByGuid(guid) // Returns List<MediaEntity>
+                    if (!response.isSuccessful) {
+                        throw AppError.Network.ServerError("Failed to fetch watchlist: ${response.code()}")
+                    }
 
-                                // Mark all matching local instances as Favorites
-                                localItems.forEach { local ->
-                                    favoriteDao.insertFavorite(
-                                        FavoriteEntity(
-                                            ratingKey = local.ratingKey,
-                                            serverId = local.serverId,
-                                            title = local.title,
-                                            type = local.type,
-                                            thumbUrl = local.thumbUrl,
-                                            artUrl = local.artUrl,
-                                            year = local.year,
-                                            addedAt = System.currentTimeMillis(),
-                                        ),
-                                    )
-                                }
+                    val metadata = response.body()?.mediaContainer?.metadata ?: emptyList()
+
+                    // For each item in watchlist, check if we have it locally matching by GUID
+                    metadata.forEach { item ->
+                        val guid = item.guid // This is the Plex GUID e.g. plex://movie/5d77682...
+                        if (guid != null) {
+                            // Find local item(s) that match this GUID
+                            val localItems = mediaDao.getAllMediaByGuid(guid) // Returns List<MediaEntity>
+
+                            // Mark all matching local instances as Favorites
+                            localItems.forEach { local ->
+                                favoriteDao.insertFavorite(
+                                    FavoriteEntity(
+                                        ratingKey = local.ratingKey,
+                                        serverId = local.serverId,
+                                        title = local.title,
+                                        type = local.type,
+                                        thumbUrl = local.thumbUrl,
+                                        artUrl = local.artUrl,
+                                        year = local.year,
+                                        addedAt = System.currentTimeMillis(),
+                                    ),
+                                )
                             }
                         }
-                        Result.success(Unit)
-                    } else {
-                        Result.failure(Exception("Failed to fetch watchlist: ${response.code()}"))
                     }
-                } catch (e: Exception) {
-                    Result.failure(e)
                 }
             }
     }
