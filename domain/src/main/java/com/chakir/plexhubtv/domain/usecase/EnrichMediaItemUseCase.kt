@@ -134,7 +134,15 @@ class EnrichMediaItemUseCase
                         }.awaitAll()
                     }
 
-                    return item.copy(remoteSources = listOf(currentSource) + remoteSources)
+                    // Extract alternative thumb URLs for image fallback
+                    val alternativeThumbUrls = remoteSources
+                        .mapNotNull { it.thumbUrl }
+                        .filter { it.isNotBlank() }
+
+                    return item.copy(
+                        remoteSources = listOf(currentSource) + remoteSources,
+                        alternativeThumbUrls = alternativeThumbUrls
+                    )
                 } else {
                     performanceTracker.addCheckpoint(
                         opId,
@@ -266,7 +274,16 @@ class EnrichMediaItemUseCase
                         "Network Fallback Complete",
                         mapOf("totalDuration" to networkTotalDuration, "totalMatches" to matches.size)
                     )
-                    item.copy(remoteSources = listOf(currentSource) + matches)
+
+                    // Extract alternative thumb URLs for image fallback
+                    val alternativeThumbUrls = matches
+                        .mapNotNull { it.thumbUrl }
+                        .filter { it.isNotBlank() }
+
+                    item.copy(
+                        remoteSources = listOf(currentSource) + matches,
+                        alternativeThumbUrls = alternativeThumbUrls
+                    )
                 }
             }
     }

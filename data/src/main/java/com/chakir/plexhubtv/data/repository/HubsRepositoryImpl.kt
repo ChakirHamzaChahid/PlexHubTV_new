@@ -44,11 +44,13 @@ class HubsRepositoryImpl
     ) : HubsRepository {
         override fun getUnifiedHubs(): Flow<List<Hub>> =
             flow {
+                Timber.i("REPO [Hubs] >>> Flow started - getUnifiedHubs collecting")
                 // 1. Emit Cache First
                 val cachedHubs = getCachedHubs()
                 emit(cachedHubs)
 
                 val clients = getActiveClients()
+                Timber.i("REPO [Hubs] Active clients: ${clients.size} (servers: ${clients.map { it.server.name }})")
                 if (clients.isNotEmpty()) {
                     coroutineScope {
                         val servers = authRepository.getServers().getOrNull() ?: emptyList()
@@ -89,6 +91,7 @@ class HubsRepositoryImpl
                                             val hubDtos = body.mediaContainer?.hubs ?: emptyList()
                                             processHubDtos(hubDtos, client)
                                         } else {
+                                            Timber.w("REPO [Hubs] NETWORK FAILED: server=${client.server.name} code=${response.code()} message=${response.message()}")
                                             emptyList()
                                         }
                                     } catch (e: Exception) {
@@ -99,24 +102,28 @@ class HubsRepositoryImpl
                             }
 
                         val allHubs = deferreds.awaitAll().flatten()
+                        Timber.i("REPO [Hubs] Total aggregated hubs: ${allHubs.size}")
                         if (allHubs.isNotEmpty()) {
                             val result = aggregateHubs(allHubs, ownedServerIds, servers)
                             emit(result)
+                        } else {
+                            Timber.w("REPO [Hubs] No hubs found from any server - emitting empty")
                         }
                     }
                 }
             }.flowOn(ioDispatcher)
 
         private suspend fun getCachedHubs(): List<Hub> {
-            val servers = authRepository.getServers().getOrNull() ?: return emptyList()
-            val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
+            try {
+                val servers = authRepository.getServers().getOrNull() ?: return emptyList()
+                val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
 
-            // Fetch distinct hubs from DB
-            val hubInfos = homeContentDao.getHubsList()
+                // Fetch distinct hubs from DB
+                val hubInfos = homeContentDao.getHubsList()
 
-            val allHubs =
-                hubInfos.map { hubInfo ->
-                    val entities = homeContentDao.getHomeMediaItems("hub", hubInfo.hubIdentifier)
+                val allHubs =
+                    hubInfos.map { hubInfo ->
+                        val entities = homeContentDao.getHomeMediaItems("hub", hubInfo.hubIdentifier)
                     val items =
                         entities.map { entity ->
                             val server = servers.find { it.clientIdentifier == entity.serverId }
@@ -134,16 +141,26 @@ class HubsRepositoryImpl
                             }
                         }
 
-                    Hub(
-                        key = "", // Not needed for offline display
-                        title = hubInfo.title,
-                        type = "mixed",
-                        hubIdentifier = hubInfo.hubIdentifier,
-                        items = items,
-                        serverId = null,
-                    )
+                        Hub(
+                            key = "", // Not needed for offline display
+                            title = hubInfo.title,
+                            type = "mixed",
+                            hubIdentifier = hubInfo.hubIdentifier,
+                            items = items,
+                            serverId = null,
+                        )
+                    }
+                return aggregateHubs(allHubs, ownedServerIds, servers)
+            } catch (e: Exception) {
+                Timber.e(e, "REPO [Hubs] getCachedHubs failed (corrupted cache from Gson→kotlinx-serialization migration) - clearing and using network")
+                // Clear corrupted hub cache
+                try {
+                    homeContentDao.clearHomeContentByType("hub")
+                } catch (clearError: Exception) {
+                    Timber.e(clearError, "REPO [Hubs] Failed to clear corrupted hub cache")
                 }
-            return aggregateHubs(allHubs, ownedServerIds, servers)
+                return emptyList()
+            }
         }
 
         private suspend fun aggregateHubs(
@@ -216,16 +233,33 @@ class HubsRepositoryImpl
             hubDtos: List<com.chakir.plexhubtv.core.network.model.HubDTO>,
             client: PlexClient,
         ): List<Hub> {
-            return hubDtos.mapNotNull { hubDto ->
+            Timber.i("REPO [Hubs] Processing ${hubDtos.size} hub DTOs for server=${client.server.name}")
+
+            // Filter out Continue Watching / On Deck hubs (they have a dedicated UI section)
+            val excludedIdentifiers = listOf("home.ondeck", "ondeck", "continue", "continuewatching")
+            val filteredHubDtos = hubDtos.filter { hubDto ->
+                val identifier = (hubDto.hubIdentifier ?: hubDto.title ?: "").lowercase()
+                val shouldExclude = excludedIdentifiers.any { excluded ->
+                    identifier.contains(excluded)
+                }
+                if (shouldExclude) {
+                    Timber.d("REPO [Hubs] Filtered out hub: ${hubDto.title} (identifier=${hubDto.hubIdentifier}) - has dedicated UI section")
+                }
+                !shouldExclude
+            }
+
+            Timber.i("REPO [Hubs] After filtering: ${filteredHubDtos.size}/${hubDtos.size} hubs (excluded Continue Watching/On Deck)")
+            return filteredHubDtos.mapNotNull { hubDto ->
                 val hubIdentifier = hubDto.hubIdentifier ?: hubDto.title ?: "unknown"
                 val hubTitle = hubDto.title ?: "Unknown"
                 val metadata = hubDto.metadata ?: emptyList()
                 val baseUrl = client.baseUrl
                 val token = client.server.accessToken ?: ""
 
+                val preFilterCount = metadata.size
                 val entities =
                     metadata
-                        .filter { mapper.isQualityMetadata(it) && !it.ratingKey.isNullOrEmpty() }
+                        .filter { !it.ratingKey.isNullOrEmpty() }
                         .map { dto ->
                             val entity = mapper.mapDtoToEntity(
                                 dto,
@@ -248,6 +282,7 @@ class HubsRepositoryImpl
                             )
                         }
 
+                Timber.d("REPO [Hubs] Hub '$hubTitle' ($hubIdentifier): metadata=$preFilterCount → entities=${entities.size}")
                 if (entities.isNotEmpty()) {
                     mediaDao.upsertMedia(entities)
                     val homeContent =

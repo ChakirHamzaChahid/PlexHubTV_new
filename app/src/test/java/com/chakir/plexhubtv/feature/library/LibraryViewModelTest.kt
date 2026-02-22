@@ -50,14 +50,20 @@ class LibraryViewModelTest {
         Server(
             clientIdentifier = "server1",
             name = "Server 1",
+            address = "server1",
+            port = 32400,
+            connectionUri = "http://server1",
             accessToken = "token1",
-            baseUrl = "http://server1"
+            isOwned = true
         ),
         Server(
             clientIdentifier = "server2",
             name = "Server 2",
+            address = "server2",
+            port = 32400,
+            connectionUri = "http://server2",
             accessToken = "token2",
-            baseUrl = "http://server2"
+            isOwned = true
         )
     )
 
@@ -150,9 +156,9 @@ class LibraryViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.onAction(LibraryAction.SelectTab(LibraryTab.ALL))
+        viewModel.onAction(LibraryAction.SelectTab(LibraryTab.Browse))
 
-        assertThat(viewModel.uiState.value.selectedTab).isEqualTo(LibraryTab.ALL)
+        assertThat(viewModel.uiState.value.selectedTab).isEqualTo(LibraryTab.Browse)
     }
 
     @Test
@@ -160,9 +166,9 @@ class LibraryViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.onAction(LibraryAction.ChangeViewMode(ViewMode.GRID))
+        viewModel.onAction(LibraryAction.ChangeViewMode(LibraryViewMode.Grid))
 
-        assertThat(viewModel.uiState.value.viewMode).isEqualTo(ViewMode.GRID)
+        assertThat(viewModel.uiState.value.viewMode).isEqualTo(LibraryViewMode.Grid)
     }
 
     @Test
@@ -253,7 +259,7 @@ class LibraryViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        verify { workManager.enqueueUniqueWork(any(), any(), any()) }
+        verify { workManager.enqueueUniqueWork(any<String>(), any<androidx.work.ExistingWorkPolicy>(), any<androidx.work.OneTimeWorkRequest>()) }
     }
 
     @Test
@@ -263,6 +269,6 @@ class LibraryViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        verify(exactly = 0) { workManager.enqueueUniqueWork(any(), any(), any()) }
+        verify(exactly = 0) { workManager.enqueueUniqueWork(any<String>(), any<androidx.work.ExistingWorkPolicy>(), any<androidx.work.OneTimeWorkRequest>()) }
     }
 }

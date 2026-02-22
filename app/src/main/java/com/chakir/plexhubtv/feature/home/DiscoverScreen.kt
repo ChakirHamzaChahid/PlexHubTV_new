@@ -84,7 +84,9 @@ fun HomeRoute(
     // derivedStateOf: only recomputes when the underlying lists actually change,
     // preventing child recompositions when unrelated uiState fields (isLoading, etc.) change.
     val continueWatchingItems by remember {
-        derivedStateOf { uiState.onDeck.filter { (it.playbackPositionMs ?: 0) > 0 } }
+        // Don't filter by playbackPositionMs - Plex API already returns the right items
+        // (both in-progress items AND next episodes to watch)
+        derivedStateOf { uiState.onDeck }
     }
     val hasContinueWatching by remember {
         derivedStateOf { continueWatchingItems.isNotEmpty() }

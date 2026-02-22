@@ -274,7 +274,7 @@ class EnrichMediaItemUseCaseTest {
         useCase(testMediaItem)
 
         coVerify { performanceTracker.startOperation(any(), any(), any(), any()) }
-        coVerify { performanceTracker.endOperation(any(), any(), any()) }
+        coVerify { performanceTracker.endOperation(any(), any(), any(), any()) }
     }
 
     @Test

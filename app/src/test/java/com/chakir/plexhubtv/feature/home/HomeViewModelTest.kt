@@ -4,13 +4,13 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.AppError
+import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.di.image.ImagePrefetchManager
-import com.chakir.plexhubtv.domain.model.HomeContent
-import com.chakir.plexhubtv.domain.model.Hub
 import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
+import com.chakir.plexhubtv.domain.usecase.HomeContent
 import com.google.common.truth.Truth.assertThat
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -48,8 +48,9 @@ class HomeViewModelTest {
         onDeck = listOf(testMediaItem),
         hubs = listOf(
             Hub(
+                key = "continueWatching",
                 title = "Continue Watching",
-                hubType = "continueWatching",
+                type = "continueWatching",
                 items = listOf(testMediaItem)
             )
         )
@@ -108,8 +109,8 @@ class HomeViewModelTest {
         val contentWithEmptyHub = HomeContent(
             onDeck = listOf(testMediaItem),
             hubs = listOf(
-                Hub(title = "Empty Hub", hubType = "test", items = emptyList()),
-                Hub(title = "Valid Hub", hubType = "test", items = listOf(testMediaItem))
+                Hub(key = "emptyHub", title = "Empty Hub", type = "test", items = emptyList()),
+                Hub(key = "validHub", title = "Valid Hub", type = "test", items = listOf(testMediaItem))
             )
         )
         coEvery { getUnifiedHomeContentUseCase() } returns flowOf(Result.success(contentWithEmptyHub))

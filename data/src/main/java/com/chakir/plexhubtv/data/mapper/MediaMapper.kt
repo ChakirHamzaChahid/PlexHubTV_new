@@ -36,6 +36,7 @@ class MediaMapper
                 id = "${serverId}_${dto.ratingKey}",
                 ratingKey = dto.ratingKey,
                 serverId = serverId,
+                unificationId = calculateUnificationId(dto),
                 title = dto.title,
                 type = mapType(dto.type),
                 thumbUrl = getOptimizedImageUrl(rawThumb, width = 300, height = 450) ?: rawThumb,
@@ -336,8 +337,14 @@ class MediaMapper
                 val tmdbId = extractTmdbId(dto)
                 return !dto.title.isNullOrBlank() && (!imdbId.isNullOrBlank() || !tmdbId.isNullOrBlank())
             }
-            // Relaxed Filter for shows: Allow any show with a title.
             if (dto.type == "show") {
+                // Strict filter for shows: MUST have IMDb or TMDB ID (same as movies)
+                val imdbId = extractImdbId(dto)
+                val tmdbId = extractTmdbId(dto)
+                return !dto.title.isNullOrBlank() && (!imdbId.isNullOrBlank() || !tmdbId.isNullOrBlank())
+            }
+            // Episodes: Relaxed filter - only require title (rely on parent show's metadata quality)
+            if (dto.type == "episode") {
                 return !dto.title.isNullOrBlank()
             }
             return true

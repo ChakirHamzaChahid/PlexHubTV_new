@@ -514,7 +514,6 @@ fun LibraryContent(
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(2f/3f)
                                         .then(
                                             if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
                                         )
@@ -525,8 +524,8 @@ fun LibraryContent(
                             Box(
                                 modifier =
                                     Modifier
-                                        .aspectRatio(2f/3f)
                                         .fillMaxWidth()
+                                        .height(250.dp)
                                         .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)),
                             )
                         }

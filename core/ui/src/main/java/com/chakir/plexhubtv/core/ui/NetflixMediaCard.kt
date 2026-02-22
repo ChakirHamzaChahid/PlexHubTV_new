@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -228,6 +229,84 @@ fun NetflixMediaCard(
                 }
             }
 
+            // Multi-Server Badge — Always visible in top-left corner when available on multiple servers
+            // Note: remoteSources already includes the primary server + alternative servers
+            val serverCount = media.remoteSources.size
+            if (serverCount > 1) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .background(
+                            color = Color(0xFF2196F3).copy(alpha = 0.85f), // Blue color for multi-server
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Cloud,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = serverCount.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Debug IDs Badge — Visible when focused (bottom-left corner)
+            if (isFocused && (media.imdbId != null || media.tmdbId != null || media.unificationId != null)) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                        .background(
+                            color = Color(0xFFFF6B00).copy(alpha = 0.9f), // Orange color for debug
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
+                    if (media.imdbId != null) {
+                        Text(
+                            text = "IMDb: ${media.imdbId}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    if (media.tmdbId != null) {
+                        Text(
+                            text = "TMDb: ${media.tmdbId}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    if (media.unificationId != null) {
+                        Text(
+                            text = "Unified: ${media.unificationId}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
             // Progress Bar with Remaining Time
             val durationMs = media.durationMs
             val playbackPositionMs = media.playbackPositionMs ?: 0L
@@ -248,10 +327,10 @@ fun NetflixMediaCard(
             }
         }
 
-        // Title and Metadata — always reserves space to prevent LazyColumn scroll jumps
-        // Uses alpha instead of AnimatedVisibility to keep height stable
+        // Title and Metadata — always fully visible regardless of focus state
+        // Title remains at full opacity to ensure readability at all times
         val metadataAlpha by animateFloatAsState(
-            targetValue = if (isFocused) 1f else 0f,
+            targetValue = 1f, // Always fully visible
             animationSpec = tween(durationMillis = 200),
             label = "metadataAlpha"
         )

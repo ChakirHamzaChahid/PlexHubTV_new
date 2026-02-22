@@ -56,6 +56,7 @@ class MediaMapperTest {
 
         assertThat(result.ratingKey).isEqualTo("123")
         assertThat(result.serverId).isEqualTo(testServerId)
+        assertThat(result.unificationId).isEqualTo("imdb://tt0133093")
         assertThat(result.title).isEqualTo("The Matrix")
         assertThat(result.type).isEqualTo(MediaType.Movie)
         assertThat(result.thumbUrl).contains(testBaseUrl)

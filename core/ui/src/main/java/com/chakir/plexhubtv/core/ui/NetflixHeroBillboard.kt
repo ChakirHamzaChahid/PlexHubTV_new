@@ -226,31 +226,18 @@ fun NetflixHeroBillboard(
             // Buttons — Horizontal navigation with UP/DOWN handling
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier
-                    .focusGroup()
-                    .onKeyEvent { keyEvent ->
-                        if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
-                            when (keyEvent.nativeKeyEvent.keyCode) {
-                                android.view.KeyEvent.KEYCODE_DPAD_UP -> true // Stay on buttons
-                                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                                    onNavigateDown?.invoke()
-                                    true
-                                }
-                                else -> false
-                            }
-                        } else {
-                            false
-                        }
-                    }
+                modifier = Modifier.focusGroup()
             ) {
                 NetflixPlayButton(
                     onClick = { onPlay(currentItem) },
+                    onNavigateDown = onNavigateDown,
                     modifier = Modifier
                         .focusRequester(playButtonFocusRequester)
                         .testTag("hero_play_button")
                 )
                 NetflixInfoButton(
                     onClick = { onInfo(currentItem) },
+                    onNavigateDown = onNavigateDown,
                     modifier = Modifier
                         .focusRequester(infoButtonFocusRequester)
                         .testTag("hero_info_button")
@@ -284,7 +271,8 @@ fun NetflixHeroBillboard(
 @Composable
 fun NetflixPlayButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateDown: (() -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -301,6 +289,20 @@ fun NetflixPlayButton(
         contentPadding = ButtonDefaults.ContentPadding,
         modifier = modifier
             .border(2.dp, if (isFocused) Color.White else Color.Transparent)
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                    when (keyEvent.nativeKeyEvent.keyCode) {
+                        android.view.KeyEvent.KEYCODE_DPAD_UP -> true // Block UP
+                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            onNavigateDown?.invoke()
+                            true
+                        }
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            }
             .semantics { contentDescription = playDescription }
     ) {
         Icon(
@@ -320,7 +322,8 @@ fun NetflixPlayButton(
 @Composable
 fun NetflixInfoButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateDown: (() -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -336,6 +339,20 @@ fun NetflixInfoButton(
         interactionSource = interactionSource,
         modifier = modifier
             .border(2.dp, if (isFocused) Color.White else Color.Transparent)
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                    when (keyEvent.nativeKeyEvent.keyCode) {
+                        android.view.KeyEvent.KEYCODE_DPAD_UP -> true // Block UP
+                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            onNavigateDown?.invoke()
+                            true
+                        }
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            }
             .semantics { contentDescription = moreInfoDescription }
     ) {
         Icon(
