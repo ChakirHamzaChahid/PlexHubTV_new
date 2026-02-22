@@ -224,6 +224,7 @@ fun MainScreen(
                     }
                 },
                 onSearchClick = { navController.navigate(Screen.Search.route) },
+                onSettingsClick = { navController.navigate(Screen.Settings.route) },
                 onProfileClick = { onNavigateToProfiles() },
                 modifier = Modifier
                     .align(Alignment.TopCenter)

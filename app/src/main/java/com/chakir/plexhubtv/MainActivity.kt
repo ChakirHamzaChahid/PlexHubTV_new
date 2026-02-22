@@ -161,7 +161,7 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                     }
                 },
                 onNavigateToManageProfiles = {
-                    // Future: navigate to profile management screen
+                    navController.navigate(Screen.AppProfileSwitch.route)
                 },
             )
         }

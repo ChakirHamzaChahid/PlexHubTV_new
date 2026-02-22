@@ -68,6 +68,7 @@ fun NetflixTopBar(
     isVisible: Boolean,
     onItemSelected: (NavigationItem) -> Unit,
     onSearchClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
     appLogoPainter: androidx.compose.ui.graphics.painter.Painter? = null,
@@ -237,13 +238,16 @@ fun NetflixTopBar(
                 )
             }
 
-            // Right Actions: Search + Profile
+            // Right Actions: Search + Settings + Profile
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 NetflixSearchIcon(
                     onClick = onSearchClick
+                )
+                NetflixSettingsIcon(
+                    onClick = onSettingsClick
                 )
                 NetflixProfileAvatar(
                     onClick = onProfileClick
@@ -328,6 +332,44 @@ private fun NetflixSearchIcon(
         Icon(
             imageVector = Icons.Default.Search,
             contentDescription = stringResource(R.string.topbar_search_description),
+            tint = iconColor,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun NetflixSettingsIcon(
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val iconColor by animateColorAsState(
+        targetValue = if (isFocused) NetflixRed else Color.White.copy(alpha = 0.7f),
+        animationSpec = tween(150),
+        label = "settingsIconColor"
+    )
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isFocused) 1.15f else 1f,
+        animationSpec = tween(150),
+        label = "settingsIconScale"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = stringResource(R.string.topbar_settings_description),
             tint = iconColor,
             modifier = Modifier.size(24.dp)
         )

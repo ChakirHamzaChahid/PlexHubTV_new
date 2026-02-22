@@ -172,13 +172,13 @@ interface PlexApiService {
 
     // --- Plex Home / Users ---
 
-    @GET("https://plex.tv/api/home/users")
+    @GET("https://plex.tv/api/v2/home/users")
     suspend fun getHomeUsers(
         @Header("X-Plex-Token") token: String,
         @Header("X-Plex-Client-Identifier") clientId: String,
     ): Response<List<PlexHomeUserDto>>
 
-    @POST("https://plex.tv/api/home/users/{uuid}/switch")
+    @POST("https://plex.tv/api/v2/home/users/{uuid}/switch")
     suspend fun switchUser(
         @Path("uuid") uuid: String,
         @Query("pin") pin: String?,
