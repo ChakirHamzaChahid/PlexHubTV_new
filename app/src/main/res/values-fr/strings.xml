@@ -14,6 +14,7 @@
     <string name="action_play">Lecture</string>
     <string name="action_search">Rechercher</string>
     <string name="action_clear">Effacer</string>
+    <string name="action_skip">Passer</string>
 
     <!-- ══════════════════════════════════════════════
          Écran d\'authentification
@@ -21,6 +22,10 @@
     <string name="auth_title">PlexHubTV</string>
     <string name="auth_plex_token_label">Jeton Plex</string>
     <string name="auth_login_with_token">Se connecter avec un jeton</string>
+    <string name="auth_login_with_pin">Connexion par code PIN</string>
+    <string name="auth_advanced_login">Connexion avancée</string>
+    <string name="auth_hide_advanced_login">Masquer connexion avancée</string>
+    <string name="auth_advanced_login_token">Connexion avancée (Token)</string>
     <string name="auth_link_account">Associer un compte</string>
     <string name="auth_go_to_url">Allez sur : %1$s</string>
     <string name="auth_success_message">Authentification réussie ! Chargement…</string>
@@ -530,6 +535,8 @@
     <string name="iptv_search_placeholder">Rechercher des chaînes…</string>
     <string name="iptv_title">TV en direct</string>
     <string name="iptv_close_search_description">Fermer la recherche</string>
+    <string name="iptv_connection_error">Erreur de connexion</string>
+    <string name="iptv_change_url">Changer d\'URL</string>
     <string name="iptv_error">Erreur : %1$s</string>
     <string name="iptv_dialog_title">Entrer l\'URL de la playlist M3U</string>
     <string name="iptv_url_label">URL</string>

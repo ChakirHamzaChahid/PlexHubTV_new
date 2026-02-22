@@ -14,6 +14,7 @@
     <string name="action_play">Play</string>
     <string name="action_search">Search</string>
     <string name="action_clear">Clear</string>
+    <string name="action_skip">Skip</string>
 
     <!-- ══════════════════════════════════════════════
          Auth Screen
@@ -21,6 +22,10 @@
     <string name="auth_title">PlexHubTV</string>
     <string name="auth_plex_token_label">Plex Token</string>
     <string name="auth_login_with_token">Login with Token</string>
+    <string name="auth_login_with_pin">Login with PIN</string>
+    <string name="auth_advanced_login">Advanced Login</string>
+    <string name="auth_hide_advanced_login">Hide Advanced Login</string>
+    <string name="auth_advanced_login_token">Advanced Login (Token)</string>
     <string name="auth_link_account">Link Account</string>
     <string name="auth_go_to_url">Go to: %1$s</string>
     <string name="auth_success_message">Authentication Successful! Loading…</string>
@@ -530,6 +535,8 @@
     <string name="iptv_search_placeholder">Search channels…</string>
     <string name="iptv_title">Live TV</string>
     <string name="iptv_close_search_description">Close Search</string>
+    <string name="iptv_connection_error">Connection Error</string>
+    <string name="iptv_change_url">Change URL</string>
     <string name="iptv_error">Error: %1$s</string>
     <string name="iptv_dialog_title">Enter M3U Playlist URL</string>
     <string name="iptv_url_label">URL</string>

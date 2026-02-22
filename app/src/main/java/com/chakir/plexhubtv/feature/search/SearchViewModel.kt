@@ -13,6 +13,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -46,6 +49,19 @@ class SearchViewModel
 
         init {
             Timber.d("SCREEN [Search]: Opened")
+
+            // UX17: Debounced auto-search on query changes
+            viewModelScope.launch {
+                _uiState
+                    .map { it.query }
+                    .distinctUntilChanged()
+                    .debounce(300) // Wait 300ms after last keystroke
+                    .collect { query ->
+                        if (query.isNotBlank() && query.length >= 2) {
+                            performSearch(query)
+                        }
+                    }
+            }
         }
 
         fun onAction(action: SearchAction) {

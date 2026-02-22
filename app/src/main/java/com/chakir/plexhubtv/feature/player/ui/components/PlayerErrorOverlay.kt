@@ -128,8 +128,8 @@ fun PlayerErrorOverlay(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    // Bouton Retry (pour erreurs réseau principalement)
-                    if (errorType == PlayerErrorType.Network) {
+                    // Bouton Retry (UX16: pour tous les types d'erreurs)
+                    if (errorType != PlayerErrorType.None) {
                         val retryInteractionSource = remember { MutableInteractionSource() }
                         val isRetryFocused by retryInteractionSource.collectIsFocusedAsState()
 

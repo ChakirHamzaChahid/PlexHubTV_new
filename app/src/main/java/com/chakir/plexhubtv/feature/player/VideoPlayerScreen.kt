@@ -168,10 +168,8 @@ fun VideoPlayerScreen(
             onAction(PlayerAction.DismissDialog)
         } else if (controlsVisible) {
             controlsVisible = false
-        } else if (!uiState.isPlaying && !uiState.isBuffering && !uiState.error.isNullOrBlank().not()) {
-            // If Paused (and not buffering/error), Back should Resume
-            onAction(PlayerAction.Play)
         } else {
+            // UX15: Back button always closes the player (even when paused)
             onAction(PlayerAction.Close)
         }
     }

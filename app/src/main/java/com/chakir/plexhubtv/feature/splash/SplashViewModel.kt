@@ -48,6 +48,11 @@ class SplashViewModel
         private val transitionState = MutableStateFlow(TransitionState())
 
         companion object {
+            /**
+             * UX22: Timeout to prevent infinite black screen if video fails to load.
+             * After 5s, if video hasn't started, we force navigation to ensure
+             * user never gets stuck on splash screen.
+             */
             private const val SPLASH_TIMEOUT_MS = 5000L
         }
 
@@ -69,6 +74,14 @@ class SplashViewModel
 
         fun onVideoError() {
             Timber.e("SPLASH: Video playback error, forcing navigation fallback")
+            transitionState.update { it.copy(isVideoComplete = true) }
+        }
+
+        /**
+         * UX21: Allow user to skip the splash video
+         */
+        fun onSkipRequested() {
+            Timber.d("SPLASH: User requested skip, forcing navigation")
             transitionState.update { it.copy(isVideoComplete = true) }
         }
 

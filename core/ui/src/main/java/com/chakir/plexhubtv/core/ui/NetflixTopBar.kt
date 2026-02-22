@@ -12,9 +12,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -61,6 +64,7 @@ fun NetflixTopBar(
     modifier: Modifier = Modifier,
     appLogoPainter: androidx.compose.ui.graphics.painter.Painter? = null,
     focusRequester: FocusRequester = remember { FocusRequester() },
+    contentFocusRequester: FocusRequester? = null, // UX23: Focus target for DOWN navigation
     onFocusChanged: (Boolean) -> Unit = {},
 ) {
     // TopBar always has opaque background (does not merge with home screen)
@@ -79,7 +83,34 @@ fun NetflixTopBar(
                 .background(backgroundColor)
                 .padding(horizontal = 48.dp)
                 .focusRequester(focusRequester)
-                .onFocusChanged { onFocusChanged(it.hasFocus) },
+                .onFocusChanged { onFocusChanged(it.hasFocus) }
+                // UX23: Focus trap - prevent UP from exiting TopBar
+                .focusProperties {
+                    @Suppress("DEPRECATION")
+                    exit = { direction ->
+                        if (direction == FocusDirection.Up) {
+                            FocusRequester.Cancel // Block UP navigation
+                        } else {
+                            FocusRequester.Default // Allow other directions
+                        }
+                    }
+                }
+                // UX23: Route DOWN to content when available
+                .onPreviewKeyEvent { event ->
+                    if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown &&
+                        event.key.nativeKeyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN &&
+                        contentFocusRequester != null
+                    ) {
+                        try {
+                            contentFocusRequester.requestFocus()
+                            true
+                        } catch (e: Exception) {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                },
             verticalAlignment = Alignment.CenterVertically
         ) {
             // App Logo + Name - PlexHubTV

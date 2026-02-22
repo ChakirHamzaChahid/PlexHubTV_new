@@ -2,15 +2,26 @@ package com.chakir.plexhubtv.feature.splash
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.MediaItem
@@ -60,6 +71,16 @@ fun SplashScreen(
     onVideoEnded: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val skipButtonFocusRequester = remember { FocusRequester() }
+
+    // UX21: Auto-focus the skip button on initial display
+    LaunchedEffect(Unit) {
+        try {
+            skipButtonFocusRequester.requestFocus()
+        } catch (e: Exception) {
+            // Focus might fail if not yet attached, that's okay
+        }
+    }
 
     // Create ExoPlayer and release it when leaving composition
     val exoPlayer = remember {
@@ -123,5 +144,29 @@ fun SplashScreen(
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        // UX21: Skip button in top-right corner
+        val skipInteractionSource = remember { MutableInteractionSource() }
+        val isSkipFocused by skipInteractionSource.collectIsFocusedAsState()
+
+        Button(
+            onClick = { viewModel.onSkipRequested() },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(32.dp)
+                .focusRequester(skipButtonFocusRequester)
+                .scale(if (isSkipFocused) 1.1f else 1f)
+                .testTag("splash_skip_button"),
+            interactionSource = skipInteractionSource,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isSkipFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.8f),
+                contentColor = if (isSkipFocused) Color.White else Color.Black
+            )
+        ) {
+            Text(
+                text = stringResource(R.string.action_skip),
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
     }
 }

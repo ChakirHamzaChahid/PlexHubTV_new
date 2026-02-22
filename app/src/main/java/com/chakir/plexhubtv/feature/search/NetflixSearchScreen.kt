@@ -11,7 +11,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -41,6 +43,7 @@ fun NetflixSearchScreen(
     modifier: Modifier = Modifier
 ) {
     val keyboardFocusRequester = remember { FocusRequester() }
+    val resultsFocusRequester = remember { FocusRequester() }
     val screenDesc = stringResource(R.string.search_screen_description)
     val searchTitle = stringResource(R.string.search_title)
     val searchEmpty = stringResource(R.string.search_empty)
@@ -67,10 +70,33 @@ fun NetflixSearchScreen(
             horizontalArrangement = Arrangement.spacedBy(32.dp)
         ) {
         // Left: On-Screen Keyboard
+        // UX18: Handle D-Pad DOWN to navigate from keyboard to results
         Column(
             modifier = Modifier
                 .weight(0.35f)
                 .fillMaxHeight()
+                .onPreviewKeyEvent { event ->
+                    if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                        when (event.key.nativeKeyCode) {
+                            android.view.KeyEvent.KEYCODE_DPAD_DOWN,
+                            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                if (state.searchState == SearchState.Results && groupedResults.isNotEmpty()) {
+                                    try {
+                                        resultsFocusRequester.requestFocus()
+                                        true
+                                    } catch (e: Exception) {
+                                        false
+                                    }
+                                } else {
+                                    false
+                                }
+                            }
+                            else -> false
+                        }
+                    } else {
+                        false
+                    }
+                }
         ) {
             val queryDesc = stringResource(R.string.search_query_description, state.query.ifEmpty { searchEmpty })
             Text(
@@ -164,9 +190,11 @@ fun NetflixSearchScreen(
                 }
                 SearchState.Results -> {
                     // groupedResults derived via derivedStateOf at Route level
+                    // UX18: focusRequester for first result to enable keyboard → results navigation
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 32.dp),
+                        modifier = Modifier.focusRequester(resultsFocusRequester)
                     ) {
                         groupedResults.forEach { (type, items) ->
                             item(key = "search_row_${type.name}") {
