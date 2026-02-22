@@ -86,4 +86,8 @@ sealed interface SettingsAction {
     data class ChangeRatingSyncDailyLimit(val limit: Int) : SettingsAction
 
     data object ResetRatingSyncProgress : SettingsAction
+
+    data object SwitchPlexUser : SettingsAction
+
+    data object ManageAppProfiles : SettingsAction
 }

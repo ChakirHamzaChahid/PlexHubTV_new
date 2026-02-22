@@ -11,7 +11,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,6 +45,8 @@ fun SettingsRoute(
     onNavigateToLogin: () -> Unit,
     onNavigateToServerStatus: () -> Unit,
     onNavigateToDebug: () -> Unit = {},
+    onNavigateToPlexHomeSwitch: () -> Unit = {},
+    onNavigateToAppProfiles: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -54,6 +58,8 @@ fun SettingsRoute(
                 is SettingsNavigationEvent.NavigateBack -> onNavigateBack()
                 is SettingsNavigationEvent.NavigateToLogin -> onNavigateToLogin()
                 is SettingsNavigationEvent.NavigateToServerStatus -> onNavigateToServerStatus()
+                is SettingsNavigationEvent.NavigateToPlexHomeSwitch -> onNavigateToPlexHomeSwitch()
+                is SettingsNavigationEvent.NavigateToAppProfiles -> onNavigateToAppProfiles()
             }
         }
     }
@@ -121,6 +127,24 @@ fun SettingsScreen(
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
+            // --- Profiles & Users ---
+            item {
+                SettingsSection(stringResource(R.string.settings_section_profiles)) {
+                    SettingsTile(
+                        title = stringResource(R.string.settings_switch_plex_user),
+                        subtitle = stringResource(R.string.settings_switch_plex_user_desc),
+                        icon = Icons.Default.SwitchAccount,
+                        onClick = { onAction(SettingsAction.SwitchPlexUser) },
+                    )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_manage_profiles),
+                        subtitle = stringResource(R.string.settings_manage_profiles_desc),
+                        icon = Icons.Default.ManageAccounts,
+                        onClick = { onAction(SettingsAction.ManageAppProfiles) },
+                    )
+                }
+            }
+
             // --- Appearance ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_appearance)) {

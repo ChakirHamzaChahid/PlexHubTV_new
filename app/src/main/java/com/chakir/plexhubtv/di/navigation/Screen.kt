@@ -8,7 +8,7 @@ sealed class Screen(val route: String) {
 
     data object PinInput : Screen("pin_input")
 
-    data object Profiles : Screen("profiles")
+    data object PlexHomeSwitch : Screen("plex_home_switch")
 
     data object Loading : Screen("loading")
 
@@ -34,6 +34,10 @@ sealed class Screen(val route: String) {
     data object Debug : Screen("debug")
 
     data object ServerStatus : Screen("server_status")
+
+    data object AppProfileSelection : Screen("app_profile_selection")
+
+    data object AppProfileSwitch : Screen("app_profile_switch")
 
     // --- Media Graph ---
     data object MediaDetail : Screen("media_detail/{ratingKey}?serverId={serverId}") {

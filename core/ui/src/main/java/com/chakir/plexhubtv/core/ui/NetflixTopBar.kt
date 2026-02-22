@@ -39,20 +39,28 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.draw.scale
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.ui.R
+import androidx.compose.ui.ExperimentalComposeUiApi
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun NetflixTopBar(
     selectedItem: NavigationItem,
@@ -63,12 +71,39 @@ fun NetflixTopBar(
     onProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
     appLogoPainter: androidx.compose.ui.graphics.painter.Painter? = null,
-    focusRequester: FocusRequester = remember { FocusRequester() },
+    requestFocusOnSelectedItem: Boolean = false,
     contentFocusRequester: FocusRequester? = null, // UX23: Focus target for DOWN navigation
     onFocusChanged: (Boolean) -> Unit = {},
 ) {
     // TopBar always has opaque background (does not merge with home screen)
     val backgroundColor = Color.Black.copy(alpha = 0.95f)
+
+    // Individual focus requesters for each navigation item
+    val homeFocusRequester = remember { FocusRequester() }
+    val tvShowsFocusRequester = remember { FocusRequester() }
+    val moviesFocusRequester = remember { FocusRequester() }
+    val favoritesFocusRequester = remember { FocusRequester() }
+    val historyFocusRequester = remember { FocusRequester() }
+    val iptvFocusRequester = remember { FocusRequester() }
+
+    // When requested, focus the selected navigation item
+    LaunchedEffect(requestFocusOnSelectedItem) {
+        if (requestFocusOnSelectedItem) {
+            try {
+                when (selectedItem) {
+                    NavigationItem.Home -> homeFocusRequester.requestFocus()
+                    NavigationItem.TVShows -> tvShowsFocusRequester.requestFocus()
+                    NavigationItem.Movies -> moviesFocusRequester.requestFocus()
+                    NavigationItem.Favorites -> favoritesFocusRequester.requestFocus()
+                    NavigationItem.History -> historyFocusRequester.requestFocus()
+                    NavigationItem.Iptv -> iptvFocusRequester.requestFocus()
+                    else -> homeFocusRequester.requestFocus()
+                }
+            } catch (_: Exception) {
+                // Ignore focus failures
+            }
+        }
+    }
 
     AnimatedVisibility(
         visible = isVisible,
@@ -82,8 +117,9 @@ fun NetflixTopBar(
                 .height(56.dp)
                 .background(backgroundColor)
                 .padding(horizontal = 48.dp)
-                .focusRequester(focusRequester)
-                .onFocusChanged { onFocusChanged(it.hasFocus) }
+                .onFocusChanged { focusState ->
+                    onFocusChanged(focusState.hasFocus)
+                }
                 // UX23: Focus trap - prevent UP from exiting TopBar
                 .focusProperties {
                     @Suppress("DEPRECATION")
@@ -166,32 +202,38 @@ fun NetflixTopBar(
                 NetflixNavItem(
                     item = NavigationItem.Home,
                     isSelected = selectedItem == NavigationItem.Home,
-                    onSelected = { onItemSelected(NavigationItem.Home) }
+                    onSelected = { onItemSelected(NavigationItem.Home) },
+                    focusRequester = homeFocusRequester
                 )
                 NetflixNavItem(
                     item = NavigationItem.TVShows,
                     isSelected = selectedItem == NavigationItem.TVShows,
-                    onSelected = { onItemSelected(NavigationItem.TVShows) }
+                    onSelected = { onItemSelected(NavigationItem.TVShows) },
+                    focusRequester = tvShowsFocusRequester
                 )
                 NetflixNavItem(
                     item = NavigationItem.Movies,
                     isSelected = selectedItem == NavigationItem.Movies,
-                    onSelected = { onItemSelected(NavigationItem.Movies) }
+                    onSelected = { onItemSelected(NavigationItem.Movies) },
+                    focusRequester = moviesFocusRequester
                 )
                 NetflixNavItem(
                     item = NavigationItem.Favorites, // Will be renamed "My List"
                     isSelected = selectedItem == NavigationItem.Favorites,
-                    onSelected = { onItemSelected(NavigationItem.Favorites) }
+                    onSelected = { onItemSelected(NavigationItem.Favorites) },
+                    focusRequester = favoritesFocusRequester
                 )
                 NetflixNavItem(
                     item = NavigationItem.History,
                     isSelected = selectedItem == NavigationItem.History,
-                    onSelected = { onItemSelected(NavigationItem.History) }
+                    onSelected = { onItemSelected(NavigationItem.History) },
+                    focusRequester = historyFocusRequester
                 )
                 NetflixNavItem(
                     item = NavigationItem.Iptv,
                     isSelected = selectedItem == NavigationItem.Iptv,
-                    onSelected = { onItemSelected(NavigationItem.Iptv) }
+                    onSelected = { onItemSelected(NavigationItem.Iptv) },
+                    focusRequester = iptvFocusRequester
                 )
             }
 
@@ -216,6 +258,7 @@ private fun NetflixNavItem(
     item: NavigationItem,
     isSelected: Boolean,
     onSelected: () -> Unit,
+    focusRequester: FocusRequester = remember { FocusRequester() }
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -235,6 +278,7 @@ private fun NetflixNavItem(
 
     Box(
         modifier = Modifier
+            .focusRequester(focusRequester)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -322,8 +366,8 @@ private fun NetflixProfileAvatar(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Default.Settings,
-            contentDescription = stringResource(R.string.topbar_settings_description),
+            imageVector = Icons.Default.AccountCircle,
+            contentDescription = stringResource(R.string.topbar_profile_description),
             tint = Color.White,
             modifier = Modifier.size(20.dp)
         )

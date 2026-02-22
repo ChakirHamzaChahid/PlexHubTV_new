@@ -344,6 +344,13 @@
     <string name="settings_player_mpv">MPV</string>
     <string name="settings_syncing_message">Syncing…</string>
 
+    <!-- Settings - Profiles & Users -->
+    <string name="settings_section_profiles">Profiles &amp; Users</string>
+    <string name="settings_switch_plex_user">Switch Plex User</string>
+    <string name="settings_switch_plex_user_desc">Change who\'s watching on this Plex Home</string>
+    <string name="settings_manage_profiles">Manage App Profiles</string>
+    <string name="settings_manage_profiles_desc">Add, edit, or switch between local app profiles</string>
+
     <!-- Appearance -->
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_app_theme">App Theme</string>

@@ -243,6 +243,16 @@ class SettingsViewModel
                         Timber.d("Rating sync progress reset")
                     }
                 }
+                is SettingsAction.SwitchPlexUser -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToPlexHomeSwitch)
+                    }
+                }
+                is SettingsAction.ManageAppProfiles -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToAppProfiles)
+                    }
+                }
             }
         }
 
@@ -383,4 +393,8 @@ sealed interface SettingsNavigationEvent {
     data object NavigateToLogin : SettingsNavigationEvent
 
     data object NavigateToServerStatus : SettingsNavigationEvent
+
+    data object NavigateToPlexHomeSwitch : SettingsNavigationEvent
+
+    data object NavigateToAppProfiles : SettingsNavigationEvent
 }

@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.feature.auth.profiles
+package com.chakir.plexhubtv.feature.plexhome
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -44,8 +44,8 @@ import com.chakir.plexhubtv.core.model.PlexHomeUser
  * Permet de choisir quel utilisateur regarde (User Switching).
  */
 @Composable
-fun ProfileRoute(
-    viewModel: ProfileViewModel = hiltViewModel(),
+fun PlexHomeSwitcherRoute(
+    viewModel: PlexHomeSwitcherViewModel = hiltViewModel(),
     onSwitchSuccess: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -57,7 +57,7 @@ fun ProfileRoute(
         }
     }
 
-    ProfileScreen(
+    PlexHomeSwitcherScreen(
         state = uiState,
         onAction = viewModel::onAction,
         onBack = onBack,
@@ -65,9 +65,9 @@ fun ProfileRoute(
 }
 
 @Composable
-fun ProfileScreen(
-    state: ProfileUiState,
-    onAction: (ProfileAction) -> Unit,
+fun PlexHomeSwitcherScreen(
+    state: PlexHomeSwitcherUiState,
+    onAction: (PlexHomeSwitcherAction) -> Unit,
     onBack: () -> Unit,
 ) {
     val screenDescription = stringResource(R.string.profile_screen_description)
@@ -111,7 +111,7 @@ fun ProfileScreen(
                         .testTag("profile_error")
                         .semantics { contentDescription = "Erreur: ${state.error}" },
                 )
-                Button(onClick = { onAction(ProfileAction.LoadUsers) }) {
+                Button(onClick = { onAction(PlexHomeSwitcherAction.LoadUsers) }) {
                     Text(stringResource(R.string.action_retry))
                 }
             } else {
@@ -129,9 +129,9 @@ fun ProfileScreen(
                         .semantics { contentDescription = listDescription },
                 ) {
                     itemsIndexed(state.users, key = { _, user -> user.id }) { index, user ->
-                        UserProfileCard(
+                        PlexHomeUserCard(
                             user = user,
-                            onClick = { onAction(ProfileAction.SelectUser(user)) },
+                            onClick = { onAction(PlexHomeSwitcherAction.SelectUser(user)) },
                             modifier = if (index == 0) {
                                 Modifier.focusRequester(firstFocusRequester)
                             } else {
@@ -147,12 +147,12 @@ fun ProfileScreen(
         }
 
         if (state.showPinDialog && state.selectedUser != null) {
-            PinEntryDialog(
+            PlexHomePinDialog(
                 user = state.selectedUser,
                 pinValue = state.pinValue,
-                onDigitEnter = { onAction(ProfileAction.EnterPinDigit(it)) },
-                onCancel = { onAction(ProfileAction.CancelPin) },
-                onClear = { onAction(ProfileAction.ClearPin) },
+                onDigitEnter = { onAction(PlexHomeSwitcherAction.EnterPinDigit(it)) },
+                onCancel = { onAction(PlexHomeSwitcherAction.CancelPin) },
+                onClear = { onAction(PlexHomeSwitcherAction.ClearPin) },
             )
         }
 
@@ -181,7 +181,7 @@ fun ProfileScreen(
 }
 
 @Composable
-fun UserProfileCard(
+fun PlexHomeUserCard(
     user: PlexHomeUser,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -243,7 +243,7 @@ fun UserProfileCard(
 }
 
 @Composable
-fun PinEntryDialog(
+fun PlexHomePinDialog(
     user: PlexHomeUser,
     pinValue: String,
     onDigitEnter: (String) -> Unit,

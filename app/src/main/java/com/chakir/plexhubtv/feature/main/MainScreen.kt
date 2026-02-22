@@ -27,8 +27,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import androidx.activity.compose.BackHandler
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.zIndex
 import com.chakir.plexhubtv.BuildConfig
@@ -53,6 +52,8 @@ fun MainScreen(
     onNavigateToPlayer: (String, String) -> Unit,
     onNavigateToDetails: (String, String) -> Unit,
     onPlayUrl: (String, String) -> Unit,
+    onNavigateToProfiles: () -> Unit,
+    onNavigateToPlexHomeSwitch: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val navController = rememberNavController()
@@ -63,7 +64,7 @@ fun MainScreen(
     var isTopBarVisible by remember { mutableStateOf(true) }
 
     // TopBar focus management for Back button handling
-    val topBarFocusRequester = remember { FocusRequester() }
+    var requestTopBarFocus by remember { mutableStateOf(false) }
     var isTopBarFocused by remember { mutableStateOf(false) }
 
     // Determines the current selected item based on the route
@@ -85,10 +86,29 @@ fun MainScreen(
             }
         }
 
-    // Back: from content → focus TopBar; from TopBar → exit app
-    val isOnStartDestination = currentRoute == Screen.Home.route
-    BackHandler(enabled = isOnStartDestination && !isTopBarFocused) {
-        topBarFocusRequester.requestFocus()
+    // Define main navigation screens (where TopBar is visible)
+    val isMainNavigationScreen = currentRoute in listOf(
+        Screen.Home.route,
+        Screen.Movies.route,
+        Screen.TVShows.route,
+        Screen.Favorites.route,
+        Screen.History.route,
+        Screen.Iptv.route
+    )
+
+    // Back: from content → focus TopBar (on the selected item); from TopBar → exit app
+    // Enabled for all main navigation screens when TopBar doesn't have focus
+    BackHandler(enabled = isMainNavigationScreen && !isTopBarFocused) {
+        requestTopBarFocus = true
+    }
+
+    // Reset focus request flag after it's been processed
+    LaunchedEffect(requestTopBarFocus) {
+        if (requestTopBarFocus) {
+            // Give TopBar time to request focus, then reset
+            kotlinx.coroutines.delay(100)
+            requestTopBarFocus = false
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -150,6 +170,8 @@ fun MainScreen(
                     onNavigateToLogin = onLogout,
                     onNavigateToServerStatus = { navController.navigate(Screen.ServerStatus.route) },
                     onNavigateToDebug = { navController.navigate(Screen.Debug.route) },
+                    onNavigateToPlexHomeSwitch = { onNavigateToPlexHomeSwitch() },
+                    onNavigateToAppProfiles = { onNavigateToProfiles() },
                 )
             }
             composable(Screen.ServerStatus.route) {
@@ -186,8 +208,8 @@ fun MainScreen(
             }
         }
 
-        // Netflix TopBar Overlay
-        if (!uiState.isOffline) {
+        // Netflix TopBar Overlay - Only visible on main navigation screens
+        if (!uiState.isOffline && isMainNavigationScreen) {
             NetflixTopBar(
                 selectedItem = selectedItem,
                 isScrolled = isTopBarScrolled,
@@ -202,12 +224,12 @@ fun MainScreen(
                     }
                 },
                 onSearchClick = { navController.navigate(Screen.Search.route) },
-                onProfileClick = { navController.navigate(Screen.Settings.route) },
+                onProfileClick = { onNavigateToProfiles() },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .zIndex(1f),
                 appLogoPainter = painterResource(id = R.drawable.ic_launcher_tv),
-                focusRequester = topBarFocusRequester,
+                requestFocusOnSelectedItem = requestTopBarFocus,
                 onFocusChanged = { hasFocus -> isTopBarFocused = hasFocus },
             )
         }

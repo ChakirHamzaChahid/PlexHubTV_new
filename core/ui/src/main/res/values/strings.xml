@@ -22,6 +22,7 @@
     <string name="topbar_logo_description">PlexHub TV Logo</string>
     <string name="topbar_search_description">Search</string>
     <string name="topbar_settings_description">Settings</string>
+    <string name="topbar_profile_description">Switch profile</string>
 
     <!-- Hero Billboard -->
     <string name="hero_play_button">Play</string>

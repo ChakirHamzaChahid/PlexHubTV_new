@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.feature.auth.profiles
+package com.chakir.plexhubtv.feature.plexhome
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,23 +17,23 @@ import javax.inject.Inject
  * Gère le chargement des utilisateurs et le basculement (Switch User) avec ou sans PIN.
  */
 @HiltViewModel
-class ProfileViewModel
+class PlexHomeSwitcherViewModel
     @Inject
     constructor(
         private val authRepository: AuthRepository,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(ProfileUiState())
-        val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+        private val _uiState = MutableStateFlow(PlexHomeSwitcherUiState())
+        val uiState: StateFlow<PlexHomeSwitcherUiState> = _uiState.asStateFlow()
 
         init {
-            Timber.d("SCREEN [Profile]: Opened")
-            onAction(ProfileAction.LoadUsers)
+            Timber.d("SCREEN [PlexHomeSwitch]: Opened")
+            onAction(PlexHomeSwitcherAction.LoadUsers)
         }
 
-        fun onAction(action: ProfileAction) {
+        fun onAction(action: PlexHomeSwitcherAction) {
             when (action) {
-                ProfileAction.LoadUsers -> loadUsers()
-                is ProfileAction.SelectUser -> {
+                PlexHomeSwitcherAction.LoadUsers -> loadUsers()
+                is PlexHomeSwitcherAction.SelectUser -> {
                     // Vérifier si le profil est protégé par PIN
                     if (action.user.protected || action.user.hasPassword) {
                         _uiState.update { it.copy(showPinDialog = true, selectedUser = action.user, pinValue = "") }
@@ -41,21 +41,21 @@ class ProfileViewModel
                         switchUser(action.user)
                     }
                 }
-                ProfileAction.CancelPin -> {
+                PlexHomeSwitcherAction.CancelPin -> {
                     _uiState.update { it.copy(showPinDialog = false, selectedUser = null, pinValue = "") }
                 }
-                is ProfileAction.EnterPinDigit -> {
+                is PlexHomeSwitcherAction.EnterPinDigit -> {
                     if (_uiState.value.pinValue.length < 4) {
                         _uiState.update { it.copy(pinValue = it.pinValue + action.digit) }
                         if (_uiState.value.pinValue.length == 4) {
-                            onAction(ProfileAction.SubmitPin)
+                            onAction(PlexHomeSwitcherAction.SubmitPin)
                         }
                     }
                 }
-                ProfileAction.ClearPin -> {
+                PlexHomeSwitcherAction.ClearPin -> {
                     _uiState.update { it.copy(pinValue = "") }
                 }
-                ProfileAction.SubmitPin -> {
+                PlexHomeSwitcherAction.SubmitPin -> {
                     val user = _uiState.value.selectedUser ?: return
                     val pin = _uiState.value.pinValue
                     switchUser(user, pin)
@@ -66,17 +66,17 @@ class ProfileViewModel
         private fun loadUsers() {
             viewModelScope.launch {
                 val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [Profile]: Loading users start")
+                Timber.d("SCREEN [PlexHomeSwitch]: Loading users start")
                 _uiState.update { it.copy(isLoading = true, error = null) }
                 authRepository.getHomeUsers()
                     .onSuccess { users ->
                         val duration = System.currentTimeMillis() - startTime
-                        Timber.i("SCREEN [Profile] SUCCESS: duration=${duration}ms | users=${users.size}")
+                        Timber.i("SCREEN [PlexHomeSwitch] SUCCESS: duration=${duration}ms | users=${users.size}")
                         _uiState.update { it.copy(isLoading = false, users = users) }
                     }
                     .onFailure { error ->
                         val duration = System.currentTimeMillis() - startTime
-                        Timber.e("SCREEN [Profile] FAILED: duration=${duration}ms error=${error.message}")
+                        Timber.e("SCREEN [PlexHomeSwitch] FAILED: duration=${duration}ms error=${error.message}")
                         _uiState.update { it.copy(isLoading = false, error = error.message) }
                     }
             }

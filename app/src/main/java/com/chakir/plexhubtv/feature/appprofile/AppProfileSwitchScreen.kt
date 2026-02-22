@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.feature.profile
+package com.chakir.plexhubtv.feature.appprofile
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,14 +29,14 @@ import com.chakir.plexhubtv.core.model.Profile
  * Permet de basculer entre les profils locaux de l'application.
  */
 @Composable
-fun ProfileSwitchRoute(
-    viewModel: ProfileViewModel = hiltViewModel(),
+fun AppProfileSwitchRoute(
+    viewModel: AppProfileViewModel = hiltViewModel(),
     onProfileSwitched: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    ProfileSwitchScreen(
+    AppProfileSwitchScreen(
         state = uiState,
         onAction = viewModel::onAction,
         onNavigateBack = onNavigateBack,
@@ -45,9 +45,9 @@ fun ProfileSwitchRoute(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileSwitchScreen(
-    state: ProfileUiState,
-    onAction: (ProfileAction) -> Unit,
+fun AppProfileSwitchScreen(
+    state: AppProfileUiState,
+    onAction: (AppProfileAction) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     Scaffold(
@@ -121,10 +121,10 @@ fun ProfileSwitchScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(state.profiles, key = { it.id }) { profile ->
-                            ProfileListItem(
+                            AppProfileListItem(
                                 profile = profile,
                                 isCurrentProfile = profile.id == state.activeProfile?.id,
-                                onClick = { onAction(ProfileAction.SelectProfile(profile)) },
+                                onClick = { onAction(AppProfileAction.SelectProfile(profile)) },
                             )
                         }
                     }
@@ -135,7 +135,7 @@ fun ProfileSwitchScreen(
 }
 
 @Composable
-fun ProfileListItem(
+fun AppProfileListItem(
     profile: Profile,
     isCurrentProfile: Boolean,
     onClick: () -> Unit,
@@ -201,14 +201,14 @@ fun ProfileListItem(
 
 @Preview(showBackground = true)
 @Composable
-fun PreviewProfileSwitchScreen() {
+fun PreviewAppProfileSwitchScreen() {
     val profiles =
         listOf(
             Profile(id = "1", name = "Chakir", avatarEmoji = "👤"),
             Profile(id = "2", name = "Guest", avatarEmoji = "👥"),
         )
-    ProfileSwitchScreen(
-        state = ProfileUiState(profiles = profiles, activeProfile = profiles[0], isLoading = false),
+    AppProfileSwitchScreen(
+        state = AppProfileUiState(profiles = profiles, activeProfile = profiles[0], isLoading = false),
         onAction = {},
         onNavigateBack = {},
     )

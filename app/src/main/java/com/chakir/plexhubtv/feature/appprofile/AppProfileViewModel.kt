@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.feature.profile
+package com.chakir.plexhubtv.feature.appprofile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,14 +20,14 @@ import javax.inject.Inject
  * ViewModel pour la gestion des profils utilisateurs.
  */
 @HiltViewModel
-class ProfileViewModel @Inject constructor(
+class AppProfileViewModel @Inject constructor(
     private val profileRepository: ProfileRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ProfileUiState())
-    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(AppProfileUiState())
+    val uiState: StateFlow<AppProfileUiState> = _uiState.asStateFlow()
 
-    private val _navigationEvents = Channel<ProfileNavigationEvent>()
+    private val _navigationEvents = Channel<AppProfileNavigationEvent>()
     val navigationEvents = _navigationEvents.receiveAsFlow()
 
     init {
@@ -35,15 +35,15 @@ class ProfileViewModel @Inject constructor(
         observeActiveProfile()
     }
 
-    fun onAction(action: ProfileAction) {
+    fun onAction(action: AppProfileAction) {
         when (action) {
-            is ProfileAction.SelectProfile -> selectProfile(action.profile)
-            is ProfileAction.ManageProfiles -> navigateToManageProfiles()
-            is ProfileAction.CreateProfile -> showCreateDialog()
-            is ProfileAction.EditProfile -> showEditDialog(action.profile)
-            is ProfileAction.DeleteProfile -> deleteProfile(action.profileId)
-            is ProfileAction.DismissDialog -> dismissDialog()
-            is ProfileAction.Back -> navigateBack()
+            is AppProfileAction.SelectProfile -> selectProfile(action.profile)
+            is AppProfileAction.ManageProfiles -> navigateToManageProfiles()
+            is AppProfileAction.CreateProfile -> showCreateDialog()
+            is AppProfileAction.EditProfile -> showEditDialog(action.profile)
+            is AppProfileAction.DeleteProfile -> deleteProfile(action.profileId)
+            is AppProfileAction.DismissDialog -> dismissDialog()
+            is AppProfileAction.Back -> navigateBack()
         }
     }
 
@@ -59,7 +59,7 @@ class ProfileViewModel @Inject constructor(
                 profileRepository.getAllProfiles().safeCollectIn(
                     scope = viewModelScope,
                     onError = { e ->
-                        Timber.e(e, "ProfileViewModel: loadProfiles failed")
+                        Timber.e(e, "AppProfileViewModel: loadProfiles failed")
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -92,7 +92,7 @@ class ProfileViewModel @Inject constructor(
         profileRepository.getActiveProfileFlow().safeCollectIn(
             scope = viewModelScope,
             onError = { e ->
-                Timber.e(e, "ProfileViewModel: observeActiveProfile failed")
+                Timber.e(e, "AppProfileViewModel: observeActiveProfile failed")
             }
         ) { profile ->
             _uiState.update { it.copy(activeProfile = profile) }
@@ -105,7 +105,7 @@ class ProfileViewModel @Inject constructor(
                 val result = profileRepository.switchProfile(profile.id)
                 if (result.isSuccess) {
                     Timber.i("Profile switched to: ${profile.name}")
-                    _navigationEvents.send(ProfileNavigationEvent.NavigateToHome)
+                    _navigationEvents.send(AppProfileNavigationEvent.NavigateToHome)
                 } else {
                     val error = result.exceptionOrNull()?.message ?: "Failed to switch profile"
                     _uiState.update { it.copy(error = error) }
@@ -120,7 +120,7 @@ class ProfileViewModel @Inject constructor(
 
     private fun navigateToManageProfiles() {
         viewModelScope.launch {
-            _navigationEvents.send(ProfileNavigationEvent.NavigateToManageProfiles)
+            _navigationEvents.send(AppProfileNavigationEvent.NavigateToManageProfiles)
         }
     }
 
@@ -165,7 +165,7 @@ class ProfileViewModel @Inject constructor(
 
     private fun navigateBack() {
         viewModelScope.launch {
-            _navigationEvents.send(ProfileNavigationEvent.NavigateBack)
+            _navigationEvents.send(AppProfileNavigationEvent.NavigateBack)
         }
     }
 }

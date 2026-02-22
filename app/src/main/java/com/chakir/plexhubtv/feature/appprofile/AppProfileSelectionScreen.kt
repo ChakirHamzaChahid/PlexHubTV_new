@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.feature.profile
+package com.chakir.plexhubtv.feature.appprofile
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -34,8 +34,8 @@ import com.chakir.plexhubtv.core.model.Profile
  * Route pour l'écran de sélection de profil avec ViewModel.
  */
 @Composable
-fun ProfileSelectionRoute(
-    viewModel: ProfileViewModel = hiltViewModel(),
+fun AppProfileSelectionRoute(
+    viewModel: AppProfileViewModel = hiltViewModel(),
     onNavigateToHome: () -> Unit,
     onNavigateToManageProfiles: () -> Unit,
 ) {
@@ -46,9 +46,9 @@ fun ProfileSelectionRoute(
     LaunchedEffect(navigationEvents) {
         navigationEvents.collect { event ->
             when (event) {
-                is ProfileNavigationEvent.NavigateToHome -> onNavigateToHome()
-                is ProfileNavigationEvent.NavigateToManageProfiles -> onNavigateToManageProfiles()
-                is ProfileNavigationEvent.NavigateBack -> onNavigateToHome()
+                is AppProfileNavigationEvent.NavigateToHome -> onNavigateToHome()
+                is AppProfileNavigationEvent.NavigateToManageProfiles -> onNavigateToManageProfiles()
+                is AppProfileNavigationEvent.NavigateBack -> onNavigateToHome()
             }
         }
     }
@@ -61,10 +61,10 @@ fun ProfileSelectionRoute(
             CircularProgressIndicator()
         }
     } else {
-        ProfileSelectionScreen(
+        AppProfileSelectionScreen(
             profiles = uiState.profiles,
-            onProfileSelected = { viewModel.onAction(ProfileAction.SelectProfile(it)) },
-            onManageProfiles = { viewModel.onAction(ProfileAction.ManageProfiles) }
+            onProfileSelected = { viewModel.onAction(AppProfileAction.SelectProfile(it)) },
+            onManageProfiles = { viewModel.onAction(AppProfileAction.ManageProfiles) }
         )
     }
 
@@ -81,7 +81,7 @@ fun ProfileSelectionRoute(
  * Affiche tous les profils disponibles avec possibilité d'en créer un nouveau.
  */
 @Composable
-fun ProfileSelectionScreen(
+fun AppProfileSelectionScreen(
     profiles: List<Profile>,
     onProfileSelected: (Profile) -> Unit,
     onManageProfiles: () -> Unit,
@@ -112,7 +112,7 @@ fun ProfileSelectionScreen(
                 modifier = Modifier.padding(horizontal = 48.dp)
             ) {
                 profiles.forEachIndexed { index, profile ->
-                    ProfileCard(
+                    AppProfileCard(
                         profile = profile,
                         onClick = { onProfileSelected(profile) },
                         modifier = if (index == 0) {
@@ -125,7 +125,7 @@ fun ProfileSelectionScreen(
 
                 // Add Profile Button
                 if (profiles.size < 5) {
-                    AddProfileCard(onClick = onManageProfiles)
+                    AddAppProfileCard(onClick = onManageProfiles)
                 }
             }
 
@@ -151,7 +151,7 @@ fun ProfileSelectionScreen(
  * Carte de profil individuelle.
  */
 @Composable
-private fun ProfileCard(
+private fun AppProfileCard(
     profile: Profile,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -240,7 +240,7 @@ private fun ProfileCard(
  * Carte pour ajouter un nouveau profil.
  */
 @Composable
-private fun AddProfileCard(
+private fun AddAppProfileCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {

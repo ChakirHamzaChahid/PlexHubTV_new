@@ -20,7 +20,7 @@ import androidx.navigation.navArgument
 import com.chakir.plexhubtv.di.navigation.Screen
 import com.chakir.plexhubtv.feature.auth.AuthRoute
 import com.chakir.plexhubtv.feature.auth.components.SessionExpiredDialog
-import com.chakir.plexhubtv.feature.auth.profiles.ProfileRoute
+import com.chakir.plexhubtv.feature.plexhome.PlexHomeSwitcherRoute
 import com.chakir.plexhubtv.feature.details.MediaDetailRoute
 import com.chakir.plexhubtv.feature.details.SeasonDetailRoute
 import com.chakir.plexhubtv.feature.player.VideoPlayerRoute
@@ -140,14 +140,38 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
             )
         }
 
-        composable(Screen.Profiles.route) {
-            ProfileRoute(
+        composable(Screen.PlexHomeSwitch.route) {
+            PlexHomeSwitcherRoute(
                 onSwitchSuccess = {
                     navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Profiles.route) { inclusive = true }
+                        popUpTo(Screen.PlexHomeSwitch.route) { inclusive = true }
                     }
                 },
                 onBack = {
+                    navController.popBackStack()
+                },
+            )
+        }
+
+        composable(Screen.AppProfileSelection.route) {
+            com.chakir.plexhubtv.feature.appprofile.AppProfileSelectionRoute(
+                onNavigateToHome = {
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.AppProfileSelection.route) { inclusive = true }
+                    }
+                },
+                onNavigateToManageProfiles = {
+                    // Future: navigate to profile management screen
+                },
+            )
+        }
+
+        composable(Screen.AppProfileSwitch.route) {
+            com.chakir.plexhubtv.feature.appprofile.AppProfileSwitchRoute(
+                onProfileSwitched = {
+                    navController.popBackStack()
+                },
+                onNavigateBack = {
                     navController.popBackStack()
                 },
             )
@@ -163,6 +187,12 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 },
                 onPlayUrl = { url, title ->
                     navController.navigate(Screen.VideoPlayer.createRoute("iptv", "iptv", 0L, url, title))
+                },
+                onNavigateToProfiles = {
+                    navController.navigate(Screen.AppProfileSelection.route)
+                },
+                onNavigateToPlexHomeSwitch = {
+                    navController.navigate(Screen.PlexHomeSwitch.route)
                 },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
