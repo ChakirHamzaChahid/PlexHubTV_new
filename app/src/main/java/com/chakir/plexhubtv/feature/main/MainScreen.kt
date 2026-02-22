@@ -55,6 +55,7 @@ fun MainScreen(
     onNavigateToProfiles: () -> Unit,
     onNavigateToPlexHomeSwitch: () -> Unit,
     onLogout: () -> Unit,
+    onNavigateToLibrarySelection: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
@@ -172,6 +173,7 @@ fun MainScreen(
                     onNavigateToDebug = { navController.navigate(Screen.Debug.route) },
                     onNavigateToPlexHomeSwitch = { onNavigateToPlexHomeSwitch() },
                     onNavigateToAppProfiles = { onNavigateToProfiles() },
+                    onNavigateToLibrarySelection = { onNavigateToLibrarySelection() },
                 )
             }
             composable(Screen.ServerStatus.route) {

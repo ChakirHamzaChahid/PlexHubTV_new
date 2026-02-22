@@ -57,6 +57,10 @@ class SettingsDataStore
         private val TMDB_API_KEY = stringPreferencesKey("tmdb_api_key")
         private val OMDB_API_KEY = stringPreferencesKey("omdb_api_key")
 
+        // Library Selection Configuration
+        private val SELECTED_LIBRARY_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("selected_library_ids")
+        private val LIBRARY_SELECTION_COMPLETE = stringPreferencesKey("library_selection_complete")
+
         // Rating Sync Configuration
         private val RATING_SYNC_SOURCE = stringPreferencesKey("rating_sync_source") // "tmdb" or "omdb"
         private val RATING_SYNC_DELAY = stringPreferencesKey("rating_sync_delay") // delay in ms
@@ -168,6 +172,15 @@ class SettingsDataStore
         val excludedServerIds: Flow<Set<String>> =
             dataStore.data
                 .map { preferences -> preferences[EXCLUDED_SERVER_IDS] ?: emptySet() }
+
+        // Library Selection Configuration Flows
+        val selectedLibraryIds: Flow<Set<String>> =
+            dataStore.data
+                .map { preferences -> preferences[SELECTED_LIBRARY_IDS] ?: emptySet() }
+
+        val isLibrarySelectionComplete: Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[LIBRARY_SELECTION_COMPLETE]?.toBoolean() ?: false }
 
         val iptvPlaylistUrl: Flow<String?> =
             dataStore.data
@@ -339,6 +352,18 @@ class SettingsDataStore
                 } else {
                     preferences.remove(PREF_SUBTITLE_LANG)
                 }
+            }
+        }
+
+        suspend fun saveSelectedLibraryIds(ids: Set<String>) {
+            dataStore.edit { preferences ->
+                preferences[SELECTED_LIBRARY_IDS] = ids
+            }
+        }
+
+        suspend fun saveLibrarySelectionComplete(complete: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[LIBRARY_SELECTION_COMPLETE] = complete.toString()
             }
         }
 

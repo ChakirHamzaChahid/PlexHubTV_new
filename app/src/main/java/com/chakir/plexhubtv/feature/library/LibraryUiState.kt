@@ -28,6 +28,7 @@ data class LibraryUiState(
     val items: List<MediaItem> = emptyList(),
     val hubs: List<com.chakir.plexhubtv.core.model.Hub> = emptyList(),
     val totalItems: Int = 0,
+    val filteredItems: Int? = null, // null = not yet computed; differs from totalItems when filters are active
     val mediaType: MediaType = MediaType.Movie,
     val offset: Int = 0,
     val endOfReached: Boolean = false,

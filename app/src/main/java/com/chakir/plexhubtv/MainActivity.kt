@@ -111,15 +111,30 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 },
+                onNavigateToLibrarySelection = {
+                    navController.navigate(Screen.LibrarySelection.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
             )
         }
 
         composable(Screen.Login.route) {
             AuthRoute(
                 onAuthSuccess = {
-                    // Redirect to Loading to wait for Sync
-                    navController.navigate(Screen.Loading.route) {
+                    // Redirect to Library Selection before Sync
+                    navController.navigate(Screen.LibrarySelection.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable(Screen.LibrarySelection.route) {
+            com.chakir.plexhubtv.feature.libraryselection.LibrarySelectionRoute(
+                onNavigateToLoading = {
+                    navController.navigate(Screen.Loading.route) {
+                        popUpTo(Screen.LibrarySelection.route) { inclusive = true }
                     }
                 },
             )
@@ -135,6 +150,11 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 onNavigateToAuth = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }  // Clear all back stack
+                    }
+                },
+                onNavigateToLibrarySelection = {
+                    navController.navigate(Screen.LibrarySelection.route) {
+                        popUpTo(Screen.Loading.route) { inclusive = true }
                     }
                 },
             )
@@ -198,6 +218,9 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onNavigateToLibrarySelection = {
+                    navController.navigate(Screen.LibrarySelection.route)
                 },
             )
         }

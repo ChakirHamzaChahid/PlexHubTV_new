@@ -371,6 +371,98 @@ class LibraryRepositoryImpl
             }
         }
 
+        override suspend fun getFilteredCount(
+            type: com.chakir.plexhubtv.core.model.MediaType,
+            filter: String?,
+            sort: String?,
+            isDescending: Boolean,
+            genre: List<String>?,
+            serverId: String?,
+            selectedServerId: String?,
+            excludedServerIds: List<String>,
+            libraryKey: String?,
+            query: String?,
+        ): Int {
+            var resolvedLibraryKey = libraryKey ?: "default"
+            var resolvedServerId = serverId ?: "all"
+
+            if (resolvedServerId == "all") {
+                val servers = authRepository.getServers(forceRefresh = false).getOrNull()
+                resolvedServerId = servers?.firstOrNull()?.clientIdentifier ?: "default"
+            }
+
+            val baseSort = when (sort) {
+                "Date Added" -> "addedAt"
+                "Title" -> "title"
+                "Year" -> "year"
+                "Rating" -> "rating"
+                else -> sort?.lowercase() ?: "default"
+            }
+            val directionSuffix = if (isDescending) "desc" else "asc"
+            val normalizedSort = if (baseSort == "default") "default" else "$baseSort:$directionSuffix"
+
+            val normalizedFilter = filter?.lowercase() ?: "all"
+            val dbServerId = if (selectedServerId == null || selectedServerId.equals("all", ignoreCase = true)) null else selectedServerId
+            val dbQuery = if (query.isNullOrBlank()) null else query
+
+            val isUnified = serverId == "all" || serverId == null
+            val typeStr = if (type == com.chakir.plexhubtv.core.model.MediaType.Movie) "movie" else "show"
+
+            val sqlBuilder = StringBuilder()
+            val bindArgs = mutableListOf<Any>()
+
+            if (isUnified) {
+                sqlBuilder.append("SELECT COUNT(DISTINCT CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END) ")
+                sqlBuilder.append("FROM media WHERE type = ? ")
+                bindArgs.add(typeStr)
+            } else {
+                if (resolvedLibraryKey == "default") {
+                    val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
+                    if (cachedSection != null) {
+                        resolvedLibraryKey = cachedSection.libraryKey
+                    } else {
+                        val result = getLibraries(resolvedServerId)
+                        val section = result.getOrNull()?.find { it.type == typeStr }
+                        if (section != null) resolvedLibraryKey = section.key
+                    }
+                }
+                sqlBuilder.append("SELECT COUNT(*) FROM media ")
+                sqlBuilder.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+                bindArgs.add(resolvedLibraryKey)
+                bindArgs.add(normalizedFilter)
+                bindArgs.add(normalizedSort)
+            }
+
+            if (!genre.isNullOrEmpty()) {
+                sqlBuilder.append("AND (")
+                genre.forEachIndexed { index, keyword ->
+                    if (index > 0) sqlBuilder.append(" OR ")
+                    sqlBuilder.append("genres LIKE ?")
+                    bindArgs.add("%$keyword%")
+                }
+                sqlBuilder.append(") ")
+            }
+
+            if (isUnified && excludedServerIds.isNotEmpty()) {
+                val placeholders = excludedServerIds.joinToString(",") { "?" }
+                sqlBuilder.append("AND serverId NOT IN ($placeholders) ")
+                bindArgs.addAll(excludedServerIds)
+            }
+
+            if (isUnified && dbServerId != null) {
+                sqlBuilder.append("AND serverId = ? ")
+                bindArgs.add(dbServerId)
+            }
+
+            if (dbQuery != null) {
+                sqlBuilder.append("AND title LIKE ? ")
+                bindArgs.add("%$dbQuery%")
+            }
+
+            val rawQuery = SimpleSQLiteQuery(sqlBuilder.toString(), bindArgs.toTypedArray())
+            return mediaDao.getMediaCountRaw(rawQuery)
+        }
+
         override suspend fun getIndexOfFirstItem(
             type: com.chakir.plexhubtv.core.model.MediaType,
             letter: String,

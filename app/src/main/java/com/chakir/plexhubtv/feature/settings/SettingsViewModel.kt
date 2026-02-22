@@ -253,6 +253,11 @@ class SettingsViewModel
                         _navigationEvents.send(SettingsNavigationEvent.NavigateToAppProfiles)
                     }
                 }
+                is SettingsAction.ManageLibrarySelection -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToLibrarySelection)
+                    }
+                }
             }
         }
 
@@ -397,4 +402,6 @@ sealed interface SettingsNavigationEvent {
     data object NavigateToPlexHomeSwitch : SettingsNavigationEvent
 
     data object NavigateToAppProfiles : SettingsNavigationEvent
+
+    data object NavigateToLibrarySelection : SettingsNavigationEvent
 }

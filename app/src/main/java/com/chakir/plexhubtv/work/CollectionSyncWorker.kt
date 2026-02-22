@@ -9,10 +9,12 @@ import com.chakir.plexhubtv.core.database.*
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.MediaMapper
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
@@ -28,6 +30,7 @@ class CollectionSyncWorker
         private val mediaMapper: MediaMapper,
         private val api: PlexApiService,
         private val connectionManager: ConnectionManager,
+        private val settingsDataStore: SettingsDataStore,
     ) : CoroutineWorker(appContext, workerParams) {
         private val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         private val channelId = "collection_sync"
@@ -48,8 +51,17 @@ class CollectionSyncWorker
                     // Force refresh to get all connection candidates (Crucial for ConnectionManager to find best URL)
                     updateNotification("Refreshing servers...")
                     val result = authRepository.getServers(forceRefresh = true)
-                    val servers = result.getOrNull() ?: emptyList()
-                    Timber.d("Sync found ${servers.size} server(s) to process (including shared servers)")
+                    val allServers = result.getOrNull() ?: emptyList()
+
+                    // Filter by selected libraries
+                    val selectedLibraryIds = settingsDataStore.selectedLibraryIds.first()
+                    val selectedServerIds = selectedLibraryIds.map { it.substringBefore(":") }.toSet()
+                    val servers = if (selectedServerIds.isNotEmpty()) {
+                        allServers.filter { it.clientIdentifier in selectedServerIds }
+                    } else {
+                        allServers
+                    }
+                    Timber.d("Collection sync: ${servers.size} server(s) to process (filtered from ${allServers.size} total)")
                     val now = System.currentTimeMillis()
 
                     servers.forEachIndexed { index, server ->
@@ -80,8 +92,10 @@ class CollectionSyncWorker
                                 val libTitle = lib.title ?: "Unknown"
                                 val libType = lib.type ?: "unknown"
 
-                                // Only process movie and show libraries for collections
-                                if (libKey != null && (libType == "movie" || libType == "show")) {
+                                // Only process movie and show libraries that are selected
+                                val compositeId = "${server.clientIdentifier}:$libKey"
+                                if (libKey != null && (libType == "movie" || libType == "show") &&
+                                    (selectedLibraryIds.isEmpty() || selectedLibraryIds.contains(compositeId))) {
                                     // Update Notification occasionally
                                     updateNotification("Syncing ${server.name}: $libTitle...")
                                     Timber.i(">>> Syncing Collections for Library: '$libTitle' (key=$libKey, type=$libType)")

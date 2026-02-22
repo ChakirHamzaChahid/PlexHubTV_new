@@ -25,6 +25,7 @@ fun LoadingRoute(
     viewModel: LoadingViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
     onNavigateToAuth: () -> Unit,
+    onNavigateToLibrarySelection: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -33,6 +34,7 @@ fun LoadingRoute(
             when (event) {
                 LoadingNavigationEvent.NavigateToMain -> onNavigateToMain()
                 LoadingNavigationEvent.NavigateToAuth -> onNavigateToAuth()
+                LoadingNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
             }
         }
     }

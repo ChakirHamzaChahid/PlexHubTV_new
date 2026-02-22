@@ -10,6 +10,8 @@ sealed class Screen(val route: String) {
 
     data object PlexHomeSwitch : Screen("plex_home_switch")
 
+    data object LibrarySelection : Screen("library_selection")
+
     data object Loading : Screen("loading")
 
     // --- Main Graph ---

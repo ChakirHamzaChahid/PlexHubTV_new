@@ -90,4 +90,6 @@ sealed interface SettingsAction {
     data object SwitchPlexUser : SettingsAction
 
     data object ManageAppProfiles : SettingsAction
+
+    data object ManageLibrarySelection : SettingsAction
 }

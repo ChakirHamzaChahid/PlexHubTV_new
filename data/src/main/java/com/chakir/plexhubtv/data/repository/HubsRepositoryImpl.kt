@@ -12,6 +12,7 @@ import com.chakir.plexhubtv.core.network.model.GenericPlexResponse
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.data.repository.aggregation.MediaDeduplicator
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.HubsRepository
@@ -21,6 +22,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import timber.log.Timber
@@ -40,6 +42,7 @@ class HubsRepositoryImpl
         private val gson: Gson,
         private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDeduplicator: MediaDeduplicator,
+        private val settingsDataStore: SettingsDataStore,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : HubsRepository {
         override fun getUnifiedHubs(): Flow<List<Hub>> =
@@ -49,8 +52,11 @@ class HubsRepositoryImpl
                 val cachedHubs = getCachedHubs()
                 emit(cachedHubs)
 
-                val clients = getActiveClients()
-                Timber.i("REPO [Hubs] Active clients: ${clients.size} (servers: ${clients.map { it.server.name }})")
+                val selectedLibraryIds = settingsDataStore.selectedLibraryIds.first()
+                val selectedServerIds = selectedLibraryIds.map { it.substringBefore(":") }.toSet()
+
+                val clients = getActiveClients(selectedServerIds)
+                Timber.i("REPO [Hubs] Active clients: ${clients.size} (servers: ${clients.map { it.server.name }}, filtered by ${selectedServerIds.size} selected servers)")
                 if (clients.isNotEmpty()) {
                     coroutineScope {
                         val servers = authRepository.getServers().getOrNull() ?: emptyList()
@@ -70,7 +76,7 @@ class HubsRepositoryImpl
                                                 val cachedBody = gson.fromJson(cachedJson, GenericPlexResponse::class.java)
                                                 val hubDtos = cachedBody.mediaContainer?.hubs ?: emptyList()
                                                 Timber.i("REPO [Hubs] CACHE HIT: server=$serverId hubs=${hubDtos.size}")
-                                                return@async processHubDtos(hubDtos, client)
+                                                return@async processHubDtos(hubDtos, client, selectedLibraryIds)
                                             } catch (e: Exception) {
                                                 Timber.e(e, "REPO [Hubs] CACHE PARSE FAILED: server=$serverId")
                                             }
@@ -89,7 +95,7 @@ class HubsRepositoryImpl
                                             )
 
                                             val hubDtos = body.mediaContainer?.hubs ?: emptyList()
-                                            processHubDtos(hubDtos, client)
+                                            processHubDtos(hubDtos, client, selectedLibraryIds)
                                         } else {
                                             Timber.w("REPO [Hubs] NETWORK FAILED: server=${client.server.name} code=${response.code()} message=${response.message()}")
                                             emptyList()
@@ -232,6 +238,7 @@ class HubsRepositoryImpl
         private suspend fun processHubDtos(
             hubDtos: List<com.chakir.plexhubtv.core.network.model.HubDTO>,
             client: PlexClient,
+            selectedLibraryIds: Set<String> = emptySet(),
         ): List<Hub> {
             Timber.i("REPO [Hubs] Processing ${hubDtos.size} hub DTOs for server=${client.server.name}")
 
@@ -260,6 +267,14 @@ class HubsRepositoryImpl
                 val entities =
                     metadata
                         .filter { !it.ratingKey.isNullOrEmpty() }
+                        .filter { dto ->
+                            if (selectedLibraryIds.isEmpty()) true
+                            else {
+                                val libId = dto.librarySectionID
+                                if (libId.isNullOrEmpty() || libId == "0") true
+                                else selectedLibraryIds.contains("${client.server.clientIdentifier}:$libId")
+                            }
+                        }
                         .map { dto ->
                             val entity = mapper.mapDtoToEntity(
                                 dto,
@@ -319,11 +334,16 @@ class HubsRepositoryImpl
             }
         }
 
-        private suspend fun getActiveClients(): List<PlexClient> =
+        private suspend fun getActiveClients(selectedServerIds: Set<String> = emptySet()): List<PlexClient> =
             coroutineScope {
                 val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
+                val filteredServers = if (selectedServerIds.isNotEmpty()) {
+                    servers.filter { it.clientIdentifier in selectedServerIds }
+                } else {
+                    servers
+                }
 
-                servers.map { server ->
+                filteredServers.map { server ->
                     async {
                         val baseUrl = connectionManager.findBestConnection(server)
                         if (baseUrl != null) {

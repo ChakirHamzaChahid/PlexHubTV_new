@@ -47,6 +47,7 @@ fun SettingsRoute(
     onNavigateToDebug: () -> Unit = {},
     onNavigateToPlexHomeSwitch: () -> Unit = {},
     onNavigateToAppProfiles: () -> Unit = {},
+    onNavigateToLibrarySelection: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -60,6 +61,7 @@ fun SettingsRoute(
                 is SettingsNavigationEvent.NavigateToServerStatus -> onNavigateToServerStatus()
                 is SettingsNavigationEvent.NavigateToPlexHomeSwitch -> onNavigateToPlexHomeSwitch()
                 is SettingsNavigationEvent.NavigateToAppProfiles -> onNavigateToAppProfiles()
+                is SettingsNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
             }
         }
     }
@@ -272,6 +274,12 @@ fun SettingsScreen(
             // --- Data & Sync ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_data_sync)) {
+                    SettingsTile(
+                        title = "Bibliothèques synchronisées",
+                        subtitle = "Choisir les bibliothèques à synchroniser",
+                        icon = Icons.Filled.Cached,
+                        onClick = { onAction(SettingsAction.ManageLibrarySelection) },
+                    )
                     SettingsTile(
                         title = stringResource(R.string.settings_sync_library),
                         subtitle = if (state.isSyncing) state.syncMessage ?: stringResource(R.string.settings_syncing_message) else stringResource(R.string.settings_sync_library_subtitle),

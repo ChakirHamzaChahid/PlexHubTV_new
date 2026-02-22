@@ -150,6 +150,7 @@
     <string name="library_movies">Movies</string>
     <string name="library_tv_shows">TV Shows</string>
     <string name="library_title_count">%1$d Titles</string>
+    <string name="library_title_count_filtered">%1$d / %2$d Titles</string>
     <string name="library_refresh_description">Refresh library</string>
     <string name="library_view_mode_description">Change display mode</string>
     <string name="library_no_recommendations">No recommendations found.</string>

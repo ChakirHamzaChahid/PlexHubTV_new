@@ -223,10 +223,11 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
-        // 1. Trigger Immediate Sync ONLY if never completed (Critical for Fresh Install)
+        // 1. Trigger Immediate Sync ONLY if never completed AND library selection is done
         appScope.launch(ioDispatcher) {
             val isFirstSyncComplete = settingsDataStore.isFirstSyncComplete.first()
-            if (!isFirstSyncComplete) {
+            val isLibrarySelectionDone = settingsDataStore.isLibrarySelectionComplete.first()
+            if (!isFirstSyncComplete && isLibrarySelectionDone) {
                 val immediateSyncRequest =
                     androidx.work.OneTimeWorkRequestBuilder<LibrarySyncWorker>()
                         .setConstraints(constraints)

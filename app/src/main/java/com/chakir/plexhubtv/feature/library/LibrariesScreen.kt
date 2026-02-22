@@ -229,8 +229,13 @@ fun LibrariesScreen(
                             )
                             if (state.totalItems > 0) {
                                 Spacer(modifier = Modifier.width(12.dp))
+                                val hasActiveFilter = state.filteredItems != null && state.filteredItems != state.totalItems
                                 Text(
-                                    text = stringResource(R.string.library_title_count, state.totalItems),
+                                    text = if (hasActiveFilter) {
+                                        stringResource(R.string.library_title_count_filtered, state.filteredItems!!, state.totalItems)
+                                    } else {
+                                        stringResource(R.string.library_title_count, state.totalItems)
+                                    },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White.copy(alpha = 0.5f),
                                 )

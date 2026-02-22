@@ -12,6 +12,7 @@ import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.data.repository.aggregation.MediaDeduplicator
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.OnDeckRepository
@@ -21,6 +22,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import timber.log.Timber
 import javax.inject.Inject
@@ -37,6 +39,7 @@ class OnDeckRepositoryImpl
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDeduplicator: MediaDeduplicator,
+        private val settingsDataStore: SettingsDataStore,
         @ApplicationScope private val applicationScope: CoroutineScope,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : OnDeckRepository {
@@ -93,7 +96,10 @@ class OnDeckRepositoryImpl
         }
 
         private suspend fun refreshOnDeck() {
-            val clients = getActiveClients()
+            val selectedLibraryIds = settingsDataStore.selectedLibraryIds.first()
+            val selectedServerIds = selectedLibraryIds.map { it.substringBefore(":") }.toSet()
+
+            val clients = getActiveClients(selectedServerIds)
             if (clients.isEmpty()) return
 
             // Use Race to get fastest response? No, we need all OnDecks.
@@ -132,12 +138,23 @@ class OnDeckRepositoryImpl
 
                 val allEntities: List<MediaEntity> = deferredResults.awaitAll().flatten()
 
+                // Filter by selected libraries before inserting
+                val filteredEntities = if (selectedLibraryIds.isNotEmpty()) {
+                    allEntities.filter { entity ->
+                        val libId = entity.librarySectionId
+                        if (libId.isNullOrEmpty()) entity.serverId in selectedServerIds
+                        else selectedLibraryIds.contains("${entity.serverId}:$libId")
+                    }
+                } else {
+                    allEntities
+                }
+
                 // Update DB transactionally
-                mediaDao.upsertMedia(allEntities)
+                mediaDao.upsertMedia(filteredEntities)
 
                 // Update HomeContent for ordering
                 val homeContent =
-                    allEntities.mapIndexed { index, entity ->
+                    filteredEntities.mapIndexed { index, entity ->
                         com.chakir.plexhubtv.core.database.HomeContentEntity(
                             type = "onDeck",
                             hubIdentifier = "onDeck",
@@ -154,11 +171,16 @@ class OnDeckRepositoryImpl
         }
 
         // Helper duplicated from MediaRepositoryImpl logic (or extracted later)
-        private suspend fun getActiveClients(): List<PlexClient> =
+        private suspend fun getActiveClients(selectedServerIds: Set<String> = emptySet()): List<PlexClient> =
             coroutineScope {
                 val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
+                val filteredServers = if (selectedServerIds.isNotEmpty()) {
+                    servers.filter { it.clientIdentifier in selectedServerIds }
+                } else {
+                    servers
+                }
 
-                servers.map { server ->
+                filteredServers.map { server ->
                     async {
                         val baseUrl = connectionManager.findBestConnection(server)
                         if (baseUrl != null) {

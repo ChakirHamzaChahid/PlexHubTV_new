@@ -20,6 +20,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -146,6 +147,20 @@ class LibraryViewModel
             val query: String? = null,
         )
 
+        /** Params for filtered count (excludes initialScrollIndex to avoid unnecessary recomputation). */
+        private data class CountParams(
+            val filter: String,
+            val sort: String,
+            val isDescending: Boolean,
+            val libraryId: String,
+            val mediaType: MediaType,
+            val genre: List<String>?,
+            val serverId: String,
+            val serverFilterId: String?,
+            val excludedServerIds: List<String>,
+            val query: String?,
+        )
+
         init {
             val typeArg = savedStateHandle.get<String>("mediaType") ?: "movie"
             val initialMediaType = MediaType.values().find { it.name.equals(typeArg, ignoreCase = true) } ?: MediaType.Movie
@@ -187,6 +202,52 @@ class LibraryViewModel
                         it.copy(selectedServerFilter = defaultServer)
                     }
                 }
+            }
+
+            // Observe filter changes to compute filtered item count
+            viewModelScope.launch {
+                _uiState
+                    .map { state ->
+                        val serverFilterId = state.availableServersMap[state.selectedServerFilter]
+                        val genreQuery =
+                            if (state.selectedGenre != null && state.selectedGenre != "All") {
+                                com.chakir.plexhubtv.core.model.GenreGrouping.GROUPS[state.selectedGenre] ?: listOf(state.selectedGenre)
+                            } else {
+                                null
+                            }
+                        CountParams(
+                            filter = state.currentFilter,
+                            sort = state.currentSort,
+                            isDescending = state.isSortDescending,
+                            libraryId = state.selectedLibraryId ?: "default",
+                            mediaType = state.mediaType,
+                            genre = genreQuery,
+                            serverId = state.selectedServerId ?: "all",
+                            serverFilterId = serverFilterId,
+                            excludedServerIds = state.excludedServerIds.toList(),
+                            query = state.searchQuery.ifBlank { null },
+                        )
+                    }
+                    .distinctUntilChanged()
+                    .collectLatest { params ->
+                        try {
+                            val count = libraryRepository.getFilteredCount(
+                                type = params.mediaType,
+                                filter = params.filter,
+                                sort = params.sort,
+                                isDescending = params.isDescending,
+                                genre = params.genre,
+                                serverId = params.serverId,
+                                selectedServerId = params.serverFilterId,
+                                excludedServerIds = params.excludedServerIds,
+                                libraryKey = params.libraryId,
+                                query = params.query,
+                            )
+                            _uiState.update { it.copy(filteredItems = count) }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to compute filtered count")
+                        }
+                    }
             }
         }
 

@@ -40,6 +40,7 @@ fun SplashRoute(
     viewModel: SplashViewModel = hiltViewModel(),
     onNavigateToLogin: () -> Unit,
     onNavigateToLoading: () -> Unit,
+    onNavigateToLibrarySelection: () -> Unit = {},
 ) {
     var isVideoEnded by remember { mutableStateOf(false) }
 
@@ -48,6 +49,7 @@ fun SplashRoute(
             when (event) {
                 SplashNavigationEvent.NavigateToLogin -> onNavigateToLogin()
                 SplashNavigationEvent.NavigateToLoading -> onNavigateToLoading()
+                SplashNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
             }
         }
     }

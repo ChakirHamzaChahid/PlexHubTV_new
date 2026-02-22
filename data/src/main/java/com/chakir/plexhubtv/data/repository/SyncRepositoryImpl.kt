@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.data.repository
 
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.model.toAppError
@@ -14,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
@@ -34,6 +36,7 @@ class SyncRepositoryImpl
         private val mediaDao: MediaDao,
         private val mediaMapper: MediaMapper,
         private val libraryRepository: LibraryRepository,
+        private val settingsDataStore: SettingsDataStore,
     ) : SyncRepository {
         // Callback for progress updates (set by LibrarySyncWorker)
         override var onProgressUpdate: ((current: Int, total: Int, libraryName: String) -> Unit)? = null
@@ -47,9 +50,20 @@ class SyncRepositoryImpl
                     val libraries = librariesResult.getOrNull()
                         ?: return@withContext Result.failure(AppError.Network.ServerError("Failed to fetch libraries for ${server.name}"))
 
-                    // 2. Filter to syncable libraries (movies and shows)
+                    // 2. Filter to syncable libraries (movies and shows) + user selection
                     libraries.forEach { Timber.d("Found library: ${it.title} (type=${it.type})") }
-                    val syncableLibraries = libraries.filter { it.type == "movie" || it.type == "show" }
+                    val selectedIds = settingsDataStore.selectedLibraryIds.first()
+                    Timber.d("SYNC FILTER: selectedIds = $selectedIds (size=${selectedIds.size})")
+
+                    val syncableLibraries = libraries
+                        .filter { it.type == "movie" || it.type == "show" }
+                        .filter { lib ->
+                            val compositeId = "${server.clientIdentifier}:${lib.key}"
+                            val isSelected = selectedIds.contains(compositeId)
+                            Timber.d("SYNC FILTER: Library '${lib.title}' (id=$compositeId) -> selected=$isSelected")
+                            isSelected
+                        }
+                    Timber.d("Syncable libraries after selection filter: ${syncableLibraries.map { it.title }}")
 
                     // 3. SEMI-PARALLEL SYNC: Limit to 2 concurrent libraries to prevent DB lock contention
                     val results =

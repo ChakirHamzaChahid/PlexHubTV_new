@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.feature.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -18,6 +19,7 @@ import javax.inject.Inject
 sealed interface SplashNavigationEvent {
     data object NavigateToLogin : SplashNavigationEvent
     data object NavigateToLoading : SplashNavigationEvent
+    data object NavigateToLibrarySelection : SplashNavigationEvent
 }
 
 /**
@@ -29,6 +31,7 @@ class SplashViewModel
     @Inject
     constructor(
         private val authRepository: AuthRepository,
+        private val settingsDataStore: SettingsDataStore,
     ) : ViewModel() {
         private val _navigationEvent = Channel<SplashNavigationEvent>()
         val navigationEvent = _navigationEvent.receiveAsFlow()
@@ -103,7 +106,12 @@ class SplashViewModel
                         val isAuthenticated = authRepository.checkAuthentication()
                         Timber.d("SPLASH: Authentication check result = $isAuthenticated")
                         if (isAuthenticated) {
-                            SplashNavigationEvent.NavigateToLoading
+                            val isLibrarySelectionDone = settingsDataStore.isLibrarySelectionComplete.first()
+                            if (isLibrarySelectionDone) {
+                                SplashNavigationEvent.NavigateToLoading
+                            } else {
+                                SplashNavigationEvent.NavigateToLibrarySelection
+                            }
                         } else {
                             SplashNavigationEvent.NavigateToLogin
                         }
