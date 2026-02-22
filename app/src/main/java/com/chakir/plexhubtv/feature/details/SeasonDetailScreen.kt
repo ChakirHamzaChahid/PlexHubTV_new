@@ -45,6 +45,7 @@ import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.ui.SeasonDetailSkeleton
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
 
 /**
@@ -86,7 +87,7 @@ fun SeasonDetailScreen(
     onAction: (SeasonDetailEvent) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
-    val episodeListFocusRequester = remember { FocusRequester() }
+    val firstEpisodeFocusRequester = remember { FocusRequester() }
 
     BackHandler(onBack = onNavigateBack)
 
@@ -158,15 +159,12 @@ fun SeasonDetailScreen(
         ) {
             when {
                 state.isLoading -> {
-                    Box(
+                    SeasonDetailSkeleton(
                         modifier = Modifier
                             .fillMaxSize()
                             .testTag("season_loading")
-                            .semantics { contentDescription = "Chargement des épisodes" },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(color = Color.White)
-                    }
+                            .semantics { contentDescription = "Chargement des épisodes" }
+                    )
                 }
                 state.error != null -> {
                     Box(
@@ -304,7 +302,6 @@ fun SeasonDetailScreen(
                         LazyColumn(
                             modifier = Modifier
                                 .weight(0.65f)
-                                .focusRequester(episodeListFocusRequester)
                                 .testTag("episodes_list")
                                 .semantics { contentDescription = "Liste des épisodes" },
                             state = listState,
@@ -315,6 +312,7 @@ fun SeasonDetailScreen(
                                     episode = episode,
                                     downloadState = downloadState,
                                     isOfflineMode = state.isOfflineMode,
+                                    focusRequester = if (index == 0) firstEpisodeFocusRequester else null,
                                     onClick = {
                                         onAction(SeasonDetailEvent.PlayEpisode(episode))
                                     },
@@ -328,9 +326,11 @@ fun SeasonDetailScreen(
                         }
                     }
 
-                    // Request focus on the episode list once content is ready
-                    LaunchedEffect(Unit) {
-                        episodeListFocusRequester.requestFocus()
+                    // Request focus on the first episode once content is ready
+                    LaunchedEffect(state.episodes.isNotEmpty()) {
+                        if (state.episodes.isNotEmpty()) {
+                            firstEpisodeFocusRequester.requestFocus()
+                        }
                     }
                 }
             }
@@ -419,6 +419,7 @@ fun EnhancedEpisodeItem(
     episode: MediaItem,
     downloadState: DownloadState?,
     isOfflineMode: Boolean,
+    focusRequester: FocusRequester? = null,
     onClick: () -> Unit,
 ) {
     val hasProgress = !isOfflineMode && episode.viewOffset > 0
@@ -441,6 +442,13 @@ fun EnhancedEpisodeItem(
             .fillMaxWidth()
             .testTag("episode_item_${episode.ratingKey}")
             .semantics { contentDescription = "Épisode ${episode.episodeIndex}: ${episode.title}" }
+            .then(
+                if (focusRequester != null) {
+                    Modifier.focusRequester(focusRequester)
+                } else {
+                    Modifier
+                }
+            )
             .onFocusChanged { isFocused = it.isFocused }
             .scale(scale)
             .background(

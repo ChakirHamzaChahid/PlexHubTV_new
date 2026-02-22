@@ -49,6 +49,7 @@ import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.DetailHeroSkeleton
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.showError
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
@@ -127,9 +128,9 @@ fun MediaDetailScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                DetailHeroSkeleton(
+                    modifier = Modifier.fillMaxSize()
+                )
             } else if (state.media != null) {
                 NetflixDetailScreen(
                     media = state.media,

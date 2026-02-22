@@ -52,6 +52,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import com.chakir.plexhubtv.core.model.isRetryable
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import com.chakir.plexhubtv.core.ui.showError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -384,9 +385,9 @@ fun LibrariesScreen(
             when {
                 // Loading state (only for INITIAL load)
                 pagedItems.loadState.refresh is androidx.paging.LoadState.Loading && pagedItems.itemCount == 0 -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = NetflixRed)
-                    }
+                    LibraryGridSkeleton(
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
                 // Content
                 else -> {

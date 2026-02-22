@@ -144,11 +144,8 @@ class PlayerController @Inject constructor(
         isMpvMode = false
         isDirectPlay = false
     }
-    
-    // ... Copy methods from PlayerViewModel ...
-    
+
     private fun playDirectUrl(url: String) {
-        // ... (Logic from PlayerViewModel)
          val dummyItem = MediaItem(
             id = "iptv-$url",
             ratingKey = "iptv",

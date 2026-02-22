@@ -154,17 +154,25 @@ class TvChannelManagerImpl @Inject constructor(
      */
     private fun findExistingChannelId(): Long? {
         return try {
+            // Query without selection — Android TV provider disallows WHERE clauses
             val cursor = context.contentResolver.query(
                 TvContractCompat.Channels.CONTENT_URI,
-                arrayOf(TvContractCompat.Channels._ID),
-                "${TvContractCompat.Channels.COLUMN_DISPLAY_NAME} = ?",
-                arrayOf(CHANNEL_NAME),
+                arrayOf(
+                    TvContractCompat.Channels._ID,
+                    TvContractCompat.Channels.COLUMN_DISPLAY_NAME
+                ),
+                null,
+                null,
                 null
             )
 
             cursor?.use {
-                if (it.moveToFirst()) {
-                    return it.getLong(0)
+                val idIndex = it.getColumnIndex(TvContractCompat.Channels._ID)
+                val nameIndex = it.getColumnIndex(TvContractCompat.Channels.COLUMN_DISPLAY_NAME)
+                while (it.moveToNext()) {
+                    if (it.getString(nameIndex) == CHANNEL_NAME) {
+                        return it.getLong(idIndex)
+                    }
                 }
             }
             null
@@ -179,11 +187,34 @@ class TvChannelManagerImpl @Inject constructor(
      */
     private fun deleteAllPrograms(channelId: Long) {
         try {
-            val deletedCount = context.contentResolver.delete(
+            // Query programs without selection, then delete individually by URI
+            val cursor = context.contentResolver.query(
                 TvContractCompat.PreviewPrograms.CONTENT_URI,
-                "${TvContractCompat.PreviewPrograms.COLUMN_CHANNEL_ID} = ?",
-                arrayOf(channelId.toString())
+                arrayOf(
+                    TvContractCompat.PreviewPrograms._ID,
+                    TvContractCompat.PreviewPrograms.COLUMN_CHANNEL_ID
+                ),
+                null,
+                null,
+                null
             )
+
+            var deletedCount = 0
+            cursor?.use {
+                val idIndex = it.getColumnIndex(TvContractCompat.PreviewPrograms._ID)
+                val channelIdIndex = it.getColumnIndex(TvContractCompat.PreviewPrograms.COLUMN_CHANNEL_ID)
+                while (it.moveToNext()) {
+                    if (it.getLong(channelIdIndex) == channelId) {
+                        val programId = it.getLong(idIndex)
+                        context.contentResolver.delete(
+                            TvContractCompat.buildPreviewProgramUri(programId),
+                            null,
+                            null
+                        )
+                        deletedCount++
+                    }
+                }
+            }
             Timber.d("TV Channel: Deleted $deletedCount old programs")
         } catch (e: Exception) {
             Timber.e(e, "TV Channel: Failed to delete programs")
