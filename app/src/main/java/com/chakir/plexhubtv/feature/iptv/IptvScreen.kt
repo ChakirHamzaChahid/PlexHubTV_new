@@ -28,12 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.IptvChannel
 
 @Composable
@@ -150,7 +152,7 @@ fun IptvScreen(
                             tint = MaterialTheme.colorScheme.error
                         )
                         Text(
-                            text = "Connection Error",
+                            text = stringResource(R.string.iptv_connection_error),
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -177,7 +179,7 @@ fun IptvScreen(
                             OutlinedButton(
                                 onClick = { onEvent(IptvEvent.ShowUrlDialog) }
                             ) {
-                                Text("Change URL")
+                                Text(stringResource(R.string.iptv_change_url))
                             }
                         }
                     }

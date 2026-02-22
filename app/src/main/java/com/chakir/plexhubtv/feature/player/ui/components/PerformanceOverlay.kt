@@ -68,13 +68,13 @@ private fun StatRow(
     ) {
         Text(
             text = "$label: ",
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), // Increased from 11sp for TV readability
             color = Color.White.copy(alpha = 0.7f),
             fontFamily = FontFamily.Monospace,
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), // Increased from 11sp for TV readability
             color = Color.Green,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,

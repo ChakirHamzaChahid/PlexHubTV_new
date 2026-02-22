@@ -209,7 +209,7 @@ fun EnhancedSeekBar(
                     displayPosition >= chapter.startTime && displayPosition < chapter.endTime
                 }
                 ?.let { chapter ->
-                    Text(text = chapter.title, color = Color(0xFFE5A00D), fontSize = 11.sp)
+                    Text(text = chapter.title, color = Color(0xFFE5A00D), fontSize = 12.sp) // Increased from 11sp for TV readability
                 }
 
             Text(text = formatTime(duration), color = Color.White, fontSize = 12.sp)
@@ -224,7 +224,7 @@ fun EnhancedSeekBar(
                         .padding(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-            ) { Text(text = chaptersLabel, color = Color.Gray, fontSize = 10.sp) }
+            ) { Text(text = chaptersLabel, color = Color.Gray, fontSize = 12.sp) } // Increased from 10sp for TV readability
         }
     }
 }

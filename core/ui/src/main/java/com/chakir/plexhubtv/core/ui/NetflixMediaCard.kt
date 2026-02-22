@@ -221,7 +221,7 @@ fun NetflixMediaCard(
                             text = String.format("%.1f", rating),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
-                            fontSize = 11.sp,
+                            fontSize = 14.sp, // Increased from 11sp for TV readability
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -277,7 +277,7 @@ fun NetflixMediaCard(
                         text = "${(rating * 10).toInt()}% Match",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF46D369),
-                        fontSize = 10.sp,
+                        fontSize = 14.sp, // Increased from 10sp for TV readability
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -289,7 +289,7 @@ fun NetflixMediaCard(
                         text = metaText,
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 10.sp
+                        fontSize = 14.sp // Increased from 10sp for TV readability
                     )
                 }
             }
@@ -329,7 +329,7 @@ fun NetflixProgressBar(
                     text = remainingText,
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 10.sp,
+                    fontSize = 14.sp, // Increased from 10sp for TV readability
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.align(Alignment.CenterEnd)
                 )
