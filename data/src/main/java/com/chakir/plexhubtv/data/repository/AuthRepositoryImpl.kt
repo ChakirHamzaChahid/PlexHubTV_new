@@ -128,7 +128,8 @@ class AuthRepositoryImpl
                     throw AppError.Network.ServerError("Failed to get home users: ${response.code()}")
                 }
 
-                body.map { userMapper.mapDtoToDomain(it) }
+                val users = body.mediaContainer?.users ?: emptyList()
+                users.map { userMapper.mapDtoToDomain(it) }
             }
         }
 

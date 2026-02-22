@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.core.network
 import com.chakir.plexhubtv.core.network.model.GenericPlexResponse
 import com.chakir.plexhubtv.core.network.model.PinResponse
 import com.chakir.plexhubtv.core.network.model.PlexHomeUserDto
+import com.chakir.plexhubtv.core.network.model.PlexHomeUsersResponse
 import com.chakir.plexhubtv.core.network.model.PlexResource
 import com.chakir.plexhubtv.core.network.model.PlexResponse
 import com.chakir.plexhubtv.core.network.model.UserSwitchResponseDto
@@ -176,7 +177,7 @@ interface PlexApiService {
     suspend fun getHomeUsers(
         @Header("X-Plex-Token") token: String,
         @Header("X-Plex-Client-Identifier") clientId: String,
-    ): Response<List<PlexHomeUserDto>>
+    ): Response<PlexHomeUsersResponse>
 
     @POST("https://plex.tv/api/v2/home/users/{uuid}/switch")
     suspend fun switchUser(

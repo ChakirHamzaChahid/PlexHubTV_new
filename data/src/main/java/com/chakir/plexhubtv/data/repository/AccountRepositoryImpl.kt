@@ -34,7 +34,8 @@ class AccountRepositoryImpl
                     throw AppError.Network.ServerError("API Error: ${response.code()}")
                 }
 
-                response.body()?.map { userMapper.mapDtoToDomain(it) } ?: emptyList()
+                val users = response.body()?.mediaContainer?.users ?: emptyList()
+                users.map { userMapper.mapDtoToDomain(it) }
             }
         }
 
