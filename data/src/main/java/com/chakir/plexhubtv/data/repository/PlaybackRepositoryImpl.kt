@@ -162,7 +162,7 @@ class PlaybackRepositoryImpl
                 ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
 
             return safeApiCall("updateStreamSelection") {
-                val url = "${client.baseUrl}library/parts/$partId"
+                val url = "${client.baseUrl.trimEnd('/')}/library/parts/$partId"
                 val response =
                     api.putStreamSelection(
                         url = url,

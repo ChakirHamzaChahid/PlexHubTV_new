@@ -100,6 +100,9 @@ interface MediaRepository {
         serverId: String,
     ): Flow<Boolean>
 
+    /** Vérifie si un élément (ou l'un de ses alias multi-serveur) est en favori. */
+    fun isFavoriteAny(ratingKeys: List<String>): Flow<Boolean>
+
     /** Ajoute/Retire des favoris. */
     suspend fun toggleFavorite(media: MediaItem): Result<Boolean>
 

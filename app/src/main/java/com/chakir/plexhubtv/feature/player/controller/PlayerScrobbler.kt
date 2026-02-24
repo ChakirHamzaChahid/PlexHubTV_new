@@ -7,6 +7,7 @@ import com.chakir.plexhubtv.domain.service.TvChannelManager
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import com.chakir.plexhubtv.domain.usecase.PrefetchNextEpisodeUseCase
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,13 +70,6 @@ class PlayerScrobbler
                                 Timber.w("WatchNext update failed: ${e.message}")
                             }
 
-                            // Update TV Channel
-                            try {
-                                tvChannelManager.updateContinueWatching()
-                            } catch (e: Exception) {
-                                Timber.e(e, "TV Channel: Post-playback update failed")
-                            }
-
                             // Prefetch next episode at 80% progress
                             if (item.type == MediaType.Episode && !prefetchTriggered && duration > 1000) {
                                 val progress = position.toFloat() / duration.toFloat()
@@ -103,6 +97,15 @@ class PlayerScrobbler
             prefetchTriggered = false
             _showAutoNextPopup.update { false }
             prefetchNextEpisodeUseCase.reset()
+
+            // Update TV channel once when playback stops (fire-and-forget on IO)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    tvChannelManager.updateContinueWatching()
+                } catch (e: Exception) {
+                    Timber.e(e, "TV Channel: Post-playback update failed")
+                }
+            }
         }
 
         fun checkAutoNext(

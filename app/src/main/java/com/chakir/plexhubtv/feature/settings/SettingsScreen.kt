@@ -284,7 +284,7 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_sync_library),
                         subtitle = if (state.isSyncing) state.syncMessage ?: stringResource(R.string.settings_syncing_message) else stringResource(R.string.settings_sync_library_subtitle),
                         icon = Icons.Filled.Cached,
-                        onClick = { onAction(SettingsAction.ForceSync) },
+                        onClick = { if (!state.isSyncing) onAction(SettingsAction.ForceSync) },
                         trailingContent =
                             if (state.isSyncing) {
                                 {
@@ -297,16 +297,24 @@ fun SettingsScreen(
 
                     SettingsTile(
                         title = stringResource(R.string.settings_sync_watchlist),
-                        subtitle = stringResource(R.string.settings_sync_watchlist_subtitle),
+                        subtitle = if (state.isSyncingWatchlist) stringResource(R.string.settings_syncing_message) else stringResource(R.string.settings_sync_watchlist_subtitle),
                         icon = Icons.Filled.Cached,
-                        onClick = { onAction(SettingsAction.SyncWatchlist) },
+                        onClick = { if (!state.isSyncingWatchlist) onAction(SettingsAction.SyncWatchlist) },
+                        trailingContent =
+                            if (state.isSyncingWatchlist) {
+                                {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                }
+                            } else {
+                                null
+                            },
                     )
 
                     SettingsTile(
                         title = stringResource(R.string.settings_sync_ratings),
                         subtitle = if (state.isSyncingRatings) stringResource(R.string.settings_syncing_ratings) else state.ratingSyncMessage ?: stringResource(R.string.settings_sync_ratings_subtitle),
                         icon = Icons.Default.Star,
-                        onClick = { onAction(SettingsAction.SyncRatings) },
+                        onClick = { if (!state.isSyncingRatings) onAction(SettingsAction.SyncRatings) },
                         trailingContent =
                             if (state.isSyncingRatings) {
                                 {

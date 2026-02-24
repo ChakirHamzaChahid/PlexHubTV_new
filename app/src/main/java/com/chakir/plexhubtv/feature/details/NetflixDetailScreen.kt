@@ -31,7 +31,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -214,13 +223,9 @@ fun NetflixDetailScreen(
                     ActionButtonsRow(media, state, onAction, playButtonFocusRequester)
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    Text(
+                    ExpandableSummary(
                         text = media.summary ?: "",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(600.dp)
+                        modifier = Modifier.width(600.dp),
                     )
                 }
             }
@@ -291,15 +296,15 @@ fun NetflixDetailScreen(
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier.focusGroup() // Group horizontal navigation
+                                modifier = Modifier.focusGroup()
                             ) {
                                 items(state.collections, key = { it.id }) { collection ->
-                                    Button(
+                                    CollectionCard(
+                                        title = collection.title,
+                                        itemCount = collection.items.size,
+                                        thumbUrl = collection.thumbUrl,
                                         onClick = { onCollectionClicked(collection.id, collection.serverId) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f))
-                                    ) {
-                                        Text(collection.title, color = Color.White)
-                                    }
+                                    )
                                 }
                             }
                         }
@@ -312,6 +317,141 @@ fun NetflixDetailScreen(
             }
 
             item(key = "detail_bottom_spacer") { Spacer(modifier = Modifier.height(50.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun CollectionCard(
+    title: String,
+    itemCount: Int,
+    thumbUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.05f else 1f,
+        animationSpec = tween(200),
+        label = "collectionScale"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.2f),
+        animationSpec = tween(200),
+        label = "collectionBorder"
+    )
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f),
+        animationSpec = tween(200),
+        label = "collectionBg"
+    )
+
+    val shape = RoundedCornerShape(12.dp)
+
+    Box(
+        modifier = modifier
+            .width(220.dp)
+            .height(120.dp)
+            .scale(scale)
+            .clip(shape)
+            .background(backgroundColor)
+            .border(2.dp, borderColor, shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+    ) {
+        // Thumbnail background if available
+        if (thumbUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(thumbUrl)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                alpha = if (isFocused) 0.4f else 0.2f,
+            )
+        }
+
+        // Text overlay
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Bottom,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.SemiBold,
+                color = if (isFocused) Color.White else Color.White.copy(alpha = 0.8f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (itemCount > 0) {
+                Text(
+                    text = "$itemCount items",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isFocused) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.5f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandableSummary(
+    text: String,
+    modifier: Modifier = Modifier,
+    collapsedMaxLines: Int = 3,
+) {
+    if (text.isBlank()) return
+
+    var isExpanded by remember { mutableStateOf(false) }
+    var hasOverflow by remember { mutableStateOf(false) }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    Column(modifier = modifier) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White,
+            maxLines = if (isExpanded) Int.MAX_VALUE else collapsedMaxLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { result ->
+                if (!isExpanded) {
+                    hasOverflow = result.hasVisualOverflow
+                }
+            },
+        )
+
+        if (hasOverflow || isExpanded) {
+            val label = if (isExpanded) "Less" else "More..."
+            val labelColor by animateColorAsState(
+                targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.6f),
+                animationSpec = tween(150),
+                label = "expandColor"
+            )
+
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = labelColor,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = { isExpanded = !isExpanded }
+                    ),
+            )
         }
     }
 }

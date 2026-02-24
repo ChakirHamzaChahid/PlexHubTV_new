@@ -18,4 +18,8 @@ class IsFavoriteUseCase
         ): Flow<Boolean> {
             return mediaRepository.isFavorite(ratingKey, serverId)
         }
+
+        fun anyOf(ratingKeys: List<String>): Flow<Boolean> {
+            return mediaRepository.isFavoriteAny(ratingKeys)
+        }
     }

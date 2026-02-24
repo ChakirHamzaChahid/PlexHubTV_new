@@ -94,6 +94,10 @@ class FavoritesRepositoryImpl
             return favoriteDao.isFavorite(ratingKey, serverId)
         }
 
+        override fun isFavoriteAny(ratingKeys: List<String>): Flow<Boolean> {
+            return favoriteDao.isFavoriteAny(ratingKeys)
+        }
+
         override suspend fun toggleFavorite(media: MediaItem): Result<Boolean> {
             return try {
                 val isFav = favoriteDao.isFavorite(media.ratingKey, media.serverId).first()

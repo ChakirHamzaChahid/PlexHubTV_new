@@ -552,6 +552,8 @@ class PlayerController @Inject constructor(
                 return@launch
             }
 
+            Timber.d("PlayerController: Track resolution → audio=${resolvedAudio?.language}(${finalAudioStreamId}), sub=${resolvedSubtitle?.language}(${finalSubtitleStreamId}), directPlay=$isDirectPlay")
+
             if (isMpvMode) {
                 performanceTracker.addCheckpoint(opId, "MPV Player Mode")
                 mpvPlayer?.play(streamUri.toString())
@@ -568,21 +570,82 @@ class PlayerController @Inject constructor(
                     performanceTracker.addCheckpoint(opId, "MPV Seek Applied", mapOf("position" to seekTarget))
                 }
 
-                // Track/Sub selection for MPV
-                 if (isDirectPlay && resolvedAudio != null) {
-                     val index = _uiState.value.audioTracks.indexOf(resolvedAudio) + 1
-                     if (index > 0) mpvPlayer?.setAudioId(index.toString())
+                // Track/Sub selection for MPV in Direct Play
+                if (isDirectPlay) {
+                    if (resolvedAudio != null) {
+                        val index = _uiState.value.audioTracks.indexOf(resolvedAudio) + 1
+                        if (index > 0) {
+                            mpvPlayer?.setAudioId(index.toString())
+                            Timber.d("PlayerController: MPV audio track set to index $index (${resolvedAudio.language})")
+                        }
+                    }
+                    if (resolvedSubtitle != null && resolvedSubtitle.id != "no") {
+                        val validTracks = _uiState.value.subtitleTracks.filter { it.id != "no" }
+                        val subIndex = validTracks.indexOf(resolvedSubtitle) + 1
+                        if (subIndex > 0) {
+                            mpvPlayer?.setSubtitleId(subIndex.toString())
+                            Timber.d("PlayerController: MPV subtitle track set to index $subIndex (${resolvedSubtitle.language})")
+                        }
+                    } else {
+                        mpvPlayer?.setSubtitleId("no")
+                        Timber.d("PlayerController: MPV subtitles disabled")
+                    }
                 }
 
                 performanceTracker.endOperation(opId, success = true, additionalMeta = mapOf("engine" to "MPV", "streamUrl" to streamUri.toString()))
             } else {
                 performanceTracker.addCheckpoint(opId, "ExoPlayer Mode")
+
+                // Build subtitle configurations for external SRT/ASS sideloading in Direct Play
+                val subtitleConfigs = if (isDirectPlay && part != null) {
+                    val baseUrl = media.baseUrl?.trimEnd('/') ?: ""
+                    val token = media.accessToken ?: ""
+                    part.streams.filterIsInstance<com.chakir.plexhubtv.core.model.SubtitleStream>()
+                        .filter { it.isExternal && !it.key.isNullOrEmpty() }
+                        .mapNotNull { stream ->
+                            val subtitleUri = android.net.Uri.parse("$baseUrl${stream.key}?X-Plex-Token=$token")
+                            val mimeType = when (stream.codec?.lowercase()) {
+                                "srt" -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+                                "ass", "ssa" -> androidx.media3.common.MimeTypes.TEXT_SSA
+                                "vtt", "webvtt" -> androidx.media3.common.MimeTypes.TEXT_VTT
+                                else -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP // default
+                            }
+                            Timber.d("PlayerController: Sideloading external subtitle '${stream.displayTitle}' (${stream.language}, ${stream.codec}) from ${stream.key}")
+                            androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(subtitleUri)
+                                .setMimeType(mimeType)
+                                .setLanguage(stream.languageCode ?: stream.language)
+                                .setLabel(stream.displayTitle ?: stream.title ?: stream.language ?: "Subtitle")
+                                .setId(stream.id)
+                                .build()
+                        }
+                } else emptyList()
+
                 val mediaItemStart = System.currentTimeMillis()
-                val mediaItem = playerFactory.createMediaItem(streamUri, rKey, !isDirectPlay)
+                val mediaItem = playerFactory.createMediaItem(streamUri, rKey, !isDirectPlay, subtitleConfigs)
                 val mediaItemDuration = System.currentTimeMillis() - mediaItemStart
                 performanceTracker.addCheckpoint(opId, "ExoPlayer MediaItem Created", mapOf("duration" to mediaItemDuration))
 
                 player?.apply {
+                    // Apply track preferences BEFORE prepare() so ExoPlayer selects the right tracks
+                    if (isDirectPlay) {
+                        val builder = trackSelectionParameters.buildUpon()
+                        resolvedAudio?.language?.let { lang ->
+                            builder.setPreferredAudioLanguage(lang)
+                            Timber.d("PlayerController: ExoPlayer preferred audio language set to '$lang'")
+                        }
+                        if (resolvedSubtitle != null && resolvedSubtitle.id != "no") {
+                            builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
+                            resolvedSubtitle.language?.let { lang ->
+                                builder.setPreferredTextLanguage(lang)
+                                Timber.d("PlayerController: ExoPlayer preferred text language set to '$lang'")
+                            }
+                        } else {
+                            builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
+                            Timber.d("PlayerController: ExoPlayer subtitles disabled")
+                        }
+                        trackSelectionParameters = builder.build()
+                    }
+
                     val prepareStart = System.currentTimeMillis()
                     setMediaItem(mediaItem)
                     prepare()
@@ -693,7 +756,9 @@ class PlayerController @Inject constructor(
     
     fun selectAudioTrack(track: com.chakir.plexhubtv.core.model.AudioTrack) {
         val current = _uiState.value.currentItem ?: return
-         playerTrackController.selectAudioTrack(
+        // Immediately update UI state so the dialog reflects the selection
+        _uiState.update { it.copy(selectedAudio = track) }
+        playerTrackController.selectAudioTrack(
             track = track,
             currentItem = current,
             currentSubtitleStreamId = _uiState.value.selectedSubtitle?.streamId,
@@ -711,6 +776,8 @@ class PlayerController @Inject constructor(
 
     fun selectSubtitleTrack(track: SubtitleTrack) {
         val current = _uiState.value.currentItem ?: return
+        // Immediately update UI state so the dialog reflects the selection
+        _uiState.update { it.copy(selectedSubtitle = track) }
         playerTrackController.selectSubtitleTrack(
             track = track,
             currentItem = current,

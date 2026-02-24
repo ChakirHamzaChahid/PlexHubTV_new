@@ -38,6 +38,7 @@ import com.chakir.plexhubtv.core.ui.NetflixTopBar
 import com.chakir.plexhubtv.di.navigation.Screen
 import com.chakir.plexhubtv.feature.downloads.DownloadsRoute
 import com.chakir.plexhubtv.feature.home.HomeRoute
+import com.chakir.plexhubtv.feature.hub.HubRoute
 import com.chakir.plexhubtv.feature.library.LibraryRoute
 import com.chakir.plexhubtv.feature.search.SearchRoute
 import com.chakir.plexhubtv.feature.settings.SettingsRoute
@@ -75,6 +76,7 @@ fun MainScreen(
         remember(currentRoute) {
             when (currentRoute) {
                 Screen.Home.route -> NavigationItem.Home
+                Screen.Hub.route -> NavigationItem.Hub
                 Screen.Movies.route -> NavigationItem.Movies
                 Screen.TVShows.route -> NavigationItem.TVShows
                 Screen.Favorites.route -> NavigationItem.Favorites
@@ -90,6 +92,7 @@ fun MainScreen(
     // Define main navigation screens (where TopBar is visible)
     val isMainNavigationScreen = currentRoute in listOf(
         Screen.Home.route,
+        Screen.Hub.route,
         Screen.Movies.route,
         Screen.TVShows.route,
         Screen.Favorites.route,
@@ -126,6 +129,12 @@ fun MainScreen(
         ) {
             composable(Screen.Home.route) {
                 HomeRoute(
+                    onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.Hub.route) {
+                HubRoute(
                     onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
                     onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
                     onScrollStateChanged = { isScrolled -> isTopBarScrolled = isScrolled },

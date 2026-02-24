@@ -65,9 +65,8 @@ fun MediaCard(
 
 
 /**
- * Écran d'accueil principal (Discover).
- * Affiche le contenu "On Deck" (en cours) et les "Hubs" (sections recommandées, récemment ajoutés, etc.).
- * Gère l'affichage de l'état de synchronisation initiale.
+ * Écran d'accueil principal.
+ * Affiche uniquement le Hero Billboard avec les items On Deck.
  */
 @Composable
 fun HomeRoute(
@@ -81,22 +80,6 @@ fun HomeRoute(
     val errorEvents = viewModel.errorEvents
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // derivedStateOf: only recomputes when the underlying lists actually change,
-    // preventing child recompositions when unrelated uiState fields (isLoading, etc.) change.
-    val continueWatchingItems by remember {
-        // Don't filter by playbackPositionMs - Plex API already returns the right items
-        // (both in-progress items AND next episodes to watch)
-        derivedStateOf { uiState.onDeck }
-    }
-    val hasContinueWatching by remember {
-        derivedStateOf { continueWatchingItems.isNotEmpty() }
-    }
-    val hasMyList by remember {
-        derivedStateOf { uiState.favorites.isNotEmpty() }
-    }
-    val isFirstHub by remember {
-        derivedStateOf { !hasContinueWatching && !hasMyList }
-    }
     val heroItems by remember {
         derivedStateOf { uiState.onDeck.take(10) }
     }
@@ -123,28 +106,18 @@ fun HomeRoute(
 
     DiscoverScreen(
         state = uiState,
-        continueWatchingItems = continueWatchingItems,
-        hasContinueWatching = hasContinueWatching,
-        hasMyList = hasMyList,
-        isFirstHub = isFirstHub,
         heroItems = heroItems,
         onAction = viewModel::onAction,
         snackbarHostState = snackbarHostState,
-        onScrollStateChanged = onScrollStateChanged,
     )
 }
 
 @Composable
 fun DiscoverScreen(
     state: HomeUiState,
-    continueWatchingItems: List<MediaItem>,
-    hasContinueWatching: Boolean,
-    hasMyList: Boolean,
-    isFirstHub: Boolean,
     heroItems: List<MediaItem>,
     onAction: (HomeAction) -> Unit,
     snackbarHostState: SnackbarHostState,
-    onScrollStateChanged: (Boolean) -> Unit = {},
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -155,28 +128,18 @@ fun DiscoverScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // AnimatedBackground REMOVED — hero billboard handles its own backdrop.
-            // Double background was causing double memory usage for full-screen images.
-
             when {
-                state.isInitialSync && state.onDeck.isEmpty() && state.hubs.isEmpty() ->
+                state.isInitialSync && state.onDeck.isEmpty() ->
                     InitialSyncState(
                         state.syncProgress,
                         state.syncMessage,
                     )
                 state.isLoading -> LoadingState()
-                state.onDeck.isEmpty() && state.hubs.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
+                state.onDeck.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
                 else ->
                     NetflixHomeContent(
-                        hubs = state.hubs,
-                        favorites = state.favorites,
-                        continueWatchingItems = continueWatchingItems,
-                        hasContinueWatching = hasContinueWatching,
-                        hasMyList = hasMyList,
-                        isFirstHub = isFirstHub,
                         heroItems = heroItems,
                         onAction = onAction,
-                        onScrollStateChanged = onScrollStateChanged,
                     )
             }
         }

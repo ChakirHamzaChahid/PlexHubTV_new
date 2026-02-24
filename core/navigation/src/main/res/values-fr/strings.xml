@@ -1,6 +1,7 @@
 <resources>
     <!-- Navigation Items -->
     <string name="nav_home">Accueil</string>
+    <string name="nav_hub">Hub</string>
     <string name="nav_movies">Films</string>
     <string name="nav_tv_shows">Séries</string>
     <string name="nav_search">Rechercher</string>

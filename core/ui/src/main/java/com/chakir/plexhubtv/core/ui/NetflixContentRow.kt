@@ -39,6 +39,7 @@ fun NetflixContentRow(
     onItemClick: (MediaItem) -> Unit,
     onItemPlay: (MediaItem) -> Unit,
     rowId: String = title.lowercase().replace(" ", "_"),
+    leftExitFocusRequester: FocusRequester? = null,
 ) {
     if (items.isEmpty()) return
 
@@ -71,7 +72,8 @@ fun NetflixContentRow(
                     @Suppress("DEPRECATION")
                     exit = { direction ->
                         when (direction) {
-                            FocusDirection.Right, FocusDirection.Left -> FocusRequester.Cancel
+                            FocusDirection.Right -> FocusRequester.Cancel
+                            FocusDirection.Left -> leftExitFocusRequester ?: FocusRequester.Cancel
                             else -> FocusRequester.Default
                         }
                     }

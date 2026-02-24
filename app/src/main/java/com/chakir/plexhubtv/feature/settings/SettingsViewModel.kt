@@ -6,6 +6,7 @@ import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
@@ -129,17 +130,33 @@ class SettingsViewModel
                         syncRequest,
                     )
 
-                    // Show immediate feedback
-                    _uiState.update { it.copy(isSyncing = false, syncMessage = "Library sync started...") }
-
-                    // Clear message after 3 seconds
+                    // Observe WorkManager to know when sync finishes
                     viewModelScope.launch {
-                        kotlinx.coroutines.delay(3000)
-                        _uiState.update { it.copy(syncMessage = null) }
+                        workManager.getWorkInfoByIdFlow(syncRequest.id).collect { workInfo ->
+                            when (workInfo?.state) {
+                                WorkInfo.State.SUCCEEDED -> {
+                                    _uiState.update { it.copy(isSyncing = false, syncMessage = "Library sync completed") }
+                                    kotlinx.coroutines.delay(3000)
+                                    _uiState.update { it.copy(syncMessage = null) }
+                                    return@collect
+                                }
+                                WorkInfo.State.FAILED -> {
+                                    _uiState.update { it.copy(isSyncing = false, syncError = "Library sync failed") }
+                                    kotlinx.coroutines.delay(5000)
+                                    _uiState.update { it.copy(syncError = null) }
+                                    return@collect
+                                }
+                                WorkInfo.State.CANCELLED -> {
+                                    _uiState.update { it.copy(isSyncing = false) }
+                                    return@collect
+                                }
+                                else -> { /* ENQUEUED, RUNNING, BLOCKED — keep spinner */ }
+                            }
+                        }
                     }
                 }
                 is SettingsAction.SyncWatchlist -> {
-                    _uiState.update { it.copy(isSyncing = true, syncMessage = null, syncError = null) }
+                    _uiState.update { it.copy(isSyncingWatchlist = true, syncMessage = null, syncError = null) }
 
                     viewModelScope.launch {
                         val result = syncWatchlistUseCase()
@@ -147,7 +164,7 @@ class SettingsViewModel
                             val count = result.getOrNull() ?: 0
                             _uiState.update {
                                 it.copy(
-                                    isSyncing = false,
+                                    isSyncingWatchlist = false,
                                     syncMessage = "Synced $count watchlist items successfully",
                                     syncError = null,
                                 )
@@ -156,7 +173,7 @@ class SettingsViewModel
                         } else {
                             _uiState.update {
                                 it.copy(
-                                    isSyncing = false,
+                                    isSyncingWatchlist = false,
                                     syncMessage = null,
                                     syncError = "Failed to sync watchlist: ${result.exceptionOrNull()?.message}",
                                 )
@@ -211,13 +228,29 @@ class SettingsViewModel
                         syncRequest,
                     )
 
-                    // Show immediate feedback
-                    _uiState.update { it.copy(isSyncingRatings = false, ratingSyncMessage = "Rating sync started in background...") }
-
-                    // Clear message after 3 seconds
+                    // Observe WorkManager to know when sync finishes
                     viewModelScope.launch {
-                        kotlinx.coroutines.delay(3000)
-                        _uiState.update { it.copy(ratingSyncMessage = null) }
+                        workManager.getWorkInfoByIdFlow(syncRequest.id).collect { workInfo ->
+                            when (workInfo?.state) {
+                                WorkInfo.State.SUCCEEDED -> {
+                                    _uiState.update { it.copy(isSyncingRatings = false, ratingSyncMessage = "Rating sync completed") }
+                                    kotlinx.coroutines.delay(3000)
+                                    _uiState.update { it.copy(ratingSyncMessage = null) }
+                                    return@collect
+                                }
+                                WorkInfo.State.FAILED -> {
+                                    _uiState.update { it.copy(isSyncingRatings = false, ratingSyncMessage = "Rating sync failed") }
+                                    kotlinx.coroutines.delay(5000)
+                                    _uiState.update { it.copy(ratingSyncMessage = null) }
+                                    return@collect
+                                }
+                                WorkInfo.State.CANCELLED -> {
+                                    _uiState.update { it.copy(isSyncingRatings = false) }
+                                    return@collect
+                                }
+                                else -> { /* ENQUEUED, RUNNING, BLOCKED — keep spinner */ }
+                            }
+                        }
                     }
                 }
                 // Rating Sync Configuration Actions

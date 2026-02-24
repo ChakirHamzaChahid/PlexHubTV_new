@@ -110,6 +110,13 @@ fun CollectionDetailScreen(
                         }
 
                         val gridState = rememberLazyGridState()
+                        val gridFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+
+                        // Request focus ONCE, outside the items lambda
+                        LaunchedEffect(Unit) {
+                            gridFocusRequester.requestFocus()
+                        }
+
                         LazyVerticalGrid(
                             state = gridState,
                             columns = GridCells.Adaptive(minSize = 120.dp),
@@ -118,6 +125,7 @@ fun CollectionDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier
                                 .fillMaxSize()
+                                .focusRequester(gridFocusRequester)
                                 .testTag("collection_items_list")
                                 .semantics { contentDescription = itemsDesc },
                         ) {
@@ -125,11 +133,6 @@ fun CollectionDetailScreen(
                                 items = collection.items,
                                 key = { item -> "${item.serverId}_${item.ratingKey}" },
                             ) { item ->
-                                val index = collection.items.indexOf(item)
-                                val fr = remember { androidx.compose.ui.focus.FocusRequester() }
-                                if (index == 0) {
-                                    LaunchedEffect(Unit) { fr.requestFocus() }
-                                }
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
@@ -137,7 +140,6 @@ fun CollectionDetailScreen(
                                     onFocus = {},
                                     width = 120.dp,
                                     height = 180.dp,
-                                    modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )
                             }
                         }

@@ -106,4 +106,19 @@ interface SettingsRepository {
     val isTvChannelsEnabled: Flow<Boolean>
 
     suspend fun setTvChannelsEnabled(enabled: Boolean)
+
+    // --- Library Filter Preferences ---
+    val librarySort: Flow<String>
+
+    val librarySortDescending: Flow<Boolean>
+
+    val libraryGenre: Flow<String?>
+
+    val libraryServerFilter: Flow<String?>
+
+    suspend fun saveLibrarySort(sort: String, isDescending: Boolean)
+
+    suspend fun saveLibraryGenre(genre: String?)
+
+    suspend fun saveLibraryServerFilter(serverName: String?)
 }

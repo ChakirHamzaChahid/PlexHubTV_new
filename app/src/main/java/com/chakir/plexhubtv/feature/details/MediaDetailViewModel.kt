@@ -69,10 +69,13 @@ class MediaDetailViewModel
             }
         }
 
-        private fun checkFavoriteStatus() {
-            val rk = ratingKey ?: return
-            val sid = serverId ?: return
-            isFavoriteUseCase(rk, sid).safeCollectIn(
+        private var favoriteCheckJob: kotlinx.coroutines.Job? = null
+
+        private fun checkFavoriteStatus(allRatingKeys: List<String>? = null) {
+            favoriteCheckJob?.cancel()
+            val keys = allRatingKeys ?: listOfNotNull(ratingKey)
+            if (keys.isEmpty()) return
+            favoriteCheckJob = isFavoriteUseCase.anyOf(keys).safeCollectIn(
                 scope = viewModelScope,
                 onError = { e ->
                     Timber.e(e, "MediaDetailViewModel: checkFavoriteStatus failed")
@@ -234,17 +237,25 @@ class MediaDetailViewModel
             opId: String? = null,
             forcedServerId: String? = null,
         ) {
-            val targetServerId = forcedServerId ?: item.serverId
             val finalItem =
                 if (forcedServerId != null && forcedServerId != item.serverId) {
-                    // Find the source matching forcedServerId and use its ratingKey
+                    // Find the source matching forcedServerId to get its ratingKey
                     val source = item.remoteSources.find { it.serverId == forcedServerId }
                     if (source != null) {
                         opId?.let { performanceTracker.addCheckpoint(it, "Server Switch", mapOf("from" to item.serverId, "to" to source.serverId)) }
-                        // We might need to fetch the full detail for this source?
-                        // For now, let's assume ratingKey is enough for PlayerViewModel to load it.
-                        item.copy(serverId = source.serverId, ratingKey = source.ratingKey)
+                        // Fetch full media detail from the target server to get correct
+                        // mediaParts, stream IDs, baseUrl, accessToken, and id
+                        val detailResult = getMediaDetailUseCase(source.ratingKey, source.serverId).first()
+                        detailResult.getOrNull()?.item ?: run {
+                            Timber.w("playItem: Failed to fetch detail for ${source.ratingKey} on ${source.serverId}, falling back to shallow copy")
+                            item.copy(
+                                id = "${source.serverId}:${source.ratingKey}",
+                                serverId = source.serverId,
+                                ratingKey = source.ratingKey,
+                            )
+                        }
                     } else {
+                        Timber.w("playItem: Source not found for serverId=$forcedServerId in remoteSources")
                         item
                     }
                 } else {
@@ -331,6 +342,12 @@ class MediaDetailViewModel
                         }
                     }
                     Timber.d("VM: Enrichment complete. remoteSources count: ${enriched.remoteSources.size}")
+
+                    // Re-check favorite status with all server ratingKeys
+                    if (enriched.remoteSources.isNotEmpty()) {
+                        val allKeys = enriched.remoteSources.map { it.ratingKey }
+                        checkFavoriteStatus(allKeys)
+                    }
                 } catch (e: Exception) {
                     Timber.w("Failed to enrich media: ${e.message}")
                     _uiState.update { it.copy(isEnriching = false) }

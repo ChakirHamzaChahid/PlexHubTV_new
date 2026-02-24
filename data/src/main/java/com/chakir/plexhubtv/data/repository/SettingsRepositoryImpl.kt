@@ -160,4 +160,22 @@ class SettingsRepositoryImpl
         override suspend fun setTvChannelsEnabled(enabled: Boolean) {
             settingsDataStore.setTvChannelsEnabled(enabled)
         }
+
+        // Library Filter Preferences
+        override val librarySort: Flow<String> = settingsDataStore.librarySort
+        override val librarySortDescending: Flow<Boolean> = settingsDataStore.librarySortDescending
+        override val libraryGenre: Flow<String?> = settingsDataStore.libraryGenre
+        override val libraryServerFilter: Flow<String?> = settingsDataStore.libraryServerFilter
+
+        override suspend fun saveLibrarySort(sort: String, isDescending: Boolean) {
+            settingsDataStore.saveLibrarySort(sort, isDescending)
+        }
+
+        override suspend fun saveLibraryGenre(genre: String?) {
+            settingsDataStore.saveLibraryGenre(genre)
+        }
+
+        override suspend fun saveLibraryServerFilter(serverName: String?) {
+            settingsDataStore.saveLibraryServerFilter(serverName)
+        }
     }

@@ -127,14 +127,13 @@ fun SubtitleSelectionDialog(
     onSelect: (SubtitleTrack) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Add "Off" option to the list effectively
-    val allItems = listOf(SubtitleTrack.OFF) + tracks
+    // tracks already contains SubtitleTrack.OFF (added by populateTracks)
     val offLabel = stringResource(R.string.player_settings_off)
 
     SelectionDialog(
         title = stringResource(R.string.player_settings_select_subtitles),
-        items = allItems,
-        selectedItem = selectedTrack ?: allItems.first(), // Default to Off/First if null
+        items = tracks,
+        selectedItem = selectedTrack ?: tracks.firstOrNull() ?: SubtitleTrack.OFF,
         itemLabel = { if (it.id == "no") offLabel else "${it.title} (${it.language})" },
         itemKey = { it.id },
         onSelect = onSelect,

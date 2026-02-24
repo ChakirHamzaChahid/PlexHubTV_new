@@ -3,12 +3,9 @@ package com.chakir.plexhubtv.feature.home
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
-import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.di.image.ImagePrefetchManager
-import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import com.chakir.plexhubtv.domain.usecase.HomeContent
 import com.google.common.truth.Truth.assertThat
@@ -29,10 +26,8 @@ import org.junit.Test
 class HomeViewModelTest {
     private lateinit var viewModel: HomeViewModel
     private lateinit var getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase
-    private lateinit var favoritesRepository: FavoritesRepository
     private lateinit var workManager: WorkManager
     private lateinit var settingsDataStore: SettingsDataStore
-    private lateinit var imagePrefetchManager: ImagePrefetchManager
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -60,19 +55,13 @@ class HomeViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
 
-        // Mock dependencies
         getUnifiedHomeContentUseCase = mockk(relaxed = true)
-        favoritesRepository = mockk(relaxed = true)
         workManager = mockk(relaxed = true)
         settingsDataStore = mockk(relaxed = true)
-        imagePrefetchManager = mockk(relaxed = true)
 
-        // Default mock behaviors
         coEvery { getUnifiedHomeContentUseCase() } returns flowOf(Result.success(testHomeContent))
-        coEvery { favoritesRepository.getFavorites() } returns flowOf(emptyList())
         coEvery { settingsDataStore.isFirstSyncComplete } returns flowOf(true)
         coEvery { workManager.getWorkInfosForUniqueWorkFlow(any()) } returns flowOf(emptyList())
-        coEvery { imagePrefetchManager.prefetchImages(any()) } just Runs
     }
 
     @After
@@ -84,15 +73,13 @@ class HomeViewModelTest {
     private fun createViewModel(): HomeViewModel {
         return HomeViewModel(
             getUnifiedHomeContentUseCase = getUnifiedHomeContentUseCase,
-            favoritesRepository = favoritesRepository,
             workManager = workManager,
             settingsDataStore = settingsDataStore,
-            imagePrefetchManager = imagePrefetchManager
         )
     }
 
     @Test
-    fun `loadContent success updates uiState with onDeck and hubs`() = runTest {
+    fun `loadContent success updates uiState with onDeck`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
@@ -100,27 +87,6 @@ class HomeViewModelTest {
         assertThat(state.isLoading).isFalse()
         assertThat(state.onDeck).hasSize(1)
         assertThat(state.onDeck.first().title).isEqualTo("Test Movie")
-        assertThat(state.hubs).hasSize(1)
-        assertThat(state.hubs.first().title).isEqualTo("Continue Watching")
-    }
-
-    @Test
-    fun `loadContent filters out empty hubs`() = runTest {
-        val contentWithEmptyHub = HomeContent(
-            onDeck = listOf(testMediaItem),
-            hubs = listOf(
-                Hub(key = "emptyHub", title = "Empty Hub", type = "test", items = emptyList()),
-                Hub(key = "validHub", title = "Valid Hub", type = "test", items = listOf(testMediaItem))
-            )
-        )
-        coEvery { getUnifiedHomeContentUseCase() } returns flowOf(Result.success(contentWithEmptyHub))
-
-        viewModel = createViewModel()
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertThat(state.hubs).hasSize(1)
-        assertThat(state.hubs.first().title).isEqualTo("Valid Hub")
     }
 
     @Test
@@ -133,19 +99,6 @@ class HomeViewModelTest {
 
         val state = viewModel.uiState.value
         assertThat(state.isLoading).isFalse()
-        // Error is sent via errorEvents channel - UI state should reflect loading is complete
-    }
-
-    @Test
-    fun `observeFavorites updates favorites in uiState`() = runTest {
-        val favorites = listOf(testMediaItem)
-        coEvery { favoritesRepository.getFavorites() } returns flowOf(favorites)
-
-        viewModel = createViewModel()
-        advanceUntilIdle()
-
-        assertThat(viewModel.uiState.value.favorites).hasSize(1)
-        assertThat(viewModel.uiState.value.favorites.first().title).isEqualTo("Test Movie")
     }
 
     @Test
@@ -153,7 +106,6 @@ class HomeViewModelTest {
         viewModel = createViewModel()
         advanceUntilIdle()
 
-        // Clear invocations from init
         clearMocks(getUnifiedHomeContentUseCase, answers = false)
 
         viewModel.onAction(HomeAction.Refresh)
@@ -168,9 +120,6 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         viewModel.onAction(HomeAction.OpenMedia(testMediaItem))
-
-        // Navigation event is sent - this would be collected in the UI layer
-        // We can't directly assert on Channel content in unit tests without UI layer
     }
 
     @Test

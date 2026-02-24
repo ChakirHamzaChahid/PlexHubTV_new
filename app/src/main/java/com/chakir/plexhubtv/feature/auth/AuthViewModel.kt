@@ -85,7 +85,7 @@ class AuthViewModel
                             progress = 0f,
                         )
 
-                    authRepository.getPin(strong = true)
+                    authRepository.getPin(strong = false)
                         .onSuccess { authPin ->
                             _uiState.update {
                                 AuthUiState.Authenticating(

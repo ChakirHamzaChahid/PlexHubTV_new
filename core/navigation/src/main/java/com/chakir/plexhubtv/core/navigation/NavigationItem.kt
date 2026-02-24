@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
@@ -16,6 +17,7 @@ sealed class NavigationItem(val screen: Screen, @StringRes val labelResId: Int, 
     open val route: String = screen.route
 
     data object Home : NavigationItem(Screen.Home, com.chakir.plexhubtv.core.navigation.R.string.nav_home, Icons.Default.Home)
+    data object Hub : NavigationItem(Screen.Hub, com.chakir.plexhubtv.core.navigation.R.string.nav_hub, Icons.Default.Dashboard)
     data object Movies : NavigationItem(Screen.Movies, com.chakir.plexhubtv.core.navigation.R.string.nav_movies, Icons.Default.Movie)
     data object TVShows : NavigationItem(Screen.TVShows, com.chakir.plexhubtv.core.navigation.R.string.nav_tv_shows, Icons.Default.Tv)
     data object Search : NavigationItem(Screen.Search, com.chakir.plexhubtv.core.navigation.R.string.nav_search, Icons.Default.Search)

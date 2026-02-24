@@ -194,13 +194,23 @@ class LibraryViewModel
                     _uiState.update { it.copy(excludedServerIds = excluded) }
                 }
 
-                // Apply Default Server Preference after metadata (to ensure map is ready or concurrently)
-                val defaultServer = settingsRepository.defaultServer.firstOrNull()
-                if (!defaultServer.isNullOrEmpty() && defaultServer != "all") {
-                    _uiState.update {
-                        // Only apply if we haven't manually selected one (though init implies fresh)
-                        it.copy(selectedServerFilter = defaultServer)
-                    }
+                // Restore persisted filter preferences
+                val savedSort = settingsRepository.librarySort.firstOrNull() ?: "Title"
+                val savedSortDesc = settingsRepository.librarySortDescending.firstOrNull() ?: false
+                val savedGenre = settingsRepository.libraryGenre.firstOrNull()
+                val savedServerFilter = settingsRepository.libraryServerFilter.firstOrNull()
+
+                // Use saved server filter, fallback to default server preference
+                val serverFilter = savedServerFilter
+                    ?: settingsRepository.defaultServer.firstOrNull()?.takeIf { it.isNotEmpty() && it != "all" }
+
+                _uiState.update {
+                    it.copy(
+                        currentSort = savedSort,
+                        isSortDescending = savedSortDesc,
+                        selectedGenre = savedGenre,
+                        selectedServerFilter = serverFilter,
+                    )
                 }
             }
 
@@ -377,6 +387,7 @@ class LibraryViewModel
                 }
                 is LibraryAction.ApplySort -> {
                     _uiState.update { it.copy(currentSort = action.sort, isSortDescending = action.isDescending, isSortDialogOpen = false) }
+                    viewModelScope.launch { settingsRepository.saveLibrarySort(action.sort, action.isDescending) }
                 }
                 is LibraryAction.OpenServerFilter -> _uiState.update { it.copy(isServerFilterOpen = true) }
                 is LibraryAction.CloseServerFilter -> _uiState.update { it.copy(isServerFilterOpen = false) }
@@ -399,9 +410,11 @@ class LibraryViewModel
                 }
                 is LibraryAction.SelectGenre -> {
                     _uiState.update { it.copy(selectedGenre = action.genre) }
+                    viewModelScope.launch { settingsRepository.saveLibraryGenre(action.genre) }
                 }
                 is LibraryAction.SelectServerFilter -> {
                     _uiState.update { it.copy(selectedServerFilter = action.serverId) }
+                    viewModelScope.launch { settingsRepository.saveLibraryServerFilter(action.serverId) }
                 }
                 is LibraryAction.OnItemFocused -> {
                     // PERFORMANCE FIX: Only update SavedStateHandle, DO NOT update _uiState.

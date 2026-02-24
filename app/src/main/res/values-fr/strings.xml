@@ -252,6 +252,8 @@
     <string name="player_error_prefix">Erreur : %1$s</string>
     <string name="player_audio_sync">Synchronisation audio</string>
     <string name="player_subtitle_sync">Synchronisation des sous-titres</string>
+    <string name="player_previous_chapter">Chapitre précédent</string>
+    <string name="player_next_chapter">Chapitre suivant</string>
     <string name="player_next_episode">Épisode suivant</string>
     <string name="player_next_episode_label">Épisode suivant</string>
     <string name="player_next_episode_title">Prochain épisode : %1$s</string>

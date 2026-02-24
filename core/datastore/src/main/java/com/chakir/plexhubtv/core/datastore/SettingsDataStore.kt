@@ -73,6 +73,12 @@ class SettingsDataStore
         // TV Channels Configuration
         private val TV_CHANNELS_ENABLED = stringPreferencesKey("tv_channels_enabled")
 
+        // Library Filter Preferences
+        private val LIBRARY_SORT = stringPreferencesKey("library_sort")
+        private val LIBRARY_SORT_DESCENDING = stringPreferencesKey("library_sort_descending")
+        private val LIBRARY_GENRE = stringPreferencesKey("library_genre")
+        private val LIBRARY_SERVER_FILTER = stringPreferencesKey("library_server_filter")
+
         init {
             // Migration: move sensitive data from DataStore to EncryptedSharedPreferences
             appScope.launch(ioDispatcher) {
@@ -461,6 +467,46 @@ class SettingsDataStore
         suspend fun setTvChannelsEnabled(enabled: Boolean) {
             dataStore.edit { preferences ->
                 preferences[TV_CHANNELS_ENABLED] = enabled.toString()
+            }
+        }
+
+        // Library Filter Preferences Flows
+        val librarySort: Flow<String> =
+            dataStore.data.map { it[LIBRARY_SORT] ?: "Title" }
+
+        val librarySortDescending: Flow<Boolean> =
+            dataStore.data.map { it[LIBRARY_SORT_DESCENDING]?.toBoolean() ?: false }
+
+        val libraryGenre: Flow<String?> =
+            dataStore.data.map { it[LIBRARY_GENRE] }
+
+        val libraryServerFilter: Flow<String?> =
+            dataStore.data.map { it[LIBRARY_SERVER_FILTER] }
+
+        suspend fun saveLibrarySort(sort: String, isDescending: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[LIBRARY_SORT] = sort
+                preferences[LIBRARY_SORT_DESCENDING] = isDescending.toString()
+            }
+        }
+
+        suspend fun saveLibraryGenre(genre: String?) {
+            dataStore.edit { preferences ->
+                if (genre != null) {
+                    preferences[LIBRARY_GENRE] = genre
+                } else {
+                    preferences.remove(LIBRARY_GENRE)
+                }
+            }
+        }
+
+        suspend fun saveLibraryServerFilter(serverName: String?) {
+            dataStore.edit { preferences ->
+                if (serverName != null) {
+                    preferences[LIBRARY_SERVER_FILTER] = serverName
+                } else {
+                    preferences.remove(LIBRARY_SERVER_FILTER)
+                }
             }
         }
 

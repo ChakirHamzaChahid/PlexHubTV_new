@@ -31,7 +31,7 @@ interface PlexApiService {
 
     @POST("https://plex.tv/api/v2/pins")
     suspend fun getPin(
-        @Query("strong") strong: Boolean = true,
+        @Query("strong") strong: Boolean = false,
         @Header("X-Plex-Client-Identifier") clientId: String,
     ): Response<PinResponse>
 

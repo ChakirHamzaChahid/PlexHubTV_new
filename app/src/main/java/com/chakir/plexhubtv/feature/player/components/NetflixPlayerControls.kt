@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Subtitles
@@ -82,8 +83,12 @@ fun NetflixPlayerControls(
     onShowSubtitles: () -> Unit = {},
     onShowAudio: () -> Unit = {},
     onShowSettings: () -> Unit = {},
+    onPreviousChapter: () -> Unit = {},
+    onNextChapter: () -> Unit = {},
     playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null
 ) {
+    val prevChapterDesc = stringResource(R.string.player_previous_chapter)
+    val nextChapterDesc = stringResource(R.string.player_next_chapter)
     val controlsDesc = stringResource(R.string.player_controls_description)
     val unknownTitle = stringResource(R.string.player_unknown_title)
     val server = stringResource(R.string.player_server)
@@ -220,10 +225,21 @@ fun NetflixPlayerControls(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                     IconButton(
+                    // Chapter: Previous
+                    if (chapters.isNotEmpty()) {
+                        IconButton(
+                            onClick = onPreviousChapter,
+                            modifier = Modifier.testTag("player_prev_chapter")
+                        ) {
+                            Icon(Icons.Default.SkipPrevious, prevChapterDesc, tint = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+
+                    IconButton(
                         onClick = onSkipBackward,
                         modifier = Modifier.testTag("player_skip_backward")
-                     ) {
+                    ) {
                         Icon(Icons.Default.FastRewind, rewindDesc, tint = Color.White)
                     }
                     Spacer(modifier = Modifier.width(24.dp))
@@ -245,6 +261,17 @@ fun NetflixPlayerControls(
                         modifier = Modifier.testTag("player_skip_forward")
                     ) {
                         Icon(Icons.Default.FastForward, forwardDesc, tint = Color.White)
+                    }
+
+                    // Chapter: Next
+                    if (chapters.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = onNextChapter,
+                            modifier = Modifier.testTag("player_next_chapter")
+                        ) {
+                            Icon(Icons.Default.SkipNext, nextChapterDesc, tint = Color(0xFFE5A00D))
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(32.dp))

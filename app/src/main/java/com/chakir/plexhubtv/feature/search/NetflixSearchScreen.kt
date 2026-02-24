@@ -217,7 +217,8 @@ fun NetflixSearchScreen(
                                     items = items,
                                     cardType = cardType,
                                     onItemClick = { onAction(SearchAction.OpenMedia(it)) },
-                                    onItemPlay = { onAction(SearchAction.OpenMedia(it)) }
+                                    onItemPlay = { onAction(SearchAction.OpenMedia(it)) },
+                                    leftExitFocusRequester = keyboardFocusRequester
                                 )
                             }
                         }

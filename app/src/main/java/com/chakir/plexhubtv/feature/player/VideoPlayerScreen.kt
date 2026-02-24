@@ -308,6 +308,8 @@ fun VideoPlayerScreen(
                 onShowSubtitles = { onAction(PlayerAction.ShowSubtitleSelector) },
                 onShowAudio = { onAction(PlayerAction.ShowAudioSelector) },
                 onShowSettings = { onAction(PlayerAction.ToggleSettings) },
+                onPreviousChapter = { onAction(PlayerAction.SeekToPreviousChapter) },
+                onNextChapter = { onAction(PlayerAction.SeekToNextChapter) },
                 modifier = Modifier,
                 playPauseFocusRequester = focusRequester
             )

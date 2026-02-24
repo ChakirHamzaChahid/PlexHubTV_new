@@ -272,6 +272,7 @@ class PlayerTrackController
 
                 if (track.id == "no") {
                     builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
+                    Timber.d("PlayerTrackController: Disabling subtitles (Direct Play)")
                 } else {
                     builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
 
@@ -279,26 +280,85 @@ class PlayerTrackController
                     var selectedGroupIndex = -1
                     var selectedTrackIndex = -1
 
-                    // Strategy 1: Match by Language
-                    for (i in 0 until groups.size) {
-                        val group = groups[i]
-                        if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
-                            for (j in 0 until group.length) {
-                                val format = group.getTrackFormat(j)
-                                if (areLanguagesEqual(format.language, track.language)) {
-                                    selectedGroupIndex = i
-                                    selectedTrackIndex = j
-                                    break
+                    // Strategy 1: Match by stream ID (sideloaded external subs have ID set)
+                    if (track.streamId != null) {
+                        for (i in 0 until groups.size) {
+                            val group = groups[i]
+                            if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                for (j in 0 until group.length) {
+                                    val format = group.getTrackFormat(j)
+                                    if (format.id == track.streamId) {
+                                        selectedGroupIndex = i
+                                        selectedTrackIndex = j
+                                        break
+                                    }
                                 }
                             }
+                            if (selectedGroupIndex != -1) break
                         }
-                        if (selectedGroupIndex != -1) break
                     }
+
+                    // Strategy 2: Match by label (displayTitle)
+                    if (selectedGroupIndex == -1 && track.title != null) {
+                        for (i in 0 until groups.size) {
+                            val group = groups[i]
+                            if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                for (j in 0 until group.length) {
+                                    val format = group.getTrackFormat(j)
+                                    if (format.label == track.title) {
+                                        selectedGroupIndex = i
+                                        selectedTrackIndex = j
+                                        break
+                                    }
+                                }
+                            }
+                            if (selectedGroupIndex != -1) break
+                        }
+                    }
+
+                    // Strategy 3: Match by language
+                    if (selectedGroupIndex == -1) {
+                        for (i in 0 until groups.size) {
+                            val group = groups[i]
+                            if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                for (j in 0 until group.length) {
+                                    val format = group.getTrackFormat(j)
+                                    if (areLanguagesEqual(format.language, track.language)) {
+                                        selectedGroupIndex = i
+                                        selectedTrackIndex = j
+                                        break
+                                    }
+                                }
+                            }
+                            if (selectedGroupIndex != -1) break
+                        }
+                    }
+
+                    // Strategy 4: Fallback to order match (like selectAudioTrack)
+                    if (selectedGroupIndex == -1) {
+                        val validTracks = subtitleTracksInUi.filter { it.id != "no" }
+                        val uiIndex = validTracks.indexOf(track)
+                        var textGroupCounter = 0
+                        for (i in 0 until groups.size) {
+                            if (groups[i].type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                if (textGroupCounter == uiIndex) {
+                                    selectedGroupIndex = i
+                                    selectedTrackIndex = 0
+                                    break
+                                }
+                                textGroupCounter++
+                            }
+                        }
+                    }
+
+                    Timber.d("PlayerTrackController: Subtitle selection (Direct Play) → track='${track.title}' lang=${track.language} streamId=${track.streamId} isExternal=${track.isExternal} matchedGroup=$selectedGroupIndex matchedTrack=$selectedTrackIndex")
 
                     if (selectedGroupIndex != -1) {
                         builder.setOverrideForType(
                             androidx.media3.common.TrackSelectionOverride(groups[selectedGroupIndex].mediaTrackGroup, selectedTrackIndex),
                         )
+                    } else {
+                        Timber.w("PlayerTrackController: No matching ExoPlayer track group found for subtitle '${track.title}'")
                     }
                 }
                 p.trackSelectionParameters = builder.build()

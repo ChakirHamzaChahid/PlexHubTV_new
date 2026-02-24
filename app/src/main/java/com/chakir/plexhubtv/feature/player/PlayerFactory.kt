@@ -18,6 +18,7 @@ interface PlayerFactory {
         uri: android.net.Uri,
         mediaId: String,
         isM3u8: Boolean,
+        subtitleConfigurations: List<MediaItem.SubtitleConfiguration> = emptyList(),
     ): MediaItem
 
     fun createMpvPlayer(
@@ -66,6 +67,7 @@ class ExoPlayerFactory
             uri: android.net.Uri,
             mediaId: String,
             isM3u8: Boolean,
+            subtitleConfigurations: List<MediaItem.SubtitleConfiguration>,
         ): MediaItem {
             val builder =
                 MediaItem.Builder()
@@ -74,6 +76,10 @@ class ExoPlayerFactory
 
             if (isM3u8) {
                 builder.setMimeType(MimeTypes.APPLICATION_M3U8)
+            }
+
+            if (subtitleConfigurations.isNotEmpty()) {
+                builder.setSubtitleConfigurations(subtitleConfigurations)
             }
 
             return builder.build()

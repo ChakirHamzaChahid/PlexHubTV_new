@@ -81,6 +81,7 @@ fun NetflixTopBar(
 
     // Individual focus requesters for each navigation item
     val homeFocusRequester = remember { FocusRequester() }
+    val hubFocusRequester = remember { FocusRequester() }
     val tvShowsFocusRequester = remember { FocusRequester() }
     val moviesFocusRequester = remember { FocusRequester() }
     val favoritesFocusRequester = remember { FocusRequester() }
@@ -93,6 +94,7 @@ fun NetflixTopBar(
             try {
                 when (selectedItem) {
                     NavigationItem.Home -> homeFocusRequester.requestFocus()
+                    NavigationItem.Hub -> hubFocusRequester.requestFocus()
                     NavigationItem.TVShows -> tvShowsFocusRequester.requestFocus()
                     NavigationItem.Movies -> moviesFocusRequester.requestFocus()
                     NavigationItem.Favorites -> favoritesFocusRequester.requestFocus()
@@ -205,6 +207,12 @@ fun NetflixTopBar(
                     isSelected = selectedItem == NavigationItem.Home,
                     onSelected = { onItemSelected(NavigationItem.Home) },
                     focusRequester = homeFocusRequester
+                )
+                NetflixNavItem(
+                    item = NavigationItem.Hub,
+                    isSelected = selectedItem == NavigationItem.Hub,
+                    onSelected = { onItemSelected(NavigationItem.Hub) },
+                    focusRequester = hubFocusRequester
                 )
                 NetflixNavItem(
                     item = NavigationItem.TVShows,
