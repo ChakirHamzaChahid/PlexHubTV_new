@@ -1,0 +1,70 @@
+# .maestro/11_browse_tvshows.yaml
+appId: com.chakir.plexhubtv
+name: "TVShows - Navigation séries, saisons, épisodes"
+tags:
+  - tvshows
+  - navigation
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers Séries
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_tvshows"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_tvshows"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Sélectionner la première série
+- runFlow: subflows/select_first_media.yaml
+
+# Page détail de la série
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 60000  # Augmenté pour stabilité
+
+- assertVisible:
+    id: "detail_title"
+
+# Vérifier la section saisons
+- assertVisible:
+    id: "seasons_section"
+
+# Sélectionner la première saison
+- scrollUntilVisible:
+    element:
+      id: "season_button_1"
+    direction: DOWN
+    timeout: 60000  # Augmenté pour stabilité
+
+- pressKey: "Remote Dpad Center"
+
+# Page détail de la saison
+- extendedWaitUntil:
+    visible:
+      id: "screen_season_detail"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Vérifier la liste des épisodes
+- assertVisible:
+    id: "episodes_list"
+
+# Naviguer dans les épisodes
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Down"
+
+# Lancer un épisode
+- pressKey: "Remote Dpad Center"
+
+# Vérifier que le player se lance
+- extendedWaitUntil:
+    visible:
+      id: "screen_player"
+    timeout: 90000  # Augmenté pour stabilité
+
+# Quitter le player
+- pressKey: back

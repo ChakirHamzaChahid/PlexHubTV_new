@@ -14,17 +14,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,15 +42,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
+import com.chakir.plexhubtv.core.ui.showError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +69,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,71 +81,93 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.feature.home.MediaCard
 import timber.log.Timber
 
-/**
- * Écran principal de la bibliothèque (Films ou Séries).
- * Affiche une grille ou liste de médias avec pagination, filtres (Genre, Serveur) et tri.
- * Gère également la navigation latérale alphabétique.
- */
+import com.chakir.plexhubtv.core.ui.NetflixMediaCard
+import com.chakir.plexhubtv.core.designsystem.NetflixBlack
+import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.zIndex
+
+// ... (Rest of imports likely preserved by smart apply, but I should be careful)
+
 @Composable
 fun LibraryRoute(
     viewModel: LibraryViewModel = hiltViewModel(),
-    onNavigateToDetail: (String, String) -> Unit,
+    onNavigateToMedia: (String, String) -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsState()
     val pagedItems = viewModel.pagedItems.collectAsLazyPagingItems()
-    val events = viewModel.navigationEvents
-    var scrollRequest by remember { mutableStateOf<Int?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Track previous filter values to detect actual changes
-    var previousFilters by remember {
-        mutableStateOf<FilterSnapshot?>(null)
+    // derivedStateOf: recompute only when the relevant fields change,
+    // not on every uiState change (22 fields)
+    val visibleTabs by remember {
+        derivedStateOf { LibraryTab.values().filter { it == LibraryTab.Browse } }
     }
-
-    // CRITICAL FIX: Force instant refresh ONLY when filter parameters actually change
-    LaunchedEffect(
-        uiState.selectedGenre,
-        uiState.selectedServerFilter,
-        uiState.currentSort,
-        uiState.isSortDescending,
-        uiState.searchQuery,
-    ) {
-        val currentSnapshot =
-            FilterSnapshot(
-                genre = uiState.selectedGenre,
-                server = uiState.selectedServerFilter,
-                sort = uiState.currentSort,
-                isDescending = uiState.isSortDescending,
-                query = uiState.searchQuery,
-            )
-
-        // Only refresh if this is NOT the first composition AND values changed
-        if (previousFilters != null && previousFilters != currentSnapshot) {
-            pagedItems.refresh()
+    val selectedTabIndex by remember {
+        derivedStateOf { visibleTabs.indexOf(state.selectedTab).coerceAtLeast(0) }
+    }
+    val showSidebar by remember {
+        derivedStateOf { state.currentSort == "Title" }
+    }
+    val serverLabel by remember {
+        derivedStateOf {
+            if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server: All"
         }
-        previousFilters = currentSnapshot
+    }
+    val isServerFiltered by remember {
+        derivedStateOf { state.selectedServerFilter != null }
+    }
+    val genreLabel by remember {
+        derivedStateOf {
+            if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Genre: All"
+        }
+    }
+    val isGenreFiltered by remember {
+        derivedStateOf { state.selectedGenre != null }
     }
 
-    LaunchedEffect(events) {
-        events.collect { event ->
+    // Handle navigation events
+    LaunchedEffect(viewModel.navigationEvents) {
+        viewModel.navigationEvents.collect { event ->
             when (event) {
-                is LibraryNavigationEvent.NavigateToDetail -> onNavigateToDetail(event.ratingKey, event.serverId)
-                is LibraryNavigationEvent.ScrollToItem -> scrollRequest = event.index
+                is LibraryNavigationEvent.NavigateToDetail -> {
+                    onNavigateToMedia(event.ratingKey, event.serverId)
+                }
+                is LibraryNavigationEvent.ScrollToItem -> {
+                     // Handled by state.initialScrollIndex
+                }
             }
         }
     }
 
+    // Handle error events with centralized error display
+    LaunchedEffect(viewModel.errorEvents) {
+        viewModel.errorEvents.collect { error ->
+            snackbarHostState.showError(error)
+        }
+    }
+
     LibrariesScreen(
-        state = uiState,
+        state = state,
         pagedItems = pagedItems,
         onAction = viewModel::onAction,
-        scrollRequest = scrollRequest,
-        onScrollConsumed = { scrollRequest = null },
+        scrollRequest = state.initialScrollIndex,
+        onScrollConsumed = { },
+        snackbarHostState = snackbarHostState,
+        visibleTabs = visibleTabs,
+        selectedTabIndex = selectedTabIndex,
+        showSidebar = showSidebar,
+        serverLabel = serverLabel,
+        isServerFiltered = isServerFiltered,
+        genreLabel = genreLabel,
+        isGenreFiltered = isGenreFiltered,
     )
 }
 
@@ -140,49 +179,30 @@ fun LibrariesScreen(
     onAction: (LibraryAction) -> Unit,
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
+    snackbarHostState: SnackbarHostState,
+    visibleTabs: List<LibraryTab> = emptyList(),
+    selectedTabIndex: Int = 0,
+    showSidebar: Boolean = false,
+    serverLabel: String = "Server: All",
+    isServerFiltered: Boolean = false,
+    genreLabel: String = "Genre: All",
+    isGenreFiltered: Boolean = false,
 ) {
-    val gridState =
-        rememberSaveable(saver = LazyGridState.Saver) {
-            LazyGridState()
-        }
-    val listState =
-        rememberSaveable(saver = LazyListState.Saver) {
-            LazyListState()
-        }
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
 
     LaunchedEffect(scrollRequest) {
-        scrollRequest?.let { index ->
-            try {
-                // Determine which state to use
-                val targetState = if (state.viewMode == LibraryViewMode.Grid) gridState else listState
-
-                // Wait for itemCount to be valid for this index
-                // This handles the race condition where Paging 3 is resetting/loading
-                androidx.compose.runtime.snapshotFlow { pagedItems.itemCount }
-                    .collect { count ->
-                        if (count > index) {
-                            Timber.d("Scrolling to $index (ItemCount: $count)")
-                            if (state.viewMode == LibraryViewMode.Grid) {
-                                gridState.scrollToItem(index)
-                            } else {
-                                listState.scrollToItem(index)
-                            }
-                            onScrollConsumed()
-                            // Cancel this collector once scrolled
-                            throw java.util.concurrent.CancellationException("Scrolled")
-                        }
-                    }
-            } catch (e: java.util.concurrent.CancellationException) {
-                // Expected flow exit
-            } catch (e: Exception) {
-                Timber.e(e, "Error scrolling to $index")
-                onScrollConsumed() // Consume anyway to avoid stuck loop
-            }
+        if (scrollRequest != null) {
+            gridState.scrollToItem(scrollRequest)
+            listState.scrollToItem(scrollRequest)
+            onScrollConsumed()
         }
     }
     Scaffold(
+        containerColor = NetflixBlack, // Set Scaffold background
+        snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
         topBar = {
-            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.background(NetflixBlack)) { // Update TopBar background
                 // Main Top Bar
                 if (state.isSearchVisible) {
                     SearchAppBar(
@@ -191,123 +211,132 @@ fun LibrariesScreen(
                         onClose = { onAction(LibraryAction.ToggleSearch) },
                     )
                 } else {
-                    TopAppBar(
-                        title = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Compact header: Title on left, Filters on right (same row)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 58.dp, top = 80.dp, end = 58.dp, bottom = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Left side: Title
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(if (state.mediaType == MediaType.Movie) R.string.library_movies else R.string.library_tv_shows),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            if (state.totalItems > 0) {
+                                Spacer(modifier = Modifier.width(12.dp))
+                                val hasActiveFilter = state.filteredItems != null && state.filteredItems != state.totalItems
                                 Text(
-                                    text = if (state.mediaType == MediaType.Movie) "Movies" else "TV Shows",
-                                    style = MaterialTheme.typography.titleLarge, // Smaller than HeadlineMedium
-                                    fontWeight = FontWeight.Bold,
+                                    text = if (hasActiveFilter) {
+                                        stringResource(R.string.library_title_count_filtered, state.filteredItems!!, state.totalItems)
+                                    } else {
+                                        stringResource(R.string.library_title_count, state.totalItems)
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color.White.copy(alpha = 0.5f),
                                 )
-                                if (state.totalItems > 0) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "(${state.totalItems})",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
                             }
-                        },
-                        actions = {
-                            IconButton(onClick = { onAction(LibraryAction.ToggleSearch) }) {
-                                Icon(Icons.Default.Search, contentDescription = "Search")
+                        }
+
+                        // Right side: Filters + View Mode
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Filter Buttons (derived via derivedStateOf at Route level)
+                            FilterButton(
+                                text = serverLabel,
+                                isActive = isServerFiltered,
+                                onClick = { onAction(LibraryAction.OpenServerFilter) },
+                                testTag = "library_filter_server"
+                            )
+
+                            FilterButton(
+                                text = genreLabel,
+                                isActive = isGenreFiltered,
+                                onClick = { onAction(LibraryAction.OpenGenreFilter) },
+                                testTag = "library_filter_genre"
+                            )
+
+                            FilterButton(
+                                text = state.currentSort ?: "Title",
+                                isActive = false,
+                                onClick = { onAction(LibraryAction.OpenSortDialog) },
+                                testTag = "library_sort_button"
+                            )
+
+                            // Refresh Button
+                            IconButton(
+                                onClick = {
+                                    pagedItems.refresh() // Force network refresh
+                                    onAction(LibraryAction.Refresh)
+                                },
+                                modifier = Modifier.testTag("library_refresh_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.library_refresh_description),
+                                    tint = Color.White
+                                )
                             }
+
                             // View Mode Switch
-                            IconButton(onClick = {
-                                val newMode = if (state.viewMode == LibraryViewMode.Grid) LibraryViewMode.List else LibraryViewMode.Grid
-                                onAction(LibraryAction.ChangeViewMode(newMode))
-                            }) {
+                            IconButton(
+                                onClick = {
+                                    val newMode = if (state.viewMode == LibraryViewMode.Grid) LibraryViewMode.List else LibraryViewMode.Grid
+                                    onAction(LibraryAction.ChangeViewMode(newMode))
+                                },
+                                modifier = Modifier.testTag("library_view_mode")
+                            ) {
                                 Icon(
                                     imageVector = if (state.viewMode == LibraryViewMode.Grid) Icons.Default.List else Icons.Default.GridView,
-                                    contentDescription = "Switch View Mode",
+                                    contentDescription = stringResource(R.string.library_view_mode_description),
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Tabs (derived via derivedStateOf at Route level)
+                if (visibleTabs.size > 1) {
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedTabIndex,
+                        edgePadding = 58.dp, // Align with content
+                        containerColor = Color.Transparent,
+                        contentColor = NetflixRed,
+                        modifier = Modifier.height(48.dp),
+                        indicator = { tabPositions ->
+                            if (selectedTabIndex < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                                    color = NetflixRed,
+                                    height = 2.dp,
                                 )
                             }
                         },
-                        colors =
-                            TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                titleContentColor = MaterialTheme.colorScheme.onSurface,
-                                actionIconContentColor = MaterialTheme.colorScheme.onSurface,
-                            ),
-                    )
-                }
-
-                // Tabs
-                // Use a smaller height for the tab row
-                val visibleTabs =
-                    remember(state.selectedTab) {
-                        LibraryTab.values().filter { it == LibraryTab.Browse }
-                    }
-                val selectedTabIndex = visibleTabs.indexOf(state.selectedTab).coerceAtLeast(0)
-
-                ScrollableTabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    edgePadding = 14.dp,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.height(32.dp), // Reduced height further
-                    indicator = { tabPositions ->
-                        if (selectedTabIndex < tabPositions.size) {
-                            TabRowDefaults.SecondaryIndicator(
-                                Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                color = MaterialTheme.colorScheme.primary,
-                                height = 2.dp,
+                        divider = {},
+                    ) {
+                        visibleTabs.forEachIndexed { index, tab ->
+                            Tab(
+                                selected = index == selectedTabIndex,
+                                onClick = { onAction(LibraryAction.SelectTab(tab)) },
+                                modifier = Modifier.height(48.dp),
+                                text = {
+                                    Text(
+                                        text = tab.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = if (index == selectedTabIndex) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (index == selectedTabIndex) Color.White else Color.White.copy(alpha = 0.6f)
+                                    )
+                                },
                             )
                         }
-                    },
-                    divider = {},
-                ) {
-                    visibleTabs.forEachIndexed { index, tab ->
-                        Tab(
-                            selected = index == selectedTabIndex,
-                            onClick = { onAction(LibraryAction.SelectTab(tab)) },
-                            modifier = Modifier.height(32.dp), // Match height
-                            text = {
-                                Text(
-                                    text = tab.title,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = if (index == selectedTabIndex) FontWeight.Bold else FontWeight.Normal,
-                                )
-                            },
-                        )
                     }
-                }
-
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    // Server Filter Button
-                    val serverLabel = if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server"
-                    val isServerFiltered = state.selectedServerFilter != null
-
-                    FilterButton(
-                        text = serverLabel,
-                        isActive = isServerFiltered,
-                        onClick = { onAction(LibraryAction.OpenServerFilter) },
-                    )
-
-                    // Genre Filter Button
-                    val genreLabel = if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Genre"
-                    val isGenreFiltered = state.selectedGenre != null
-
-                    FilterButton(
-                        text = genreLabel,
-                        isActive = isGenreFiltered,
-                        onClick = { onAction(LibraryAction.OpenGenreFilter) },
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    FilterButton(
-                        text = state.currentSort ?: "Date Added",
-                        isActive = false, // Always active concept? Or standard style
-                        onClick = { onAction(LibraryAction.OpenSortDialog) },
-                    )
                 }
             }
         },
@@ -317,8 +346,13 @@ fun LibrariesScreen(
                 Modifier
                     .padding(padding)
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
+                    .testTag(if (state.mediaType == MediaType.Movie) "screen_movies" else "screen_tvshows")
+                    .semantics {
+                        contentDescription = if (state.mediaType == MediaType.Movie) "Écran de films" else "Écran de séries"
+                    }
+                    .background(NetflixBlack),
         ) {
+            // ... (Dialogs preserved)
             if (state.isServerFilterOpen) {
                 ServerFilterDialog(
                     availableServers = state.availableServers,
@@ -351,24 +385,14 @@ fun LibrariesScreen(
                     onSelectSort = { sort: String, isDesc: Boolean -> onAction(LibraryAction.ApplySort(sort, isDesc)) },
                 )
             }
+            // ...
+
             when {
-                // Error state
-                state.error != null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = state.error, color = MaterialTheme.colorScheme.error)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(onClick = { onAction(LibraryAction.Refresh) }) {
-                                Text("Retry")
-                            }
-                        }
-                    }
-                }
                 // Loading state (only for INITIAL load)
                 pagedItems.loadState.refresh is androidx.paging.LoadState.Loading && pagedItems.itemCount == 0 -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    LibraryGridSkeleton(
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
                 // Content
                 else -> {
@@ -385,9 +409,10 @@ fun LibrariesScreen(
                             onAction = onAction,
                             gridState = gridState,
                             listState = listState,
-                            showSidebar = state.currentSort == "Title",
+                            showSidebar = showSidebar,
                             scrollRequest = scrollRequest,
                             onScrollConsumed = onScrollConsumed,
+                            lastFocusedId = state.lastFocusedId,
                         )
                     }
                 }
@@ -401,21 +426,25 @@ fun FilterButton(
     text: String,
     isActive: Boolean = false,
     onClick: () -> Unit,
+    testTag: String = "",
 ) {
-    val containerColor = if (isActive) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-    val contentColor = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    val borderStroke = if (isActive) null else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    // Netflix style chips: Dark grey background, White text.
+    val containerColor = if (isActive) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
+    val contentColor = Color.White
+    val borderStroke = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, Color.White) else null
 
     OutlinedButton(
         onClick = onClick,
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-        colors =
-            ButtonDefaults.outlinedButtonColors(
-                containerColor = containerColor,
-                contentColor = contentColor,
-            ),
-        border = borderStroke,
-        modifier = Modifier.height(32.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+        ),
+        border = borderStroke, // Use border only if active or keep it transparent
+        shape = RoundedCornerShape(50),
+        modifier = Modifier
+            .height(32.dp)
+            .then(if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier),
     ) {
         Text(text = text, style = MaterialTheme.typography.labelMedium)
         Spacer(modifier = Modifier.width(4.dp))
@@ -433,25 +462,30 @@ fun LibraryContent(
     viewMode: LibraryViewMode,
     onItemClick: (MediaItem) -> Unit,
     onAction: (LibraryAction) -> Unit,
-    gridState: androidx.compose.foundation.lazy.grid.LazyGridState,
-    listState: androidx.compose.foundation.lazy.LazyListState,
+    gridState: LazyGridState,
+    listState: LazyListState,
     showSidebar: Boolean = false,
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
+    lastFocusedId: String? = null,
 ) {
-    // Handle scroll request
-    // Handle scroll request - REMOVED (Handled by parent LibrariesScreen)
+    // Focus restoration: request focus on the item that was previously focused
+    val focusRestorationRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    var hasRestoredFocus by remember { mutableStateOf(false) }
 
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             if (viewMode == LibraryViewMode.Grid) {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 100.dp),
+                    columns = GridCells.Adaptive(minSize = 140.dp),
                     state = gridState,
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("library_grid")
+                        .semantics { contentDescription = "Grille de la bibliothèque" },
                 ) {
                     items(
                         count = pagedItems.itemCount,
@@ -460,38 +494,59 @@ fun LibraryContent(
                     ) { index ->
                         val item = pagedItems[index]
                         if (item != null) {
-                            MediaCard(
-                                media = item,
-                                onClick = { onItemClick(item) },
-                                onPlay = { },
-                                onFocus = { onAction(LibraryAction.OnItemFocused(item)) },
-                                width = 100.dp,
-                                height = 150.dp,
-                                titleStyle = MaterialTheme.typography.labelMedium,
-                                subtitleStyle = MaterialTheme.typography.labelSmall,
-                            )
+                            val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
+                            var isFocused by remember { mutableStateOf(false) }
+
+                            if (shouldRestoreFocus) {
+                                LaunchedEffect(Unit) {
+                                    try {
+                                        focusRestorationRequester.requestFocus()
+                                        hasRestoredFocus = true
+                                    } catch (_: Exception) { }
+                                }
+                            }
+
+                            Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
+                                NetflixMediaCard(
+                                    media = item,
+                                    onClick = { onItemClick(item) },
+                                    onPlay = { },
+                                    onFocus = { focused ->
+                                        isFocused = focused
+                                        if (focused) {
+                                            onAction(LibraryAction.OnItemFocused(item))
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .then(
+                                            if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
+                                        )
+                                )
+                            }
                         } else {
                             // Placeholder
                             Box(
                                 modifier =
-                                    Modifier.height(
-                                        150.dp,
-                                    ).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(250.dp)
+                                        .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)),
                             )
                         }
                     }
-
-                    if (pagedItems.loadState.append is LoadState.Loading) {
-                        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                    
+                     if (pagedItems.loadState.append is LoadState.Loading) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             LoadingMoreIndicator()
                         }
                     }
                 }
             } else {
-                // List View... (Same pattern)
-                androidx.compose.foundation.lazy.LazyColumn(
+                // List View
+                LazyColumn(
                     state = listState,
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
@@ -507,19 +562,20 @@ fun LibraryContent(
                                     Modifier
                                         .fillMaxWidth()
                                         .clickable { onItemClick(item) }
+                                        .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
                                         .padding(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Thumbnail(url = item.thumbUrl, modifier = Modifier.size(50.dp, 75.dp))
+                                Thumbnail(url = item.thumbUrl, modifier = Modifier.size(60.dp, 90.dp))
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column {
-                                    Text(text = item.title, style = MaterialTheme.typography.titleMedium)
-                                    Text(text = "${item.year ?: ""}", style = MaterialTheme.typography.bodyMedium)
+                                    Text(text = item.title, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                                    Text(text = "${item.year ?: ""}", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
                                 }
                             }
                         } else {
                             // Placeholder
-                            Box(modifier = Modifier.height(80.dp).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant))
+                            Box(modifier = Modifier.height(80.dp).fillMaxWidth().background(Color.White.copy(alpha = 0.1f)))
                         }
                     }
                     if (pagedItems.loadState.append is LoadState.Loading) {
@@ -558,7 +614,7 @@ fun RecommendedContent(
     if (hubs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                text = "No recommendations found.",
+                text = stringResource(R.string.library_no_recommendations),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -566,12 +622,15 @@ fun RecommendedContent(
         return
     }
 
-    androidx.compose.foundation.lazy.LazyColumn(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        items(hubs) { hub ->
+        items(
+            items = hubs,
+            key = { hub -> hub.hubIdentifier ?: hub.title },
+        ) { hub ->
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = hub.title,
@@ -581,11 +640,14 @@ fun RecommendedContent(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
 
-                androidx.compose.foundation.lazy.LazyRow(
+                LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(hub.items) { item ->
+                    items(
+                        items = hub.items,
+                        key = { item -> "${item.serverId}_${item.ratingKey}" },
+                    ) { item ->
                         MediaCard(
                             media = item,
                             onClick = { onItemClick(item) },
@@ -612,9 +674,9 @@ fun Thumbnail(
         if (url != null) {
             AsyncImage(
                 model =
-                    coil.request.ImageRequest.Builder(LocalContext.current)
+                    coil3.request.ImageRequest.Builder(LocalContext.current)
                         .data(url)
-                        .crossfade(true) // Performance: Disable crossfade for smoother scrolling
+                        .size(180, 270) // Explicit size for 60dp×90dp at xxhdpi (×3 density)
                         .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

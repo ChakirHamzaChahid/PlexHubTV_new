@@ -27,6 +27,9 @@ build_log.txt
 /build
 /domain/build
 /core/common/build
+/core/designsystem/build
+/core/navigation/build
+/core/model/build
 /core/network/build
 /core/ui/build
 /core/database/build

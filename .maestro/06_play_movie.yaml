@@ -1,0 +1,65 @@
+# .maestro/06_play_movie.yaml
+appId: com.chakir.plexhubtv
+name: "Player - Lancer la lecture d'un film"
+tags:
+  - player
+  - smoke
+  - critical
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers Films
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_movies"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 150000
+
+# Sélectionner le premier film
+- runFlow: subflows/select_first_media.yaml
+
+# Attendre la page détail
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 150000
+
+# Lancer la lecture (bouton Play)
+- pressKey: "Remote Dpad Center" # Focus sur le bouton lecture par défaut
+
+# Vérifier que le player se lance
+- extendedWaitUntil:
+    visible:
+      id: "screen_player"
+    timeout: 200000 # Timeout long pour le buffering initial
+
+# Attendre quelques secondes de lecture
+- extendedWaitUntil:
+    visible:
+      id: "player_controls_overlay"
+    timeout: 500000
+
+# Mettre en pause
+- pressKey: "Remote Media Play Pause"
+
+# Attendre 2 secondes
+- extendedWaitUntil:
+    visible:
+      id: "player_play_pause"
+    timeout: 120000  # Augmenté pour stabilité
+
+# Reprendre la lecture
+- pressKey: "Remote Media Play Pause"
+
+# Revenir en arrière (quitter le player)
+- pressKey: back
+
+# Vérifier qu'on est revenu à la page détail
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 60000  # Augmenté pour stabilité

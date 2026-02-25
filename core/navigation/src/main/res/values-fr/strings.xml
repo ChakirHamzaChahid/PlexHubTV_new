@@ -1,0 +1,13 @@
+<resources>
+    <!-- Navigation Items -->
+    <string name="nav_home">Accueil</string>
+    <string name="nav_hub">Hub</string>
+    <string name="nav_movies">Films</string>
+    <string name="nav_tv_shows">Séries</string>
+    <string name="nav_search">Rechercher</string>
+    <string name="nav_downloads">Téléchargements</string>
+    <string name="nav_favorites">Ma liste</string>
+    <string name="nav_history">Historique</string>
+    <string name="nav_settings">Paramètres</string>
+    <string name="nav_live_tv">TV en direct</string>
+</resources>

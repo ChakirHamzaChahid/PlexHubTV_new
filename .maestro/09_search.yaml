@@ -1,0 +1,61 @@
+# .maestro/09_search.yaml
+appId: com.chakir.plexhubtv
+name: "Search - Recherche globale multi-serveur"
+tags:
+  - search
+  - smoke
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers Recherche
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_search"
+
+# Vérifier l'écran de recherche
+- extendedWaitUntil:
+    visible:
+      id: "screen_search"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Vérifier le champ de recherche
+- assertVisible:
+    id: "search_input"
+
+# Focus sur le champ de recherche et saisir du texte
+- pressKey: "Remote Dpad Center"
+- inputText: "Matrix"
+
+# Attendre les résultats (debounce 500ms + requête réseau)
+- extendedWaitUntil:
+    visible:
+      id: "search_result_.*" # Regex : au moins un résultat
+    timeout: 60000  # Augmenté pour stabilité
+
+# Sélectionner le premier résultat
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Center"
+
+# Vérifier qu'on est sur la page détail
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Retour à la recherche
+- pressKey: back
+- extendedWaitUntil:
+    visible:
+      id: "screen_search"
+    timeout: 30000  # Augmenté pour stabilité
+
+# Tester recherche sans résultat
+- pressKey: "Remote Dpad Center"
+- eraseText: 20
+- inputText: "xyzxyzxyz123"
+
+- extendedWaitUntil:
+    visible:
+      id: "search_no_results"
+    timeout: 60000  # Augmenté pour stabilité

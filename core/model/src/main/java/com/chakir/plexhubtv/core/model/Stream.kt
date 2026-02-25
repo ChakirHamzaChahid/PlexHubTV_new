@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.core.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Représente un flux élémentaire (Stream) au sein d'un fichier média.
  *
@@ -12,10 +14,9 @@ package com.chakir.plexhubtv.core.model
  * @property codec Codec utilisé (h264, aac, srt...).
  * @property selected Indique si ce flux est sélectionné par défaut.
  */
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
 
-sealed class MediaStream : Parcelable {
+@Serializable
+sealed class MediaStream {
     abstract val id: String
     abstract val index: Int?
     abstract val language: String?
@@ -26,7 +27,7 @@ sealed class MediaStream : Parcelable {
     abstract val selected: Boolean
 }
 
-@Parcelize
+@Serializable
 data class AudioStream(
     override val id: String,
     override val index: Int?,
@@ -39,7 +40,7 @@ data class AudioStream(
     val channels: Int?,
 ) : MediaStream()
 
-@Parcelize
+@Serializable
 data class SubtitleStream(
     override val id: String,
     override val index: Int?,
@@ -55,7 +56,7 @@ data class SubtitleStream(
     val isExternal: Boolean get() = !key.isNullOrEmpty()
 }
 
-@Parcelize
+@Serializable
 data class VideoStream(
     override val id: String,
     override val index: Int?,
@@ -71,7 +72,7 @@ data class VideoStream(
     val hasHDR: Boolean = false,
 ) : MediaStream()
 
-@Parcelize
+@Serializable
 data class UnknownStream(
     override val id: String,
     override val index: Int?,

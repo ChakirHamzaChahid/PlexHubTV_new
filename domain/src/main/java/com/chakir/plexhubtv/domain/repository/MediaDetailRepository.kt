@@ -29,6 +29,12 @@ interface MediaDetailRepository {
         serverId: String,
     ): Result<List<MediaItem>>
 
+    /** Trouve les instances du même média sur d'autres serveurs (via unificationId Room). */
+    suspend fun findRemoteSources(item: MediaItem): List<MediaItem>
+
+    /** Met à jour les mediaParts d'un média en cache Room (pour persistence entre sessions). */
+    suspend fun updateMediaParts(item: MediaItem)
+
     /** Récupère toutes les collections associées au média. */
     fun getMediaCollections(
         ratingKey: String,

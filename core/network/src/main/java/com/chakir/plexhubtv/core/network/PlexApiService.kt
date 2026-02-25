@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.core.network
 import com.chakir.plexhubtv.core.network.model.GenericPlexResponse
 import com.chakir.plexhubtv.core.network.model.PinResponse
 import com.chakir.plexhubtv.core.network.model.PlexHomeUserDto
+import com.chakir.plexhubtv.core.network.model.PlexHomeUsersResponse
 import com.chakir.plexhubtv.core.network.model.PlexResource
 import com.chakir.plexhubtv.core.network.model.PlexResponse
 import com.chakir.plexhubtv.core.network.model.UserSwitchResponseDto
@@ -30,7 +31,7 @@ interface PlexApiService {
 
     @POST("https://plex.tv/api/v2/pins")
     suspend fun getPin(
-        @Query("strong") strong: Boolean = true,
+        @Query("strong") strong: Boolean = false,
         @Header("X-Plex-Client-Identifier") clientId: String,
     ): Response<PinResponse>
 
@@ -49,6 +50,8 @@ interface PlexApiService {
     @GET("https://plex.tv/api/v2/resources")
     suspend fun getResources(
         @Query("includeHttps") includeHttps: Int = 1,
+        @Query("includeRelay") includeRelay: Int = 1,
+        @Query("includeIPv6") includeIPv6: Int = 1,
         @Header("X-Plex-Token") token: String,
         @Header("X-Plex-Client-Identifier") clientId: String,
     ): Response<List<PlexResource>>
@@ -170,13 +173,13 @@ interface PlexApiService {
 
     // --- Plex Home / Users ---
 
-    @GET("https://plex.tv/api/home/users")
+    @GET("https://plex.tv/api/v2/home/users")
     suspend fun getHomeUsers(
         @Header("X-Plex-Token") token: String,
         @Header("X-Plex-Client-Identifier") clientId: String,
-    ): Response<List<PlexHomeUserDto>>
+    ): Response<PlexHomeUsersResponse>
 
-    @POST("https://plex.tv/api/home/users/{uuid}/switch")
+    @POST("https://plex.tv/api/v2/home/users/{uuid}/switch")
     suspend fun switchUser(
         @Path("uuid") uuid: String,
         @Query("pin") pin: String?,

@@ -42,7 +42,10 @@ dependencies {
     implementation(project(":core:common"))
 
     // DataStore
-    implementation(libs.androidx.datastore.preferences)
+    api(libs.androidx.datastore.preferences)
+
+    // Security - Encrypted SharedPreferences
+    implementation(libs.androidx.security.crypto)
 
     // Hilt
     implementation(libs.hilt.android)
@@ -53,6 +56,9 @@ dependencies {
 
     // Inject
     implementation("javax.inject:javax.inject:1")
+
+    // Timber for logging
+    implementation(libs.timber)
 
     implementation(libs.androidx.core.ktx)
 }

@@ -3,13 +3,14 @@ package com.chakir.plexhubtv.feature.details
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.common.safeCollectIn
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 
 /**
  * ViewModel gérant les détails d'un média.
@@ -40,10 +44,11 @@ class MediaDetailViewModel
         private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
         private val getSimilarMediaUseCase: com.chakir.plexhubtv.domain.usecase.GetSimilarMediaUseCase,
         private val getMediaCollectionsUseCase: com.chakir.plexhubtv.domain.usecase.GetMediaCollectionsUseCase,
+        private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
-        private val ratingKey: String = checkNotNull(savedStateHandle["ratingKey"])
-        private val serverId: String = checkNotNull(savedStateHandle["serverId"])
+        private val ratingKey: String? = savedStateHandle["ratingKey"]
+        private val serverId: String? = savedStateHandle["serverId"]
 
         private val _uiState = MutableStateFlow(MediaDetailUiState(isLoading = true))
         val uiState: StateFlow<MediaDetailUiState> = _uiState.asStateFlow()
@@ -51,18 +56,34 @@ class MediaDetailViewModel
         private val _navigationEvents = Channel<MediaDetailNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
+        private val _errorEvents = Channel<AppError>()
+        val errorEvents = _errorEvents.receiveAsFlow()
+
         init {
-            loadDetail()
-            checkFavoriteStatus()
+            if (ratingKey == null || serverId == null) {
+                Timber.e("MediaDetailViewModel: missing required navigation args (ratingKey=$ratingKey, serverId=$serverId)")
+                _uiState.update { it.copy(isLoading = false, error = "Invalid navigation arguments") }
+            } else {
+                loadDetail()
+                checkFavoriteStatus()
+            }
         }
 
-        private fun checkFavoriteStatus() {
-            viewModelScope.launch {
-                isFavoriteUseCase(ratingKey, serverId).collect { isFav ->
-                    val current = _uiState.value.media
-                    if (current != null) {
-                        _uiState.update { it.copy(media = current.copy(isFavorite = isFav)) }
-                    }
+        private var favoriteCheckJob: kotlinx.coroutines.Job? = null
+
+        private fun checkFavoriteStatus(allRatingKeys: List<String>? = null) {
+            favoriteCheckJob?.cancel()
+            val keys = allRatingKeys ?: listOfNotNull(ratingKey)
+            if (keys.isEmpty()) return
+            favoriteCheckJob = isFavoriteUseCase.anyOf(keys).safeCollectIn(
+                scope = viewModelScope,
+                onError = { e ->
+                    Timber.e(e, "MediaDetailViewModel: checkFavoriteStatus failed")
+                }
+            ) { isFav ->
+                val current = _uiState.value.media
+                if (current != null) {
+                    _uiState.update { it.copy(media = current.copy(isFavorite = isFav)) }
                 }
             }
         }
@@ -72,10 +93,29 @@ class MediaDetailViewModel
             when (event) {
                 is MediaDetailEvent.PlayClicked -> {
                     val media = _uiState.value.media ?: return
+                    Firebase.analytics.logEvent("video_play") {
+                        param("media_type", media.type.name)
+                        param("title", media.title.take(100))
+                        param("server_id", media.serverId)
+                    }
                     viewModelScope.launch {
+                        val opId = "playback_movie_${media.ratingKey}_${System.currentTimeMillis()}"
+                        performanceTracker.startOperation(
+                            opId,
+                            com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK,
+                            "Movie/Show PlayClicked → Player",
+                            mapOf(
+                                "title" to media.title,
+                                "type" to media.type.name,
+                                "ratingKey" to media.ratingKey,
+                                "serverId" to media.serverId
+                            )
+                        )
+
                         try {
                             // 1. Resolve Smart Start Element
                             val resolvedItem = getNextEpisodeUseCase(media).getOrNull()
+                            performanceTracker.addCheckpoint(opId, "Smart Start Resolved", mapOf("resolved" to (resolvedItem != null)))
 
                             val startItem =
                                 if (resolvedItem != null) {
@@ -84,7 +124,8 @@ class MediaDetailViewModel
                                     if (media.type == MediaType.Movie || media.type == MediaType.Episode) {
                                         media
                                     } else {
-                                        _uiState.update { it.copy(error = "No playable episode found.") }
+                                        performanceTracker.endOperation(opId, success = false, errorMessage = "No playable content")
+                                        _errorEvents.send(AppError.Media.NoPlayableContent("No playable episode found for this media."))
                                         return@launch
                                     }
                                 }
@@ -93,23 +134,36 @@ class MediaDetailViewModel
                             // Optimization: Avoid re-running EnrichMediaItemUseCase if loadAvailableServers already did it.
                             val enrichedItem =
                                 if (startItem.ratingKey == media.ratingKey && media.remoteSources.size > 1) {
+                                    performanceTracker.addCheckpoint(opId, "Enrichment (Cache Hit)", mapOf("sources" to media.remoteSources.size))
                                     media // Already enriched by background job
                                 } else {
                                     // Either a different item (Next Episode) or background job not finished yet.
-                                    enrichMediaItemUseCase(startItem)
+                                    val enrichStart = System.currentTimeMillis()
+                                    val enriched = enrichMediaItemUseCase(startItem)
+                                    val enrichDuration = System.currentTimeMillis() - enrichStart
+                                    performanceTracker.addCheckpoint(
+                                        opId,
+                                        "Enrichment (Fresh)",
+                                        mapOf("duration" to enrichDuration, "sources" to enriched.remoteSources.size)
+                                    )
+                                    enriched
                                 }
 
                             _uiState.update { it.copy(selectedPlaybackItem = enrichedItem) }
 
                             // 3. Check for multiple sources on the RESOLVED item
                             if (enrichedItem.remoteSources.size > 1) {
+                                performanceTracker.addCheckpoint(opId, "Source Selection Dialog Shown")
                                 _uiState.update { it.copy(showSourceSelection = true) }
+                                // Will end operation when user selects source (in PlaySource event)
                             } else {
+                                performanceTracker.addCheckpoint(opId, "Single Source - Direct Play")
                                 // Single source or no remoteSources (fallback to direct)
-                                playItem(enrichedItem)
+                                playItem(enrichedItem, opId)
                             }
                         } catch (e: Exception) {
-                            _uiState.update { it.copy(error = "Playback error: ${e.message}") }
+                            performanceTracker.endOperation(opId, success = false, errorMessage = e.message)
+                            _errorEvents.send(AppError.Playback.InitializationFailed(e.message, e))
                         }
                     }
                 }
@@ -142,7 +196,7 @@ class MediaDetailViewModel
                     }
                 }
                 is MediaDetailEvent.DownloadClicked -> {
-                    // TODO: Implement Download logic
+                    // Download feature not implemented
                 }
                 is MediaDetailEvent.ToggleFavorite -> {
                     val media = _uiState.value.media ?: return
@@ -162,8 +216,13 @@ class MediaDetailViewModel
                     _uiState.update { it.copy(showSourceSelection = false) }
                     val startItem = _uiState.value.selectedPlaybackItem ?: _uiState.value.media ?: return
                     viewModelScope.launch {
+                        // Continue tracking from PlayClicked (find active operation)
+                        val opId = performanceTracker.getSummary(com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK, 1)
+                            .firstOrNull()?.id
+                        opId?.let { performanceTracker.addCheckpoint(it, "User Selected Source", mapOf("serverId" to event.source.serverId)) }
+
                         // Start playback with specific server
-                        playItem(startItem, event.source.serverId)
+                        playItem(startItem, opId, event.source.serverId)
                     }
                 }
                 is MediaDetailEvent.Retry -> {
@@ -175,18 +234,28 @@ class MediaDetailViewModel
 
         private suspend fun playItem(
             item: MediaItem,
+            opId: String? = null,
             forcedServerId: String? = null,
         ) {
-            val targetServerId = forcedServerId ?: item.serverId
             val finalItem =
                 if (forcedServerId != null && forcedServerId != item.serverId) {
-                    // Find the source matching forcedServerId and use its ratingKey
+                    // Find the source matching forcedServerId to get its ratingKey
                     val source = item.remoteSources.find { it.serverId == forcedServerId }
                     if (source != null) {
-                        // We might need to fetch the full detail for this source?
-                        // For now, let's assume ratingKey is enough for PlayerViewModel to load it.
-                        item.copy(serverId = source.serverId, ratingKey = source.ratingKey)
+                        opId?.let { performanceTracker.addCheckpoint(it, "Server Switch", mapOf("from" to item.serverId, "to" to source.serverId)) }
+                        // Fetch full media detail from the target server to get correct
+                        // mediaParts, stream IDs, baseUrl, accessToken, and id
+                        val detailResult = getMediaDetailUseCase(source.ratingKey, source.serverId).first()
+                        detailResult.getOrNull()?.item ?: run {
+                            Timber.w("playItem: Failed to fetch detail for ${source.ratingKey} on ${source.serverId}, falling back to shallow copy")
+                            item.copy(
+                                id = "${source.serverId}:${source.ratingKey}",
+                                serverId = source.serverId,
+                                ratingKey = source.ratingKey,
+                            )
+                        }
                     } else {
+                        Timber.w("playItem: Source not found for serverId=$forcedServerId in remoteSources")
                         item
                     }
                 } else {
@@ -194,12 +263,20 @@ class MediaDetailViewModel
                 }
 
             // 2. Build Playback Queue
+            val queueStart = System.currentTimeMillis()
             val queue = getPlayQueueUseCase(finalItem).getOrElse { listOf(finalItem) }
+            val queueDuration = System.currentTimeMillis() - queueStart
+            opId?.let { performanceTracker.addCheckpoint(it, "Queue Built", mapOf("duration" to queueDuration, "items" to queue.size)) }
 
             // 3. Initialize PlaybackManager
             playbackManager.play(finalItem, queue)
+            opId?.let { performanceTracker.addCheckpoint(it, "PlaybackManager Initialized") }
 
             // 4. Navigate
+            opId?.let {
+                performanceTracker.addCheckpoint(it, "Navigation to Player Triggered")
+                performanceTracker.endOperation(it, success = true, additionalMeta = mapOf("finalRatingKey" to finalItem.ratingKey))
+            }
             _navigationEvents.send(MediaDetailNavigationEvent.NavigateToPlayer(finalItem.ratingKey, finalItem.serverId))
         }
 
@@ -213,38 +290,40 @@ class MediaDetailViewModel
         }
 
         private fun loadDetail() {
+            val rk = ratingKey ?: return
+            val sid = serverId ?: return
             viewModelScope.launch {
                 val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [Detail]: Loading start for $ratingKey on $serverId")
+                Timber.d("SCREEN [Detail]: Loading start for $rk on $sid")
                 _uiState.update { it.copy(isLoading = true, error = null) }
-                getMediaDetailUseCase(ratingKey, serverId).collect { result ->
-                    val duration = System.currentTimeMillis() - startTime
-                    result.fold(
-                        onSuccess = { detail ->
-                            Timber.i(
-                                "SCREEN [Detail] SUCCESS: Load Duration=${duration}ms | Title=${detail.item.title} | Seasons=${detail.children.size}",
+                val result = getMediaDetailUseCase(rk, sid).first()
+                val duration = System.currentTimeMillis() - startTime
+                result.fold(
+                    onSuccess = { detail ->
+                        Timber.i(
+                            "SCREEN [Detail] SUCCESS: Load Duration=${duration}ms | Title=${detail.item.title} | Seasons=${detail.children.size}",
+                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                media = detail.item,
+                                seasons = detail.children,
+                                isEnriching = true, // Start enriching (looking for other servers)
                             )
-                            _uiState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    media = detail.item,
-                                    seasons = detail.children,
-                                    isEnriching = true, // Start enriching (looking for other servers)
-                                )
-                            }
-                            // Secondary fetch for similar items
-                            loadSimilarItems()
-
-                            // Secondary fetch for other servers (Available Sources)
-                            // loadCollection() will be called AFTER enrichment completes
-                            loadAvailableServers(detail.item)
-                        },
-                        onFailure = { error ->
-                            Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
-                            _uiState.update { it.copy(isLoading = false, error = error.message) }
-                        },
-                    )
-                }
+                        }
+                        // Launch ALL secondary fetches in parallel
+                        loadSimilarItems()
+                        loadAvailableServers(detail.item)
+                        loadCollection() // Collections are BDD-local, no need to wait for enrichment
+                    },
+                    onFailure = { error ->
+                        Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
+                        viewModelScope.launch {
+                            _errorEvents.send(AppError.Media.LoadFailed(error.message, error))
+                        }
+                        _uiState.update { it.copy(isLoading = false) }
+                    },
+                )
             }
         }
 
@@ -262,22 +341,25 @@ class MediaDetailViewModel
                             currentState.copy(isEnriching = false)
                         }
                     }
-
-                    // NOW load collections using enriched data (with remoteSources populated)
                     Timber.d("VM: Enrichment complete. remoteSources count: ${enriched.remoteSources.size}")
-                    loadCollection()
+
+                    // Re-check favorite status with all server ratingKeys
+                    if (enriched.remoteSources.isNotEmpty()) {
+                        val allKeys = enriched.remoteSources.map { it.ratingKey }
+                        checkFavoriteStatus(allKeys)
+                    }
                 } catch (e: Exception) {
                     Timber.w("Failed to enrich media: ${e.message}")
                     _uiState.update { it.copy(isEnriching = false) }
-                    // Still try to load collections from primary server
-                    loadCollection()
                 }
             }
         }
 
         private fun loadSimilarItems() {
+            val rk = ratingKey ?: return
+            val sid = serverId ?: return
             viewModelScope.launch {
-                getSimilarMediaUseCase(ratingKey, serverId)
+                getSimilarMediaUseCase(rk, sid)
                     .onSuccess { items ->
                         Timber.d("VM: Loaded ${items.size} similar items for $ratingKey")
                         _uiState.update { it.copy(similarItems = items) }
@@ -288,58 +370,25 @@ class MediaDetailViewModel
             }
         }
 
-        private suspend fun loadCollection() {
-            Timber.d("VM: Loading collections (multi-server aggregation)")
-            try {
-                val media = _uiState.value.media ?: run {
-                    Timber.w("VM: Cannot load collections - media is null")
-                    return
-                }
-
-                // Build list of all servers to query: primary + remote sources
-                val serversToQuery = buildList {
-                    add(Pair(media.serverId, media.ratingKey))
-                    media.remoteSources.forEach { source ->
-                        add(Pair(source.serverId, source.ratingKey))
+        private fun loadCollection() {
+            viewModelScope.launch {
+                _uiState.update { it.copy(isLoadingCollections = true) }
+                try {
+                    val media = _uiState.value.media ?: run {
+                        Timber.w("VM: Cannot load collections - media is null")
+                        _uiState.update { it.copy(isLoadingCollections = false) }
+                        return@launch
                     }
-                }.distinctBy { it.first } // Deduplicate by serverId
 
-                Timber.i("VM: Querying ${serversToQuery.size} server(s) for collections")
-                serversToQuery.forEach { (sid, rkey) ->
-                    Timber.d("   - Server $sid with ratingKey $rkey")
+                    // Collections are BDD-local (fast) — query primary server only
+                    val result = getMediaCollectionsUseCase(media.ratingKey, media.serverId).first()
+                    Timber.d("VM: Got ${result.size} collection(s) from primary server")
+
+                    _uiState.update { it.copy(collections = result, isLoadingCollections = false) }
+                } catch (e: Exception) {
+                    Timber.e(e, "VM: Exception loading collections")
+                    _uiState.update { it.copy(isLoadingCollections = false) }
                 }
-
-                // Query all servers in parallel
-                val allCollections = serversToQuery.map { (sid, rkey) ->
-                    viewModelScope.async {
-                        try {
-                            Timber.d("VM: Fetching collections from server $sid...")
-                            val result = getMediaCollectionsUseCase(rkey, sid).first()
-                            Timber.d("VM: ✓ Got ${result.size} collection(s) from server $sid")
-                            result
-                        } catch (e: Exception) {
-                            Timber.w(e, "VM: Failed to load collections from server $sid")
-                            emptyList()
-                        }
-                    }
-                }.awaitAll().flatten()
-
-                // Deduplicate collections by (title + serverId) to keep distinct collections
-                // Note: Same title on different servers = different collections (correct behavior)
-                val uniqueCollections = allCollections.distinctBy { "${it.title}|${it.serverId}" }
-
-                if (uniqueCollections.isNotEmpty()) {
-                    Timber.i("VM: ✅ Aggregated ${uniqueCollections.size} unique collection(s) from ${serversToQuery.size} server(s)")
-                    uniqueCollections.forEach { col ->
-                        Timber.d("   - '${col.title}' (${col.items.size} items, server=${col.serverId})")
-                    }
-                } else {
-                    Timber.w("VM: ⚠️ No collections found across any server")
-                }
-
-                _uiState.update { it.copy(collections = uniqueCollections) }
-            } catch (e: Exception) {
-                Timber.e(e, "VM: ❌ Exception during multi-server collection aggregation")
             }
         }
     }

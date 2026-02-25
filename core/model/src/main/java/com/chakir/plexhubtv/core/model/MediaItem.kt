@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.core.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Entité principale représentant un élément multimédia unifié.
  *
@@ -21,10 +23,8 @@ package com.chakir.plexhubtv.core.model
  * @property unificationId ID utilisé pour le dédoublonnage (IMDB/TMDB/GUID).
  * @property remoteSources Liste des serveurs alternatifs proposant ce même média.
  */
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
 
-@Parcelize
+@Immutable
 data class MediaItem(
     val id: String, // serverId + ratingKey
     val ratingKey: String,
@@ -34,6 +34,8 @@ data class MediaItem(
     val type: MediaType,
     val thumbUrl: String? = null,
     val artUrl: String? = null,
+    // Alternative poster URLs from other servers for fallback if primary fails
+    val alternativeThumbUrls: List<String> = emptyList(),
     val summary: String? = null,
     val year: Int? = null,
     val durationMs: Long? = null,
@@ -78,9 +80,8 @@ data class MediaItem(
     val markers: List<Marker> = emptyList(),
     // Agrégation
     val remoteSources: List<MediaSource> = emptyList(),
-) : Parcelable
+)
 
-@Parcelize
 data class MediaSource(
     val serverId: String,
     val ratingKey: String,
@@ -97,19 +98,17 @@ data class MediaSource(
     val languages: List<String> = emptyList(),
     val thumbUrl: String? = null,
     val artUrl: String? = null,
-) : Parcelable
+)
 
-@Parcelize
 data class CastMember(
     val id: String?,
     val filter: String?,
     val role: String?,
     val tag: String?,
     val thumb: String?,
-) : Parcelable
+)
 
-@Parcelize
-enum class MediaType : Parcelable {
+enum class MediaType {
     Movie,
     Show,
     Season,

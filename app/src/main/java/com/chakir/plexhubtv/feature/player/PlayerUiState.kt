@@ -11,6 +11,7 @@ import com.chakir.plexhubtv.core.model.SubtitleTrack
 data class PlayerUiState(
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
+    val isLoading: Boolean = false,
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
     val bufferedPosition: Long = 0L,
@@ -46,6 +47,9 @@ data class PlayerUiState(
     val playerStats: PlayerStats? = null,
     val error: String? = null,
     val isMpvMode: Boolean = false,
+    // Network error handling
+    val errorType: PlayerErrorType = PlayerErrorType.None,
+    val networkRetryCount: Int = 0,
 )
 
 data class PlayerStats(
@@ -62,6 +66,16 @@ data class VideoQuality(
     val name: String,
     val bitrate: Int,
 )
+
+/**
+ * Type d'erreur du player pour gérer les retry et fallback
+ */
+enum class PlayerErrorType {
+    None,           // Pas d'erreur
+    Network,        // Erreur réseau (timeout, host unreachable, etc.)
+    Codec,          // Erreur de codec/décodage
+    Generic         // Autre erreur
+}
 
 sealed interface PlayerAction {
     data object Play : PlayerAction
@@ -113,4 +127,8 @@ sealed interface PlayerAction {
     data object TogglePerformanceOverlay : PlayerAction
 
     data object DismissDialog : PlayerAction // Close any open dialog without stopping playback
+
+    data object RetryPlayback : PlayerAction // Retry playback after network error
+
+    data object SwitchToMpv : PlayerAction // Manually switch to MPV player
 }

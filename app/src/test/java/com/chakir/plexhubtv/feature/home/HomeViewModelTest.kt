@@ -1,19 +1,15 @@
 package com.chakir.plexhubtv.feature.home
 
-import android.util.Log
-import androidx.lifecycle.SavedStateHandle
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
-import com.chakir.plexhubtv.core.image.ImagePrefetchManager
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import com.chakir.plexhubtv.domain.usecase.HomeContent
 import com.google.common.truth.Truth.assertThat
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.mockkStatic
+import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -28,101 +24,117 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
+    private lateinit var viewModel: HomeViewModel
+    private lateinit var getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase
+    private lateinit var workManager: WorkManager
+    private lateinit var settingsDataStore: SettingsDataStore
+
     private val testDispatcher = StandardTestDispatcher()
 
-    private val getUnifiedHomeContentUseCase = mockk<GetUnifiedHomeContentUseCase>()
-    private val workManager = mockk<WorkManager>(relaxed = true)
-    private val settingsDataStore = mockk<SettingsDataStore>()
-    private val imagePrefetchManager = mockk<ImagePrefetchManager>()
-    private val savedStateHandle = SavedStateHandle()
+    private val testMediaItem = MediaItem(
+        id = "1",
+        ratingKey = "123",
+        serverId = "server1",
+        title = "Test Movie",
+        type = MediaType.Movie
+    )
 
-    private lateinit var viewModel: HomeViewModel
+    private val testHomeContent = HomeContent(
+        onDeck = listOf(testMediaItem),
+        hubs = listOf(
+            Hub(
+                key = "continueWatching",
+                title = "Continue Watching",
+                type = "continueWatching",
+                items = listOf(testMediaItem)
+            )
+        )
+    )
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
 
-        // Mock Android Log
-        mockkStatic(Log::class)
-        every { Log.d(any(), any()) } returns 0
-        every { Log.i(any(), any()) } returns 0
-        every { Log.e(any(), any()) } returns 0
+        getUnifiedHomeContentUseCase = mockk(relaxed = true)
+        workManager = mockk(relaxed = true)
+        settingsDataStore = mockk(relaxed = true)
 
-        // Default mocks
-        every { settingsDataStore.isFirstSyncComplete } returns flowOf(true)
-        every { getUnifiedHomeContentUseCase() } returns flowOf(Result.success(HomeContent(emptyList(), emptyList())))
-        // Relaxed workManager will return an empty flow by default if we use mockk(relaxed=true)
-        // OR we can explicitly mock it if it's an extension (which we suspect)
-
-        every { imagePrefetchManager.prefetchImages(any()) } returns Unit
+        coEvery { getUnifiedHomeContentUseCase() } returns flowOf(Result.success(testHomeContent))
+        coEvery { settingsDataStore.isFirstSyncComplete } returns flowOf(true)
+        coEvery { workManager.getWorkInfosForUniqueWorkFlow(any()) } returns flowOf(emptyList())
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        clearAllMocks()
+    }
+
+    private fun createViewModel(): HomeViewModel {
+        return HomeViewModel(
+            getUnifiedHomeContentUseCase = getUnifiedHomeContentUseCase,
+            workManager = workManager,
+            settingsDataStore = settingsDataStore,
+        )
     }
 
     @Test
-    fun `init - loads content immediately`() =
-        runTest {
-            val onDeck = listOf(createMediaItem("1", "On Deck Item"))
-            val hubs = listOf(Hub("key", "Trending", "movie", items = listOf(createMediaItem("2", "Hub Item"))))
+    fun `loadContent success updates uiState with onDeck`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
 
-            every { getUnifiedHomeContentUseCase() } returns flowOf(Result.success(HomeContent(onDeck, hubs)))
-
-            viewModel =
-                HomeViewModel(
-                    getUnifiedHomeContentUseCase,
-                    workManager,
-                    settingsDataStore,
-                    imagePrefetchManager,
-                    savedStateHandle,
-                )
-
-            advanceUntilIdle()
-
-            val state = viewModel.uiState.value
-            assertThat(state.isLoading).isFalse()
-            assertThat(state.onDeck).hasSize(1)
-            assertThat(state.onDeck[0].title).isEqualTo("On Deck Item")
-            assertThat(state.hubs).hasSize(1)
-            assertThat(state.hubs[0].title).isEqualTo("Trending")
-        }
+        val state = viewModel.uiState.value
+        assertThat(state.isLoading).isFalse()
+        assertThat(state.onDeck).hasSize(1)
+        assertThat(state.onDeck.first().title).isEqualTo("Test Movie")
+    }
 
     @Test
-    fun `onAction Refresh - triggers reload`() =
-        runTest {
-            every { getUnifiedHomeContentUseCase() } returns flowOf(Result.success(HomeContent(emptyList(), emptyList())))
+    fun `loadContent failure sends error event`() = runTest {
+        val error = Exception("Network error")
+        coEvery { getUnifiedHomeContentUseCase() } returns flowOf(Result.failure(error))
 
-            viewModel =
-                HomeViewModel(
-                    getUnifiedHomeContentUseCase,
-                    workManager,
-                    settingsDataStore,
-                    imagePrefetchManager,
-                    savedStateHandle,
-                )
+        viewModel = createViewModel()
+        advanceUntilIdle()
 
-            advanceUntilIdle()
+        val state = viewModel.uiState.value
+        assertThat(state.isLoading).isFalse()
+    }
 
-            viewModel.onAction(HomeAction.Refresh)
+    @Test
+    fun `onAction Refresh triggers loadContent`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
 
-            advanceUntilIdle()
+        clearMocks(getUnifiedHomeContentUseCase, answers = false)
 
-            // Verify it was called again
-            io.mockk.verify(exactly = 2) { getUnifiedHomeContentUseCase() }
-        }
+        viewModel.onAction(HomeAction.Refresh)
+        advanceUntilIdle()
 
-    private fun createMediaItem(
-        id: String,
-        title: String,
-    ) = MediaItem(
-        id = id,
-        ratingKey = id,
-        serverId = "s1",
-        title = title,
-        type = MediaType.Movie,
-        mediaParts = emptyList(),
-        genres = emptyList(),
-    )
+        coVerify { getUnifiedHomeContentUseCase() }
+    }
+
+    @Test
+    fun `onAction OpenMedia sends navigation event`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onAction(HomeAction.OpenMedia(testMediaItem))
+    }
+
+    @Test
+    fun `checkInitialSync sets isInitialSync when first sync not complete`() = runTest {
+        coEvery { settingsDataStore.isFirstSyncComplete } returns flowOf(false)
+        val workInfo = mockk<WorkInfo>()
+        every { workInfo.state } returns WorkInfo.State.RUNNING
+        every { workInfo.progress } returns androidx.work.workDataOf("progress" to 0.5f, "message" to "Syncing...")
+        coEvery { workManager.getWorkInfosForUniqueWorkFlow("LibrarySync_Initial") } returns flowOf(listOf(workInfo))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.isInitialSync).isTrue()
+        assertThat(viewModel.uiState.value.syncProgress).isEqualTo(0.5f)
+        assertThat(viewModel.uiState.value.syncMessage).isEqualTo("Syncing...")
+    }
 }

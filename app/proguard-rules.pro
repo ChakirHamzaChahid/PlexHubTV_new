@@ -131,3 +131,22 @@
 -keepclassmembers class * implements android.os.Parcelable {
     public static final ** CREATOR;
 }
+
+# ============================================================================
+# Firebase Crashlytics
+# ============================================================================
+-keep class com.google.firebase.crashlytics.** { *; }
+-dontwarn com.google.firebase.crashlytics.**
+-keep public class * extends java.lang.Exception
+
+# ============================================================================
+# Firebase Analytics
+# ============================================================================
+-keep class com.google.android.gms.measurement.** { *; }
+-dontwarn com.google.android.gms.measurement.**
+
+# ============================================================================
+# Firebase Performance
+# ============================================================================
+-keep class com.google.firebase.perf.** { *; }
+-dontwarn com.google.firebase.perf.**

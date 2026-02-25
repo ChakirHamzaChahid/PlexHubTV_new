@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -18,14 +19,18 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
+import com.chakir.plexhubtv.R
+import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.showError
 
 /**
  * Écran de recherche global.
@@ -38,7 +43,16 @@ fun SearchRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
+    val errorEvents = viewModel.errorEvents
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    // derivedStateOf: groupBy only recomputes when results actually change,
+    // not on every uiState change (e.g. query text changes while results stay the same)
+    val groupedResults by remember {
+        derivedStateOf { uiState.results.groupBy { it.type } }
+    }
+
+    // Handle navigation events
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
@@ -47,9 +61,18 @@ fun SearchRoute(
         }
     }
 
-    SearchScreen(
+    // Handle error events with centralized error display
+    LaunchedEffect(errorEvents) {
+        errorEvents.collect { error ->
+            snackbarHostState.showError(error)
+        }
+    }
+
+    NetflixSearchScreen(
         state = uiState,
+        groupedResults = groupedResults,
         onAction = viewModel::onAction,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -69,12 +92,12 @@ fun SearchScreen(
                 onSearch = { keyboardController?.hide() },
                 active = false,
                 onActiveChange = {},
-                placeholder = { Text("Search movies, shows...") },
+                placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (state.query.isNotEmpty()) {
                         IconButton(onClick = { onAction(SearchAction.ClearQuery) }) {
-                            Icon(Icons.Filled.Clear, contentDescription = "Clear")
+                            Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.action_clear))
                         }
                     }
                 },
@@ -88,7 +111,7 @@ fun SearchScreen(
             when (state.searchState) {
                 SearchState.Idle -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Type to start searching", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.search_idle_message), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 SearchState.Searching -> {
@@ -98,28 +121,28 @@ fun SearchScreen(
                 }
                 SearchState.NoResults -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No results found for \"${state.query}\"", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.search_no_results, state.query), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 SearchState.Error -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = state.error ?: "Unknown Error",
+                            text = stringResource(R.string.search_error_message),
                             color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center,
                         )
                     }
                 }
                 SearchState.Results -> {
+                    val listState = rememberLazyListState()
                     LazyColumn(
+                        state = listState,
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        state.results.forEach { resultItem ->
-                            item {
-                                SearchResultItem(item = resultItem, onClick = { onAction(SearchAction.OpenMedia(resultItem)) })
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-                            }
+                        items(state.results, key = { "${it.ratingKey}_${it.serverId}" }) { resultItem ->
+                            SearchResultItem(item = resultItem, onClick = { onAction(SearchAction.OpenMedia(resultItem)) })
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
                         }
                     }
                 }

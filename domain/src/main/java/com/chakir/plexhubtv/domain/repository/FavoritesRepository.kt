@@ -11,5 +11,7 @@ interface FavoritesRepository {
         serverId: String,
     ): Flow<Boolean>
 
+    fun isFavoriteAny(ratingKeys: List<String>): Flow<Boolean>
+
     suspend fun toggleFavorite(media: MediaItem): Result<Boolean>
 }

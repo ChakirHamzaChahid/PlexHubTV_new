@@ -1,0 +1,45 @@
+# .maestro/17_ai_visual_checks.yaml
+appId: com.chakir.plexhubtv
+name: "AI - Vérifications visuelles automatiques"
+tags:
+  - ai
+  - visual
+---
+# ⚠️ Nécessite une clé API OpenAI ou Anthropic configurée
+# export MAESTRO_AI_KEY=sk-xxx (ou ANTHROPIC_API_KEY)
+# Voir : https://docs.maestro.dev/api-reference/configuration/ai-configuration
+
+- runFlow: subflows/launch_and_wait.yaml
+
+# --- Vérification écran d'accueil ---
+- assertNoDefectsWithAI
+- assertWithAI:
+    assertion: "L'écran d'accueil affiche des rangées horizontales de posters de films/séries dans un style Netflix, avec une sidebar de navigation à gauche"
+
+# Naviguer vers Films
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_movies"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 60000  # Augmenté pour stabilité
+
+# --- Vérification bibliothèque ---
+- assertNoDefectsWithAI
+- assertWithAI:
+    assertion: "Une grille de posters de films est visible, chaque poster a une image et le texte n'est pas coupé ou superposé"
+
+# Ouvrir un film
+- runFlow: subflows/select_first_media.yaml
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 60000  # Augmenté pour stabilité
+
+# --- Vérification page détail ---
+- assertNoDefectsWithAI
+- assertWithAI:
+    assertion: "La page de détail affiche une image de fond, un titre de film lisible, un bouton de lecture visible, et des informations sur le film (année, durée, note)"

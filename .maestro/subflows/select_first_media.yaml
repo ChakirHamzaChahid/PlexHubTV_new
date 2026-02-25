@@ -1,0 +1,11 @@
+# Sélectionner le premier média visible dans une grille/row
+appId: com.chakir.plexhubtv
+---
+# Naviguer vers le contenu (à droite de la sidebar)
+- pressKey: "Remote Dpad Right"
+
+# Descendre dans la première row de contenu
+- pressKey: "Remote Dpad Down"
+
+# Sélectionner le premier élément
+- pressKey: "Remote Dpad Center"

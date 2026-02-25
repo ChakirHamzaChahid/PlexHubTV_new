@@ -1,0 +1,68 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ main, develop, claude/** ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Lint with Detekt
+        run: ./gradlew detekt --continue
+        continue-on-error: true
+
+      - name: Unit Tests
+        run: ./gradlew testDebugUnitTest --continue
+        continue-on-error: true
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+          retention-days: 7
+
+      - name: Upload Detekt Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: detekt-results
+          path: |
+            **/build/reports/detekt/
+          retention-days: 7

@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
@@ -61,6 +62,8 @@ dependencies {
     // Inject
     implementation("javax.inject:javax.inject:1")
 
+    // Serialization
+    implementation(libs.kotlinx.serialization.json)
+
     implementation(libs.androidx.core.ktx)
-    implementation(libs.gson)
 }

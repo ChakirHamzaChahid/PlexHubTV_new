@@ -4,20 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.chakir.plexhubtv.core.navigation.Screen
+import com.chakir.plexhubtv.di.navigation.Screen
 import com.chakir.plexhubtv.feature.auth.AuthRoute
-import com.chakir.plexhubtv.feature.auth.profiles.ProfileRoute
+import com.chakir.plexhubtv.feature.auth.components.SessionExpiredDialog
+import com.chakir.plexhubtv.feature.plexhome.PlexHomeSwitcherRoute
 import com.chakir.plexhubtv.feature.details.MediaDetailRoute
 import com.chakir.plexhubtv.feature.details.SeasonDetailRoute
 import com.chakir.plexhubtv.feature.player.VideoPlayerRoute
@@ -34,18 +37,20 @@ class MainActivity : ComponentActivity() {
     @javax.inject.Inject
     lateinit var settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore
 
+    private val mainViewModel: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Timber.i("APP STARTUP: Launching PlexHubTV")
 
-        // Play Intro Sound
-        try {
-            val mediaPlayer = android.media.MediaPlayer.create(this, R.raw.intro_sound)
-            mediaPlayer.setOnCompletionListener { it.release() }
-            mediaPlayer.start()
-        } catch (e: Exception) {
-            Timber.e("Failed to play intro: ${e.message}")
-        }
+        // Play Intro Sound - DISABLED (video intro has sound instead)
+        // try {
+        //     val mediaPlayer = android.media.MediaPlayer.create(this, R.raw.intro_sound)
+        //     mediaPlayer.setOnCompletionListener { it.release() }
+        //     mediaPlayer.start()
+        // } catch (e: Exception) {
+        //     Timber.e("Failed to play intro: ${e.message}")
+        // }
 
         enableEdgeToEdge()
         setContent {
@@ -58,7 +63,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    PlexHubApp()
+                    PlexHubApp(mainViewModel = mainViewModel)
                 }
             }
         }
@@ -75,16 +80,61 @@ class MainActivity : ComponentActivity() {
  * - VideoPlayer (avec DeepLink support)
  */
 @Composable
-fun PlexHubApp() {
+fun PlexHubApp(mainViewModel: MainViewModel) {
     val navController = rememberNavController()
+    val showSessionExpiredDialog by mainViewModel.showSessionExpiredDialog.collectAsState()
 
-    NavHost(navController = navController, startDestination = Screen.Login.route) {
+    // Show session expired dialog if token invalidated
+    if (showSessionExpiredDialog) {
+        SessionExpiredDialog(
+            onDismiss = {
+                mainViewModel.onSessionExpiredDialogDismissed {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
+        )
+    }
+
+    NavHost(navController = navController, startDestination = Screen.Splash.route) {
+        // Splash Screen (Netflix-style auto-login check)
+        composable(Screen.Splash.route) {
+            com.chakir.plexhubtv.feature.splash.SplashRoute(
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToLoading = {
+                    navController.navigate(Screen.Loading.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToLibrarySelection = {
+                    navController.navigate(Screen.LibrarySelection.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+
         composable(Screen.Login.route) {
             AuthRoute(
                 onAuthSuccess = {
-                    // Redirect to Loading to wait for Sync
-                    navController.navigate(Screen.Loading.route) {
+                    // Redirect to Library Selection before Sync
+                    navController.navigate(Screen.LibrarySelection.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable(Screen.LibrarySelection.route) {
+            com.chakir.plexhubtv.feature.libraryselection.LibrarySelectionRoute(
+                onNavigateToLoading = {
+                    navController.navigate(Screen.Loading.route) {
+                        popUpTo(Screen.LibrarySelection.route) { inclusive = true }
                     }
                 },
             )
@@ -97,17 +147,51 @@ fun PlexHubApp() {
                         popUpTo(Screen.Loading.route) { inclusive = true }
                     }
                 },
+                onNavigateToAuth = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }  // Clear all back stack
+                    }
+                },
+                onNavigateToLibrarySelection = {
+                    navController.navigate(Screen.LibrarySelection.route) {
+                        popUpTo(Screen.Loading.route) { inclusive = true }
+                    }
+                },
             )
         }
 
-        composable(Screen.Profiles.route) {
-            ProfileRoute(
+        composable(Screen.PlexHomeSwitch.route) {
+            PlexHomeSwitcherRoute(
                 onSwitchSuccess = {
                     navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Profiles.route) { inclusive = true }
+                        popUpTo(Screen.PlexHomeSwitch.route) { inclusive = true }
                     }
                 },
                 onBack = {
+                    navController.popBackStack()
+                },
+            )
+        }
+
+        composable(Screen.AppProfileSelection.route) {
+            com.chakir.plexhubtv.feature.appprofile.AppProfileSelectionRoute(
+                onNavigateToHome = {
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.AppProfileSelection.route) { inclusive = true }
+                    }
+                },
+                onNavigateToManageProfiles = {
+                    navController.navigate(Screen.AppProfileSwitch.route)
+                },
+            )
+        }
+
+        composable(Screen.AppProfileSwitch.route) {
+            com.chakir.plexhubtv.feature.appprofile.AppProfileSwitchRoute(
+                onProfileSwitched = {
+                    navController.popBackStack()
+                },
+                onNavigateBack = {
                     navController.popBackStack()
                 },
             )
@@ -124,10 +208,19 @@ fun PlexHubApp() {
                 onPlayUrl = { url, title ->
                     navController.navigate(Screen.VideoPlayer.createRoute("iptv", "iptv", 0L, url, title))
                 },
+                onNavigateToProfiles = {
+                    navController.navigate(Screen.AppProfileSelection.route)
+                },
+                onNavigateToPlexHomeSwitch = {
+                    navController.navigate(Screen.PlexHomeSwitch.route)
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onNavigateToLibrarySelection = {
+                    navController.navigate(Screen.LibrarySelection.route)
                 },
             )
         }
@@ -170,8 +263,8 @@ fun PlexHubApp() {
                 ),
         ) {
             SeasonDetailRoute(
-                onNavigateToPlayer = { ratingKey, serverId ->
-                    navController.navigate(Screen.VideoPlayer.createRoute(ratingKey, serverId))
+                onNavigateToPlayer = { ratingKey, serverId, startOffset ->
+                    navController.navigate(Screen.VideoPlayer.createRoute(ratingKey, serverId, startOffset))
                 },
                 onNavigateBack = {
                     navController.popBackStack()

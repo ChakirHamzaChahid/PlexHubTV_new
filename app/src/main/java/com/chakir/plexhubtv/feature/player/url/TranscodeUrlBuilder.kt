@@ -12,6 +12,7 @@ import javax.inject.Inject
 /**
  * Construit les URLs de lecture (Direct Play ou Transcoding) pour Plex.
  */
+@javax.inject.Singleton
 class TranscodeUrlBuilder
     @Inject
     constructor() {

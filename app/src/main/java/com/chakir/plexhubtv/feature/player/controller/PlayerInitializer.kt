@@ -19,12 +19,13 @@ class PlayerInitializer
         @OptIn(UnstableApi::class)
         fun createExoPlayer(
             context: Context,
+            isRelay: Boolean = false,
             onPlayingChanged: (Boolean) -> Unit,
             onStateChanged: (Int) -> Unit,
             onTracksChanged: (Tracks) -> Unit,
             onError: (androidx.media3.common.PlaybackException) -> Unit,
         ): ExoPlayer {
-            return playerFactory.createExoPlayer(context).apply {
+            return playerFactory.createExoPlayer(context, isRelay).apply {
                 addListener(
                     object : Player.Listener {
                         override fun onIsPlayingChanged(isPlaying: Boolean) {

@@ -1,0 +1,39 @@
+# .maestro/03_home_screen.yaml
+appId: com.chakir.plexhubtv
+name: "Home - Vérification écran d'accueil"
+tags:
+  - home
+  - smoke
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Vérifier la présence de l'écran d'accueil
+- assertVisible:
+    id: "screen_home"
+
+# Vérifier la présence de la sidebar
+- assertVisible:
+    id: "sidebar_menu"
+
+# Vérifier les éléments de navigation
+- assertVisible:
+    id: "nav_item_home"
+- assertVisible:
+    id: "nav_item_movies"
+- assertVisible:
+    id: "nav_item_tvshows"
+
+# Vérifier qu'au moins une row de contenu est visible
+# (On Deck ou un hub quelconque)
+- assertVisible:
+    id: "hub_row_on_deck"
+
+# Naviguer dans les rows pour vérifier le chargement
+- pressKey: "Remote Dpad Right"
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Down"
+
+# Vérifier qu'on peut scroller sans crash
+- pressKey: "Remote Dpad Right"
+- pressKey: "Remote Dpad Right"
+- pressKey: "Remote Dpad Left"

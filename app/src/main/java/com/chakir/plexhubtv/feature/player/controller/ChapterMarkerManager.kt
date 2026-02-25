@@ -13,6 +13,7 @@ import javax.inject.Inject
  * Fournit des flux d'état (StateFlows) pour la synchronisation de l'interface utilisateur avec la
  * position de lecture actuelle.
  */
+@javax.inject.Singleton
 class ChapterMarkerManager
     @Inject
     constructor() {

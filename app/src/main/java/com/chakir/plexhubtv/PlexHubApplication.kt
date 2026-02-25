@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv
 
 import android.app.Application
+import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
@@ -8,14 +9,16 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import coil.ImageLoader
-import coil.ImageLoaderFactory
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
+import com.chakir.plexhubtv.work.ChannelSyncWorker
+import com.chakir.plexhubtv.domain.service.TvChannelManager
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +36,9 @@ import timber.log.Timber
 import java.security.Security
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.perf.FirebasePerformance
 
 /**
  * Classe Application personnalisée pour PlexHubTV.
@@ -43,7 +50,7 @@ import javax.inject.Inject
  * - Lancement de la synchronisation périodique en arrière-plan
  */
 @HiltAndroidApp
-class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Provider {
+class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     @Inject lateinit var okHttpClient: okhttp3.OkHttpClient
@@ -62,6 +69,8 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
 
     @Inject lateinit var authRepository: AuthRepository
 
+    @Inject lateinit var tvChannelManager: TvChannelManager
+
     private val _appReady = MutableStateFlow(false)
     val appReady: StateFlow<Boolean> = _appReady.asStateFlow()
 
@@ -74,10 +83,21 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
 
         installSecurityProviders()
 
+        initializeFirebase()
+
         // Launch parallel initialization
         initializeAppInParallel()
 
         setupBackgroundSync()
+
+        // Initialize TV Channel (if enabled)
+        appScope.launch {
+            try {
+                tvChannelManager.createChannelIfNeeded()
+            } catch (e: Exception) {
+                Timber.e(e, "TV Channel: Initialization failed")
+            }
+        }
     }
 
     /**
@@ -144,16 +164,18 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
                                 Timber.d("Init: Pre-warming server connections...")
                                 val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: emptyList()
                                 if (servers.isNotEmpty()) {
-                                    // Test all server connections in parallel (fire-and-forget per server)
-                                    servers.map { server ->
-                                        async {
-                                            try {
-                                                connectionManager.findBestConnection(server)
-                                            } catch (e: Exception) {
-                                                Timber.w(e, "Init: Connection test failed for ${server.name}")
+                                    // Test all server connections in parallel, capped at 5s to avoid blocking cold start
+                                    withTimeoutOrNull(5_000L) {
+                                        servers.map { server ->
+                                            async {
+                                                try {
+                                                    connectionManager.findBestConnection(server)
+                                                } catch (e: Exception) {
+                                                    Timber.w(e, "Init: Connection test failed for ${server.name}")
+                                                }
                                             }
-                                        }
-                                    }.awaitAll()
+                                        }.awaitAll()
+                                    }
                                     Timber.d("Init: Server connections warmed (${servers.size} servers)")
                                 } else {
                                     Timber.d("Init: No servers to warm")
@@ -201,10 +223,11 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
-        // 1. Trigger Immediate Sync ONLY if never completed (Critical for Fresh Install)
+        // 1. Trigger Immediate Sync ONLY if never completed AND library selection is done
         appScope.launch(ioDispatcher) {
             val isFirstSyncComplete = settingsDataStore.isFirstSyncComplete.first()
-            if (!isFirstSyncComplete) {
+            val isLibrarySelectionDone = settingsDataStore.isLibrarySelectionComplete.first()
+            if (!isFirstSyncComplete && isLibrarySelectionDone) {
                 val immediateSyncRequest =
                     androidx.work.OneTimeWorkRequestBuilder<LibrarySyncWorker>()
                         .setConstraints(constraints)
@@ -243,9 +266,27 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
             ExistingPeriodicWorkPolicy.KEEP,
             collectionSyncRequest,
         )
+
+        // 4. Schedule periodic channel sync (every 3 hours)
+        val channelSyncRequest = PeriodicWorkRequestBuilder<ChannelSyncWorker>(
+            repeatInterval = 3,
+            repeatIntervalTimeUnit = TimeUnit.HOURS
+        ).setConstraints(
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "ChannelSync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            channelSyncRequest
+        )
+
+        Timber.d("TV Channel: Periodic worker scheduled (every 3h)")
     }
 
-    override fun newImageLoader(): ImageLoader {
+    override fun newImageLoader(context: Context): ImageLoader {
         return imageLoader
     }
 
@@ -254,20 +295,44 @@ class PlexHubApplication : Application(), ImageLoaderFactory, Configuration.Prov
      * Updates Google Play Services security provider and installs Conscrypt as fallback.
      */
     private fun installSecurityProviders() {
-        // 1. Install Conscrypt as the primary provider (highly compatible/modern)
+        // 1. Install Conscrypt as the primary provider (highly compatible/modern SSL/TLS)
         try {
-            Security.insertProviderAt(org.conscrypt.Conscrypt.newProvider(), 1)
+            val provider = org.conscrypt.Conscrypt.newProvider()
+            java.security.Security.insertProviderAt(provider, 1)
             Timber.i("✅ Conscrypt security provider installed successfully")
         } catch (e: Exception) {
             Timber.e(e, "Failed to install Conscrypt provider")
         }
 
-        // 2. Update Google Play Services security provider
+        // 2. Update Google Play Services security provider (optional backup)
         try {
             com.google.android.gms.security.ProviderInstaller.installIfNeeded(this)
             Timber.i("✅ GMS Security provider updated successfully")
         } catch (e: Exception) {
+            // We only warn here because we have Conscrypt as a robust fallback
             Timber.w("GMS Security provider update failed or not available: ${e.message}")
         }
+    }
+
+    /**
+     * Initializes Firebase services with a DEBUG gate.
+     * Collection is disabled in debug builds to avoid noise during development.
+     */
+    private fun initializeFirebase() {
+        FirebaseCrashlytics.getInstance().apply {
+            setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
+            setCustomKey("app_version", BuildConfig.VERSION_NAME)
+            setCustomKey("build_type", BuildConfig.BUILD_TYPE)
+        }
+
+        FirebaseAnalytics.getInstance(this).apply {
+            setAnalyticsCollectionEnabled(!BuildConfig.DEBUG)
+        }
+
+        FirebasePerformance.getInstance().apply {
+            isPerformanceCollectionEnabled = !BuildConfig.DEBUG
+        }
+
+        Timber.i("Firebase initialized (collection=${!BuildConfig.DEBUG})")
     }
 }

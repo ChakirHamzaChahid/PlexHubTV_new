@@ -1,0 +1,35 @@
+# .maestro/01_auth_login.yaml
+appId: com.chakir.plexhubtv
+name: "Auth - Login PIN Plex"
+tags:
+  - auth
+  - smoke
+---
+- launchApp
+- clearState
+
+# Vérifier que l'écran de login s'affiche (après splash)
+- extendedWaitUntil:
+    visible:
+      id: "screen_login"
+    timeout: 180000  # 3 minutes pour Splash + Auth
+
+# Cliquer sur le bouton de connexion
+- pressKey: "Remote Dpad Center" # Focus par défaut sur le bouton login
+
+# Vérifier que l'écran PIN s'affiche
+- extendedWaitUntil:
+    visible:
+      id: "screen_pin_input"
+    timeout: 30000  # 30 secondes
+
+# Vérifier que le code PIN est affiché
+- assertVisible:
+    id: "pin_display"
+
+# ℹ️ Note : L'activation du PIN se fait manuellement sur plex.tv/link
+# En mode test, on attend que l'auth aboutisse (timeout long)
+- extendedWaitUntil:
+    visible:
+      id: "screen_profiles"
+    timeout: 120000  # 2 minutes pour validation manuelle

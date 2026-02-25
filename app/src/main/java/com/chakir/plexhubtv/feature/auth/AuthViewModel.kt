@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 
 /**
  * ViewModel gérant le flux d'authentification.
@@ -51,7 +54,7 @@ class AuthViewModel
                 AuthEvent.Cancel -> cancelAuth()
                 is AuthEvent.OpenBrowser -> { /* Handled in UI, or trigger intent here */ }
                 is AuthEvent.SubmitToken -> loginWithToken(event.token)
-                AuthEvent.ScanQr -> { /* TODO */ }
+                AuthEvent.ScanQr -> { /* QR code scanning not implemented */ }
             }
         }
 
@@ -63,6 +66,9 @@ class AuthViewModel
                         fetchServers()
                     }
                     .onFailure { e ->
+                        Firebase.analytics.logEvent("auth_failed") {
+                            param("method", "token")
+                        }
                         _uiState.value = AuthUiState.Error("Token verification failed: ${e.message}")
                     }
             }
@@ -79,7 +85,7 @@ class AuthViewModel
                             progress = 0f,
                         )
 
-                    authRepository.getPin(strong = true)
+                    authRepository.getPin(strong = false)
                         .onSuccess { authPin ->
                             _uiState.update {
                                 AuthUiState.Authenticating(
@@ -116,12 +122,16 @@ class AuthViewModel
                     return
                 }
             }
+            Firebase.analytics.logEvent("auth_timeout") {}
             _uiState.value = AuthUiState.Error("Authentication timed out")
         }
 
         private suspend fun fetchServers() {
             authRepository.getServers()
                 .onSuccess { servers ->
+                    Firebase.analytics.logEvent("auth_success") {
+                        param("server_count", servers.size.toLong())
+                    }
                     _uiState.value = AuthUiState.Success(servers)
                 }
                 .onFailure { e ->

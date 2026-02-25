@@ -1,0 +1,31 @@
+# Naviguer vers un écran via la sidebar
+# Paramètre attendu : NAV_TARGET (ex: "nav_item_movies")
+appId: com.chakir.plexhubtv
+---
+# Aller à gauche pour atteindre la sidebar
+- pressKey: "Remote Dpad Left"
+- pressKey: "Remote Dpad Left"
+- pressKey: "Remote Dpad Left"
+
+# Attendre que la sidebar soit visible
+- extendedWaitUntil:
+    visible:
+      id: "sidebar_menu"
+    timeout: 5000
+
+# Naviguer vers le haut pour repartir du début de la sidebar
+- pressKey: "Remote Dpad Up"
+- pressKey: "Remote Dpad Up"
+- pressKey: "Remote Dpad Up"
+- pressKey: "Remote Dpad Up"
+- pressKey: "Remote Dpad Up"
+
+# Descendre jusqu'à l'item cible via scrollUntilVisible
+- scrollUntilVisible:
+    element:
+      id: "${NAV_TARGET}"
+    direction: DOWN
+    timeout: 10000
+
+# Sélectionner l'item
+- pressKey: "Remote Dpad Center"

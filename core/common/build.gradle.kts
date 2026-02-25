@@ -37,8 +37,11 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:model"))
     implementation(libs.androidx.core.ktx)
     api(libs.timber)
+    implementation(libs.androidx.media3.common.ktx)
+    implementation(libs.retrofit)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
@@ -47,4 +50,20 @@ dependencies {
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
+    // Navigation (Needed for MediaNavigationHelper)
+    implementation(libs.androidx.compose.navigation)
+
+    // TvProvider (Needed for WatchNextHelper)
+    implementation(libs.androidx.tv.provider)
+
+    // WorkManager (Needed for WatchNextHelper/WorkModule)
+    implementation(libs.androidx.work.runtime)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.android)
+
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
 }

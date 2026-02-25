@@ -1,0 +1,27 @@
+# .maestro/15_history.yaml
+appId: com.chakir.plexhubtv
+name: "History - Historique de lecture"
+tags:
+  - history
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers Historique
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_history"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_history"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Si l'historique contient des éléments, naviguer dedans
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Up"
+
+# Vérifier la stabilité
+- assertVisible:
+    id: "screen_history"

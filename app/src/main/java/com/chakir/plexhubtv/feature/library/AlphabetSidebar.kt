@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,13 +50,14 @@ fun AlphabetSidebar(
             verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            alphabet.forEach { letter ->
-                item {
-                    SidebarItem(
-                        letter = letter,
-                        onClick = { onLetterSelected(letter) },
-                    )
-                }
+            items(
+                items = alphabet,
+                key = { letter -> letter },
+            ) { letter ->
+                SidebarItem(
+                    letter = letter,
+                    onClick = { onLetterSelected(letter) },
+                )
             }
         }
     }

@@ -1,9 +1,15 @@
 package com.chakir.plexhubtv.feature.downloads
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -11,13 +17,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 
@@ -57,22 +69,46 @@ fun DownloadsScreen(
         topBar = {
             TopAppBar(title = { Text("Downloads") })
         },
+        modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .testTag("screen_downloads")
+                .semantics { contentDescription = "Écran des téléchargements" }
+        ) {
             if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("downloads_loading")
+                        .semantics { contentDescription = "Chargement des téléchargements" },
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
             } else if (state.downloads.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("downloads_empty")
+                        .semantics { contentDescription = "Aucun téléchargement" },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text("No downloaded content.")
                 }
             } else {
+                val listState = rememberLazyListState()
                 LazyColumn(
+                    state = listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier
+                        .testTag("downloads_list")
+                        .semantics { contentDescription = "Liste des téléchargements" }
                 ) {
-                    items(state.downloads) { item ->
+                    items(state.downloads, key = { it.id }) { item ->
                         DownloadItem(
                             item = item,
                             onClick = { onAction(DownloadsAction.PlayDownload(item)) },
@@ -91,10 +127,29 @@ fun DownloadItem(
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
+    val borderColor by androidx.compose.animation.animateColorAsState(
+        if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
+        label = "border",
+    )
+
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .testTag("download_item_${item.id}")
+                .semantics { contentDescription = "Téléchargement: ${item.title}" }
+                .onFocusChanged { isFocused = it.isFocused }
+                .scale(scale)
+                .background(if (isFocused) Color.White.copy(alpha = 0.05f) else Color.Transparent)
+                .then(
+                    if (isFocused) {
+                        Modifier.border(1.dp, borderColor, MaterialTheme.shapes.small)
+                    } else {
+                        Modifier
+                    }
+                )
                 .clickable(onClick = onClick)
                 .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,

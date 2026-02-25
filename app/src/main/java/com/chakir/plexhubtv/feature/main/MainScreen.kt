@@ -24,11 +24,21 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.zIndex
+import com.chakir.plexhubtv.BuildConfig
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
-import com.chakir.plexhubtv.core.navigation.Screen
+import com.chakir.plexhubtv.core.navigation.NavigationItem
+import com.chakir.plexhubtv.core.ui.NetflixTopBar
+import com.chakir.plexhubtv.di.navigation.Screen
 import com.chakir.plexhubtv.feature.downloads.DownloadsRoute
 import com.chakir.plexhubtv.feature.home.HomeRoute
+import com.chakir.plexhubtv.feature.hub.HubRoute
 import com.chakir.plexhubtv.feature.library.LibraryRoute
 import com.chakir.plexhubtv.feature.search.SearchRoute
 import com.chakir.plexhubtv.feature.settings.SettingsRoute
@@ -43,123 +53,197 @@ fun MainScreen(
     onNavigateToPlayer: (String, String) -> Unit,
     onNavigateToDetails: (String, String) -> Unit,
     onPlayUrl: (String, String) -> Unit,
+    onNavigateToProfiles: () -> Unit,
+    onNavigateToPlexHomeSwitch: () -> Unit,
     onLogout: () -> Unit,
+    onNavigateToLibrarySelection: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Auto-redirect to Downloads if offline and on online-only tab
-    LaunchedEffect(uiState.isOffline) {
-        if (uiState.isOffline) {
-            val currentRoute = navController.currentDestination?.route
-            if (currentRoute != Screen.Downloads.route && currentRoute != Screen.Settings.route) {
-                navController.navigate(Screen.Downloads.route) {
-                    popUpTo(navController.graph.findStartDestination().id) {
-                        saveState = true
-                    }
-                    launchSingleTop = true
-                    restoreState = true
-                }
+    // State for TopBar transparency and visibility
+    var isTopBarScrolled by remember { mutableStateOf(false) }
+    var isTopBarVisible by remember { mutableStateOf(true) }
+
+    // TopBar focus management for Back button handling
+    var requestTopBarFocus by remember { mutableStateOf(false) }
+    var isTopBarFocused by remember { mutableStateOf(false) }
+
+    // Determines the current selected item based on the route
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val selectedItem =
+        remember(currentRoute) {
+            when (currentRoute) {
+                Screen.Home.route -> NavigationItem.Home
+                Screen.Hub.route -> NavigationItem.Hub
+                Screen.Movies.route -> NavigationItem.Movies
+                Screen.TVShows.route -> NavigationItem.TVShows
+                Screen.Favorites.route -> NavigationItem.Favorites
+                Screen.History.route -> NavigationItem.History
+                Screen.Settings.route -> NavigationItem.Settings
+                Screen.Search.route -> NavigationItem.Search
+                Screen.Downloads.route -> NavigationItem.Downloads
+                Screen.Iptv.route -> NavigationItem.Iptv
+                else -> NavigationItem.Home // Default or None
             }
+        }
+
+    // Define main navigation screens (where TopBar is visible)
+    val isMainNavigationScreen = currentRoute in listOf(
+        Screen.Home.route,
+        Screen.Hub.route,
+        Screen.Movies.route,
+        Screen.TVShows.route,
+        Screen.Favorites.route,
+        Screen.History.route,
+        Screen.Iptv.route
+    )
+
+    // Back: from content → focus TopBar (on the selected item); from TopBar → exit app
+    // Enabled for all main navigation screens when TopBar doesn't have focus
+    BackHandler(enabled = isMainNavigationScreen && !isTopBarFocused) {
+        requestTopBarFocus = true
+    }
+
+    // Reset focus request flag after it's been processed
+    LaunchedEffect(requestTopBarFocus) {
+        if (requestTopBarFocus) {
+            // Give TopBar time to request focus, then reset
+            kotlinx.coroutines.delay(100)
+            requestTopBarFocus = false
         }
     }
 
-    AppSidebar(
-        navController = navController,
-        isOffline = uiState.isOffline,
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (uiState.isOffline) {
-                OfflineBanner()
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (uiState.isOffline) {
+            OfflineBanner()
+        }
+
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+            composable(Screen.Home.route) {
+                HomeRoute(
+                    onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                )
             }
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Home.route,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .background(MaterialTheme.colorScheme.background),
+            composable(Screen.Hub.route) {
+                HubRoute(
+                    onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                    onScrollStateChanged = { isScrolled -> isTopBarScrolled = isScrolled },
+                )
+            }
+            composable(
+                route = Screen.Movies.route,
+                arguments = listOf(navArgument("mediaType") { defaultValue = "movie" }),
             ) {
-                composable(Screen.Home.route) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        HomeRoute(
-                            onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                            onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
-                        )
-                    }
-                }
-                composable(
-                    route = Screen.Movies.route,
-                    arguments = listOf(navArgument("mediaType") { defaultValue = "movie" }),
-                ) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        LibraryRoute(
-                            onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                        )
-                    }
-                }
-                composable(
-                    route = Screen.TVShows.route,
-                    arguments = listOf(navArgument("mediaType") { defaultValue = "show" }),
-                ) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        LibraryRoute(
-                            onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                        )
-                    }
-                }
-                composable(Screen.Search.route) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        SearchRoute(
-                            onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                        )
-                    }
-                }
-                composable(Screen.Downloads.route) {
-                    DownloadsRoute(
-                        onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
-                    )
-                }
-                composable(Screen.Settings.route) {
-                    SettingsRoute(
-                        onNavigateBack = { navController.popBackStack() },
-                        onNavigateToLogin = onLogout,
-                        onNavigateToServerStatus = { navController.navigate(Screen.ServerStatus.route) },
-                    )
-                }
-                composable(Screen.ServerStatus.route) {
-                    com.chakir.plexhubtv.feature.settings.serverstatus.ServerStatusRoute(
-                        onNavigateBack = { navController.popBackStack() },
-                    )
-                }
-                composable(Screen.Favorites.route) {
-                    com.chakir.plexhubtv.feature.favorites.FavoritesRoute(
+                if (uiState.isOffline) {
+                    OfflinePlaceholder()
+                } else {
+                    LibraryRoute(
                         onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
                     )
-                }
-                composable(Screen.History.route) {
-                    com.chakir.plexhubtv.feature.history.HistoryRoute(
-                        onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
-                    )
-                }
-                composable(Screen.Iptv.route) {
-                    if (uiState.isOffline) {
-                        OfflinePlaceholder()
-                    } else {
-                        com.chakir.plexhubtv.feature.iptv.IptvRoute(
-                            onPlayChannel = { url, title -> onPlayUrl(url, title) },
-                        )
-                    }
                 }
             }
+            composable(
+                route = Screen.TVShows.route,
+                arguments = listOf(navArgument("mediaType") { defaultValue = "show" }),
+            ) {
+                if (uiState.isOffline) {
+                    OfflinePlaceholder()
+                } else {
+                    LibraryRoute(
+                        onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    )
+                }
+            }
+            composable(Screen.Search.route) {
+                SearchRoute(
+                    onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.Downloads.route) {
+                DownloadsRoute(
+                    onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.Settings.route) {
+                SettingsRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToLogin = onLogout,
+                    onNavigateToServerStatus = { navController.navigate(Screen.ServerStatus.route) },
+                    onNavigateToDebug = { navController.navigate(Screen.Debug.route) },
+                    onNavigateToPlexHomeSwitch = { onNavigateToPlexHomeSwitch() },
+                    onNavigateToAppProfiles = { onNavigateToProfiles() },
+                    onNavigateToLibrarySelection = { onNavigateToLibrarySelection() },
+                )
+            }
+            composable(Screen.ServerStatus.route) {
+                com.chakir.plexhubtv.feature.settings.serverstatus.ServerStatusRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
+            // Debug screen only available in DEBUG builds
+            if (BuildConfig.DEBUG) {
+                composable(Screen.Debug.route) {
+                    com.chakir.plexhubtv.feature.debug.DebugRoute(
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                }
+            }
+            composable(Screen.Favorites.route) {
+                com.chakir.plexhubtv.feature.favorites.FavoritesRoute(
+                    onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.History.route) {
+                com.chakir.plexhubtv.feature.history.HistoryRoute(
+                    onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.Iptv.route) {
+                if (uiState.isOffline) {
+                    OfflinePlaceholder()
+                } else {
+                    com.chakir.plexhubtv.feature.iptv.IptvRoute(
+                        onPlayChannel = { url, title -> onPlayUrl(url, title) },
+                    )
+                }
+            }
+        }
+
+        // Netflix TopBar Overlay - Only visible on main navigation screens
+        if (!uiState.isOffline && isMainNavigationScreen) {
+            NetflixTopBar(
+                selectedItem = selectedItem,
+                isScrolled = isTopBarScrolled,
+                isVisible = isTopBarVisible,
+                onItemSelected = { item ->
+                    navController.navigate(item.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onSearchClick = { navController.navigate(Screen.Search.route) },
+                onSettingsClick = { navController.navigate(Screen.Settings.route) },
+                onProfileClick = { onNavigateToProfiles() },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(1f),
+                appLogoPainter = painterResource(id = R.drawable.ic_launcher_tv),
+                requestFocusOnSelectedItem = requestTopBarFocus,
+                onFocusChanged = { hasFocus -> isTopBarFocused = hasFocus },
+            )
         }
     }
 }
@@ -192,27 +276,6 @@ fun OfflinePlaceholder() {
 
 // MainBottomBar removed
 
-sealed class NavigationItem(val screen: Screen, val label: String, val icon: ImageVector) {
-    open val route: String = screen.route
-
-    data object Home : NavigationItem(Screen.Home, "Home", Icons.Default.Home)
-
-    data object Movies : NavigationItem(Screen.Movies, "Movies", Icons.Default.Movie)
-
-    data object TVShows : NavigationItem(Screen.TVShows, "TV Shows", Icons.Default.Tv)
-
-    data object Search : NavigationItem(Screen.Search, "Search", Icons.Default.Search)
-
-    data object Downloads : NavigationItem(Screen.Downloads, "Downloads", Icons.Rounded.Download)
-
-    data object Favorites : NavigationItem(Screen.Favorites, "Favorites", Icons.Filled.Favorite)
-
-    data object History : NavigationItem(Screen.History, "History", Icons.Filled.History)
-
-    data object Settings : NavigationItem(Screen.Settings, "Settings", Icons.Default.Settings)
-
-    data object Iptv : NavigationItem(Screen.Iptv, "Live TV", Icons.Default.Tv)
-}
 
 @Preview(showBackground = true)
 @Composable
