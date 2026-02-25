@@ -8,12 +8,13 @@ import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -38,7 +39,7 @@ class HubViewModel
 
         init {
             observeFavorites()
-            loadContent()
+            collectSharedContent()
         }
 
         private fun observeFavorites() {
@@ -54,7 +55,10 @@ class HubViewModel
 
         fun onAction(action: HubAction) {
             when (action) {
-                is HubAction.Refresh -> loadContent()
+                is HubAction.Refresh -> {
+                    _uiState.update { it.copy(isLoading = it.onDeck.isEmpty() && it.hubs.isEmpty()) }
+                    getUnifiedHomeContentUseCase.refresh()
+                }
                 is HubAction.OpenMedia -> {
                     viewModelScope.launch {
                         _navigationEvents.send(HubNavigationEvent.NavigateToDetails(action.media.ratingKey, action.media.serverId))
@@ -68,44 +72,33 @@ class HubViewModel
             }
         }
 
-        private var contentJob: Job? = null
+        private fun collectSharedContent() {
+            getUnifiedHomeContentUseCase.sharedContent
+                .filterNotNull()
+                .onEach { result ->
+                    result.fold(
+                        onSuccess = { content ->
+                            val filteredHubs =
+                                content.hubs
+                                    .filter { it.items.isNotEmpty() }
+                                    .distinctBy { it.title }
 
-        private fun loadContent() {
-            contentJob?.cancel()
-            contentJob = viewModelScope.launch {
-                Timber.d("SCREEN [Hub]: Loading start")
-                _uiState.update { it.copy(isLoading = it.onDeck.isEmpty() && it.hubs.isEmpty()) }
-
-                getUnifiedHomeContentUseCase()
-                    .catch { error ->
-                        Timber.e(error, "HubViewModel: getUnifiedHomeContentUseCase failed")
-                        viewModelScope.launch { _errorEvents.send(error.toAppError()) }
-                        _uiState.update { it.copy(isLoading = false) }
-                    }
-                    .collect { result ->
-                        result.fold(
-                            onSuccess = { content ->
-                                val filteredHubs =
-                                    content.hubs
-                                        .filter { it.items.isNotEmpty() }
-                                        .distinctBy { it.title }
-
-                                _uiState.update {
-                                    it.copy(
-                                        isLoading = false,
-                                        onDeck = content.onDeck,
-                                        hubs = filteredHubs,
-                                    )
-                                }
-                            },
-                            onFailure = { error ->
-                                Timber.e("SCREEN [Hub] FAILED: error=${error.message}")
-                                viewModelScope.launch { _errorEvents.send(error.toAppError()) }
-                                _uiState.update { it.copy(isLoading = false) }
-                            },
-                        )
-                    }
-            }
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    onDeck = content.onDeck,
+                                    hubs = filteredHubs,
+                                )
+                            }
+                        },
+                        onFailure = { error ->
+                            Timber.e("SCREEN [Hub] FAILED: error=${error.message}")
+                            _errorEvents.send(error.toAppError())
+                            _uiState.update { it.copy(isLoading = false) }
+                        },
+                    )
+                }
+                .launchIn(viewModelScope)
         }
     }
 

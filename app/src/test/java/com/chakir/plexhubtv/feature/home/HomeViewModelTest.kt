@@ -12,6 +12,7 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -51,6 +52,8 @@ class HomeViewModelTest {
         )
     )
 
+    private val sharedContentFlow = MutableStateFlow<Result<HomeContent>?>(null)
+
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
@@ -59,7 +62,8 @@ class HomeViewModelTest {
         workManager = mockk(relaxed = true)
         settingsDataStore = mockk(relaxed = true)
 
-        coEvery { getUnifiedHomeContentUseCase() } returns flowOf(Result.success(testHomeContent))
+        every { getUnifiedHomeContentUseCase.sharedContent } returns sharedContentFlow
+        every { getUnifiedHomeContentUseCase.refresh() } just Runs
         coEvery { settingsDataStore.isFirstSyncComplete } returns flowOf(true)
         coEvery { workManager.getWorkInfosForUniqueWorkFlow(any()) } returns flowOf(emptyList())
     }
@@ -79,8 +83,9 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `loadContent success updates uiState with onDeck`() = runTest {
+    fun `collectSharedContent success updates uiState with onDeck`() = runTest {
         viewModel = createViewModel()
+        sharedContentFlow.value = Result.success(testHomeContent)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -90,11 +95,10 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `loadContent failure sends error event`() = runTest {
+    fun `collectSharedContent failure sets loading false`() = runTest {
         val error = Exception("Network error")
-        coEvery { getUnifiedHomeContentUseCase() } returns flowOf(Result.failure(error))
-
         viewModel = createViewModel()
+        sharedContentFlow.value = Result.failure(error)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -102,16 +106,14 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `onAction Refresh triggers loadContent`() = runTest {
+    fun `onAction Refresh calls useCase refresh`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
-
-        clearMocks(getUnifiedHomeContentUseCase, answers = false)
 
         viewModel.onAction(HomeAction.Refresh)
         advanceUntilIdle()
 
-        coVerify { getUnifiedHomeContentUseCase() }
+        verify { getUnifiedHomeContentUseCase.refresh() }
     }
 
     @Test

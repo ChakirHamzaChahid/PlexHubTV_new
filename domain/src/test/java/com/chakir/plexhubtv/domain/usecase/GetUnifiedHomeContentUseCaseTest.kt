@@ -6,20 +6,24 @@ import com.chakir.plexhubtv.domain.repository.MediaRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class GetUnifiedHomeContentUseCaseTest {
     private val mediaRepository: MediaRepository = mockk()
-    private val testDispatcher = StandardTestDispatcher()
-    private val useCase = GetUnifiedHomeContentUseCase(mediaRepository, testDispatcher)
 
     @Test
-    fun `invoke returns success when both sources emit`() =
+    fun `sharedContent returns success when both sources emit`() =
         runTest {
             // Given
             val onDeck = listOf(mockk<MediaItem>())
@@ -27,18 +31,35 @@ class GetUnifiedHomeContentUseCaseTest {
             every { mediaRepository.getUnifiedOnDeck() } returns flowOf(onDeck)
             every { mediaRepository.getUnifiedHubs() } returns flowOf(hubs)
 
-            // When
-            val result = useCase().first()
+            val testDispatcher = UnconfinedTestDispatcher(testScheduler)
+            val testScope = CoroutineScope(testDispatcher + SupervisorJob())
+            val useCase = GetUnifiedHomeContentUseCase(
+                mediaRepository,
+                testDispatcher,
+                testScope,
+            )
+
+            // Collect to trigger WhileSubscribed start
+            val values = mutableListOf<Result<HomeContent>?>()
+            val job = testScope.launch {
+                useCase.sharedContent.collect { values.add(it) }
+            }
+            advanceUntilIdle()
 
             // Then
-            assertThat(result.isSuccess).isTrue()
+            val result = values.filterNotNull().lastOrNull()
+            assertThat(result).isNotNull()
+            assertThat(result!!.isSuccess).isTrue()
             val content = result.getOrThrow()
             assertThat(content.onDeck).isEqualTo(onDeck)
             assertThat(content.hubs).isEqualTo(hubs)
+
+            job.cancel()
+            testScope.cancel()
         }
 
     @Test
-    fun `invoke returns partial success when OnDeck fails`() =
+    fun `sharedContent returns partial success when OnDeck fails`() =
         runTest {
             // Given
             val exception = RuntimeException("Network error")
@@ -47,13 +68,30 @@ class GetUnifiedHomeContentUseCaseTest {
             every { mediaRepository.getUnifiedOnDeck() } returns flow { throw exception }
             every { mediaRepository.getUnifiedHubs() } returns flowOf(hubs)
 
-            // When
-            val result = useCase().first()
+            val testDispatcher = UnconfinedTestDispatcher(testScheduler)
+            val testScope = CoroutineScope(testDispatcher + SupervisorJob())
+            val useCase = GetUnifiedHomeContentUseCase(
+                mediaRepository,
+                testDispatcher,
+                testScope,
+            )
+
+            // Collect to trigger WhileSubscribed start
+            val values = mutableListOf<Result<HomeContent>?>()
+            val job = testScope.launch {
+                useCase.sharedContent.collect { values.add(it) }
+            }
+            advanceUntilIdle()
 
             // Then
-            assertThat(result.isSuccess).isTrue()
+            val result = values.filterNotNull().lastOrNull()
+            assertThat(result).isNotNull()
+            assertThat(result!!.isSuccess).isTrue()
             val content = result.getOrThrow()
             assertThat(content.onDeck).isEmpty()
             assertThat(content.hubs).isEqualTo(hubs)
+
+            job.cancel()
+            testScope.cancel()
         }
 }
