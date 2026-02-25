@@ -1,5 +1,3 @@
-import java.io.FileInputStream
-import java.util.Properties
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -21,33 +19,12 @@ android {
     }
 
     buildTypes {
-         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.0.175:8186/\"")
-            val localProperties = Properties()
-            val localPropertiesFile = rootProject.file("local.properties")
-            if (localPropertiesFile.exists()) {
-                localProperties.load(FileInputStream(localPropertiesFile))
-            }
-            val plexToken = localProperties.getProperty("PLEX_TOKEN") ?: ""
-            buildConfigField("String", "PLEX_TOKEN", "\"$plexToken\"")
-            val iptvUrl = localProperties.getProperty("IPTV_PLAYLIST_URL") ?: ""
-            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"$iptvUrl\"")
-            val tmdbApiKey = localProperties.getProperty("TMDB_API_KEY") ?: ""
-            buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
-            val omdbApiKey = localProperties.getProperty("OMDB_API_KEY") ?: ""
-            buildConfigField("String", "OMDB_API_KEY", "\"$omdbApiKey\"")
-        }
         release {
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            buildConfigField("String", "API_BASE_URL", "\"https://plex.tv/\"")
-            buildConfigField("String", "PLEX_TOKEN", "\"\"")
-            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"\"")
-            buildConfigField("String", "TMDB_API_KEY", "\"\"")
-            buildConfigField("String", "OMDB_API_KEY", "\"\"")
         }
     }
 

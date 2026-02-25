@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
@@ -25,6 +26,7 @@ class IptvRepositoryImpl
         private val okHttpClient: OkHttpClient,
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+        @Named("iptvPlaylistUrl") private val iptvPlaylistUrl: String,
     ) : IptvRepository {
         private val _channels = MutableStateFlow<List<IptvChannel>>(emptyList())
 
@@ -85,9 +87,8 @@ class IptvRepositoryImpl
             val savedUrl = settingsRepository.iptvPlaylistUrl.firstOrNull()
             if (!savedUrl.isNullOrBlank()) return savedUrl
 
-            // Fallback to BuildConfig if available
-            val buildConfigUrl = com.chakir.plexhubtv.data.BuildConfig.IPTV_PLAYLIST_URL
-            return if (buildConfigUrl.isNotBlank()) buildConfigUrl else null
+            // Fallback to injected BuildConfig value if available
+            return if (iptvPlaylistUrl.isNotBlank()) iptvPlaylistUrl else null
         }
 
         override suspend fun saveM3uUrl(url: String) {
