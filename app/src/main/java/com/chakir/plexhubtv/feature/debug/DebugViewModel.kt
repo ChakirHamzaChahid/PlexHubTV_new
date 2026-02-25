@@ -13,7 +13,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
 import com.chakir.plexhubtv.core.database.PlexDatabase
-import com.chakir.plexhubtv.domain.repository.MediaRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +32,6 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 @HiltViewModel
 class DebugViewModel @Inject constructor(
     private val application: Application,
-    private val mediaRepository: MediaRepository,
     private val settingsRepository: SettingsRepository,
     private val database: PlexDatabase,
     private val imageLoader: ImageLoader,

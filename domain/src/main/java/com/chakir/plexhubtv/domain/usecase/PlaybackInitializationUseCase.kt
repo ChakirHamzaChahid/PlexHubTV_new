@@ -2,7 +2,6 @@ package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.repository.DownloadsRepository
-import com.chakir.plexhubtv.domain.repository.MediaRepository
 import javax.inject.Inject
 
 data class PlaybackData(
@@ -30,7 +29,6 @@ class PlaybackInitializationUseCase
     @Inject
     constructor(
         private val downloadsRepository: DownloadsRepository,
-        private val mediaRepository: MediaRepository,
     ) {
         /**
          * Get playback data for a media item, preferring offline downloads if available

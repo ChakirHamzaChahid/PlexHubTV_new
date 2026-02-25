@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -15,7 +15,7 @@ import javax.inject.Inject
 class GetPlayQueueUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val mediaDetailRepository: MediaDetailRepository,
     ) {
         suspend operator fun invoke(startEpisode: MediaItem): Result<List<MediaItem>> =
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -29,7 +29,7 @@ class GetPlayQueueUseCase
 
                     // Get all episodes of the season
                     val seasonEpisodes =
-                        mediaRepository.getSeasonEpisodes(parentKey, startEpisode.serverId).getOrNull()
+                        mediaDetailRepository.getSeasonEpisodes(parentKey, startEpisode.serverId).getOrNull()
                             ?: return@withContext Result.success(listOf(startEpisode))
 
                     // Find index of start episode

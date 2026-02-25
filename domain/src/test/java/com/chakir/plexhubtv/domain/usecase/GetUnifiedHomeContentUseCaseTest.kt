@@ -2,7 +2,8 @@ package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.HubsRepository
+import com.chakir.plexhubtv.domain.repository.OnDeckRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
@@ -20,7 +21,8 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GetUnifiedHomeContentUseCaseTest {
-    private val mediaRepository: MediaRepository = mockk()
+    private val onDeckRepository: OnDeckRepository = mockk()
+    private val hubsRepository: HubsRepository = mockk()
 
     @Test
     fun `sharedContent returns success when both sources emit`() =
@@ -28,13 +30,14 @@ class GetUnifiedHomeContentUseCaseTest {
             // Given
             val onDeck = listOf(mockk<MediaItem>())
             val hubs = listOf(mockk<Hub>())
-            every { mediaRepository.getUnifiedOnDeck() } returns flowOf(onDeck)
-            every { mediaRepository.getUnifiedHubs() } returns flowOf(hubs)
+            every { onDeckRepository.getUnifiedOnDeck() } returns flowOf(onDeck)
+            every { hubsRepository.getUnifiedHubs() } returns flowOf(hubs)
 
             val testDispatcher = UnconfinedTestDispatcher(testScheduler)
             val testScope = CoroutineScope(testDispatcher + SupervisorJob())
             val useCase = GetUnifiedHomeContentUseCase(
-                mediaRepository,
+                onDeckRepository,
+                hubsRepository,
                 testDispatcher,
                 testScope,
             )
@@ -65,13 +68,14 @@ class GetUnifiedHomeContentUseCaseTest {
             val exception = RuntimeException("Network error")
             val hubs = listOf(mockk<Hub>())
 
-            every { mediaRepository.getUnifiedOnDeck() } returns flow { throw exception }
-            every { mediaRepository.getUnifiedHubs() } returns flowOf(hubs)
+            every { onDeckRepository.getUnifiedOnDeck() } returns flow { throw exception }
+            every { hubsRepository.getUnifiedHubs() } returns flowOf(hubs)
 
             val testDispatcher = UnconfinedTestDispatcher(testScheduler)
             val testScope = CoroutineScope(testDispatcher + SupervisorJob())
             val useCase = GetUnifiedHomeContentUseCase(
-                mediaRepository,
+                onDeckRepository,
+                hubsRepository,
                 testDispatcher,
                 testScope,
             )

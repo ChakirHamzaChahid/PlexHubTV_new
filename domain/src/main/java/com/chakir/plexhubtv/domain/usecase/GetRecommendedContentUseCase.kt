@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.common.util.Resource
 import com.chakir.plexhubtv.core.model.Hub
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.HubsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -18,10 +18,10 @@ import javax.inject.Inject
 class GetRecommendedContentUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val hubsRepository: HubsRepository,
     ) {
         operator fun invoke(): Flow<Resource<List<Hub>>> =
-            mediaRepository.getUnifiedHubs()
+            hubsRepository.getUnifiedHubs()
                 .map { hubs -> Resource.Success(hubs) as Resource<List<Hub>> }
                 .catch { e -> emit(Resource.Error(e.message ?: "Unknown Error")) }
                 .onStart { emit(Resource.Loading()) }

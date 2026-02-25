@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -13,7 +13,7 @@ import org.junit.Test
 
 class PrefetchNextEpisodeUseCaseTest {
 
-    private lateinit var mediaRepository: MediaRepository
+    private lateinit var mediaDetailRepository: MediaDetailRepository
     private lateinit var episodeNavigationUseCase: EpisodeNavigationUseCase
     private lateinit var prefetchNextEpisodeUseCase: PrefetchNextEpisodeUseCase
 
@@ -41,10 +41,10 @@ class PrefetchNextEpisodeUseCaseTest {
 
     @Before
     fun setup() {
-        mediaRepository = mockk()
+        mediaDetailRepository = mockk()
         episodeNavigationUseCase = mockk()
         prefetchNextEpisodeUseCase = PrefetchNextEpisodeUseCase(
-            mediaRepository = mediaRepository,
+            mediaDetailRepository = mediaDetailRepository,
             episodeNavigationUseCase = episodeNavigationUseCase
         )
     }
@@ -54,7 +54,7 @@ class PrefetchNextEpisodeUseCaseTest {
         // Given
         coEvery { episodeNavigationUseCase.loadAdjacentEpisodes(currentEpisode) } returns
             Result.success(AdjacentEpisodes(next = nextEpisode))
-        coEvery { mediaRepository.getMediaDetail("ep2", "server1") } returns
+        coEvery { mediaDetailRepository.getMediaDetail("ep2", "server1") } returns
             Result.success(nextEpisode)
 
         // When
@@ -63,7 +63,7 @@ class PrefetchNextEpisodeUseCaseTest {
         // Then
         assertThat(result.isSuccess).isTrue()
         assertThat(result.getOrNull()).isEqualTo(nextEpisode)
-        coVerify(exactly = 1) { mediaRepository.getMediaDetail("ep2", "server1") }
+        coVerify(exactly = 1) { mediaDetailRepository.getMediaDetail("ep2", "server1") }
     }
 
     @Test
@@ -78,7 +78,7 @@ class PrefetchNextEpisodeUseCaseTest {
         // Then
         assertThat(result.isSuccess).isTrue()
         assertThat(result.getOrNull()).isNull()
-        coVerify(exactly = 0) { mediaRepository.getMediaDetail(any(), any()) }
+        coVerify(exactly = 0) { mediaDetailRepository.getMediaDetail(any(), any()) }
     }
 
     @Test
@@ -100,7 +100,7 @@ class PrefetchNextEpisodeUseCaseTest {
         // Given
         coEvery { episodeNavigationUseCase.loadAdjacentEpisodes(currentEpisode) } returns
             Result.success(AdjacentEpisodes(next = nextEpisode))
-        coEvery { mediaRepository.getMediaDetail("ep2", "server1") } returns
+        coEvery { mediaDetailRepository.getMediaDetail("ep2", "server1") } returns
             Result.success(nextEpisode)
 
         // When - First call
@@ -110,7 +110,7 @@ class PrefetchNextEpisodeUseCaseTest {
 
         // Then - Only one prefetch should occur
         assertThat(result.isSuccess).isTrue()
-        coVerify(exactly = 1) { mediaRepository.getMediaDetail("ep2", "server1") }
+        coVerify(exactly = 1) { mediaDetailRepository.getMediaDetail("ep2", "server1") }
     }
 
     @Test
@@ -118,7 +118,7 @@ class PrefetchNextEpisodeUseCaseTest {
         // Given
         coEvery { episodeNavigationUseCase.loadAdjacentEpisodes(currentEpisode) } returns
             Result.success(AdjacentEpisodes(next = nextEpisode))
-        coEvery { mediaRepository.getMediaDetail("ep2", "server1") } returns
+        coEvery { mediaDetailRepository.getMediaDetail("ep2", "server1") } returns
             Result.success(nextEpisode)
 
         // First prefetch
@@ -130,7 +130,7 @@ class PrefetchNextEpisodeUseCaseTest {
 
         // Then - Prefetch should happen again
         assertThat(result.isSuccess).isTrue()
-        coVerify(exactly = 2) { mediaRepository.getMediaDetail("ep2", "server1") }
+        coVerify(exactly = 2) { mediaDetailRepository.getMediaDetail("ep2", "server1") }
     }
 
     @Test
@@ -138,7 +138,7 @@ class PrefetchNextEpisodeUseCaseTest {
         // Given
         coEvery { episodeNavigationUseCase.loadAdjacentEpisodes(currentEpisode) } returns
             Result.success(AdjacentEpisodes(next = nextEpisode))
-        coEvery { mediaRepository.getMediaDetail("ep2", "server1") } returns
+        coEvery { mediaDetailRepository.getMediaDetail("ep2", "server1") } returns
             Result.failure(Exception("Network error"))
 
         // When

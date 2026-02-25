@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import javax.inject.Inject
 
 /**
@@ -16,7 +16,7 @@ import javax.inject.Inject
 class GetNextEpisodeUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val mediaDetailRepository: MediaDetailRepository,
     ) {
         suspend operator fun invoke(media: MediaItem): Result<MediaItem> =
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -32,7 +32,7 @@ class GetNextEpisodeUseCase
 
                         MediaType.Season -> {
                             val episodes =
-                                mediaRepository.getSeasonEpisodes(media.ratingKey, media.serverId).getOrNull()
+                                mediaDetailRepository.getSeasonEpisodes(media.ratingKey, media.serverId).getOrNull()
                                     ?: return@withContext Result.failure(Exception("Failed to fetch episodes"))
 
                             val firstUnwatched =
@@ -48,18 +48,18 @@ class GetNextEpisodeUseCase
 
                         MediaType.Show -> {
                             val seasons =
-                                mediaRepository.getShowSeasons(media.ratingKey, media.serverId).getOrNull()
+                                mediaDetailRepository.getShowSeasons(media.ratingKey, media.serverId).getOrNull()
                                     ?: return@withContext Result.failure(Exception("Failed to fetch seasons"))
 
                             for (season in seasons) {
-                                val episodes = mediaRepository.getSeasonEpisodes(season.ratingKey, media.serverId).getOrNull() ?: continue
+                                val episodes = mediaDetailRepository.getSeasonEpisodes(season.ratingKey, media.serverId).getOrNull() ?: continue
                                 val unwatched = episodes.find { !isFinished(it) }
                                 if (unwatched != null) return@withContext Result.success(unwatched)
                             }
 
                             val firstSeason = seasons.firstOrNull() ?: return@withContext Result.failure(Exception("No seasons found"))
                             val firstEp =
-                                mediaRepository.getSeasonEpisodes(
+                                mediaDetailRepository.getSeasonEpisodes(
                                     firstSeason.ratingKey,
                                     media.serverId,
                                 ).getOrNull()?.firstOrNull()
@@ -88,7 +88,7 @@ class GetNextEpisodeUseCase
 
         private suspend fun resolveNextEpisode(current: MediaItem): Result<MediaItem> {
             val parentKey = current.parentRatingKey ?: return Result.success(current)
-            val episodes = mediaRepository.getSeasonEpisodes(parentKey, current.serverId).getOrNull() ?: return Result.success(current)
+            val episodes = mediaDetailRepository.getSeasonEpisodes(parentKey, current.serverId).getOrNull() ?: return Result.success(current)
 
             val currentIndex = episodes.indexOfFirst { it.ratingKey == current.ratingKey }
             if (currentIndex != -1 && currentIndex < episodes.size - 1) {

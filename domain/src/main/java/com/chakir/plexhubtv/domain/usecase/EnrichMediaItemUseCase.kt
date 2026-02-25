@@ -32,7 +32,6 @@ class EnrichMediaItemUseCase
     constructor(
         private val authRepository: AuthRepository,
         private val searchRepository: SearchRepository,
-        private val mediaRepository: com.chakir.plexhubtv.domain.repository.MediaRepository,
         private val mediaDetailRepository: MediaDetailRepository,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
@@ -113,7 +112,7 @@ class EnrichMediaItemUseCase
                                 val enrichedMatch = if (needsFullDetails) {
                                     // Room cache doesn't have mediaParts/streams → fetch full details
                                     try {
-                                        val detailResult = mediaRepository.getMediaDetail(match.ratingKey, match.serverId)
+                                        val detailResult = mediaDetailRepository.getMediaDetail(match.ratingKey, match.serverId)
                                         val fullDetail = detailResult.getOrNull() ?: match
 
                                         // Persist mediaParts to Room for future sessions (progressive cache)
@@ -240,7 +239,7 @@ class EnrichMediaItemUseCase
                                             (idMatch) || (titleMatch && yearMatch && typeMatch && episodeMatch)
                                         }?.let { match ->
                                             try {
-                                                val detailRes = mediaRepository.getMediaDetail(match.ratingKey, server.clientIdentifier)
+                                                val detailRes = mediaDetailRepository.getMediaDetail(match.ratingKey, server.clientIdentifier)
                                                 val fullDetail = detailRes.getOrNull()
                                                 val safeMatch = fullDetail ?: match
                                                 buildMediaSource(safeMatch, server.name)

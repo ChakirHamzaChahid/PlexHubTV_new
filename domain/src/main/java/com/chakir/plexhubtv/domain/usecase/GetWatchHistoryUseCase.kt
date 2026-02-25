@@ -1,7 +1,7 @@
 package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -12,12 +12,12 @@ import javax.inject.Inject
 class GetWatchHistoryUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val playbackRepository: PlaybackRepository,
     ) {
         operator fun invoke(
             limit: Int = 50,
             offset: Int = 0,
         ): Flow<List<MediaItem>> {
-            return mediaRepository.getWatchHistory(limit, offset)
+            return playbackRepository.getWatchHistory(limit, offset)
         }
     }

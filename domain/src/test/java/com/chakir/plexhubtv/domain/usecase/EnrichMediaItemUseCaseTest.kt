@@ -9,7 +9,6 @@ import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.model.VideoStream
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
-import com.chakir.plexhubtv.domain.repository.MediaRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.google.common.truth.Truth.assertThat
@@ -26,7 +25,6 @@ class EnrichMediaItemUseCaseTest {
     private lateinit var useCase: EnrichMediaItemUseCase
     private lateinit var authRepository: AuthRepository
     private lateinit var searchRepository: SearchRepository
-    private lateinit var mediaRepository: MediaRepository
     private lateinit var mediaDetailRepository: MediaDetailRepository
     private lateinit var performanceTracker: PerformanceTracker
     private lateinit var settingsRepository: SettingsRepository
@@ -105,7 +103,6 @@ class EnrichMediaItemUseCaseTest {
     fun setup() {
         authRepository = mockk(relaxed = true)
         searchRepository = mockk(relaxed = true)
-        mediaRepository = mockk(relaxed = true)
         mediaDetailRepository = mockk(relaxed = true)
         performanceTracker = mockk(relaxed = true)
         settingsRepository = mockk(relaxed = true)
@@ -121,7 +118,6 @@ class EnrichMediaItemUseCaseTest {
         useCase = EnrichMediaItemUseCase(
             authRepository = authRepository,
             searchRepository = searchRepository,
-            mediaRepository = mediaRepository,
             mediaDetailRepository = mediaDetailRepository,
             performanceTracker = performanceTracker,
             settingsRepository = settingsRepository
@@ -235,13 +231,13 @@ class EnrichMediaItemUseCaseTest {
             mediaParts = emptyList()
         )
         coEvery { mediaDetailRepository.findRemoteSources(any()) } returns listOf(matchWithoutParts)
-        coEvery { mediaRepository.getMediaDetail("456", "server2") } returns Result.success(
+        coEvery { mediaDetailRepository.getMediaDetail("456", "server2") } returns Result.success(
             testMediaItem.copy(serverId = "server2", ratingKey = "456")
         )
 
         val result = useCase(testMediaItem)
 
-        coVerify { mediaRepository.getMediaDetail("456", "server2") }
+        coVerify { mediaDetailRepository.getMediaDetail("456", "server2") }
         coVerify { mediaDetailRepository.updateMediaParts(any()) }
     }
 
@@ -284,7 +280,7 @@ class EnrichMediaItemUseCaseTest {
         coEvery { searchRepository.searchOnServer(testServers[1], "The Matrix") } returns Result.success(
             listOf(testMediaItem.copy(serverId = "server2", ratingKey = "789"))
         )
-        coEvery { mediaRepository.getMediaDetail("789", "server2") } returns Result.success(
+        coEvery { mediaDetailRepository.getMediaDetail("789", "server2") } returns Result.success(
             testMediaItem.copy(serverId = "server2", ratingKey = "789")
         )
 
@@ -303,7 +299,7 @@ class EnrichMediaItemUseCaseTest {
         )
         coEvery { mediaDetailRepository.findRemoteSources(any()) } returns emptyList()
         coEvery { searchRepository.searchOnServer(testServers[1], "The Matrix") } returns Result.success(listOf(candidate))
-        coEvery { mediaRepository.getMediaDetail("999", "server2") } returns Result.success(candidate)
+        coEvery { mediaDetailRepository.getMediaDetail("999", "server2") } returns Result.success(candidate)
 
         val result = useCase(testMediaItem)
 

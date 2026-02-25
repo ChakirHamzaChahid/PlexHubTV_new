@@ -1,6 +1,6 @@
 package com.chakir.plexhubtv.domain.usecase
 
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.WatchlistRepository
 import javax.inject.Inject
 
 /**
@@ -14,9 +14,9 @@ import javax.inject.Inject
 class SyncWatchlistUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val watchlistRepository: WatchlistRepository,
     ) {
         suspend operator fun invoke(): Result<Unit> {
-            return mediaRepository.syncWatchlist()
+            return watchlistRepository.syncWatchlist()
         }
     }

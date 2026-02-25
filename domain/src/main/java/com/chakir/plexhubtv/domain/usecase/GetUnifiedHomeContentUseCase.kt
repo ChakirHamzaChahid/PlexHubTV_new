@@ -4,7 +4,8 @@ import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.HubsRepository
+import com.chakir.plexhubtv.domain.repository.OnDeckRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,7 +42,8 @@ data class HomeContent(
 class GetUnifiedHomeContentUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val onDeckRepository: OnDeckRepository,
+        private val hubsRepository: HubsRepository,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
         @ApplicationScope private val appScope: CoroutineScope,
     ) {
@@ -78,11 +80,11 @@ class GetUnifiedHomeContentUseCase
 
         private fun createContentFlow(): Flow<Result<HomeContent>> {
             Timber.i("HOME [UseCase] >>> Creating combined flow for home content")
-            val onDeckFlow = mediaRepository.getUnifiedOnDeck().catch { e ->
+            val onDeckFlow = onDeckRepository.getUnifiedOnDeck().catch { e ->
                 Timber.e(e, "Error loading OnDeck")
                 emit(emptyList())
             }
-            val hubsFlow = mediaRepository.getUnifiedHubs().catch { e ->
+            val hubsFlow = hubsRepository.getUnifiedHubs().catch { e ->
                 Timber.e(e, "Error loading Hubs")
                 emit(emptyList())
             }
