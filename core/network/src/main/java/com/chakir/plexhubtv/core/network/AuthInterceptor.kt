@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.core.network
 
 import android.os.Build
 import com.chakir.plexhubtv.core.network.auth.AuthEventBus
-import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.network.auth.AuthTokenProvider
 import com.chakir.plexhubtv.core.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.launchIn
@@ -23,7 +23,7 @@ import javax.inject.Singleton
 class AuthInterceptor
     @Inject
     constructor(
-        private val settingsDataStore: SettingsDataStore,
+        private val authTokenProvider: AuthTokenProvider,
         @ApplicationScope private val scope: CoroutineScope,
         private val authEventBus: AuthEventBus,
     ) : Interceptor {
@@ -33,10 +33,10 @@ class AuthInterceptor
 
     init {
         // Non-blocking: collect values in background
-        settingsDataStore.plexToken
+        authTokenProvider.plexToken
             .onEach { cachedToken.set(it) }
             .launchIn(scope)
-        settingsDataStore.clientId
+        authTokenProvider.clientId
             .onEach { cachedClientId.set(it) }
             .launchIn(scope)
     }

@@ -1,6 +1,5 @@
 package com.chakir.plexhubtv.core.network
 
-import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.Server
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -33,7 +32,7 @@ class ConnectionManager
     @Inject
     constructor(
         private val connectionTester: ServerConnectionTester,
-        private val settingsDataStore: SettingsDataStore,
+        private val connectionCacheStore: ConnectionCacheStore,
         @com.chakir.plexhubtv.core.di.ApplicationScope private val scope: CoroutineScope,
     ) {
         // Map of Server MachineID -> Active (Best) Base URL
@@ -54,7 +53,7 @@ class ConnectionManager
             // Restore persisted connections on cold start
             scope.launch {
                 try {
-                    val persisted = settingsDataStore.cachedConnections.first()
+                    val persisted = connectionCacheStore.cachedConnections.first()
                     if (persisted.isNotEmpty()) {
                         _activeConnections.update { it + persisted }
                         Timber.d("ConnectionManager: Restored ${persisted.size} cached connections from DataStore")
@@ -183,7 +182,7 @@ class ConnectionManager
             // Persist to DataStore for cold start recovery
             scope.launch {
                 try {
-                    settingsDataStore.saveCachedConnections(_activeConnections.value)
+                    connectionCacheStore.saveCachedConnections(_activeConnections.value)
                 } catch (e: Exception) {
                     Timber.w(e, "ConnectionManager: Failed to persist connection cache")
                 }

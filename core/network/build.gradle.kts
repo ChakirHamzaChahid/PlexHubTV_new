@@ -69,7 +69,6 @@ kotlin {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:common"))
-    implementation(project(":core:datastore"))
 
     // Retrofit & Networking
     implementation(libs.retrofit)

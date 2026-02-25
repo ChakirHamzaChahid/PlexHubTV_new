@@ -1,6 +1,5 @@
 package com.chakir.plexhubtv.core.network
 
-import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -9,7 +8,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -75,16 +73,6 @@ object NetworkModule {
                 HttpLoggingInterceptor.Level.NONE
             }
         }
-    }
-
-    @Provides
-    @Singleton
-    fun provideAuthInterceptor(
-        settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
-        @ApplicationScope scope: CoroutineScope,
-        authEventBus: com.chakir.plexhubtv.core.network.auth.AuthEventBus,
-    ): AuthInterceptor {
-        return AuthInterceptor(settingsDataStore, scope, authEventBus)
     }
 
     /**
