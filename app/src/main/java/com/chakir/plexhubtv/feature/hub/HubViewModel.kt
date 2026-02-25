@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -49,7 +50,7 @@ class HubViewModel
                     Timber.e(e, "HubViewModel: getFavorites failed")
                 }
             ) { favorites ->
-                _uiState.update { it.copy(favorites = favorites) }
+                _uiState.update { it.copy(favorites = favorites.toImmutableList()) }
             }
         }
 
@@ -86,8 +87,8 @@ class HubViewModel
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
-                                    onDeck = content.onDeck,
-                                    hubs = filteredHubs,
+                                    onDeck = content.onDeck.toImmutableList(),
+                                    hubs = filteredHubs.toImmutableList(),
                                 )
                             }
                         },

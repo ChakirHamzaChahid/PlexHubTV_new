@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -114,7 +115,7 @@ class HomeViewModel
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
-                                    onDeck = content.onDeck,
+                                    onDeck = content.onDeck.toImmutableList(),
                                 )
                             }
                         },
