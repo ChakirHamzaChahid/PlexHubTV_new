@@ -47,7 +47,6 @@ class LibraryViewModel
     @Inject
     constructor(
         private val getLibraryContentUseCase: GetLibraryContentUseCase,
-        private val getRecommendedContentUseCase: com.chakir.plexhubtv.domain.usecase.GetRecommendedContentUseCase,
         private val authRepository: com.chakir.plexhubtv.domain.repository.AuthRepository,
         private val libraryRepository: com.chakir.plexhubtv.domain.repository.LibraryRepository,
         private val mediaDao: com.chakir.plexhubtv.core.database.MediaDao,

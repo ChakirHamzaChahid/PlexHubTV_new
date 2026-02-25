@@ -14,7 +14,6 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
 import com.chakir.plexhubtv.domain.usecase.GetLibraryIndexUseCase
-import com.chakir.plexhubtv.domain.usecase.GetRecommendedContentUseCase
 import com.google.common.truth.Truth.assertThat
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +32,6 @@ import org.junit.Test
 class LibraryViewModelTest {
     private lateinit var viewModel: LibraryViewModel
     private lateinit var getLibraryContentUseCase: GetLibraryContentUseCase
-    private lateinit var getRecommendedContentUseCase: GetRecommendedContentUseCase
     private lateinit var authRepository: AuthRepository
     private lateinit var libraryRepository: LibraryRepository
     private lateinit var mediaDao: MediaDao
@@ -73,7 +71,6 @@ class LibraryViewModelTest {
 
         // Mock all dependencies
         getLibraryContentUseCase = mockk(relaxed = true)
-        getRecommendedContentUseCase = mockk(relaxed = true)
         authRepository = mockk(relaxed = true)
         libraryRepository = mockk(relaxed = true)
         mediaDao = mockk(relaxed = true)
@@ -102,7 +99,6 @@ class LibraryViewModelTest {
         savedStateHandle = SavedStateHandle(mapOf("mediaType" to mediaType))
         return LibraryViewModel(
             getLibraryContentUseCase = getLibraryContentUseCase,
-            getRecommendedContentUseCase = getRecommendedContentUseCase,
             authRepository = authRepository,
             libraryRepository = libraryRepository,
             mediaDao = mediaDao,
