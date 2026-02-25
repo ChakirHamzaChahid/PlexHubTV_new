@@ -40,6 +40,23 @@ interface LibraryRepository {
     ): Flow<androidx.paging.PagingData<MediaItem>>
 
     /**
+     * Retourne le nombre d'éléments correspondant aux filtres actifs (genre, serveur, recherche).
+     * Utilisé pour l'affichage dynamique "filteredCount / totalCount titres".
+     */
+    suspend fun getFilteredCount(
+        type: com.chakir.plexhubtv.core.model.MediaType,
+        filter: String?,
+        sort: String?,
+        isDescending: Boolean = false,
+        genre: List<String>?,
+        serverId: String?,
+        selectedServerId: String? = null,
+        excludedServerIds: List<String> = emptyList(),
+        libraryKey: String?,
+        query: String?,
+    ): Int
+
+    /**
      * Calcule l'index du premier élément correspondant à une lettre (Fast Scroller).
      * Utilisé pour la navigation alphabétique rapide sur TV.
      */

@@ -1,0 +1,90 @@
+# .maestro/08_audio_subtitle_tracks.yaml
+appId: com.chakir.plexhubtv
+name: "Player - Sélection pistes audio et sous-titres"
+tags:
+  - player
+  - tracks
+---
+- runFlow: subflows/launch_and_wait.yaml
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_movies"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 60000  # Augmenté pour stabilité
+
+- runFlow: subflows/select_first_media.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Lancer la lecture
+- pressKey: "Remote Dpad Center"
+- extendedWaitUntil:
+    visible:
+      id: "screen_player"
+    timeout: 90000  # Augmenté pour stabilité
+
+# Afficher les contrôles
+- pressKey: "Remote Dpad Center"
+- extendedWaitUntil:
+    visible:
+      id: "player_controls_overlay"
+    timeout: 30000  # Augmenté pour stabilité
+
+# --- Sélection piste audio ---
+# Naviguer vers le bouton audio
+- scrollUntilVisible:
+    element:
+      id: "player_audio_track"
+    direction: RIGHT
+    timeout: 60000  # Augmenté pour stabilité
+
+- pressKey: "Remote Dpad Center"
+
+# Vérifier que le dialog s'ouvre
+- extendedWaitUntil:
+    visible:
+      id: "dialog_track_selection"
+    timeout: 30000  # Augmenté pour stabilité
+
+# Sélectionner une piste audio (descendre et valider)
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Center"
+
+# Le dialog doit se fermer
+- extendedWaitUntil:
+    notVisible:
+      id: "dialog_track_selection"
+    timeout: 30000  # Augmenté pour stabilité
+
+# --- Sélection sous-titres ---
+- pressKey: "Remote Dpad Center" # Réafficher overlay
+- extendedWaitUntil:
+    visible:
+      id: "player_controls_overlay"
+    timeout: 30000  # Augmenté pour stabilité
+
+- scrollUntilVisible:
+    element:
+      id: "player_subtitle_track"
+    direction: RIGHT
+    timeout: 60000  # Augmenté pour stabilité
+
+- pressKey: "Remote Dpad Center"
+
+- extendedWaitUntil:
+    visible:
+      id: "dialog_track_selection"
+    timeout: 30000  # Augmenté pour stabilité
+
+- pressKey: "Remote Dpad Down"
+- pressKey: "Remote Dpad Center"
+
+# Quitter le player
+- pressKey: back

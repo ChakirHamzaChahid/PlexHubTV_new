@@ -1,15 +1,15 @@
 package com.chakir.plexhubtv.feature.player.controller
 
 import androidx.media3.exoplayer.ExoPlayer
-import com.chakir.plexhubtv.core.database.TrackPreferenceDao
-import com.chakir.plexhubtv.core.database.TrackPreferenceEntity
 import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.AudioTrack
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.SubtitleStream
 import com.chakir.plexhubtv.core.model.SubtitleTrack
+import com.chakir.plexhubtv.domain.model.TrackPreference
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import com.chakir.plexhubtv.domain.repository.TrackPreferenceRepository
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -22,7 +22,7 @@ class PlayerTrackController
     @Inject
     constructor(
         private val settingsRepository: SettingsRepository,
-        private val trackPreferenceDao: TrackPreferenceDao,
+        private val trackPreferenceRepository: TrackPreferenceRepository,
         private val playbackRepository: PlaybackRepository,
     ) {
         /**
@@ -41,7 +41,7 @@ class PlayerTrackController
 
             if (finalAudioStreamId == null || finalSubtitleStreamId == null) {
                 // Level 2: DB
-                val dbPref = trackPreferenceDao.getPreferenceSync(ratingKey, serverId)
+                val dbPref = trackPreferenceRepository.getPreference(ratingKey, serverId)
 
                 // Audio
                 if (finalAudioStreamId == null) {
@@ -104,19 +104,15 @@ class PlayerTrackController
             // 1. Persistence
             scope.launch {
                 try {
-                    var pref = trackPreferenceDao.getPreferenceSync(currentItem.ratingKey, currentItem.serverId)
-                    if (pref == null) {
-                        pref =
-                            TrackPreferenceEntity(
-                                currentItem.ratingKey,
-                                currentItem.serverId,
-                                audioStreamId = track.streamId,
-                                subtitleStreamId = currentSubtitleStreamId,
-                            )
-                    } else {
-                        pref = pref.copy(audioStreamId = track.streamId, lastUpdated = System.currentTimeMillis())
-                    }
-                    trackPreferenceDao.upsertPreference(pref)
+                    val existing = trackPreferenceRepository.getPreference(currentItem.ratingKey, currentItem.serverId)
+                    trackPreferenceRepository.savePreference(
+                        TrackPreference(
+                            ratingKey = currentItem.ratingKey,
+                            serverId = currentItem.serverId,
+                            audioStreamId = track.streamId,
+                            subtitleStreamId = existing?.subtitleStreamId ?: currentSubtitleStreamId,
+                        )
+                    )
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to persist audio preference")
                 }
@@ -222,24 +218,20 @@ class PlayerTrackController
         ) {
             if (currentItem == null) return
 
-            val subStreamIdToSave = if (track.id == "no" || track.streamId == null) "0" else track.streamId!!
+            val subStreamIdToSave = if (track.id == "no") "0" else (track.streamId ?: "0")
 
             // 1. Persistence
             scope.launch {
                 try {
-                    var pref = trackPreferenceDao.getPreferenceSync(currentItem.ratingKey, currentItem.serverId)
-                    if (pref == null) {
-                        pref =
-                            TrackPreferenceEntity(
-                                currentItem.ratingKey,
-                                currentItem.serverId,
-                                audioStreamId = currentAudioStreamId,
-                                subtitleStreamId = subStreamIdToSave,
-                            )
-                    } else {
-                        pref = pref.copy(subtitleStreamId = subStreamIdToSave, lastUpdated = System.currentTimeMillis())
-                    }
-                    trackPreferenceDao.upsertPreference(pref)
+                    val existing = trackPreferenceRepository.getPreference(currentItem.ratingKey, currentItem.serverId)
+                    trackPreferenceRepository.savePreference(
+                        TrackPreference(
+                            ratingKey = currentItem.ratingKey,
+                            serverId = currentItem.serverId,
+                            audioStreamId = existing?.audioStreamId ?: currentAudioStreamId,
+                            subtitleStreamId = subStreamIdToSave,
+                        )
+                    )
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to persist subtitle preference")
                 }
@@ -280,6 +272,7 @@ class PlayerTrackController
 
                 if (track.id == "no") {
                     builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
+                    Timber.d("PlayerTrackController: Disabling subtitles (Direct Play)")
                 } else {
                     builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
 
@@ -287,26 +280,85 @@ class PlayerTrackController
                     var selectedGroupIndex = -1
                     var selectedTrackIndex = -1
 
-                    // Strategy 1: Match by Language
-                    for (i in 0 until groups.size) {
-                        val group = groups[i]
-                        if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
-                            for (j in 0 until group.length) {
-                                val format = group.getTrackFormat(j)
-                                if (areLanguagesEqual(format.language, track.language)) {
-                                    selectedGroupIndex = i
-                                    selectedTrackIndex = j
-                                    break
+                    // Strategy 1: Match by stream ID (sideloaded external subs have ID set)
+                    if (track.streamId != null) {
+                        for (i in 0 until groups.size) {
+                            val group = groups[i]
+                            if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                for (j in 0 until group.length) {
+                                    val format = group.getTrackFormat(j)
+                                    if (format.id == track.streamId) {
+                                        selectedGroupIndex = i
+                                        selectedTrackIndex = j
+                                        break
+                                    }
                                 }
                             }
+                            if (selectedGroupIndex != -1) break
                         }
-                        if (selectedGroupIndex != -1) break
                     }
+
+                    // Strategy 2: Match by label (displayTitle)
+                    if (selectedGroupIndex == -1 && track.title != null) {
+                        for (i in 0 until groups.size) {
+                            val group = groups[i]
+                            if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                for (j in 0 until group.length) {
+                                    val format = group.getTrackFormat(j)
+                                    if (format.label == track.title) {
+                                        selectedGroupIndex = i
+                                        selectedTrackIndex = j
+                                        break
+                                    }
+                                }
+                            }
+                            if (selectedGroupIndex != -1) break
+                        }
+                    }
+
+                    // Strategy 3: Match by language
+                    if (selectedGroupIndex == -1) {
+                        for (i in 0 until groups.size) {
+                            val group = groups[i]
+                            if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                for (j in 0 until group.length) {
+                                    val format = group.getTrackFormat(j)
+                                    if (areLanguagesEqual(format.language, track.language)) {
+                                        selectedGroupIndex = i
+                                        selectedTrackIndex = j
+                                        break
+                                    }
+                                }
+                            }
+                            if (selectedGroupIndex != -1) break
+                        }
+                    }
+
+                    // Strategy 4: Fallback to order match (like selectAudioTrack)
+                    if (selectedGroupIndex == -1) {
+                        val validTracks = subtitleTracksInUi.filter { it.id != "no" }
+                        val uiIndex = validTracks.indexOf(track)
+                        var textGroupCounter = 0
+                        for (i in 0 until groups.size) {
+                            if (groups[i].type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                if (textGroupCounter == uiIndex) {
+                                    selectedGroupIndex = i
+                                    selectedTrackIndex = 0
+                                    break
+                                }
+                                textGroupCounter++
+                            }
+                        }
+                    }
+
+                    Timber.d("PlayerTrackController: Subtitle selection (Direct Play) → track='${track.title}' lang=${track.language} streamId=${track.streamId} isExternal=${track.isExternal} matchedGroup=$selectedGroupIndex matchedTrack=$selectedTrackIndex")
 
                     if (selectedGroupIndex != -1) {
                         builder.setOverrideForType(
                             androidx.media3.common.TrackSelectionOverride(groups[selectedGroupIndex].mediaTrackGroup, selectedTrackIndex),
                         )
+                    } else {
+                        Timber.w("PlayerTrackController: No matching ExoPlayer track group found for subtitle '${track.title}'")
                     }
                 }
                 p.trackSelectionParameters = builder.build()

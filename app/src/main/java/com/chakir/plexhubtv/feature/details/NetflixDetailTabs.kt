@@ -20,6 +20,7 @@ import com.chakir.plexhubtv.core.designsystem.NetflixRed
 enum class DetailTab(val title: String) {
     Episodes("EPISODES"),
     MoreLikeThis("MORE LIKE THIS"),
+    Collections("COLLECTIONS"),
     // Trailers("TRAILERS & MORE") // For future
 }
 
@@ -28,8 +29,13 @@ fun NetflixDetailTabs(
     selectedTab: DetailTab,
     onTabSelected: (DetailTab) -> Unit,
     showEpisodes: Boolean,
+    showCollections: Boolean = false,
 ) {
-    val tabs = if (showEpisodes) DetailTab.values().toList() else listOf(DetailTab.MoreLikeThis)
+    val tabs = buildList {
+        if (showEpisodes) add(DetailTab.Episodes)
+        add(DetailTab.MoreLikeThis)
+        if (showCollections) add(DetailTab.Collections)
+    }
     val selectedIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)
 
     ScrollableTabRow(

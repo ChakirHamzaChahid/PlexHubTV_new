@@ -4,19 +4,23 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
+import com.chakir.plexhubtv.core.common.safeCollectIn
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -61,6 +65,9 @@ class LibraryViewModel
         // Canal pour les événements de navigation (Effets uniques, ex: Toast, Navigation)
         private val _navigationEvents = Channel<LibraryNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
+
+        private val _errorEvents = Channel<AppError>()
+        val errorEvents = _errorEvents.receiveAsFlow()
 
         /**
          * Flux réactif PAGINÉ des médias.
@@ -140,6 +147,20 @@ class LibraryViewModel
             val query: String? = null,
         )
 
+        /** Params for filtered count (excludes initialScrollIndex to avoid unnecessary recomputation). */
+        private data class CountParams(
+            val filter: String,
+            val sort: String,
+            val isDescending: Boolean,
+            val libraryId: String,
+            val mediaType: MediaType,
+            val genre: List<String>?,
+            val serverId: String,
+            val serverFilterId: String?,
+            val excludedServerIds: List<String>,
+            val query: String?,
+        )
+
         init {
             val typeArg = savedStateHandle.get<String>("mediaType") ?: "movie"
             val initialMediaType = MediaType.values().find { it.name.equals(typeArg, ignoreCase = true) } ?: MediaType.Movie
@@ -164,20 +185,79 @@ class LibraryViewModel
                 loadMetadata(initialMediaType)
 
                 // Collect excluded servers
-                launch {
-                    settingsRepository.excludedServerIds.collect { excluded ->
-                        _uiState.update { it.copy(excludedServerIds = excluded) }
+                settingsRepository.excludedServerIds.safeCollectIn(
+                    scope = viewModelScope,
+                    onError = { e ->
+                        Timber.e(e, "LibraryViewModel: excludedServerIds collection failed")
                     }
+                ) { excluded ->
+                    _uiState.update { it.copy(excludedServerIds = excluded) }
                 }
 
-                // Apply Default Server Preference after metadata (to ensure map is ready or concurrently)
-                val defaultServer = settingsRepository.defaultServer.firstOrNull()
-                if (!defaultServer.isNullOrEmpty() && defaultServer != "all") {
-                    _uiState.update {
-                        // Only apply if we haven't manually selected one (though init implies fresh)
-                        it.copy(selectedServerFilter = defaultServer)
-                    }
+                // Restore persisted filter preferences
+                val savedSort = settingsRepository.librarySort.firstOrNull() ?: "Title"
+                val savedSortDesc = settingsRepository.librarySortDescending.firstOrNull() ?: false
+                val savedGenre = settingsRepository.libraryGenre.firstOrNull()
+                val savedServerFilter = settingsRepository.libraryServerFilter.firstOrNull()
+
+                // Use saved server filter, fallback to default server preference
+                val serverFilter = savedServerFilter
+                    ?: settingsRepository.defaultServer.firstOrNull()?.takeIf { it.isNotEmpty() && it != "all" }
+
+                _uiState.update {
+                    it.copy(
+                        currentSort = savedSort,
+                        isSortDescending = savedSortDesc,
+                        selectedGenre = savedGenre,
+                        selectedServerFilter = serverFilter,
+                    )
                 }
+            }
+
+            // Observe filter changes to compute filtered item count
+            viewModelScope.launch {
+                _uiState
+                    .map { state ->
+                        val serverFilterId = state.availableServersMap[state.selectedServerFilter]
+                        val genreQuery =
+                            if (state.selectedGenre != null && state.selectedGenre != "All") {
+                                com.chakir.plexhubtv.core.model.GenreGrouping.GROUPS[state.selectedGenre] ?: listOf(state.selectedGenre)
+                            } else {
+                                null
+                            }
+                        CountParams(
+                            filter = state.currentFilter,
+                            sort = state.currentSort,
+                            isDescending = state.isSortDescending,
+                            libraryId = state.selectedLibraryId ?: "default",
+                            mediaType = state.mediaType,
+                            genre = genreQuery,
+                            serverId = state.selectedServerId ?: "all",
+                            serverFilterId = serverFilterId,
+                            excludedServerIds = state.excludedServerIds.toList(),
+                            query = state.searchQuery.ifBlank { null },
+                        )
+                    }
+                    .distinctUntilChanged()
+                    .collectLatest { params ->
+                        try {
+                            val count = libraryRepository.getFilteredCount(
+                                type = params.mediaType,
+                                filter = params.filter,
+                                sort = params.sort,
+                                isDescending = params.isDescending,
+                                genre = params.genre,
+                                serverId = params.serverId,
+                                selectedServerId = params.serverFilterId,
+                                excludedServerIds = params.excludedServerIds,
+                                libraryKey = params.libraryId,
+                                query = params.query,
+                            )
+                            _uiState.update { it.copy(filteredItems = count) }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to compute filtered count")
+                        }
+                    }
             }
         }
 
@@ -241,7 +321,13 @@ class LibraryViewModel
                 if (com.chakir.plexhubtv.BuildConfig.DEBUG) {
                     Timber.e("Error loading metadata: ${e.message}")
                 }
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+
+                // Emit error via channel for snackbar display
+                viewModelScope.launch {
+                    _errorEvents.send(e.toAppError())
+                }
+
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
 
@@ -286,6 +372,8 @@ class LibraryViewModel
                     // Handled by PagingAdapter.refresh() in UI
                 }
                 is LibraryAction.OpenMedia -> {
+                    // Sync lastFocusedId to UiState before navigation so focus can be restored on back
+                    _uiState.update { it.copy(lastFocusedId = action.media.ratingKey) }
                     viewModelScope.launch {
                         _navigationEvents.send(LibraryNavigationEvent.NavigateToDetail(action.media.ratingKey, action.media.serverId))
                     }
@@ -299,6 +387,7 @@ class LibraryViewModel
                 }
                 is LibraryAction.ApplySort -> {
                     _uiState.update { it.copy(currentSort = action.sort, isSortDescending = action.isDescending, isSortDialogOpen = false) }
+                    viewModelScope.launch { settingsRepository.saveLibrarySort(action.sort, action.isDescending) }
                 }
                 is LibraryAction.OpenServerFilter -> _uiState.update { it.copy(isServerFilterOpen = true) }
                 is LibraryAction.CloseServerFilter -> _uiState.update { it.copy(isServerFilterOpen = false) }
@@ -321,9 +410,11 @@ class LibraryViewModel
                 }
                 is LibraryAction.SelectGenre -> {
                     _uiState.update { it.copy(selectedGenre = action.genre) }
+                    viewModelScope.launch { settingsRepository.saveLibraryGenre(action.genre) }
                 }
                 is LibraryAction.SelectServerFilter -> {
                     _uiState.update { it.copy(selectedServerFilter = action.serverId) }
+                    viewModelScope.launch { settingsRepository.saveLibraryServerFilter(action.serverId) }
                 }
                 is LibraryAction.OnItemFocused -> {
                     // PERFORMANCE FIX: Only update SavedStateHandle, DO NOT update _uiState.

@@ -36,6 +36,7 @@ class MediaMapper
                 id = "${serverId}_${dto.ratingKey}",
                 ratingKey = dto.ratingKey,
                 serverId = serverId,
+                unificationId = calculateUnificationId(dto),
                 title = dto.title,
                 type = mapType(dto.type),
                 thumbUrl = getOptimizedImageUrl(rawThumb, width = 300, height = 450) ?: rawThumb,
@@ -190,6 +191,7 @@ class MediaMapper
                 lastViewedAt = dto.lastViewedAt ?: 0,
                 parentTitle = dto.parentTitle,
                 parentRatingKey = dto.parentRatingKey,
+                parentIndex = dto.parentIndex,
                 grandparentTitle = dto.grandparentTitle,
                 grandparentRatingKey = dto.grandparentRatingKey,
                 index = dto.index,
@@ -212,10 +214,11 @@ class MediaMapper
                     } ?: emptyList(),
                 rating = dto.rating,
                 audienceRating = dto.audienceRating,
+                displayRating = dto.audienceRating ?: dto.rating ?: 0.0,
                 contentRating = ContentRatingHelper.normalize(dto.contentRating),
                 genres = dto.genres?.joinToString(",") { it.tag },
                 addedAt = dto.addedAt ?: 0,
-                updatedAt = dto.updatedAt ?: 0,
+                updatedAt = System.currentTimeMillis(),
                 parentThumb = dto.parentThumb,
                 grandparentThumb = dto.grandparentThumb,
             )
@@ -270,6 +273,7 @@ class MediaMapper
                 lastViewedAt = item.lastViewedAt ?: 0,
                 parentTitle = item.parentTitle,
                 parentRatingKey = item.parentRatingKey,
+                parentIndex = item.parentIndex,
                 grandparentTitle = item.grandparentTitle,
                 grandparentRatingKey = item.grandparentRatingKey,
                 index = item.episodeIndex ?: item.seasonIndex,
@@ -286,6 +290,10 @@ class MediaMapper
         }
 
         fun mapEntityToDomain(entity: MediaEntity): MediaItem {
+            // displayRating is pre-computed at write time: COALESCE(scrapedRating, audienceRating, rating, 0.0)
+            // Works identically for both unified and non-unified views.
+            val finalRating = entity.displayRating.takeIf { it > 0.0 }
+
             return MediaItem(
                 id = "${entity.serverId}_${entity.ratingKey}",
                 ratingKey = entity.ratingKey,
@@ -298,6 +306,7 @@ class MediaMapper
                 tmdbId = entity.tmdbId,
                 thumbUrl = entity.resolvedThumbUrl ?: entity.thumbUrl,
                 artUrl = entity.resolvedArtUrl ?: entity.artUrl,
+                alternativeThumbUrls = entity.alternativeThumbUrls?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
                 summary = entity.summary,
                 year = entity.year,
                 durationMs = entity.duration,
@@ -305,12 +314,13 @@ class MediaMapper
                 lastViewedAt = entity.lastViewedAt,
                 parentTitle = entity.parentTitle,
                 parentRatingKey = entity.parentRatingKey,
+                parentIndex = entity.parentIndex,
                 grandparentTitle = entity.grandparentTitle,
                 grandparentRatingKey = entity.grandparentRatingKey,
                 episodeIndex = if (entity.type == "episode") entity.index else null,
-                seasonIndex = if (entity.type == "season" || entity.type == "episode") entity.index else null,
+                seasonIndex = if (entity.type == "season" || entity.type == "episode") entity.parentIndex ?: entity.index else null,
                 mediaParts = entity.mediaParts,
-                rating = entity.rating,
+                rating = finalRating,
                 audienceRating = entity.audienceRating,
                 contentRating = ContentRatingHelper.normalize(entity.contentRating),
                 genres = entity.genres?.split(",") ?: emptyList(),
@@ -327,8 +337,14 @@ class MediaMapper
                 val tmdbId = extractTmdbId(dto)
                 return !dto.title.isNullOrBlank() && (!imdbId.isNullOrBlank() || !tmdbId.isNullOrBlank())
             }
-            // Relaxed Filter for shows: Allow any show with a title.
             if (dto.type == "show") {
+                // Strict filter for shows: MUST have IMDb or TMDB ID (same as movies)
+                val imdbId = extractImdbId(dto)
+                val tmdbId = extractTmdbId(dto)
+                return !dto.title.isNullOrBlank() && (!imdbId.isNullOrBlank() || !tmdbId.isNullOrBlank())
+            }
+            // Episodes: Relaxed filter - only require title (rely on parent show's metadata quality)
+            if (dto.type == "episode") {
                 return !dto.title.isNullOrBlank()
             }
             return true

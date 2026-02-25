@@ -217,12 +217,14 @@ class OfflineWatchSyncRepositoryImpl
                 "unwatched" -> client.unscrobble(action.ratingKey)
                 "progress" -> {
                     // Update timeline
-                    if (action.viewOffset != null && action.duration != null) {
+                    val viewOffset = action.viewOffset
+                    val duration = action.duration
+                    if (viewOffset != null && duration != null) {
                         client.updateTimeline(
                             ratingKey = action.ratingKey,
                             state = "stopped",
-                            timeMs = action.viewOffset!!,
-                            durationMs = action.duration!!,
+                            timeMs = viewOffset,
+                            durationMs = duration,
                         )
                     }
                     // Also mark as watched if threshold exceeded
@@ -246,10 +248,11 @@ class OfflineWatchSyncRepositoryImpl
                 val nonEpisodeItems = mutableMapOf<String, MutableList<String>>()
 
                 for (item in downloadedItems) {
-                    if (item.type == "episode" && !item.parentRatingKey.isNullOrBlank()) {
+                    val parentKey = item.parentRatingKey
+                    if (item.type == "episode" && !parentKey.isNullOrBlank()) {
                         episodesByServerAndSeason
                             .getOrPut(item.serverId) { mutableMapOf() }
-                            .getOrPut(item.parentRatingKey!!) { mutableSetOf() }
+                            .getOrPut(parentKey) { mutableSetOf() }
                             .add(item.ratingKey)
                     } else {
                         nonEpisodeItems
@@ -351,8 +354,9 @@ class OfflineWatchSyncRepositoryImpl
                 syncPendingItems()
 
                 // Only pull if not throttled or forced
-                if (!force && lastSyncTime != null) {
-                    val elapsed = System.currentTimeMillis() - lastSyncTime!!
+                val syncTime = lastSyncTime
+                if (!force && syncTime != null) {
+                    val elapsed = System.currentTimeMillis() - syncTime
                     if (elapsed < MIN_SYNC_INTERVAL_MS) {
                         return Result.success(Unit)
                     }

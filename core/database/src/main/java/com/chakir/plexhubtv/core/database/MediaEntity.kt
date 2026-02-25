@@ -28,6 +28,8 @@ import androidx.room.Entity
         androidx.room.Index(value = ["serverId", "librarySectionId"]),
         // PHASE 2 OPTIMIZATION: Index for strict aggregations
         androidx.room.Index(value = ["unificationId"]),
+        // Rating sort performance: composite index for ORDER BY displayRating queries
+        androidx.room.Index(value = ["type", "displayRating"]),
         // Incremental sync support
         androidx.room.Index(value = ["updatedAt"]),
         // Hierarchy support
@@ -58,6 +60,7 @@ data class MediaEntity(
     // Hierarchy / Episode details
     val parentTitle: String? = null,
     val parentRatingKey: String? = null,
+    val parentIndex: Int? = null, // Season number (for episodes)
     val grandparentTitle: String? = null,
     val grandparentRatingKey: String? = null,
     val index: Int? = null, // episode/season index
@@ -79,10 +82,17 @@ data class MediaEntity(
     val ratingKeys: String? = null,
     val parentThumb: String? = null,
     val grandparentThumb: String? = null,
+    // Canonical display rating, pre-computed at write time: COALESCE(scrapedRating, audienceRating, rating, 0.0)
+    // Updated by: LibrarySyncWorker (insert), RatingSyncWorker (scrapedRating update)
+    // Used for: ORDER BY in both unified and non-unified views, UI display via MediaMapper
+    val displayRating: Double = 0.0,
     // Pre-resolved full URLs for offline-first instant display
     val resolvedThumbUrl: String? = null,
     val resolvedArtUrl: String? = null,
     val resolvedBaseUrl: String? = null,
+    // Alternative poster URLs from other servers (pipe-separated: "url1|url2|url3")
+    // Used for fallback if primary resolvedThumbUrl fails/times out
+    val alternativeThumbUrls: String? = null,
     // PERSISTENCE: Rating fetched from external sources (TMDb/OMDb) - Preserved during sync
     val scrapedRating: Double? = null,
 )

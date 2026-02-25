@@ -1,0 +1,1155 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 29,
+    "identityHash": "2a2cd87401ac842a19e41005f64eafa9",
+    "entities": [
+      {
+        "tableName": "media",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ratingKey` TEXT NOT NULL, `serverId` TEXT NOT NULL, `librarySectionId` TEXT NOT NULL, `title` TEXT NOT NULL, `titleSortable` TEXT NOT NULL, `filter` TEXT NOT NULL, `sortOrder` TEXT NOT NULL, `pageOffset` INTEGER NOT NULL, `type` TEXT NOT NULL, `thumbUrl` TEXT, `artUrl` TEXT, `year` INTEGER, `duration` INTEGER, `summary` TEXT, `viewOffset` INTEGER NOT NULL, `lastViewedAt` INTEGER NOT NULL, `parentTitle` TEXT, `parentRatingKey` TEXT, `parentIndex` INTEGER, `grandparentTitle` TEXT, `grandparentRatingKey` TEXT, `index` INTEGER, `mediaParts` TEXT NOT NULL, `guid` TEXT, `imdbId` TEXT, `tmdbId` TEXT, `rating` REAL, `audienceRating` REAL, `contentRating` TEXT, `genres` TEXT, `unificationId` TEXT NOT NULL, `addedAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `serverIds` TEXT, `ratingKeys` TEXT, `parentThumb` TEXT, `grandparentThumb` TEXT, `displayRating` REAL NOT NULL, `resolvedThumbUrl` TEXT, `resolvedArtUrl` TEXT, `resolvedBaseUrl` TEXT, `alternativeThumbUrls` TEXT, `scrapedRating` REAL, PRIMARY KEY(`ratingKey`, `serverId`, `filter`, `sortOrder`))",
+        "fields": [
+          {
+            "fieldPath": "ratingKey",
+            "columnName": "ratingKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "librarySectionId",
+            "columnName": "librarySectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "titleSortable",
+            "columnName": "titleSortable",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "filter",
+            "columnName": "filter",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pageOffset",
+            "columnName": "pageOffset",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thumbUrl",
+            "columnName": "thumbUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "artUrl",
+            "columnName": "artUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "duration",
+            "columnName": "duration",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "summary",
+            "columnName": "summary",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "viewOffset",
+            "columnName": "viewOffset",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastViewedAt",
+            "columnName": "lastViewedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentTitle",
+            "columnName": "parentTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "parentRatingKey",
+            "columnName": "parentRatingKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "parentIndex",
+            "columnName": "parentIndex",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "grandparentTitle",
+            "columnName": "grandparentTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "grandparentRatingKey",
+            "columnName": "grandparentRatingKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "index",
+            "columnName": "index",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "mediaParts",
+            "columnName": "mediaParts",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "guid",
+            "columnName": "guid",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "imdbId",
+            "columnName": "imdbId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "tmdbId",
+            "columnName": "tmdbId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "audienceRating",
+            "columnName": "audienceRating",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "contentRating",
+            "columnName": "contentRating",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "genres",
+            "columnName": "genres",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "unificationId",
+            "columnName": "unificationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addedAt",
+            "columnName": "addedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverIds",
+            "columnName": "serverIds",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ratingKeys",
+            "columnName": "ratingKeys",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "parentThumb",
+            "columnName": "parentThumb",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "grandparentThumb",
+            "columnName": "grandparentThumb",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "displayRating",
+            "columnName": "displayRating",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resolvedThumbUrl",
+            "columnName": "resolvedThumbUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "resolvedArtUrl",
+            "columnName": "resolvedArtUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "resolvedBaseUrl",
+            "columnName": "resolvedBaseUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "alternativeThumbUrls",
+            "columnName": "alternativeThumbUrls",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "scrapedRating",
+            "columnName": "scrapedRating",
+            "affinity": "REAL"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ratingKey",
+            "serverId",
+            "filter",
+            "sortOrder"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_serverId_librarySectionId_filter_sortOrder_pageOffset",
+            "unique": true,
+            "columnNames": [
+              "serverId",
+              "librarySectionId",
+              "filter",
+              "sortOrder",
+              "pageOffset"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_media_serverId_librarySectionId_filter_sortOrder_pageOffset` ON `${TABLE_NAME}` (`serverId`, `librarySectionId`, `filter`, `sortOrder`, `pageOffset`)"
+          },
+          {
+            "name": "index_media_guid",
+            "unique": false,
+            "columnNames": [
+              "guid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_guid` ON `${TABLE_NAME}` (`guid`)"
+          },
+          {
+            "name": "index_media_type_addedAt",
+            "unique": false,
+            "columnNames": [
+              "type",
+              "addedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_type_addedAt` ON `${TABLE_NAME}` (`type`, `addedAt`)"
+          },
+          {
+            "name": "index_media_imdbId",
+            "unique": false,
+            "columnNames": [
+              "imdbId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_imdbId` ON `${TABLE_NAME}` (`imdbId`)"
+          },
+          {
+            "name": "index_media_tmdbId",
+            "unique": false,
+            "columnNames": [
+              "tmdbId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_tmdbId` ON `${TABLE_NAME}` (`tmdbId`)"
+          },
+          {
+            "name": "index_media_serverId_librarySectionId",
+            "unique": false,
+            "columnNames": [
+              "serverId",
+              "librarySectionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_serverId_librarySectionId` ON `${TABLE_NAME}` (`serverId`, `librarySectionId`)"
+          },
+          {
+            "name": "index_media_unificationId",
+            "unique": false,
+            "columnNames": [
+              "unificationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_unificationId` ON `${TABLE_NAME}` (`unificationId`)"
+          },
+          {
+            "name": "index_media_type_displayRating",
+            "unique": false,
+            "columnNames": [
+              "type",
+              "displayRating"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_type_displayRating` ON `${TABLE_NAME}` (`type`, `displayRating`)"
+          },
+          {
+            "name": "index_media_updatedAt",
+            "unique": false,
+            "columnNames": [
+              "updatedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_updatedAt` ON `${TABLE_NAME}` (`updatedAt`)"
+          },
+          {
+            "name": "index_media_parentRatingKey",
+            "unique": false,
+            "columnNames": [
+              "parentRatingKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_parentRatingKey` ON `${TABLE_NAME}` (`parentRatingKey`)"
+          },
+          {
+            "name": "index_media_titleSortable",
+            "unique": false,
+            "columnNames": [
+              "titleSortable"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_titleSortable` ON `${TABLE_NAME}` (`titleSortable`)"
+          }
+        ]
+      },
+      {
+        "tableName": "servers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`clientIdentifier` TEXT NOT NULL, `name` TEXT NOT NULL, `address` TEXT NOT NULL, `port` INTEGER NOT NULL, `protocol` TEXT NOT NULL, `accessToken` TEXT, `isOwned` INTEGER NOT NULL, `relay` INTEGER NOT NULL, `publicAddress` TEXT, `httpsRequired` INTEGER NOT NULL, `connectionCandidatesJson` TEXT NOT NULL, PRIMARY KEY(`clientIdentifier`))",
+        "fields": [
+          {
+            "fieldPath": "clientIdentifier",
+            "columnName": "clientIdentifier",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "port",
+            "columnName": "port",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protocol",
+            "columnName": "protocol",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accessToken",
+            "columnName": "accessToken",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isOwned",
+            "columnName": "isOwned",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "relay",
+            "columnName": "relay",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publicAddress",
+            "columnName": "publicAddress",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "httpsRequired",
+            "columnName": "httpsRequired",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "connectionCandidatesJson",
+            "columnName": "connectionCandidatesJson",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "clientIdentifier"
+          ]
+        }
+      },
+      {
+        "tableName": "downloads",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`globalKey` TEXT NOT NULL, `serverId` TEXT NOT NULL, `ratingKey` TEXT NOT NULL, `type` TEXT NOT NULL, `parentRatingKey` TEXT, `grandparentRatingKey` TEXT, `status` TEXT NOT NULL, `progress` INTEGER NOT NULL, `totalBytes` INTEGER, `downloadedBytes` INTEGER NOT NULL, `videoFilePath` TEXT, `thumbPath` TEXT, `errorMessage` TEXT, `retryCount` INTEGER NOT NULL, `downloadedAt` INTEGER, PRIMARY KEY(`globalKey`))",
+        "fields": [
+          {
+            "fieldPath": "globalKey",
+            "columnName": "globalKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ratingKey",
+            "columnName": "ratingKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parentRatingKey",
+            "columnName": "parentRatingKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "grandparentRatingKey",
+            "columnName": "grandparentRatingKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "progress",
+            "columnName": "progress",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalBytes",
+            "columnName": "totalBytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "downloadedBytes",
+            "columnName": "downloadedBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "videoFilePath",
+            "columnName": "videoFilePath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "thumbPath",
+            "columnName": "thumbPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "errorMessage",
+            "columnName": "errorMessage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "retryCount",
+            "columnName": "retryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "downloadedAt",
+            "columnName": "downloadedAt",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "globalKey"
+          ]
+        }
+      },
+      {
+        "tableName": "api_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`cacheKey` TEXT NOT NULL, `data` TEXT NOT NULL, `cachedAt` INTEGER NOT NULL, `pinned` INTEGER NOT NULL, `ttlSeconds` INTEGER NOT NULL, PRIMARY KEY(`cacheKey`))",
+        "fields": [
+          {
+            "fieldPath": "cacheKey",
+            "columnName": "cacheKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "data",
+            "columnName": "data",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cachedAt",
+            "columnName": "cachedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pinned",
+            "columnName": "pinned",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ttlSeconds",
+            "columnName": "ttlSeconds",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "cacheKey"
+          ]
+        }
+      },
+      {
+        "tableName": "offline_watch_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `serverId` TEXT NOT NULL, `ratingKey` TEXT NOT NULL, `globalKey` TEXT NOT NULL, `actionType` TEXT NOT NULL, `viewOffset` INTEGER, `duration` INTEGER, `shouldMarkWatched` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncAttempts` INTEGER NOT NULL, `lastError` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ratingKey",
+            "columnName": "ratingKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "globalKey",
+            "columnName": "globalKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "actionType",
+            "columnName": "actionType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "viewOffset",
+            "columnName": "viewOffset",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "duration",
+            "columnName": "duration",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "shouldMarkWatched",
+            "columnName": "shouldMarkWatched",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncAttempts",
+            "columnName": "syncAttempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "lastError",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "home_content",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`type` TEXT NOT NULL, `hubIdentifier` TEXT NOT NULL, `title` TEXT NOT NULL, `itemServerId` TEXT NOT NULL, `itemRatingKey` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`type`, `hubIdentifier`, `itemServerId`, `itemRatingKey`))",
+        "fields": [
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hubIdentifier",
+            "columnName": "hubIdentifier",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemServerId",
+            "columnName": "itemServerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemRatingKey",
+            "columnName": "itemRatingKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orderIndex",
+            "columnName": "orderIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "type",
+            "hubIdentifier",
+            "itemServerId",
+            "itemRatingKey"
+          ]
+        }
+      },
+      {
+        "tableName": "favorites",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ratingKey` TEXT NOT NULL, `serverId` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `thumbUrl` TEXT, `artUrl` TEXT, `year` INTEGER, `addedAt` INTEGER NOT NULL, PRIMARY KEY(`ratingKey`, `serverId`))",
+        "fields": [
+          {
+            "fieldPath": "ratingKey",
+            "columnName": "ratingKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thumbUrl",
+            "columnName": "thumbUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "artUrl",
+            "columnName": "artUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "addedAt",
+            "columnName": "addedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ratingKey",
+            "serverId"
+          ]
+        }
+      },
+      {
+        "tableName": "remote_keys",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`libraryKey` TEXT NOT NULL, `filter` TEXT NOT NULL, `sortOrder` TEXT NOT NULL, `offset` INTEGER NOT NULL, `prevKey` INTEGER, `nextKey` INTEGER, PRIMARY KEY(`libraryKey`, `filter`, `sortOrder`, `offset`))",
+        "fields": [
+          {
+            "fieldPath": "libraryKey",
+            "columnName": "libraryKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "filter",
+            "columnName": "filter",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "offset",
+            "columnName": "offset",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "prevKey",
+            "columnName": "prevKey",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "nextKey",
+            "columnName": "nextKey",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "libraryKey",
+            "filter",
+            "sortOrder",
+            "offset"
+          ]
+        }
+      },
+      {
+        "tableName": "library_sections",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `serverId` TEXT NOT NULL, `libraryKey` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "libraryKey",
+            "columnName": "libraryKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "track_preferences",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ratingKey` TEXT NOT NULL, `serverId` TEXT NOT NULL, `audioStreamId` TEXT, `subtitleStreamId` TEXT, `lastUpdated` INTEGER NOT NULL, PRIMARY KEY(`ratingKey`, `serverId`))",
+        "fields": [
+          {
+            "fieldPath": "ratingKey",
+            "columnName": "ratingKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "audioStreamId",
+            "columnName": "audioStreamId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "subtitleStreamId",
+            "columnName": "subtitleStreamId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastUpdated",
+            "columnName": "lastUpdated",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "ratingKey",
+            "serverId"
+          ]
+        }
+      },
+      {
+        "tableName": "collections",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `serverId` TEXT NOT NULL, `title` TEXT NOT NULL, `summary` TEXT, `thumbUrl` TEXT, `lastSync` INTEGER NOT NULL, PRIMARY KEY(`id`, `serverId`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "summary",
+            "columnName": "summary",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "thumbUrl",
+            "columnName": "thumbUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastSync",
+            "columnName": "lastSync",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id",
+            "serverId"
+          ]
+        }
+      },
+      {
+        "tableName": "media_collection_cross_ref",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaRatingKey` TEXT NOT NULL, `collectionId` TEXT NOT NULL, `serverId` TEXT NOT NULL, PRIMARY KEY(`mediaRatingKey`, `collectionId`, `serverId`))",
+        "fields": [
+          {
+            "fieldPath": "mediaRatingKey",
+            "columnName": "mediaRatingKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectionId",
+            "columnName": "collectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mediaRatingKey",
+            "collectionId",
+            "serverId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_collection_cross_ref_mediaRatingKey_serverId",
+            "unique": false,
+            "columnNames": [
+              "mediaRatingKey",
+              "serverId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_collection_cross_ref_mediaRatingKey_serverId` ON `${TABLE_NAME}` (`mediaRatingKey`, `serverId`)"
+          },
+          {
+            "name": "index_media_collection_cross_ref_collectionId_serverId",
+            "unique": false,
+            "columnNames": [
+              "collectionId",
+              "serverId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_collection_cross_ref_collectionId_serverId` ON `${TABLE_NAME}` (`collectionId`, `serverId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `avatarUrl` TEXT, `avatarEmoji` TEXT, `isKidsProfile` INTEGER NOT NULL, `ageRating` TEXT NOT NULL, `autoPlayNext` INTEGER NOT NULL, `preferredAudioLanguage` TEXT, `preferredSubtitleLanguage` TEXT, `preferredQuality` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `lastUsed` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "avatarUrl",
+            "columnName": "avatarUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "avatarEmoji",
+            "columnName": "avatarEmoji",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isKidsProfile",
+            "columnName": "isKidsProfile",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ageRating",
+            "columnName": "ageRating",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "autoPlayNext",
+            "columnName": "autoPlayNext",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "preferredAudioLanguage",
+            "columnName": "preferredAudioLanguage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "preferredSubtitleLanguage",
+            "columnName": "preferredSubtitleLanguage",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "preferredQuality",
+            "columnName": "preferredQuality",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUsed",
+            "columnName": "lastUsed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "isActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "search_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `query` TEXT NOT NULL, `serverId` TEXT NOT NULL, `resultsJson` TEXT NOT NULL, `resultCount` INTEGER NOT NULL, `lastUpdated` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "query",
+            "columnName": "query",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resultsJson",
+            "columnName": "resultsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resultCount",
+            "columnName": "resultCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUpdated",
+            "columnName": "lastUpdated",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_search_cache_query_serverId",
+            "unique": true,
+            "columnNames": [
+              "query",
+              "serverId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_search_cache_query_serverId` ON `${TABLE_NAME}` (`query`, `serverId`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2a2cd87401ac842a19e41005f64eafa9')"
+    ]
+  }
+}

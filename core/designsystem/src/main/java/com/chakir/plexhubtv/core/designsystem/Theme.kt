@@ -1,6 +1,9 @@
 package com.chakir.plexhubtv.core.designsystem
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.util.Log
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -141,7 +144,12 @@ fun PlexHubTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val activity = view.context.findActivity()
+            if (activity == null) {
+                Log.w("PlexHubTheme", "Cannot find Activity from view context, skipping window customization")
+                return@SideEffect
+            }
+            val window = activity.window
             window.statusBarColor = colorScheme.primary.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
         }
@@ -152,4 +160,13 @@ fun PlexHubTheme(
         typography = Typography,
         content = content,
     )
+}
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
 }

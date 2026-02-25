@@ -24,12 +24,25 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -38,13 +51,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
@@ -62,7 +75,13 @@ fun NetflixDetailScreen(
     onCollectionClicked: (String, String) -> Unit,
 ) {
     var selectedTab by remember { mutableStateOf(if (media.type == MediaType.Show) DetailTab.Episodes else DetailTab.MoreLikeThis) }
-    val listState = rememberTvLazyListState()
+    val listState = rememberLazyListState()
+    val playButtonFocusRequester = remember { FocusRequester() }
+
+    // Request focus on Play button when screen opens
+    LaunchedEffect(Unit) {
+        playButtonFocusRequester.requestFocus()
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(NetflixBlack)) {
         // 1. Full Screen Backdrop with Gradient
@@ -70,10 +89,7 @@ fun NetflixDetailScreen(
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(media.artUrl ?: media.thumbUrl)
-                    .crossfade(true)
                     .size(1920, 1080) // TV resolution, not Size.ORIGINAL
-                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -116,12 +132,11 @@ fun NetflixDetailScreen(
             )
         }
 
-        // 2. Content Scroll — TvLazyColumn for proper D-Pad navigation
-        TvLazyColumn(
+        // 2. Content Scroll — LazyColumn for proper D-Pad navigation
+        LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().zIndex(2f),
             contentPadding = PaddingValues(start = 50.dp, bottom = 50.dp, top = 0.dp),
-            pivotOffsets = PivotOffsets(parentFraction = 0.0f)
         ) {
             // Spacer to push content down so header shows nicely
             item(key = "detail_top_spacer") { Spacer(modifier = Modifier.height(350.dp)) }
@@ -185,17 +200,32 @@ fun NetflixDetailScreen(
                         Text("HD", style = MaterialTheme.typography.labelSmall, color = NetflixLightGray, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-                    ActionButtonsRow(media, state, onAction)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Available on (servers list) - only show after enrichment is complete
+                    if (!state.isEnriching && media.remoteSources.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Available on: ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NetflixLightGray
+                            )
+                            Text(
+                                text = media.remoteSources.joinToString(", ") { it.serverName },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ActionButtonsRow(media, state, onAction, playButtonFocusRequester)
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    Text(
+                    ExpandableSummary(
                         text = media.summary ?: "",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(600.dp)
+                        modifier = Modifier.width(600.dp),
                     )
                 }
             }
@@ -207,19 +237,20 @@ fun NetflixDetailScreen(
                 NetflixDetailTabs(
                     selectedTab = selectedTab,
                     onTabSelected = { selectedTab = it },
-                    showEpisodes = media.type == MediaType.Show
+                    showEpisodes = media.type == MediaType.Show,
+                    showCollections = state.collections.isNotEmpty()
                 )
             }
 
-            // 4. Tab Content — TvLazyRow for proper D-Pad inside TvLazyColumn
+            // 4. Tab Content — LazyRow for proper D-Pad inside LazyColumn
             when (selectedTab) {
                 DetailTab.Episodes -> {
                     if (seasons.isNotEmpty()) {
                         item(key = "detail_seasons_row") {
-                            TvLazyRow(
+                            LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                                modifier = Modifier.focusGroup() // Group horizontal navigation
                             ) {
                                 items(seasons, key = { "${it.ratingKey}_${it.serverId}" }) { season ->
                                     NetflixMediaCard(
@@ -239,10 +270,10 @@ fun NetflixDetailScreen(
                 DetailTab.MoreLikeThis -> {
                     if (similarItems.isNotEmpty()) {
                         item(key = "detail_similar_row") {
-                            TvLazyRow(
+                            LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                                modifier = Modifier.focusGroup() // Group horizontal navigation
                             ) {
                                 items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }) { item ->
                                     NetflixMediaCard(
@@ -258,30 +289,28 @@ fun NetflixDetailScreen(
                             Text("No similar items found", color = NetflixLightGray)
                         }
                     }
-
+                }
+                DetailTab.Collections -> {
                     if (state.collections.isNotEmpty()) {
-                        item(key = "detail_collections_title") {
-                            Column {
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Text("Included in Collections", style = MaterialTheme.typography.titleMedium, color = NetflixDarkGray)
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-                        }
                         item(key = "detail_collections_row") {
-                            TvLazyRow(
+                            LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                pivotOffsets = PivotOffsets(parentFraction = 0.0f)
+                                modifier = Modifier.focusGroup()
                             ) {
                                 items(state.collections, key = { it.id }) { collection ->
-                                    Button(
+                                    CollectionCard(
+                                        title = collection.title,
+                                        itemCount = collection.items.size,
+                                        thumbUrl = collection.thumbUrl,
                                         onClick = { onCollectionClicked(collection.id, collection.serverId) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f))
-                                    ) {
-                                        Text(collection.title, color = Color.White)
-                                    }
+                                    )
                                 }
                             }
+                        }
+                    } else {
+                        item(key = "detail_no_collections") {
+                            Text("No collections available", color = NetflixLightGray)
                         }
                     }
                 }
@@ -289,13 +318,140 @@ fun NetflixDetailScreen(
 
             item(key = "detail_bottom_spacer") { Spacer(modifier = Modifier.height(50.dp)) }
         }
+    }
+}
 
-        // Back Button
-        IconButton(
-            onClick = { onAction(MediaDetailEvent.Back) },
-            modifier = Modifier.padding(32.dp).align(Alignment.TopEnd).zIndex(3f)
+@Composable
+private fun CollectionCard(
+    title: String,
+    itemCount: Int,
+    thumbUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.05f else 1f,
+        animationSpec = tween(200),
+        label = "collectionScale"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.2f),
+        animationSpec = tween(200),
+        label = "collectionBorder"
+    )
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f),
+        animationSpec = tween(200),
+        label = "collectionBg"
+    )
+
+    val shape = RoundedCornerShape(12.dp)
+
+    Box(
+        modifier = modifier
+            .width(220.dp)
+            .height(120.dp)
+            .scale(scale)
+            .clip(shape)
+            .background(backgroundColor)
+            .border(2.dp, borderColor, shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+    ) {
+        // Thumbnail background if available
+        if (thumbUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(thumbUrl)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                alpha = if (isFocused) 0.4f else 0.2f,
+            )
+        }
+
+        // Text overlay
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Bottom,
         ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(32.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.SemiBold,
+                color = if (isFocused) Color.White else Color.White.copy(alpha = 0.8f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (itemCount > 0) {
+                Text(
+                    text = "$itemCount items",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isFocused) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.5f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandableSummary(
+    text: String,
+    modifier: Modifier = Modifier,
+    collapsedMaxLines: Int = 3,
+) {
+    if (text.isBlank()) return
+
+    var isExpanded by remember { mutableStateOf(false) }
+    var hasOverflow by remember { mutableStateOf(false) }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    Column(modifier = modifier) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White,
+            maxLines = if (isExpanded) Int.MAX_VALUE else collapsedMaxLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { result ->
+                if (!isExpanded) {
+                    hasOverflow = result.hasVisualOverflow
+                }
+            },
+        )
+
+        if (hasOverflow || isExpanded) {
+            val label = if (isExpanded) "Less" else "More..."
+            val labelColor by animateColorAsState(
+                targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.6f),
+                animationSpec = tween(150),
+                label = "expandColor"
+            )
+
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = labelColor,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = { isExpanded = !isExpanded }
+                    ),
+            )
         }
     }
 }

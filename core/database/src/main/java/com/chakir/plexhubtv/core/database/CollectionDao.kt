@@ -65,4 +65,34 @@ interface CollectionDao {
 
     @Query("DELETE FROM collections WHERE lastSync < :threshold")
     suspend fun deleteOldCollections(threshold: Long)
+
+    /**
+     * Batch query to get all media for multiple collections at once.
+     * Eliminates N+1 query problem when loading multiple collections.
+     *
+     * @return List of media with their collection ID for grouping
+     */
+    @Query(
+        """
+        SELECT m.*, ref.collectionId as collectionId
+        FROM media m
+        INNER JOIN media_collection_cross_ref ref ON m.ratingKey = ref.mediaRatingKey AND m.serverId = ref.serverId
+        WHERE ref.collectionId IN (:collectionIds) AND ref.serverId = :serverId
+        GROUP BY m.ratingKey, m.serverId, ref.collectionId
+        ORDER BY m.year ASC
+    """,
+    )
+    suspend fun getMediaForCollectionsBatch(
+        collectionIds: List<String>,
+        serverId: String,
+    ): List<MediaWithCollection>
 }
+
+/**
+ * Data class for batch collection queries.
+ * Contains both the media entity and its collection ID.
+ */
+data class MediaWithCollection(
+    @Embedded val media: MediaEntity,
+    val collectionId: String,
+)

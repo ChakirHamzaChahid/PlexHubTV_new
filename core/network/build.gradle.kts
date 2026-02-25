@@ -52,6 +52,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        unitTests.all {
+            it.jvmArgs("--add-opens", "java.base/java.lang=ALL-UNNAMED")
+        }
+    }
 }
 
 kotlin {
@@ -64,7 +70,6 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:common"))
     implementation(project(":core:datastore"))
-    implementation(project(":core:database"))
 
     // Retrofit & Networking
     implementation(libs.retrofit)
@@ -88,4 +93,11 @@ dependencies {
     implementation("javax.inject:javax.inject:1")
 
     implementation(libs.androidx.core.ktx)
+
+    // Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.truth)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
 }

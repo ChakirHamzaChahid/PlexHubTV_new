@@ -32,10 +32,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -163,10 +168,8 @@ fun VideoPlayerScreen(
             onAction(PlayerAction.DismissDialog)
         } else if (controlsVisible) {
             controlsVisible = false
-        } else if (!uiState.isPlaying && !uiState.isBuffering && !uiState.error.isNullOrBlank().not()) {
-            // If Paused (and not buffering/error), Back should Resume
-            onAction(PlayerAction.Play)
         } else {
+            // UX15: Back button always closes the player (even when paused)
             onAction(PlayerAction.Close)
         }
     }
@@ -175,6 +178,8 @@ fun VideoPlayerScreen(
         modifier =
             Modifier
                 .fillMaxSize()
+                .testTag("screen_player")
+                .semantics { contentDescription = "Écran de lecture" }
                 .background(Color.Black)
                 .onKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown) {
@@ -247,6 +252,7 @@ fun VideoPlayerScreen(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                             )
+                        keepScreenOn = true // Prevent sleep mode during MPV playback
                         mpvPlayer.initialize(this)
                     }
                 },
@@ -299,41 +305,62 @@ fun VideoPlayerScreen(
                 markers = markers,
                 visibleMarkers = visibleMarkers,
                 onSkipMarker = { onAction(PlayerAction.SkipMarker(it)) },
+                onShowSubtitles = { onAction(PlayerAction.ShowSubtitleSelector) },
+                onShowAudio = { onAction(PlayerAction.ShowAudioSelector) },
+                onShowSettings = { onAction(PlayerAction.ToggleSettings) },
+                onPreviousChapter = { onAction(PlayerAction.SeekToPreviousChapter) },
+                onNextChapter = { onAction(PlayerAction.SeekToNextChapter) },
                 modifier = Modifier,
                 playPauseFocusRequester = focusRequester
             )
         }
 
         if (uiState.isBuffering) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            val loadingDesc = stringResource(R.string.player_loading_description)
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .testTag("player_loading")
+                    .semantics { contentDescription = loadingDesc }
+            )
         }
 
         // Performance Overlay
-        if (uiState.showPerformanceOverlay && uiState.playerStats != null) {
+        val playerStats = uiState.playerStats
+        if (uiState.showPerformanceOverlay && playerStats != null) {
             com.chakir.plexhubtv.feature.player.ui.components.PerformanceOverlay(
-                stats = uiState.playerStats!!,
+                stats = playerStats,
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 16.dp),
             )
         }
 
+        // Error Overlay (replaces simple error display)
         if (uiState.error != null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
-            }
+            com.chakir.plexhubtv.feature.player.ui.components.PlayerErrorOverlay(
+                errorMessage = uiState.error,
+                errorType = uiState.errorType,
+                retryCount = uiState.networkRetryCount,
+                isMpvMode = uiState.isMpvMode,
+                onRetry = { onAction(PlayerAction.RetryPlayback) },
+                onSwitchToMpv = { onAction(PlayerAction.SwitchToMpv) },
+                onClose = { onAction(PlayerAction.Close) },
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         // Auto-Next Popup
         AnimatedVisibility(
             visible = uiState.showAutoNextPopup && uiState.nextItem != null,
-            enter = fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
-            exit = fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 140.dp, end = 32.dp),
+            enter = fadeIn() + androidx.compose.animation.slideInVertically { -it },
+            exit = fadeOut() + androidx.compose.animation.slideOutVertically { -it },
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 80.dp, end = 32.dp),
         ) {
             uiState.nextItem?.let { nextItem ->
                 AutoNextPopup(
                     item = nextItem,
                     onPlayNow = { onAction(PlayerAction.PlayNext) },
                     onCancel = { onAction(PlayerAction.CancelAutoNext) },
+                    modifier = Modifier.testTag("player_auto_next_popup")
                 )
             }
         }
@@ -403,16 +430,30 @@ fun AutoNextPopup(
     item: MediaItem,
     onPlayNow: () -> Unit,
     onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val playFocusRequester = remember { FocusRequester() }
+    val nextEpisodeDesc = stringResource(R.string.player_next_episode_title, item.title)
+    val nextEpisodeLabel = stringResource(R.string.player_next_episode_label)
+
+    // Auto-focus the "Play Now" button when popup appears
+    LaunchedEffect(Unit) {
+        try {
+            playFocusRequester.requestFocus()
+        } catch (_: Exception) { }
+    }
+
     Surface(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         color = Color.Black.copy(alpha = 0.85f),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-        modifier = Modifier.width(300.dp),
+        modifier = modifier
+            .width(300.dp)
+            .semantics { contentDescription = nextEpisodeDesc },
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Thumbnail
-            coil.compose.AsyncImage(
+            coil3.compose.AsyncImage(
                 model = item.thumbUrl,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
@@ -426,7 +467,7 @@ fun AutoNextPopup(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Next Episode",
+                    text = nextEpisodeLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -448,7 +489,9 @@ fun AutoNextPopup(
                         modifier =
                             Modifier
                                 .height(32.dp)
-                                .scale(if (isPlayFocused) 1.1f else 1f),
+                                .testTag("auto_next_play_button")
+                                .scale(if (isPlayFocused) 1.1f else 1f)
+                                .focusRequester(playFocusRequester),
                         interactionSource = playInteractionSource,
                         colors =
                             if (isPlayFocused) {
@@ -457,7 +500,7 @@ fun AutoNextPopup(
                                 ButtonDefaults.buttonColors()
                             },
                     ) {
-                        Text("Play Now", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.player_play_now), style = MaterialTheme.typography.labelSmall)
                     }
 
                     val cancelInteractionSource = remember { MutableInteractionSource() }
@@ -469,6 +512,7 @@ fun AutoNextPopup(
                         modifier =
                             Modifier
                                 .height(32.dp)
+                                .testTag("auto_next_cancel_button")
                                 .scale(if (isCancelFocused) 1.1f else 1f),
                         border =
                             androidx.compose.foundation.BorderStroke(
@@ -478,7 +522,7 @@ fun AutoNextPopup(
                         interactionSource = cancelInteractionSource,
                     ) {
                         Text(
-                            "Cancel",
+                            stringResource(R.string.action_cancel),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isCancelFocused) MaterialTheme.colorScheme.primary else Color.White,
                         )

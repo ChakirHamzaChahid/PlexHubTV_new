@@ -1,5 +1,22 @@
 package com.chakir.plexhubtv.core.network.model
 
+import com.google.gson.annotations.SerializedName
+
+/**
+ * Wrapper pour la réponse de l'endpoint /api/v2/home/users.
+ * La réponse est encapsulée dans un MediaContainer.
+ */
+data class PlexHomeUsersResponse(
+    @SerializedName("MediaContainer") val mediaContainer: PlexHomeUsersContainer?,
+)
+
+/**
+ * Conteneur pour la liste des utilisateurs Plex Home.
+ */
+data class PlexHomeUsersContainer(
+    @SerializedName("User") val users: List<PlexHomeUserDto>? = null,
+)
+
 /**
  * DTO pour un utilisateur d'une "Maison Plex" (Plex Home).
  */

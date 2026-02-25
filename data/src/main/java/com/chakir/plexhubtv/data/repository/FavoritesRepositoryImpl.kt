@@ -4,8 +4,10 @@ import com.chakir.plexhubtv.core.database.FavoriteDao
 import com.chakir.plexhubtv.core.database.FavoriteEntity
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
@@ -92,6 +94,10 @@ class FavoritesRepositoryImpl
             return favoriteDao.isFavorite(ratingKey, serverId)
         }
 
+        override fun isFavoriteAny(ratingKeys: List<String>): Flow<Boolean> {
+            return favoriteDao.isFavoriteAny(ratingKeys)
+        }
+
         override suspend fun toggleFavorite(media: MediaItem): Result<Boolean> {
             return try {
                 val isFav = favoriteDao.isFavorite(media.ratingKey, media.serverId).first()
@@ -152,7 +158,7 @@ class FavoritesRepositoryImpl
                     Result.success(true)
                 }
             } catch (e: Exception) {
-                Result.failure(e)
+                Result.failure(e.toAppError())
             }
         }
     }

@@ -35,6 +35,11 @@ fun SourceSelectionDialog(
 ) {
     val focusRequester = remember { FocusRequester() }
 
+    // Sort sources by file size (largest first) for better quality selection
+    val sortedSources = remember(sources) {
+        sources.sortedByDescending { it.fileSize ?: 0L }
+    }
+
     LaunchedEffect(Unit) {
         try {
             focusRequester.requestFocus()
@@ -48,7 +53,7 @@ fun SourceSelectionDialog(
         title = { Text("Select Server") },
         text = {
             LazyColumn {
-                sources.forEachIndexed { index, source ->
+                sortedSources.forEachIndexed { index, source ->
                     item {
                         val modifier = if (index == 0) Modifier.focusRequester(focusRequester) else Modifier
 
@@ -147,7 +152,7 @@ fun SourceSelectionDialog(
                                 }
                             }
                         }
-                        if (index < sources.size - 1) {
+                        if (index < sortedSources.size - 1) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                         }
                     }

@@ -64,61 +64,58 @@ android {
 }
 
 dependencies {
+    // Clean Architecture: Data layer dependencies only
     implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
     implementation(project(":domain"))
-    implementation("com.google.code.gson:gson:2.11.0") 
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.activity.compose)
+
+    // Core Android
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.tv.foundation)
-    implementation(libs.androidx.tv.material)
-    implementation(libs.androidx.tv.provider)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.foundation)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation(libs.androidx.compose.navigation)
-    implementation(libs.coil.compose)
-    implementation(libs.coil.video)
-   
-    // Retrofit & OkHttp
-    implementation(libs.retrofit)
+
+    // Gson for JSON parsing in mappers
+    implementation("com.google.code.gson:gson:2.11.0")
+
+    // Networking (already in core:network, but needed for mappers)
     implementation(libs.kotlinx.serialization.json)
-    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
+
+    // Retrofit & Networking
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
 
 
-     // Room
+    // Room (already in core:database, but needed for DAOs access)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     implementation(libs.room.paging)
-    ksp(libs.room.compiler)
 
+    // Paging 3 (for PagingSource implementations)
+    implementation(libs.paging.runtime)
+    implementation(libs.paging.common)
 
-    // --- HILT (Injection de dépendance) ---
+    // Hilt (Dependency Injection)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
+
+    // WorkManager (for background sync)
+    implementation(libs.androidx.work.runtime)
     implementation(libs.hilt.work)
     ksp(libs.hilt.androidx.compiler)
-    implementation(libs.androidx.datastore.preferences)
-    implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
-       // --- ARCHITECTURE (Paging 3 + Room) ---
-    implementation(libs.paging.runtime)
-    implementation(libs.paging.compose)
-    implementation(libs.androidx.compose.ui.text)
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
 
-    // Comparison for WorkManager (if repositories trigger workers)
-      // WorkManager
-    implementation(libs.androidx.work.runtime)
+    // Timber for logging
+    implementation(libs.timber)
+
+    // TvProvider (for TvChannelManager)
+    implementation(libs.androidx.tv.provider)
+
    // --- TEST ---
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

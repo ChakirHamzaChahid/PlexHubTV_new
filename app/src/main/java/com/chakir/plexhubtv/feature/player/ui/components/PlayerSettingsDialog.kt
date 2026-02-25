@@ -16,9 +16,14 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.AudioTrack
 import com.chakir.plexhubtv.core.model.SubtitleTrack
 import com.chakir.plexhubtv.feature.player.PlayerUiState
@@ -35,6 +40,7 @@ fun PlayerSettingsDialog(
     // Audio and Subtitles are now separate.
     
     val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    val qualityDescription = stringResource(R.string.player_settings_quality_description)
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -43,11 +49,13 @@ fun PlayerSettingsDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 500.dp),
+                    .heightIn(max = 500.dp)
+                    .testTag("dialog_player_settings")
+                    .semantics { contentDescription = qualityDescription },
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Quality Settings",
+                    text = stringResource(R.string.player_settings_quality),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
@@ -74,7 +82,7 @@ fun PlayerSettingsDialog(
                         HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingItem(
-                            text = "Show Performance Stats",
+                            text = stringResource(R.string.player_settings_show_stats),
                             isSelected = uiState.showPerformanceOverlay,
                             onClick = onToggleStats,
                         )
@@ -86,7 +94,7 @@ fun PlayerSettingsDialog(
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.End),
                 ) {
-                    Text("Close")
+                    Text(stringResource(R.string.action_close))
                 }
             }
         }
@@ -101,13 +109,14 @@ fun AudioSelectionDialog(
     onDismiss: () -> Unit,
 ) {
     SelectionDialog(
-        title = "Select Audio",
+        title = stringResource(R.string.player_settings_select_audio),
         items = tracks,
         selectedItem = selectedTrack,
         itemLabel = { "${it.title} (${it.language})" },
         itemKey = { it.id },
         onSelect = onSelect,
         onDismiss = onDismiss,
+        dialogTestTag = "dialog_audio_selection"
     )
 }
 
@@ -118,17 +127,18 @@ fun SubtitleSelectionDialog(
     onSelect: (SubtitleTrack) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Add "Off" option to the list effectively
-    val allItems = listOf(SubtitleTrack.OFF) + tracks
+    // tracks already contains SubtitleTrack.OFF (added by populateTracks)
+    val offLabel = stringResource(R.string.player_settings_off)
 
     SelectionDialog(
-        title = "Select Subtitles",
-        items = allItems,
-        selectedItem = selectedTrack ?: allItems.first(), // Default to Off/First if null
-        itemLabel = { if (it.id == "no") "Off" else "${it.title} (${it.language})" },
+        title = stringResource(R.string.player_settings_select_subtitles),
+        items = tracks,
+        selectedItem = selectedTrack ?: tracks.firstOrNull() ?: SubtitleTrack.OFF,
+        itemLabel = { if (it.id == "no") offLabel else "${it.title} (${it.language})" },
         itemKey = { it.id },
         onSelect = onSelect,
         onDismiss = onDismiss,
+        dialogTestTag = "dialog_subtitle_selection"
     )
 }
 
@@ -140,13 +150,14 @@ fun SpeedSelectionDialog(
 ) {
     val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     SelectionDialog(
-        title = "Playback Speed",
+        title = stringResource(R.string.player_settings_playback_speed),
         items = speeds,
         selectedItem = currentSpeed,
         itemLabel = { "${it}x" },
         itemKey = { it.toString() },
         onSelect = onSelect,
         onDismiss = onDismiss,
+        dialogTestTag = "dialog_speed_selection"
     )
 }
 
@@ -159,6 +170,7 @@ fun <T> SelectionDialog(
     itemKey: (T) -> String,
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
+    dialogTestTag: String = "dialog_selection"
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -167,7 +179,9 @@ fun <T> SelectionDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 500.dp),
+                    .heightIn(max = 500.dp)
+                    .testTag(dialogTestTag)
+                    .semantics { contentDescription = title },
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
@@ -199,7 +213,7 @@ fun <T> SelectionDialog(
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.End),
                 ) {
-                    Text("Close")
+                    Text(stringResource(R.string.action_close))
                 }
             }
         }
@@ -220,7 +234,9 @@ fun SyncSettingsDialog(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp),
+                    .heightIn(max = 400.dp)
+                    .testTag("dialog_sync_settings")
+                    .semantics { contentDescription = title },
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -254,13 +270,13 @@ fun SyncSettingsDialog(
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             ),
                     ) {
-                        Text("Reset")
+                        Text(stringResource(R.string.player_settings_reset))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
 
                     // Close Button
                     Button(onClick = onDismiss) {
-                        Text("Close")
+                        Text(stringResource(R.string.action_close))
                     }
                 }
             }
@@ -316,6 +332,9 @@ fun FocusableDelayAdjuster(
         }
     }
 
+    val adjustHint = stringResource(R.string.player_settings_adjust_hint)
+    val editHint = stringResource(R.string.player_settings_edit_hint)
+
     Surface(
         modifier =
             Modifier
@@ -349,7 +368,7 @@ fun FocusableDelayAdjuster(
             )
 
             Text(
-                text = if (isEditing) "Use < > to Adjust, OK to Save" else "Press OK to Edit",
+                text = if (isEditing) adjustHint else editHint,
                 style = MaterialTheme.typography.labelMedium,
                 color =
                     if (isEditing) {

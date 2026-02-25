@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 15 : Inclut les tables Media, Server, Download, Cache, WatchProgress, Home, Favorites, RemoteKeys, LibrarySections.
+ * Version 29 : Ajout de displayRating (note canonique pré-calculée) + index pour tri par note performant.
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -24,8 +24,10 @@ import androidx.room.TypeConverters
         TrackPreferenceEntity::class,
         CollectionEntity::class,
         MediaCollectionCrossRef::class,
+        ProfileEntity::class,
+        SearchCacheEntity::class,
     ],
-    version = 22,
+    version = 29,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -52,4 +54,8 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun trackPreferenceDao(): TrackPreferenceDao
 
     abstract fun collectionDao(): CollectionDao
+
+    abstract fun profileDao(): ProfileDao
+
+    abstract fun searchCacheDao(): SearchCacheDao
 }

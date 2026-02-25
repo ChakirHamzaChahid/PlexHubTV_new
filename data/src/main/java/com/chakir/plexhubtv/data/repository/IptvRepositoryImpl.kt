@@ -49,8 +49,18 @@ class IptvRepositoryImpl
                         Result.failure(IOException("Empty response body"))
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "Exception fetching M3U")
-                    Result.failure(e)
+                    val errorMessage = when (e) {
+                        is java.net.UnknownHostException ->
+                            "Unable to connect to IPTV server. Please check the M3U URL or your internet connection."
+                        is java.net.SocketTimeoutException ->
+                            "Connection timeout. The IPTV server is not responding."
+                        is IOException ->
+                            "Network error: ${e.message ?: "Unable to download playlist"}"
+                        else ->
+                            "Failed to load IPTV channels: ${e.message ?: "Unknown error"}"
+                    }
+                    Timber.e(e, "Exception fetching M3U (Fix with AI)")
+                    Result.failure(IOException(errorMessage, e))
                 }
             }
 

@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.core.di
 
+import com.chakir.plexhubtv.core.common.handler.GlobalCoroutineExceptionHandler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,7 +36,8 @@ object CoroutineModule {
     @ApplicationScope
     fun provideApplicationScope(
         @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
-    ): CoroutineScope = CoroutineScope(SupervisorJob() + defaultDispatcher)
+        globalHandler: GlobalCoroutineExceptionHandler,
+    ): CoroutineScope = CoroutineScope(SupervisorJob() + defaultDispatcher + globalHandler)
 
     @Provides
     @IoDispatcher

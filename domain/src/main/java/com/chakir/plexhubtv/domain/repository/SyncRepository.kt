@@ -8,6 +8,9 @@ import com.chakir.plexhubtv.core.model.Server
  * Différent de OfflineSync, ceci sert à récupérer les métadonnées pour la navigation.
  */
 interface SyncRepository {
+    /** Callback for progress updates during sync operations. */
+    var onProgressUpdate: ((current: Int, total: Int, libraryName: String) -> Unit)?
+
     /** Synchronise les métadonnées de base d'un serveur (sections, infos). */
     suspend fun syncServer(server: Server): Result<Unit>
 

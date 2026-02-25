@@ -1,19 +1,579 @@
 <resources>
     <string name="app_name">PlexHubTV</string>
-    <string name="browse_title">Videos by Your Company</string>
-    <string name="related_movies">Related Videos</string>
-    <string name="grid_view">Grid View</string>
-    <string name="error_fragment">Error Fragment</string>
-    <string name="personal_settings">Personal Settings</string>
-    <string name="watch_trailer_1">Watch trailer</string>
-    <string name="watch_trailer_2">FREE</string>
-    <string name="rent_1">Rent By Day</string>
-    <string name="rent_2">From $1.99</string>
-    <string name="buy_1">Buy and Own</string>
-    <string name="buy_2">AT $9.99</string>
-    <string name="movie">Movie</string>
 
-    <!-- Error messages -->
-    <string name="error_fragment_message">An error occurred</string>
-    <string name="dismiss_error">Dismiss</string>
+    <!-- ══════════════════════════════════════════════
+         Common / Shared Actions
+         ══════════════════════════════════════════════ -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_back">Back</string>
+    <string name="action_close">Close</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_save">Save</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_play">Play</string>
+    <string name="action_search">Search</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_skip">Skip</string>
+
+    <!-- ══════════════════════════════════════════════
+         Auth Screen
+         ══════════════════════════════════════════════ -->
+    <string name="auth_title">PlexHubTV</string>
+    <string name="auth_plex_token_label">Plex Token</string>
+    <string name="auth_login_with_token">Login with Token</string>
+    <string name="auth_login_with_pin">Login with PIN</string>
+    <string name="auth_advanced_login">Advanced Login</string>
+    <string name="auth_hide_advanced_login">Hide Advanced Login</string>
+    <string name="auth_advanced_login_token">Advanced Login (Token)</string>
+    <string name="auth_link_account">Link Account</string>
+    <string name="auth_go_to_url">Go to: %1$s</string>
+    <string name="auth_success_message">Authentication Successful! Loading…</string>
+    <string name="auth_screen_description">Authentication screen</string>
+    <string name="auth_token_field_description">Plex token input field</string>
+    <string name="auth_login_button_description">Login button</string>
+    <string name="auth_pin_screen_description">Authentication state with PIN code</string>
+    <string name="auth_pin_display_description">PIN code: %1$s</string>
+    <string name="auth_error_description">Authentication error: %1$s</string>
+    <string name="auth_success_description">Authentication successful</string>
+
+    <!-- ══════════════════════════════════════════════
+         Profile Screens
+         ══════════════════════════════════════════════ -->
+    <string name="profile_who_is_watching">Who\'s watching?</string>
+    <string name="profile_protected">\uD83D\uDD12 Protected</string>
+    <string name="profile_pin_title">PIN code for %1$s</string>
+    <string name="profile_pin_clear">Clear</string>
+    <string name="profile_manage">Manage Profiles</string>
+    <string name="profile_kids">KIDS</string>
+    <string name="profile_add">Add Profile</string>
+    <string name="profile_switch_title">Switch Profile</string>
+    <string name="profile_no_profiles">No profiles available</string>
+    <string name="profile_current_description">Current profile</string>
+    <string name="profile_screen_description">Profile selection screen</string>
+    <string name="profile_loading_description">Loading profiles</string>
+    <string name="profile_list_description">Profile list</string>
+    <string name="profile_switching_description">Switching profile</string>
+    <string name="profile_pin_dialog_description">PIN code entry dialog</string>
+    <string name="profile_selection_manage">Manage Profiles</string>
+    <string name="profile_selection_add">Add Profile</string>
+    <string name="profile_selection_add_description">Add Profile</string>
+
+    <!-- ══════════════════════════════════════════════
+         Loading Screen
+         ══════════════════════════════════════════════ -->
+    <string name="loading_welcome">Welcome to PlexHub TV</string>
+    <string name="loading_please_wait">Please wait while your media is loading…</string>
+    <string name="loading_complete">Loading complete!</string>
+    <string name="loading_screen_description">Loading screen</string>
+    <string name="loading_progress_description">Loading in progress: %1$d%%</string>
+    <string name="loading_sync_bar_description">Sync progress bar</string>
+    <string name="loading_error_description">Loading error: %1$s</string>
+    <string name="loading_error_icon_description">Error</string>
+    <string name="loading_completed_description">Loading complete</string>
+    <string name="loading_exit_button">Exit</string>
+
+    <!-- ══════════════════════════════════════════════
+         Workers / Background Sync
+         ══════════════════════════════════════════════ -->
+    <string name="sync_notification_title">PlexHubTV</string>
+    <string name="sync_library_channel_name">Library Synchronization</string>
+    <string name="sync_library_in_progress">Synchronizing media…</string>
+    <string name="sync_collection_channel_name">Collection Synchronization</string>
+    <string name="sync_collection_in_progress">Synchronizing collections…</string>
+
+    <!-- ══════════════════════════════════════════════
+         Main Screen
+         ══════════════════════════════════════════════ -->
+    <string name="main_offline_mode">Offline Mode</string>
+    <string name="main_content_unavailable">Content unavailable offline.</string>
+
+    <!-- ══════════════════════════════════════════════
+         Sidebar / Navigation
+         ══════════════════════════════════════════════ -->
+    <string name="sidebar_navigation_description">Navigation menu</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_movies">Movies</string>
+    <string name="nav_tv_shows">TV Shows</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_downloads">Downloads</string>
+    <string name="nav_favorites">My List</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_live_tv">Live TV</string>
+
+    <!-- ══════════════════════════════════════════════
+         Home Screen
+         ══════════════════════════════════════════════ -->
+    <string name="home_continue_watching">Continue Watching</string>
+    <string name="home_my_list">My List</string>
+    <string name="home_screen_description">Home screen</string>
+
+    <!-- Top Bar -->
+    <string name="topbar_title">PlexHub TV</string>
+    <string name="topbar_logo_description">PlexHub TV Logo</string>
+    <string name="topbar_search_description">Search</string>
+    <string name="topbar_settings_description">Settings</string>
+
+    <!-- Hero Billboard -->
+    <string name="hero_play_button">Play</string>
+    <string name="hero_more_info_button">More Info</string>
+    <string name="hero_play_description">Start playback</string>
+    <string name="hero_transition_label">HeroImageTransition</string>
+
+    <!-- ══════════════════════════════════════════════
+         Discover / Empty States
+         ══════════════════════════════════════════════ -->
+    <string name="discover_no_content">No content available</string>
+    <string name="discover_server_hint">Make sure your Plex server is running and accessible.</string>
+
+    <!-- ══════════════════════════════════════════════
+         Filter Dialogs
+         ══════════════════════════════════════════════ -->
+    <string name="filter_by_server">Filter by Server</string>
+    <string name="filter_all">All</string>
+    <string name="filter_no_servers">No servers available</string>
+    <string name="filter_by_genre">Filter by Genre</string>
+    <string name="filter_no_genres">No genres available</string>
+    <string name="filter_sort_by">Sort By</string>
+    <string name="filter_sort_date_added">Date Added</string>
+    <string name="filter_sort_title">Title</string>
+    <string name="filter_sort_year">Year</string>
+    <string name="filter_sort_rating">Rating</string>
+
+    <!-- ══════════════════════════════════════════════
+         Library Screen
+         ══════════════════════════════════════════════ -->
+    <string name="library_search_placeholder">Search title…</string>
+    <string name="library_close_search_description">Close Search</string>
+    <string name="library_clear_search_description">Clear Search</string>
+    <string name="library_movies">Movies</string>
+    <string name="library_tv_shows">TV Shows</string>
+    <string name="library_title_count">%1$d Titles</string>
+    <string name="library_title_count_filtered">%1$d / %2$d Titles</string>
+    <string name="library_refresh_description">Refresh library</string>
+    <string name="library_view_mode_description">Change display mode</string>
+    <string name="library_no_recommendations">No recommendations found.</string>
+
+    <!-- ══════════════════════════════════════════════
+         Technical Badges
+         ══════════════════════════════════════════════ -->
+    <string name="badge_hdr">HDR</string>
+    <string name="badge_dolby_vision">DOLBY VISION</string>
+    <string name="badge_dolby_digital">DOLBY DIGITAL</string>
+    <string name="badge_dolby_digital_plus">DOLBY DIGITAL PLUS</string>
+    <string name="badge_dts">DTS</string>
+    <string name="badge_aac">AAC</string>
+    <string name="badge_stereo">STEREO</string>
+    <string name="badge_mono">MONO</string>
+    <string name="badge_atmos">ATMOS</string>
+    <string name="badge_audio">AUDIO</string>
+
+    <!-- ══════════════════════════════════════════════
+         Detail Screens (MediaDetail, NetflixDetail, Collection)
+         ══════════════════════════════════════════════ -->
+    <string name="detail_loading">Loading…</string>
+    <string name="detail_download">Download</string>
+    <string name="detail_watch_status_description">Watch Status</string>
+    <string name="detail_loading_description">Loading…</string>
+    <string name="detail_play_description">Start playback</string>
+    <string name="detail_remove_favorite_description">Remove from favorites</string>
+    <string name="detail_add_favorite_description">Add to favorites</string>
+    <string name="detail_match_percentage">%1$d%% Match</string>
+    <string name="detail_hd">HD</string>
+    <string name="detail_available_on">Available on: </string>
+    <string name="detail_seasons_count">%1$d Seasons</string>
+    <string name="detail_duration_minutes">%1$d m</string>
+    <string name="detail_no_seasons">No seasons available</string>
+    <string name="detail_no_similar">No similar items found</string>
+    <string name="detail_no_collections">No collections available</string>
+    <string name="detail_tab_episodes">EPISODES</string>
+    <string name="detail_tab_more_like_this">MORE LIKE THIS</string>
+    <string name="detail_tab_collections">COLLECTIONS</string>
+    <string name="detail_screen_description">Details screen</string>
+    <string name="detail_collection_fallback">Collection</string>
+    <string name="collection_title">Collection</string>
+    <string name="detail_collection_screen_description">Collection details screen</string>
+    <string name="collection_screen_description">Collection details screen</string>
+    <string name="detail_collection_loading_description">Loading collection</string>
+    <string name="collection_loading_description">Loading collection</string>
+    <string name="detail_collection_error_description">Error: %1$s</string>
+    <string name="collection_error_description">Error: %1$s</string>
+    <string name="detail_collection_items_description">Collection items list</string>
+    <string name="collection_items_description">Collection items list</string>
+
+    <!-- ══════════════════════════════════════════════
+         Season Detail Screen
+         ══════════════════════════════════════════════ -->
+    <string name="season_detail_title">Season Details</string>
+    <string name="season_episode_count">%1$d episodes</string>
+    <string name="season_mark_watched">Mark Watched</string>
+    <string name="season_favorite">Favorite</string>
+    <string name="season_error_loading">Error loading episodes</string>
+    <string name="season_no_episodes">No episodes found</string>
+    <string name="season_preparing_playback">Preparing playback…</string>
+    <string name="season_watched">Watched</string>
+    <string name="season_screen_description">Season details screen</string>
+    <string name="season_loading_description">Loading episodes</string>
+    <string name="season_error_description">Error: %1$s</string>
+    <string name="season_empty_description">No episodes found</string>
+    <string name="season_episodes_list_description">Episodes list</string>
+    <string name="season_episode_description">Episode %1$d: %2$s</string>
+    <string name="season_preparing_description">Preparing playback</string>
+
+    <!-- ══════════════════════════════════════════════
+         Search Screens
+         ══════════════════════════════════════════════ -->
+    <string name="search_placeholder">Search movies, shows…</string>
+    <string name="search_type_to_start">Type to start searching</string>
+    <string name="search_idle_message">Type to start searching</string>
+    <string name="search_no_results">No results found for \"%1$s\"</string>
+    <string name="search_error">An error occurred while searching</string>
+    <string name="search_error_message">Search failed. Please try again.</string>
+    <string name="search_title">Search</string>
+    <string name="search_failed">Search failed. Please try again.</string>
+    <string name="search_type_movies">Movies</string>
+    <string name="search_type_shows">TV Shows</string>
+    <string name="search_type_tv_shows">TV Shows</string>
+    <string name="search_type_episodes">Episodes</string>
+    <string name="search_type_seasons">Seasons</string>
+    <string name="search_type_results">Results</string>
+    <string name="search_screen_description">Search screen</string>
+    <string name="search_input_description">Search: %1$s</string>
+    <string name="search_query_description">Search: %1$s</string>
+    <string name="search_input_empty">empty</string>
+    <string name="search_empty">empty</string>
+    <string name="search_no_results_description">No results found</string>
+
+    <!-- ══════════════════════════════════════════════
+         Player – General
+         ══════════════════════════════════════════════ -->
+    <string name="player_error">Error: %1$s</string>
+    <string name="player_error_prefix">Error: %1$s</string>
+    <string name="player_audio_sync">Audio Sync</string>
+    <string name="player_subtitle_sync">Subtitle Sync</string>
+    <string name="player_previous_chapter">Previous Chapter</string>
+    <string name="player_next_chapter">Next Chapter</string>
+    <string name="player_next_episode">Next Episode</string>
+    <string name="player_next_episode_label">Next Episode</string>
+    <string name="player_next_episode_title">Next episode: %1$s</string>
+    <string name="player_play_now">Play Now</string>
+    <string name="player_unknown_title">Unknown Title</string>
+    <string name="player_playing_from">Playing from %1$s</string>
+    <string name="player_server">Server</string>
+    <string name="player_server_fallback">Server</string>
+    <string name="player_back">Back</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_play">Play</string>
+    <string name="player_rewind_10s">Rewind 10s</string>
+    <string name="player_forward_30s">Forward 30s</string>
+    <string name="player_play_pause">Play/Pause</string>
+    <string name="player_stop">Stop</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_settings">Settings</string>
+    <string name="player_screen_description">Playback screen</string>
+    <string name="player_controls_description">Player controls</string>
+    <string name="player_loading_description">Loading video</string>
+    <string name="player_next_popup_description">Next episode: %1$s</string>
+    <string name="player_error_description">Error: %1$s</string>
+    <!-- Error overlay strings -->
+    <string name="player_error_network_title">Network Error</string>
+    <string name="player_error_network_message">Unable to connect to the server. Check your network connection and try again.</string>
+    <string name="player_error_codec_title">Codec Error</string>
+    <string name="player_error_codec_message">This video format is not supported by the current player.</string>
+    <string name="player_error_generic_title">Playback Error</string>
+    <string name="player_error_retry_count">Attempt %1$d of %2$d</string>
+    <string name="player_error_switch_to_mpv">Try MPV Player</string>
+    <string name="player_back_description">Back</string>
+    <string name="player_pause_description">Pause</string>
+    <string name="player_play_description">Play</string>
+    <string name="player_rewind_description">Rewind 10s</string>
+    <string name="player_forward_description">Forward 30s</string>
+    <string name="player_play_pause_description">Play/Pause</string>
+    <string name="player_next_description">Next episode</string>
+    <string name="player_stop_description">Stop</string>
+    <string name="player_subtitles_description">Subtitles</string>
+    <string name="player_audio_description">Audio</string>
+    <string name="player_settings_description">Settings</string>
+
+    <!-- Player Settings Dialog -->
+    <string name="player_settings_quality">Quality Settings</string>
+    <string name="player_settings_show_stats">Show Performance Stats</string>
+    <string name="player_settings_select_audio">Select Audio</string>
+    <string name="player_settings_select_subtitles">Select Subtitles</string>
+    <string name="player_settings_playback_speed">Playback Speed</string>
+    <string name="player_settings_off">Off</string>
+    <string name="player_settings_reset">Reset</string>
+    <string name="player_settings_adjust_hint">Use &lt; &gt; to Adjust, OK to Save</string>
+    <string name="player_settings_edit_hint">Press OK to Edit</string>
+    <string name="player_settings_quality_description">Quality settings</string>
+
+    <!-- Performance Overlay -->
+    <string name="player_nerd_stats">NERD STATS</string>
+    <string name="player_stat_bitrate">Bitrate</string>
+    <string name="player_stat_resolution">Resolution</string>
+    <string name="player_stat_video_codec">Video Codec</string>
+    <string name="player_stat_audio_codec">Audio Codec</string>
+    <string name="player_stat_dropped_frames">Dropped Frames</string>
+    <string name="player_stat_fps">FPS</string>
+    <string name="player_stat_cache">Cache</string>
+    <string name="player_stats_description">Performance statistics</string>
+
+    <!-- Skip Markers -->
+    <string name="player_skip_intro">Skip Intro</string>
+    <string name="player_skip_credits">Skip Credits</string>
+    <string name="player_skip">Skip</string>
+
+    <!-- Seekbar -->
+    <string name="player_seekbar_description">Progress bar</string>
+    <string name="player_chapters_count">Chapters: %1$d</string>
+
+    <!-- ══════════════════════════════════════════════
+         Settings Screen
+         ══════════════════════════════════════════════ -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_screen_description">Settings screen</string>
+    <string name="settings_back_description">Back</string>
+    <string name="settings_save_description">Save</string>
+    <string name="settings_close_description">Close</string>
+    <string name="settings_quality_original">Original</string>
+    <string name="settings_quality_1080p_20">20 Mbps 1080p</string>
+    <string name="settings_quality_1080p_12">12 Mbps 1080p</string>
+    <string name="settings_quality_1080p_8">8 Mbps 1080p</string>
+    <string name="settings_quality_720p_4">4 Mbps 720p</string>
+    <string name="settings_quality_720p_3">3 Mbps 720p</string>
+    <string name="settings_player_exoplayer">ExoPlayer</string>
+    <string name="settings_player_mpv">MPV</string>
+    <string name="settings_syncing_message">Syncing…</string>
+
+    <!-- Settings - Profiles & Users -->
+    <string name="settings_section_profiles">Profiles &amp; Users</string>
+    <string name="settings_switch_plex_user">Switch Plex User</string>
+    <string name="settings_switch_plex_user_desc">Change who\'s watching on this Plex Home</string>
+    <string name="settings_manage_profiles">Manage App Profiles</string>
+    <string name="settings_manage_profiles_desc">Add, edit, or switch between local app profiles</string>
+
+    <!-- Appearance -->
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_app_theme">App Theme</string>
+
+    <!-- Playback -->
+    <string name="settings_section_playback">Playback</string>
+    <string name="settings_video_quality">Video Quality</string>
+    <string name="settings_player_engine">Player Engine</string>
+
+    <!-- Languages -->
+    <string name="settings_section_languages">Languages</string>
+    <string name="settings_preferred_audio">Preferred Audio Language</string>
+    <string name="settings_preferred_subtitle">Preferred Subtitle Language</string>
+    <string name="settings_lang_original">Original</string>
+    <string name="settings_lang_none">None</string>
+    <string name="settings_lang_english">English</string>
+    <string name="settings_lang_french">French</string>
+    <string name="settings_lang_german">German</string>
+    <string name="settings_lang_spanish">Spanish</string>
+    <string name="settings_lang_italian">Italian</string>
+    <string name="settings_lang_japanese">Japanese</string>
+    <string name="settings_lang_korean">Korean</string>
+    <string name="settings_lang_russian">Russian</string>
+    <string name="settings_lang_portuguese">Portuguese</string>
+
+    <!-- Server -->
+    <string name="settings_section_server">Server</string>
+    <string name="settings_default_server">Default Server</string>
+    <string name="settings_scanning">Scanning…</string>
+    <string name="settings_check_server">Check Server Status</string>
+    <string name="settings_check_server_subtitle">View connection details and latency</string>
+
+    <!-- Server Visibility -->
+    <string name="settings_section_server_visibility">Server Visibility</string>
+    <string name="settings_no_servers_found">No servers found</string>
+    <string name="settings_server_visibility_hint">Uncheck servers to hide them from unified libraries.</string>
+
+    <!-- Data & Sync -->
+    <string name="settings_section_data_sync">Data &amp; Sync</string>
+    <string name="settings_sync_library">Synchronise Library</string>
+    <string name="settings_sync_library_subtitle">Update local database from Plex</string>
+    <string name="settings_syncing">Syncing…</string>
+    <string name="settings_sync_watchlist">Sync Watchlist</string>
+    <string name="settings_sync_watchlist_subtitle">Import Plex watchlist favorites</string>
+    <string name="settings_sync_ratings">Sync Media Ratings</string>
+    <string name="settings_sync_ratings_subtitle">Update IMDb/TMDb ratings</string>
+    <string name="settings_syncing_ratings">Syncing ratings…</string>
+    <string name="settings_clear_cache">Clear Cache &amp; Data</string>
+    <string name="settings_clear_cache_subtitle">Used: %1$s</string>
+
+    <!-- External Services -->
+    <string name="settings_section_external">External Services</string>
+    <string name="settings_api_keys">API Keys Configuration</string>
+    <string name="settings_api_keys_subtitle">Configure TMDb and OMDb API keys</string>
+    <string name="settings_api_keys_description">Configure your TMDb and OMDb API keys to enable enhanced metadata and ratings.</string>
+    <string name="settings_tmdb_api_key">TMDb API Key</string>
+    <string name="settings_tmdb_api_key_placeholder">Enter your TMDb API key</string>
+    <string name="settings_tmdb_api_key_hint">Get your API key from: https://www.themoviedb.org/settings/api</string>
+    <string name="settings_save_tmdb_description">Save TMDb Key</string>
+    <string name="settings_omdb_api_key">OMDb API Key</string>
+    <string name="settings_omdb_api_key_placeholder">Enter your OMDb API key</string>
+    <string name="settings_omdb_api_key_hint">Get your API key from: https://www.omdbapi.com/apikey.aspx</string>
+    <string name="settings_save_omdb_description">Save OMDb Key</string>
+
+    <!-- Rating Sync Configuration -->
+    <string name="settings_section_rating_sync">Rating Sync Configuration</string>
+    <string name="settings_rating_source">Movie Rating Source</string>
+    <string name="settings_rating_tmdb">TMDb (Recommended)</string>
+    <string name="settings_rating_omdb">OMDb (IMDb ratings)</string>
+    <string name="settings_request_delay">Request Delay</string>
+    <string name="settings_request_delay_subtitle">%1$dms between requests</string>
+    <string name="settings_enable_batching">Enable Batching (Multi-day sync)</string>
+    <string name="settings_enable_batching_subtitle">Sync large libraries over multiple days</string>
+    <string name="settings_daily_limit">Daily Limit</string>
+    <string name="settings_daily_limit_subtitle">%1$d requests/day</string>
+    <string name="settings_reset_progress">Reset Progress</string>
+    <string name="settings_reset_progress_subtitle">Series: %1$d, Movies: %2$d</string>
+    <string name="settings_rating_hint_batching">Configure how ratings are scraped from external APIs. Batching enabled: syncs %1$d items per day to respect API limits.</string>
+    <string name="settings_rating_hint_no_batching">Configure how ratings are scraped from external APIs. TMDb has generous limits (50 req/sec), OMDb free tier has 1000 req/day.</string>
+    <string name="settings_delay_100">100ms (Fast)</string>
+    <string name="settings_delay_250">250ms (Default)</string>
+    <string name="settings_delay_500">500ms (Safe)</string>
+    <string name="settings_delay_1000">1000ms (Very Safe)</string>
+    <string name="settings_limit_500">500 req/day</string>
+    <string name="settings_limit_900">900 req/day (Default)</string>
+    <string name="settings_limit_1500">1500 req/day</string>
+    <string name="settings_limit_2500">2500 req/day</string>
+    <string name="settings_daily_request_limit">Daily Request Limit</string>
+
+    <!-- IPTV (Settings) -->
+    <string name="settings_section_iptv">IPTV</string>
+    <string name="settings_iptv_description">Configure your IPTV playlist URL</string>
+    <string name="settings_iptv_url_label">IPTV Playlist URL</string>
+    <string name="settings_iptv_url_placeholder">http://example.com/playlist.m3u</string>
+
+    <!-- Legal -->
+    <string name="settings_section_legal">Legal</string>
+    <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="settings_privacy_policy_subtitle">View our privacy policy</string>
+
+    <!-- Debug -->
+    <string name="settings_section_debug">Debug</string>
+    <string name="settings_debug_info">Debug Information</string>
+    <string name="settings_debug_info_subtitle">View system diagnostics and logs</string>
+
+    <!-- TV Channels -->
+    <string name="settings_section_tv_channels">TV Channels</string>
+    <string name="settings_tv_channels_title">TV Channels</string>
+    <string name="settings_tv_channels_summary">Show Continue Watching channel in Android TV launcher</string>
+
+    <!-- Account -->
+    <string name="settings_section_account">Account</string>
+    <string name="settings_logout">Logout</string>
+    <string name="settings_version">Version %1$s</string>
+
+    <!-- ══════════════════════════════════════════════
+         Debug Screen
+         ══════════════════════════════════════════════ -->
+    <string name="debug_title">Debug Information</string>
+    <string name="debug_section_system">System Information</string>
+    <string name="debug_device">Device</string>
+    <string name="debug_android">Android</string>
+    <string name="debug_architecture">Architecture</string>
+    <string name="debug_ram">RAM</string>
+    <string name="debug_storage">Storage</string>
+    <string name="debug_section_app">Application</string>
+    <string name="debug_version">Version</string>
+    <string name="debug_build">Build</string>
+    <string name="debug_package">Package</string>
+    <string name="debug_installed">Installed</string>
+    <string name="debug_updated">Updated</string>
+    <string name="debug_section_database">Database</string>
+    <string name="debug_size">Size</string>
+    <string name="debug_media_items">Media Items</string>
+    <string name="debug_hubs">Hubs</string>
+    <string name="debug_libraries">Libraries</string>
+    <string name="debug_last_sync">Last Sync</string>
+    <string name="debug_section_cache">Cache</string>
+    <string name="debug_total_cache">Total Cache</string>
+    <string name="debug_image_cache">Image Cache</string>
+    <string name="debug_metadata_cache">Metadata Cache</string>
+    <string name="debug_clear_images">Clear Images</string>
+    <string name="debug_clear_all">Clear All</string>
+    <string name="debug_section_network">Network</string>
+    <string name="debug_status">Status</string>
+    <string name="debug_connected">Connected</string>
+    <string name="debug_disconnected">Disconnected</string>
+    <string name="debug_type">Type</string>
+    <string name="debug_download">Download</string>
+    <string name="debug_section_playback">Playback</string>
+    <string name="debug_player_engine">Player Engine</string>
+    <string name="debug_codec">Codec</string>
+    <string name="debug_resolution">Resolution</string>
+    <string name="debug_bitrate">Bitrate</string>
+    <string name="debug_section_servers">Servers (%1$d)</string>
+    <string name="debug_name">Name</string>
+    <string name="debug_server_version">Version</string>
+    <string name="debug_response_time">Response Time</string>
+    <string name="debug_section_actions">Actions</string>
+    <string name="debug_force_sync">Force Re-Sync</string>
+    <string name="debug_export_logs">Export Logs</string>
+
+    <!-- ══════════════════════════════════════════════
+         Downloads Screen
+         ══════════════════════════════════════════════ -->
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_empty">No downloaded content.</string>
+
+    <!-- ══════════════════════════════════════════════
+         Favorites Screen
+         ══════════════════════════════════════════════ -->
+    <string name="favorites_title">My List</string>
+    <string name="favorites_empty">No favorites yet.</string>
+    <string name="favorites_screen_description">Favorites screen</string>
+    <string name="favorites_loading_description">Loading favorites</string>
+    <string name="favorites_empty_description">No favorites</string>
+
+    <!-- ══════════════════════════════════════════════
+         History Screen
+         ══════════════════════════════════════════════ -->
+    <string name="history_title">Watch History</string>
+    <string name="history_empty">No history available.</string>
+    <string name="history_screen_description">Watch history screen</string>
+    <string name="history_empty_description">No history</string>
+
+    <!-- ══════════════════════════════════════════════
+         IPTV Screen
+         ══════════════════════════════════════════════ -->
+    <string name="iptv_search_placeholder">Search channels…</string>
+    <string name="iptv_title">Live TV</string>
+    <string name="iptv_close_search_description">Close Search</string>
+    <string name="iptv_connection_error">Connection Error</string>
+    <string name="iptv_change_url">Change URL</string>
+    <string name="iptv_error">Error: %1$s</string>
+    <string name="iptv_dialog_title">Enter M3U Playlist URL</string>
+    <string name="iptv_url_label">URL</string>
+    <string name="iptv_url_placeholder">http://example.com/playlist.m3u</string>
+    <string name="iptv_screen_description">IPTV screen</string>
+    <string name="iptv_loading_description">Loading IPTV channels</string>
+    <string name="iptv_error_description">Error: %1$s</string>
+    <string name="iptv_channels_list_description">IPTV channels list</string>
+    <string name="iptv_channel_description">Channel: %1$s</string>
+    <string name="iptv_url_dialog_description">M3U URL input dialog</string>
+
+    <!-- ══════════════════════════════════════════════
+         Source Selection Dialog
+         ══════════════════════════════════════════════ -->
+    <string name="source_select_title">Select Server</string>
+    <string name="source_lang_prefix">Lang: %1$s</string>
+    <string name="source_hdr">HDR</string>
+
+    <!-- ══════════════════════════════════════════════
+         Server Status Screen
+         ══════════════════════════════════════════════ -->
+    <string name="server_status_title">Server Status</string>
+
+    <!-- ══════════════════════════════════════════════
+         Session Expiration
+         ══════════════════════════════════════════════ -->
+    <string name="session_expired_title">Session Expired</string>
+    <string name="session_expired_message">Your Plex session has expired. Please sign in again.</string>
+    <string name="reconnect">Reconnect</string>
 </resources>

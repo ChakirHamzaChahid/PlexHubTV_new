@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.ui.draw.scale
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
@@ -45,23 +44,24 @@ fun NetflixOnScreenKeyboard(
         listOf("O", "P", "Q", "R", "S", "T", "U"),
         listOf("V", "W", "X", "Y", "Z", "0", "1"),
         listOf("2", "3", "4", "5", "6", "7", "8"),
-        listOf("9", " ", "⌫", "✕", "🔍", "", "")
+        listOf("9", " ", "⌫", "✕", "SEARCH")
     )
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         keys.forEachIndexed { rowIndex, row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 row.forEachIndexed { colIndex, key ->
                     if (key.isNotEmpty()) {
                         val isFirstKey = rowIndex == 0 && colIndex == 0
+                        val isSearchButton = key == "SEARCH"
                         KeyButton(
                             key = key,
                             onClick = {
@@ -69,12 +69,13 @@ fun NetflixOnScreenKeyboard(
                                     " " -> onKeyPress(" ")
                                     "⌫" -> onBackspace()
                                     "✕" -> onClear()
-                                    "🔍" -> onSearch()
+                                    "SEARCH" -> onSearch()
                                     else -> onKeyPress(key)
                                 }
                             },
+                            isSearchButton = isSearchButton,
                             modifier = Modifier
-                                .weight(1f)
+                                .weight(if (isSearchButton) 3f else 1f) // Search button 3x wider
                                 .then(
                                     if (isFirstKey && initialFocusRequester != null) {
                                         Modifier.focusRequester(initialFocusRequester)
@@ -96,7 +97,8 @@ fun NetflixOnScreenKeyboard(
 private fun KeyButton(
     key: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isSearchButton: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -104,18 +106,17 @@ private fun KeyButton(
 
     Box(
         modifier = modifier
-            .height(56.dp)
+            .height(if (isSearchButton) 48.dp else 44.dp) // Reduced height for better fit
             .scale(scale)
             .background(
-                color = if (isFocused) NetflixRed else NetflixBlack,
-                shape = RoundedCornerShape(8.dp)
+                color = if (isSearchButton) NetflixRed else if (isFocused) NetflixRed else NetflixBlack, // Always red for search
+                shape = RoundedCornerShape(6.dp)
             )
             .border(
-                width = if (isFocused) 2.dp else 0.dp,
-                color = if (isFocused) NetflixWhite else Color.Transparent,
-                shape = RoundedCornerShape(8.dp)
+                width = if (isFocused) 2.dp else if (isSearchButton) 2.dp else 0.dp, // Permanent border for search
+                color = if (isFocused) NetflixWhite else if (isSearchButton) NetflixWhite.copy(alpha = 0.5f) else Color.Transparent,
+                shape = RoundedCornerShape(6.dp)
             )
-            .focusable(interactionSource = interactionSource) // Required for D-Pad navigation on TV
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -139,14 +140,31 @@ private fun KeyButton(
                     contentDescription = "Clear",
                     tint = NetflixWhite
                 )
-                "🔍" -> Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = NetflixWhite
-                )
+                "SEARCH" -> {
+                    // Large prominent search button with icon + text
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = NetflixWhite,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "SEARCH",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = NetflixWhite
+                        )
+                    }
+                }
                 else -> Text(
                     text = key,
-                    fontSize = 20.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = NetflixWhite
                 )

@@ -1,11 +1,12 @@
 package com.chakir.plexhubtv.data.repository
 
-import com.chakir.plexhubtv.core.common.exception.AuthException
-import com.chakir.plexhubtv.core.common.exception.NetworkException
+import com.chakir.plexhubtv.core.common.safeApiCall
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.ApplicationScope
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.AuthPin
 import com.chakir.plexhubtv.core.model.Server
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.ServerMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
@@ -15,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
@@ -55,109 +55,81 @@ class AuthRepositoryImpl
         }
 
         override suspend fun getPin(strong: Boolean): Result<AuthPin> {
-            return try {
-                var clientId = settingsDataStore.clientId.first()
-                if (clientId.isNullOrBlank()) {
-                    clientId = java.util.UUID.randomUUID().toString()
-                    settingsDataStore.saveClientId(clientId)
-                }
+            var clientId = settingsDataStore.clientId.first()
+            if (clientId.isNullOrBlank()) {
+                clientId = java.util.UUID.randomUUID().toString()
+                settingsDataStore.saveClientId(clientId)
+            }
 
+            return safeApiCall("getPin") {
                 val response = api.getPin(strong = strong, clientId = clientId)
                 val body = response.body()
-                if (response.isSuccessful && body != null) {
-                    Result.success(AuthPin(id = body.id!!.toString(), code = body.code!!))
-                } else {
-                    Result.failure(AuthException("Failed to get PIN: ${response.code()}"))
+                if (!response.isSuccessful || body == null) {
+                    throw AppError.Auth.PinGenerationFailed("Failed to get PIN: ${response.code()}")
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Network error getting PIN")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} getting PIN")
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Unknown error getting PIN")
-                Result.failure(e)
+
+                val pinId = body.id
+                    ?: throw AppError.Auth.PinGenerationFailed("PIN ID missing in API response")
+                val pinCode = body.code
+                    ?: throw AppError.Auth.PinGenerationFailed("PIN code missing in API response")
+
+                AuthPin(id = pinId.toString(), code = pinCode)
             }
         }
 
         override suspend fun checkPin(pinId: String): Result<Boolean> {
-            return try {
-                val clientId = settingsDataStore.clientId.first() ?: return Result.failure(AuthException("Client ID not found"))
+            val clientId = settingsDataStore.clientId.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Client ID not found"))
+
+            return safeApiCall("checkPin") {
                 val response = api.getPinStatus(id = pinId, clientId = clientId)
                 val body = response.body()
 
-                if (response.isSuccessful && body != null) {
-                    val authToken = body.authToken
-                    if (authToken != null) {
-                        settingsDataStore.saveToken(authToken!!)
-                        Result.success(true)
-                    } else {
-                        Result.success(false) // Not yet linked
-                    }
-                } else {
-                    Result.failure(AuthException("Failed to check PIN status: ${response.code()}"))
+                if (!response.isSuccessful || body == null) {
+                    throw AppError.Auth.PinGenerationFailed("Failed to check PIN status: ${response.code()}")
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Network error checking PIN status")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} checking PIN status")
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Unknown error checking PIN status")
-                Result.failure(e)
+
+                val authToken = body.authToken
+                if (authToken != null) {
+                    settingsDataStore.saveToken(authToken)
+                    true
+                } else {
+                    false // Not yet linked
+                }
             }
         }
 
         override suspend fun loginWithToken(token: String): Result<Boolean> {
-            return try {
-                val clientId = settingsDataStore.clientId.first() ?: java.util.UUID.randomUUID().toString().also { settingsDataStore.saveClientId(it) }
+            val clientId = settingsDataStore.clientId.first()
+                ?: java.util.UUID.randomUUID().toString().also { settingsDataStore.saveClientId(it) }
 
-                // Verify token by calling getUser or similar.
-                // For now, let's just save it and try to fetch user.
+            return safeApiCall("loginWithToken") {
                 val response = api.getUser(token = token, clientId = clientId)
-                if (response.isSuccessful) {
-                    settingsDataStore.saveToken(token)
-                    Result.success(true)
-                } else {
-                    Result.failure(AuthException("Invalid token: ${response.code()}"))
+                if (!response.isSuccessful) {
+                    throw AppError.Auth.InvalidToken("Invalid token: ${response.code()}")
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Network error logging in with token")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} logging in with token")
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Unknown error logging in with token")
-                Result.failure(e)
+
+                settingsDataStore.saveToken(token)
+                true
             }
         }
 
         override suspend fun getHomeUsers(): Result<List<com.chakir.plexhubtv.core.model.PlexHomeUser>> {
-            return try {
-                val token = settingsDataStore.plexToken.first() ?: return Result.failure(Exception("Not authenticated"))
-                val clientId = settingsDataStore.clientId.first() ?: return Result.failure(Exception("Client ID not found"))
+            val token = settingsDataStore.plexToken.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Not authenticated"))
+            val clientId = settingsDataStore.clientId.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Client ID not found"))
 
+            return safeApiCall("getHomeUsers") {
                 val response = api.getHomeUsers(token = token, clientId = clientId)
                 val body = response.body()
 
-                if (response.isSuccessful && body != null) {
-                    val users = body.map { userMapper.mapDtoToDomain(it) }
-                    Result.success(users)
-                } else {
-                    Result.failure(AuthException("Failed to get home users: ${response.code()}"))
+                if (!response.isSuccessful || body == null) {
+                    throw AppError.Network.ServerError("Failed to get home users: ${response.code()}")
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Network error getting home users")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} getting home users")
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Unknown error getting home users")
-                Result.failure(e)
+
+                val users = body.mediaContainer?.users ?: emptyList()
+                users.map { userMapper.mapDtoToDomain(it) }
             }
         }
 
@@ -165,10 +137,12 @@ class AuthRepositoryImpl
             user: com.chakir.plexhubtv.core.model.PlexHomeUser,
             pin: String?,
         ): Result<Boolean> {
-            return try {
-                val currentToken = settingsDataStore.plexToken.first() ?: return Result.failure(Exception("Not authenticated"))
-                val clientId = settingsDataStore.clientId.first() ?: return Result.failure(Exception("Client ID not found"))
+            val currentToken = settingsDataStore.plexToken.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Not authenticated"))
+            val clientId = settingsDataStore.clientId.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Client ID not found"))
 
+            return safeApiCall("switchUser") {
                 val response =
                     api.switchUser(
                         uuid = user.uuid,
@@ -178,24 +152,15 @@ class AuthRepositoryImpl
                     )
                 val body = response.body()
 
-                if (response.isSuccessful && body != null && body.authToken.isNotEmpty()) {
-                    // IMPORTANT: Before saving the new token, clear the caches
-                    database.clearAllTables()
-
-                    settingsDataStore.saveToken(body.authToken)
-                    Result.success(true)
-                } else {
-                    Result.failure(AuthException("Failed to switch user: ${response.code()}"))
+                if (!response.isSuccessful || body == null || body.authToken.isEmpty()) {
+                    throw AppError.Auth.InvalidToken("Failed to switch user: ${response.code()}")
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Network error switching user")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} switching user")
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Unknown error switching user")
-                Result.failure(e)
+
+                // IMPORTANT: Before saving the new token, clear the caches
+                database.clearAllTables()
+
+                settingsDataStore.saveToken(body.authToken)
+                true
             }
         }
 
@@ -203,8 +168,9 @@ class AuthRepositoryImpl
 
         override suspend fun getServers(forceRefresh: Boolean): Result<List<Server>> {
             // 1. Memory Cache
-            if (!forceRefresh && cachedServers != null) {
-                return Result.success(cachedServers!!)
+            val cached = cachedServers
+            if (!forceRefresh && cached != null) {
+                return Result.success(cached)
             }
 
             // 2. DB Cache
@@ -222,10 +188,10 @@ class AuthRepositoryImpl
             // 3. API Refresh
             return try {
                 val token = settingsDataStore.plexToken.first()
-                if (token.isNullOrBlank()) return Result.failure(Exception("Not authenticated"))
+                if (token.isNullOrBlank()) return Result.failure(AppError.Auth.InvalidToken("Not authenticated"))
 
                 val clientId = settingsDataStore.clientId.first()
-                if (clientId.isNullOrBlank()) return Result.failure(Exception("Client ID not found"))
+                if (clientId.isNullOrBlank()) return Result.failure(AppError.Auth.InvalidToken("Client ID not found"))
 
                 val response = api.getResources(token = token, clientId = clientId)
                 val body = response.body()
@@ -251,21 +217,52 @@ class AuthRepositoryImpl
                     Result.success(servers)
                 } else {
                     Timber.e("API Error: ${response.code()}")
-                    Result.failure(AuthException("Failed to get servers: ${response.code()}"))
+                    Result.failure(AppError.Network.ServerError("Failed to get servers: ${response.code()}"))
                 }
             } catch (e: IOException) {
+                val errorMessage = when (e) {
+                    is java.net.UnknownHostException ->
+                        "Unable to connect to Plex servers. Check your internet connection."
+                    is java.net.SocketTimeoutException ->
+                        "Connection timeout. Plex servers are not responding."
+                    else ->
+                        "Network error: ${e.message ?: "Unable to reach Plex servers"}"
+                }
                 Timber.e(e, "Network error fetching servers")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} fetching servers")
-                Result.failure(e)
+
+                // Fallback to DB cache on network error
+                try {
+                    val dbServers = database.serverDao().getAllServers().first()
+                    if (dbServers.isNotEmpty()) {
+                        val domainServers = dbServers.map { serverMapper.mapEntityToDomain(it) }
+                        cachedServers = domainServers
+                        Timber.w("Using cached servers due to network error (${dbServers.size} servers)")
+                        return Result.success(domainServers)
+                    }
+                } catch (dbError: Exception) {
+                    Timber.e(dbError, "DB fallback also failed")
+                }
+
+                Result.failure(AppError.Network.NoConnection(errorMessage))
             } catch (e: Exception) {
                 Timber.e(e, "Error fetching servers")
-                Result.failure(e)
+                Result.failure(e.toAppError())
             }
         }
 
         override fun observeAuthState(): Flow<Boolean> {
             return settingsDataStore.plexToken.map { !it.isNullOrBlank() }
+        }
+
+        override suspend fun clearToken() {
+            settingsDataStore.clearToken()
+        }
+
+        override suspend fun clearAllAuthData(clearDatabase: Boolean) {
+            settingsDataStore.clearToken()
+            settingsDataStore.clearUser()
+            if (clearDatabase) {
+                database.clearAllTables()
+            }
         }
     }

@@ -123,6 +123,10 @@ class MediaRepositoryImpl
             return favoritesRepository.isFavorite(ratingKey, serverId)
         }
 
+        override fun isFavoriteAny(ratingKeys: List<String>): Flow<Boolean> {
+            return favoritesRepository.isFavoriteAny(ratingKeys)
+        }
+
         override suspend fun toggleFavorite(media: MediaItem): Result<Boolean> {
             return favoritesRepository.toggleFavorite(media)
         }

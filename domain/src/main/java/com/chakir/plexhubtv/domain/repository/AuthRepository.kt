@@ -18,10 +18,10 @@ interface AuthRepository {
 
     /**
      * Initie le flow de connexion.
-     * @param strong Si vrai, demande un code PIN sécurisé (recommandé).
+     * @param strong Si vrai, demande un code PIN long (pour QR). Si faux, code court 4 caractères pour plex.tv/link.
      * @return Un objet [AuthPin] contenant le code à afficher à l'écran.
      */
-    suspend fun getPin(strong: Boolean = true): Result<AuthPin>
+    suspend fun getPin(strong: Boolean = false): Result<AuthPin>
 
     /**
      * Vérifie si l'utilisateur a saisi le code sur le web.
@@ -50,4 +50,13 @@ interface AuthRepository {
 
     /** Flux observant l'état global d'authentification (connecté/déconnecté). */
     fun observeAuthState(): Flow<Boolean>
+
+    /** Clears only the authentication token from secure storage. */
+    suspend fun clearToken()
+
+    /**
+     * Clears token + user data + optionally database.
+     * @param clearDatabase If true, wipes all cached media data.
+     */
+    suspend fun clearAllAuthData(clearDatabase: Boolean = true)
 }

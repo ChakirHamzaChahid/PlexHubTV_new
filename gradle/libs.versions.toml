@@ -1,16 +1,16 @@
 [versions]
-agp = "9.0.0"
-kotlin = "2.0.21"
+agp = "9.0.1"
+kotlin = "2.2.10"
 detekt = "1.23.7"
 ktlint = "12.1.2"
 coreKtx = "1.17.0"
 appcompat = "1.7.1"
 composeBom = "2026.01.00"
-tvFoundation = "1.0.0-alpha10"
-tvMaterial = "1.0.1"
+tvFoundation = "1.0.0-alpha12"
+tvMaterial = "1.1.0-alpha01"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.9.3"
-ksp = "2.0.21-1.0.28"
+ksp = "2.3.2"
 material3 = "1.3.1"
 gson = "2.10.1"
 retrofit = "3.0.0"
@@ -19,7 +19,7 @@ tvprovider = "1.0.0"
 room = "2.8.4"
 hilt = "2.58"
 media3 = "1.5.1"
-coil = "2.7.0"
+coil = "3.3.0"
 timber = "5.0.1"
 workManager = "2.11.0"
 paging = "3.3.6"
@@ -28,13 +28,20 @@ serialization = "1.9.0"
 datastore = "1.2.0"
 navigation = "2.9.6"
 hiltCompose = "1.3.0"
+securityCrypto = "1.1.0-alpha06"
 mockk = "1.13.8"
 truth = "1.1.5"
 junit = "4.13.2"
 playServicesBasement = "18.5.0"
 conscrypt = "2.5.2"
+firebaseBom = "34.9.0"
+googleServices = "4.4.4"
+firebaseCrashlytics = "3.0.6"
+firebasePerf = "2.0.2"
 foundation = "1.10.2"
 media3CommonKtx = "1.9.2"
+runtimeAnnotation = "1.10.2"
+animation = "1.10.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -57,6 +64,7 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 androidx-tv-provider = { group = "androidx.tvprovider", name = "tvprovider", version.ref = "tvprovider" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 
 # Room
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
@@ -88,8 +96,9 @@ media3-session = { group = "androidx.media3", name = "media3-session", version.r
 # Serialization & Utils
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-coil-video = { group = "io.coil-kt", name = "coil-video", version.ref = "coil" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-video = { group = "io.coil-kt.coil3", name = "coil-video", version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Paging
 paging-runtime = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "paging" }
@@ -108,8 +117,15 @@ truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
 play-services-basement = { group = "com.google.android.gms", name = "play-services-basement", version.ref = "playServicesBasement" }
 play-services-base = { group = "com.google.android.gms", name = "play-services-base", version.ref = "playServicesBasement" }
 conscrypt-android = { group = "org.conscrypt", name = "conscrypt-android", version.ref = "conscrypt" }
+# Firebase
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-perf = { group = "com.google.firebase", name = "firebase-perf" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }
+androidx-compose-runtime-annotation = { group = "androidx.compose.runtime", name = "runtime-annotation", version.ref = "runtimeAnnotation" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -122,4 +138,7 @@ hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlytics" }
+firebase-perf = { id = "com.google.firebase.firebase-perf", version.ref = "firebasePerf" }
 

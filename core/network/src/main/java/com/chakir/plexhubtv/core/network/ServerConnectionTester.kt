@@ -13,6 +13,7 @@ data class ConnectionResult(
     val success: Boolean,
     val latencyMs: Long,
     val errorCode: Int? = null,
+    val errorMessage: String? = null,
 )
 
 /**
@@ -24,24 +25,36 @@ interface ServerConnectionTester {
     suspend fun testConnection(
         url: String,
         token: String,
+        timeoutSeconds: Int = 10,
     ): ConnectionResult
 }
 
 @Singleton
 class OkHttpConnectionTester
     @Inject
-    constructor() : ServerConnectionTester {
-        // Dedicated client for testing: medium timeouts (was 5s, now 15s for reliability)
-        private val client =
-            OkHttpClient.Builder()
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
+    constructor(
+        baseClient: OkHttpClient,
+    ) : ServerConnectionTester {
+        // Derive from the app's OkHttpClient to inherit SSL trust config (self-signed certs on LAN)
+        private val defaultClient =
+            baseClient.newBuilder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .build()
+
+        // Longer timeout client for relay connections (shared connection pool)
+        private val relayClient =
+            baseClient.newBuilder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
                 .build()
 
         override suspend fun testConnection(
             url: String,
             token: String,
+            timeoutSeconds: Int,
         ): ConnectionResult {
+            val client = if (timeoutSeconds > 10) relayClient else defaultClient
             return withContext(Dispatchers.IO) {
                 val start = System.currentTimeMillis()
                 val request =
@@ -57,9 +70,6 @@ class OkHttpConnectionTester
                         val end = System.currentTimeMillis()
                         val latency = end - start
 
-                        // 200 OK or 401 Unauthorized (implies server is reachable but token might be issue, still a network success)
-                        // Plex often returns 401 if token is bad, but 200 if good. Both mean server is there.
-                        // For finding "Best Connection", we care about reachability.
                         val isReachabilitySuccess = response.isSuccessful || response.code == 401
 
                         ConnectionResult(
@@ -70,11 +80,11 @@ class OkHttpConnectionTester
                         )
                     }
                 } catch (e: Exception) {
-                    // e.g. Timeout, Unreachable
                     ConnectionResult(
                         url = url,
                         success = false,
                         latencyMs = Long.MAX_VALUE,
+                        errorMessage = e.javaClass.simpleName,
                     )
                 }
             }

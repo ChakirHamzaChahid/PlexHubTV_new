@@ -1,112 +1,79 @@
 package com.chakir.plexhubtv.data.repository
 
-import com.chakir.plexhubtv.core.common.exception.AuthException
-import com.chakir.plexhubtv.core.common.exception.MediaNotFoundException
-import com.chakir.plexhubtv.core.common.exception.NetworkException
-import com.chakir.plexhubtv.core.common.exception.ServerUnavailableException
+import com.chakir.plexhubtv.core.common.safeApiCall
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Collection
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiCache
-import com.chakir.plexhubtv.core.network.PlexApiService
-import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
-import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import retrofit2.HttpException
 import timber.log.Timber
-import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class MediaDetailRepositoryImpl
     @Inject
     constructor(
-        private val api: PlexApiService,
-        private val authRepository: AuthRepository,
-        private val connectionManager: ConnectionManager,
+        private val serverClientResolver: ServerClientResolver,
         private val mediaDao: MediaDao,
         private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,
-        private val plexApiCache: PlexApiCache,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MediaDetailRepository {
+        // In-memory cache for similar items: "ratingKey:serverId" → (timestampMs, items)
+        private val similarCache = ConcurrentHashMap<String, Pair<Long, List<MediaItem>>>()
+        private val similarCacheTtlMs = 10 * 60 * 1000L // 10 minutes
         override suspend fun getMediaDetail(
             ratingKey: String,
             serverId: String,
         ): Result<MediaItem> {
-            return try {
-                val client = getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
+            // 1. BDD first — synced every 6h, instant access
+            val localEntity = mediaDao.getMedia(ratingKey, serverId)
+            if (localEntity != null) {
+                // CRITICAL FIX: Check if mediaParts have streams (audio/subtitle tracks)
+                // LibrarySyncWorker doesn't sync streams (endpoint /library/sections/{id}/all doesn't return them)
+                // So we must fetch from network if streams are missing, otherwise audio/subtitle selection will be empty
+                val hasStreams = localEntity.mediaParts.isNotEmpty() &&
+                                localEntity.mediaParts.first().streams.isNotEmpty()
 
-                // 1. Try Cache First for performance
-                val cacheKey = "$serverId:/library/metadata/$ratingKey"
-                val cachedJson = plexApiCache.get(cacheKey)
-                if (cachedJson != null) {
-                    try {
-                        // We don't have GSON injected here easily without more refactor,
-                        // but the original code had it. Let's assume for now we want fresh data
-                        // or we inject GSON too if needed. Original MediaRepositoryImpl had GSON.
-                    } catch (e: Exception) {
-                        Timber.w(e, "Failed to parse cached metadata")
-                    }
+                if (hasStreams) {
+                    val client = serverClientResolver.getClient(serverId)
+                    val baseUrl = client?.baseUrl
+                    val token = client?.server?.accessToken
+                    val domain = mapper.mapEntityToDomain(localEntity)
+                    val resolved = if (baseUrl != null && token != null) {
+                        mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                            baseUrl = baseUrl, accessToken = token
+                        )
+                    } else domain
+                    return Result.success(resolved)
                 }
+                // If no streams, fallthrough to network fetch
+                Timber.d("MediaDetail: Room cache missing streams for $ratingKey, fetching from network")
+            }
 
+            // 2. API fallback — if not in BDD (new media, not yet synced)
+            val client = serverClientResolver.getClient(serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
+
+            return safeApiCall("getMediaDetail") {
                 val response = client.getMetadata(ratingKey)
                 if (response.isSuccessful) {
                     val metadata = response.body()?.mediaContainer?.metadata?.firstOrNull()
                     if (metadata != null) {
-                        val item = mapper.mapDtoToDomain(metadata, serverId, client.baseUrl, client.server.accessToken)
-                        return Result.success(item)
+                        return@safeApiCall mapper.mapDtoToDomain(metadata, serverId, client.baseUrl, client.server.accessToken)
                     }
                 }
-
-                // 2. If 404 or Failure, attempt Fallback via GUID
-                val localEntity = mediaDao.getMedia(ratingKey, serverId)
-                val guid = localEntity?.guid
-                if (guid != null) {
-                    val otherServers = authRepository.getServers().getOrNull()?.filter { it.clientIdentifier != serverId } ?: emptyList()
-                    for (altServer in otherServers) {
-                        val altBaseUrl = connectionManager.findBestConnection(altServer)
-                        if (altBaseUrl != null) {
-                            val altClient = PlexClient(altServer, api, altBaseUrl)
-                            val altResponse = altClient.getMetadataByGuid(guid)
-                            if (altResponse.isSuccessful) {
-                                val altMetadata = altResponse.body()?.mediaContainer?.metadata?.firstOrNull()
-                                if (altMetadata != null) {
-                                    return Result.success(
-                                        mapper.mapDtoToDomain(altMetadata, altServer.clientIdentifier, altBaseUrl, altServer.accessToken),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Result.failure(MediaNotFoundException("Media $ratingKey not found on server $serverId"))
-            } catch (e: IOException) {
-                Timber.e(e, "Network error fetching media detail $ratingKey")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} fetching media detail $ratingKey")
-                if (e.code() == 401) {
-                    Result.failure(AuthException("Unauthorized", e))
-                } else {
-                    Result.failure(e)
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Unknown error fetching media detail $ratingKey")
-                Result.failure(e)
+                throw AppError.Media.NotFound("Media $ratingKey not found on server $serverId")
             }
         }
 
@@ -114,51 +81,85 @@ class MediaDetailRepositoryImpl
             ratingKey: String,
             serverId: String,
         ): Result<List<MediaItem>> {
-            try {
-                val client = getClient(serverId)
+            // 1. Cache-first: Return Room data immediately when available (~5ms)
+            val localEntities = mediaDao.getChildren(ratingKey, serverId)
+            if (localEntities.isNotEmpty()) {
+                val client = serverClientResolver.getClient(serverId)
+                val baseUrl = client?.baseUrl
+                val token = client?.server?.accessToken
+                val cachedItems = localEntities.map {
+                    mapper.mapEntityToDomain(it).let { domain ->
+                        if (baseUrl != null && token != null) {
+                            mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                                baseUrl = baseUrl, accessToken = token
+                            )
+                        } else domain
+                    }
+                }
+                return Result.success(cachedItems)
+            }
+
+            // 2. API fallback: Only if not in cache (new season, not yet synced)
+            return safeApiCall("getSeasonEpisodes") {
+                val client = serverClientResolver.getClient(serverId)
                 if (client != null) {
                     val response = client.getChildren(ratingKey)
                     if (response.isSuccessful) {
                         val metadata = response.body()?.mediaContainer?.metadata
                         if (metadata != null) {
-                            val items =
-                                metadata.map {
-                                    mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
-                                }
-                            return Result.success(items)
-                        }
-                    }
-                }
-            } catch (e: IOException) {
-                Timber.w(e, "Network error fetching episodes for $ratingKey")
-            } catch (e: HttpException) {
-                Timber.w(e, "HTTP error ${e.code()} fetching episodes for $ratingKey")
-            } catch (e: Exception) {
-                Timber.e(e, "Error fetching episodes for $ratingKey")
-            }
-
-            val localEntities = mediaDao.getChildren(ratingKey, serverId)
-            if (localEntities.isNotEmpty()) {
-                val client = getClient(serverId)
-                val baseUrl = client?.baseUrl
-                val token = client?.server?.accessToken
-
-                val items =
-                    localEntities.map {
-                        mapper.mapEntityToDomain(it).let { domain ->
-                            if (baseUrl != null && token != null) {
-                                mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
-                                    baseUrl = baseUrl,
-                                    accessToken = token,
-                                )
-                            } else {
-                                domain
+                            return@safeApiCall metadata.map {
+                                mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
                             }
                         }
                     }
-                return Result.success(items)
+                }
+                throw AppError.Media.NotFound("Episodes for $ratingKey not found")
             }
-            return Result.failure(MediaNotFoundException("Episodes for $ratingKey not found"))
+        }
+
+        override suspend fun findRemoteSources(item: MediaItem): List<MediaItem> {
+            // For episodes: match by show title + season index + episode index (unificationId unreliable across servers)
+            val entities = if (item.type == com.chakir.plexhubtv.core.model.MediaType.Episode) {
+                val showTitle = item.grandparentTitle
+                val seasonIndex = item.parentIndex
+                val episodeIndex = item.episodeIndex
+                if (showTitle != null && seasonIndex != null && episodeIndex != null) {
+                    mediaDao.findRemoteEpisodeSources(showTitle, seasonIndex, episodeIndex, item.serverId)
+                } else {
+                    emptyList()
+                }
+            } else {
+                // For movies/shows: match by unificationId
+                val unificationId = item.unificationId
+                if (unificationId.isNullOrBlank()) return emptyList()
+                mediaDao.findRemoteSources(unificationId, item.serverId)
+            }
+            return entities.map { entity ->
+                val client = serverClientResolver.getClient(entity.serverId)
+                val baseUrl = client?.baseUrl
+                val token = client?.server?.accessToken
+                val domain = mapper.mapEntityToDomain(entity)
+                if (baseUrl != null && token != null) {
+                    mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                        baseUrl = baseUrl, accessToken = token
+                    )
+                } else domain
+            }
+        }
+
+        override suspend fun updateMediaParts(item: MediaItem) {
+            // Persist mediaParts to Room for future sessions (lazy progressive cache)
+            try {
+                val existing = mediaDao.getMedia(item.ratingKey, item.serverId)
+                if (existing != null && item.mediaParts.isNotEmpty()) {
+                    // Update entity with mediaParts while preserving filter/sortOrder/pageOffset
+                    val updated = existing.copy(mediaParts = item.mediaParts)
+                    mediaDao.insertMedia(updated)
+                    Timber.d("MediaParts cached in Room for ${item.title} (${item.ratingKey})")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to cache mediaParts for ${item.ratingKey}")
+            }
         }
 
         override suspend fun getShowSeasons(
@@ -172,43 +173,41 @@ class MediaDetailRepositoryImpl
             ratingKey: String,
             serverId: String,
         ): Result<List<MediaItem>> {
-            return try {
-                val client = getClient(serverId) ?: return Result.failure(ServerUnavailableException(serverId))
+            // Cache-first: return cached similar items if fresh (avoids 300-1000ms API call)
+            val cacheKey = "$ratingKey:$serverId"
+            val cached = similarCache[cacheKey]
+            if (cached != null && System.currentTimeMillis() - cached.first < similarCacheTtlMs) {
+                Timber.d("Similar: Cache hit for $ratingKey (${cached.second.size} items)")
+                return Result.success(cached.second)
+            }
+
+            val client = serverClientResolver.getClient(serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
+
+            return safeApiCall("getSimilarMedia") {
                 val response = client.getRelated(ratingKey)
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    if (body != null) {
-                        // The /related endpoint returns HUBS, not direct metadata
-                        // Usually the first hub is "Similar" or "More like this"
-                        val hubs = body.mediaContainer?.hubs ?: emptyList()
-                        Timber.d("Similar: Received ${hubs.size} hubs for $ratingKey")
-                        
-                        val similarHub = hubs.find { it.hubIdentifier == "similar" } ?: hubs.firstOrNull()
-                        val metadata = similarHub?.metadata ?: emptyList()
-                        
-                        Timber.d("Similar: Found ${metadata.size} items in similar hub")
-                        
-                        val items = metadata.map {
-                            mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
-                        }
-                        Result.success(items)
-                    } else {
-                        Timber.w("Similar: Response body is null for $ratingKey")
-                        Result.success(emptyList())
-                    }
-                } else {
-                    Timber.w("Similar: API returned ${response.code()} for $ratingKey")
-                    Result.failure(Exception("API Error: ${response.code()}"))
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("Similar: API returned ${response.code()} for $ratingKey")
                 }
-            } catch (e: IOException) {
-                Timber.e(e, "Network error fetching similar media for $ratingKey")
-                Result.failure(NetworkException("Network error", e))
-            } catch (e: HttpException) {
-                Timber.e(e, "HTTP error ${e.code()} fetching similar media for $ratingKey")
-                Result.failure(e)
-            } catch (e: Exception) {
-                Timber.e(e, "Error fetching similar media for $ratingKey")
-                Result.failure(e)
+
+                val body = response.body()
+                if (body == null) {
+                    Timber.w("Similar: Response body is null for $ratingKey")
+                    return@safeApiCall emptyList<MediaItem>()
+                }
+
+                val hubs = body.mediaContainer?.hubs ?: emptyList()
+                Timber.d("Similar: Received ${hubs.size} hubs for $ratingKey")
+
+                val similarHub = hubs.find { it.hubIdentifier == "similar" } ?: hubs.firstOrNull()
+                val metadata = similarHub?.metadata ?: emptyList()
+                Timber.d("Similar: Found ${metadata.size} items in similar hub")
+
+                val items = metadata.map {
+                    mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
+                }
+                similarCache[cacheKey] = System.currentTimeMillis() to items
+                items
             }
         }
 
@@ -223,29 +222,34 @@ class MediaDetailRepositoryImpl
                         emptyList()
                     } else {
                         Timber.d("Collections: Found ${collectionEntities.size} collections in DB for $ratingKey")
-                        
-                        // For each collection, get its items from the database
+
+                        // ✅ OPTIMIZED: Batch query to eliminate N+1 problem
+                        // Fetch ALL media for ALL collections in a single query
+                        val collectionIds = collectionEntities.map { it.id }
+                        val allMediaWithCollection = collectionDao.getMediaForCollectionsBatch(collectionIds, serverId)
+
+                        // Group media by collection ID
+                        val mediaByCollection = allMediaWithCollection.groupBy { it.collectionId }
+
+                        // Map to domain objects
                         collectionEntities.map { collEntity ->
-                            val items = collectionDao.getMediaInCollection(collEntity.id, collEntity.serverId)
-                                .map { mediaEntities ->
-                                    mediaEntities.map { entity ->
-                                        val client = getClient(entity.serverId)
-                                        val baseUrl = client?.baseUrl
-                                        val token = client?.server?.accessToken
-                                        
-                                        val domain = mapper.mapEntityToDomain(entity)
-                                        if (baseUrl != null && token != null) {
-                                            mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
-                                                baseUrl = baseUrl,
-                                                accessToken = token,
-                                            )
-                                        } else {
-                                            domain
-                                        }
-                                    }
+                            val mediaList = mediaByCollection[collEntity.id] ?: emptyList()
+                            val items = mediaList.map { mediaWithCol ->
+                                val client = serverClientResolver.getClient(mediaWithCol.media.serverId)
+                                val baseUrl = client?.baseUrl
+                                val token = client?.server?.accessToken
+
+                                val domain = mapper.mapEntityToDomain(mediaWithCol.media)
+                                if (baseUrl != null && token != null) {
+                                    mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                                        baseUrl = baseUrl,
+                                        accessToken = token,
+                                    )
+                                } else {
+                                    domain
                                 }
-                                .first() // Get first emission
-                            
+                            }
+
                             Collection(
                                 id = collEntity.id,
                                 serverId = collEntity.serverId,
@@ -274,7 +278,7 @@ class MediaDetailRepositoryImpl
                         val items = collectionDao.getMediaInCollection(collectionId, serverId)
                             .map { mediaEntities ->
                                 mediaEntities.map { entity ->
-                                    val client = getClient(entity.serverId)
+                                    val client = serverClientResolver.getClient(entity.serverId)
                                     val baseUrl = client?.baseUrl
                                     val token = client?.server?.accessToken
                                     
@@ -300,12 +304,5 @@ class MediaDetailRepositoryImpl
                     }
                 }
                 .flowOn(ioDispatcher)
-        }
-
-        private suspend fun getClient(serverId: String): PlexClient? {
-            val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
-            val server = servers.find { it.clientIdentifier == serverId } ?: return null
-            val baseUrl = connectionManager.findBestConnection(server) ?: return null
-            return PlexClient(server, api, baseUrl)
         }
     }

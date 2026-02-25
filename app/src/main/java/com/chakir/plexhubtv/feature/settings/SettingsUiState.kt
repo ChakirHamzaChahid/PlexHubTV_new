@@ -13,8 +13,9 @@ data class SettingsUiState(
     val availableServers: List<String> = listOf("MyServer"),
     val availableServersMap: Map<String, String> = emptyMap(),
     val playerEngine: String = "ExoPlayer",
-    val appVersion: String = "0.8.0",
+    val appVersion: String = "1.0.0",
     val isSyncing: Boolean = false,
+    val isSyncingWatchlist: Boolean = false,
     val syncMessage: String? = null,
     val syncError: String? = null,
     val excludedServerIds: Set<String> = emptySet(),
@@ -24,6 +25,14 @@ data class SettingsUiState(
     val omdbApiKey: String = "",
     val isSyncingRatings: Boolean = false,
     val ratingSyncMessage: String? = null,
+    val iptvPlaylistUrl: String = "",
+    // Rating Sync Configuration
+    val ratingSyncSource: String = "tmdb", // "tmdb" or "omdb"
+    val ratingSyncDelay: Long = 250L, // delay in ms
+    val ratingSyncBatchingEnabled: Boolean = false,
+    val ratingSyncDailyLimit: Int = 900,
+    val ratingSyncProgressSeries: Int = 0,
+    val ratingSyncProgressMovies: Int = 0,
 )
 
 enum class AppTheme {
@@ -65,4 +74,23 @@ sealed interface SettingsAction {
     data class SaveOmdbApiKey(val key: String) : SettingsAction
 
     data object SyncRatings : SettingsAction
+
+    data class SaveIptvPlaylistUrl(val url: String) : SettingsAction
+
+    // Rating Sync Configuration Actions
+    data class ChangeRatingSyncSource(val source: String) : SettingsAction
+
+    data class ChangeRatingSyncDelay(val delayMs: Long) : SettingsAction
+
+    data class ToggleRatingSyncBatching(val enabled: Boolean) : SettingsAction
+
+    data class ChangeRatingSyncDailyLimit(val limit: Int) : SettingsAction
+
+    data object ResetRatingSyncProgress : SettingsAction
+
+    data object SwitchPlexUser : SettingsAction
+
+    data object ManageAppProfiles : SettingsAction
+
+    data object ManageLibrarySelection : SettingsAction
 }

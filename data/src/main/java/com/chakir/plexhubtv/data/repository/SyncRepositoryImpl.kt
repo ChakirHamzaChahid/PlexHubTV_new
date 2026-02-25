@@ -1,7 +1,10 @@
 package com.chakir.plexhubtv.data.repository
 
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Server
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
@@ -12,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
@@ -32,9 +36,10 @@ class SyncRepositoryImpl
         private val mediaDao: MediaDao,
         private val mediaMapper: MediaMapper,
         private val libraryRepository: LibraryRepository,
+        private val settingsDataStore: SettingsDataStore,
     ) : SyncRepository {
         // Callback for progress updates (set by LibrarySyncWorker)
-        var onProgressUpdate: ((current: Int, total: Int, libraryName: String) -> Unit)? = null
+        override var onProgressUpdate: ((current: Int, total: Int, libraryName: String) -> Unit)? = null
 
         override suspend fun syncServer(server: Server): Result<Unit> =
             withContext(Dispatchers.IO) {
@@ -42,11 +47,23 @@ class SyncRepositoryImpl
                     Timber.d("Starting sync for server: ${server.name}")
                     // 1. Get Libraries
                     val librariesResult = libraryRepository.getLibraries(server.clientIdentifier)
-                    val libraries = librariesResult.getOrNull() ?: return@withContext Result.failure(Exception("Failed to fetch libraries for ${server.name}"))
+                    val libraries = librariesResult.getOrNull()
+                        ?: return@withContext Result.failure(AppError.Network.ServerError("Failed to fetch libraries for ${server.name}"))
 
-                    // 2. Filter to syncable libraries (movies and shows)
+                    // 2. Filter to syncable libraries (movies and shows) + user selection
                     libraries.forEach { Timber.d("Found library: ${it.title} (type=${it.type})") }
-                    val syncableLibraries = libraries.filter { it.type == "movie" || it.type == "show" }
+                    val selectedIds = settingsDataStore.selectedLibraryIds.first()
+                    Timber.d("SYNC FILTER: selectedIds = $selectedIds (size=${selectedIds.size})")
+
+                    val syncableLibraries = libraries
+                        .filter { it.type == "movie" || it.type == "show" }
+                        .filter { lib ->
+                            val compositeId = "${server.clientIdentifier}:${lib.key}"
+                            val isSelected = selectedIds.contains(compositeId)
+                            Timber.d("SYNC FILTER: Library '${lib.title}' (id=$compositeId) -> selected=$isSelected")
+                            isSelected
+                        }
+                    Timber.d("Syncable libraries after selection filter: ${syncableLibraries.map { it.title }}")
 
                     // 3. SEMI-PARALLEL SYNC: Limit to 2 concurrent libraries to prevent DB lock contention
                     val results =
@@ -74,7 +91,7 @@ class SyncRepositoryImpl
                     Result.success(Unit)
                 } catch (e: Exception) {
                     Timber.e("Critical failure syncing server ${server.name}: ${e.message}")
-                    Result.failure(e)
+                    Result.failure(e.toAppError())
                 }
             }
 
@@ -92,7 +109,8 @@ class SyncRepositoryImpl
         ): Result<Unit> =
             withContext(Dispatchers.IO) {
                 try {
-                    val baseUrl = connectionManager.findBestConnection(server) ?: return@withContext Result.failure(Exception("No connection to ${server.name}"))
+                    val baseUrl = connectionManager.findBestConnection(server)
+                        ?: return@withContext Result.failure(AppError.Network.NoConnection("No connection to ${server.name}"))
                     val client = PlexClient(server, api, baseUrl)
 
                     var start = 0
@@ -130,13 +148,16 @@ class SyncRepositoryImpl
                                     validMetadata.mapIndexed { index, dto ->
                                         val dtoWithLib = dto.copy(librarySectionID = libraryKey)
                                         val entity = mediaMapper.mapDtoToEntity(dtoWithLib, server.clientIdentifier, libraryKey)
-                                        
-                                        // Restore scrapedRating if it exists
+
+                                        // Restore scrapedRating and recompute displayRating
+                                        val restoredScrapedRating = existingRatingsMap[dto.ratingKey]
                                         entity.copy(
                                             filter = "all",
                                             sortOrder = "default",
                                             pageOffset = start + index,
-                                            scrapedRating = existingRatingsMap[dto.ratingKey]
+                                            scrapedRating = restoredScrapedRating,
+                                            displayRating = restoredScrapedRating
+                                                ?: entity.displayRating,
                                         )
                                     }
 
@@ -167,7 +188,7 @@ class SyncRepositoryImpl
                         } else {
                             val errorDuration = System.currentTimeMillis() - startTime
                             Timber.e("SYNC FAILED: lib=$libraryKey code=${response.code()} duration=${errorDuration}ms")
-                            return@withContext Result.failure(Exception("Failed to fetch page: ${response.code()}"))
+                            return@withContext Result.failure(AppError.Network.ServerError("Failed to fetch page: ${response.code()}"))
                         }
                     }
 
@@ -175,7 +196,7 @@ class SyncRepositoryImpl
                     Result.success(Unit)
                 } catch (e: Exception) {
                     Timber.e("Error in syncLibrary $libraryKey: ${e.message}")
-                    Result.failure(e)
+                    Result.failure(e.toAppError())
                 }
             }
     }

@@ -70,4 +70,55 @@ interface SettingsRepository {
     fun getOmdbApiKey(): Flow<String?>
 
     suspend fun saveOmdbApiKey(key: String)
+
+    // --- Rating Sync Configuration ---
+    val ratingSyncSource: Flow<String> // "tmdb" or "omdb"
+
+    val ratingSyncDelay: Flow<Long> // delay in ms between API requests
+
+    val ratingSyncBatchingEnabled: Flow<Boolean>
+
+    val ratingSyncDailyLimit: Flow<Int> // max requests per day when batching
+
+    val ratingSyncProgressSeries: Flow<Int> // current progress for series
+
+    val ratingSyncProgressMovies: Flow<Int> // current progress for movies
+
+    val ratingSyncLastRunDate: Flow<String?> // last run date (YYYY-MM-DD)
+
+    suspend fun saveRatingSyncSource(source: String)
+
+    suspend fun saveRatingSyncDelay(delayMs: Long)
+
+    suspend fun saveRatingSyncBatchingEnabled(enabled: Boolean)
+
+    suspend fun saveRatingSyncDailyLimit(limit: Int)
+
+    suspend fun saveRatingSyncProgressSeries(progress: Int)
+
+    suspend fun saveRatingSyncProgressMovies(progress: Int)
+
+    suspend fun saveRatingSyncLastRunDate(date: String)
+
+    suspend fun resetRatingSyncProgress()
+
+    // --- TV Channels ---
+    val isTvChannelsEnabled: Flow<Boolean>
+
+    suspend fun setTvChannelsEnabled(enabled: Boolean)
+
+    // --- Library Filter Preferences ---
+    val librarySort: Flow<String>
+
+    val librarySortDescending: Flow<Boolean>
+
+    val libraryGenre: Flow<String?>
+
+    val libraryServerFilter: Flow<String?>
+
+    suspend fun saveLibrarySort(sort: String, isDescending: Boolean)
+
+    suspend fun saveLibraryGenre(genre: String?)
+
+    suspend fun saveLibraryServerFilter(serverName: String?)
 }

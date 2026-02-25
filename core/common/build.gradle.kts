@@ -41,6 +41,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     api(libs.timber)
     implementation(libs.androidx.media3.common.ktx)
+    implementation(libs.retrofit)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
@@ -61,4 +62,8 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
 }

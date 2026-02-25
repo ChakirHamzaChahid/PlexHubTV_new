@@ -15,21 +15,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.grid.TvGridCells
-import androidx.tv.foundation.lazy.grid.TvLazyGridState
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.TvLazyListState
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
-import androidx.tv.foundation.lazy.list.rememberTvLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -41,15 +42,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
+import com.chakir.plexhubtv.core.ui.showError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +69,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -69,7 +81,8 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.feature.home.MediaCard
@@ -78,6 +91,7 @@ import timber.log.Timber
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.zIndex
 
 // ... (Rest of imports likely preserved by smart apply, but I should be careful)
@@ -89,7 +103,37 @@ fun LibraryRoute(
 ) {
     val state by viewModel.uiState.collectAsState()
     val pagedItems = viewModel.pagedItems.collectAsLazyPagingItems()
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    // derivedStateOf: recompute only when the relevant fields change,
+    // not on every uiState change (22 fields)
+    val visibleTabs by remember {
+        derivedStateOf { LibraryTab.values().filter { it == LibraryTab.Browse } }
+    }
+    val selectedTabIndex by remember {
+        derivedStateOf { visibleTabs.indexOf(state.selectedTab).coerceAtLeast(0) }
+    }
+    val showSidebar by remember {
+        derivedStateOf { state.currentSort == "Title" }
+    }
+    val serverLabel by remember {
+        derivedStateOf {
+            if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server: All"
+        }
+    }
+    val isServerFiltered by remember {
+        derivedStateOf { state.selectedServerFilter != null }
+    }
+    val genreLabel by remember {
+        derivedStateOf {
+            if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Genre: All"
+        }
+    }
+    val isGenreFiltered by remember {
+        derivedStateOf { state.selectedGenre != null }
+    }
+
+    // Handle navigation events
     LaunchedEffect(viewModel.navigationEvents) {
         viewModel.navigationEvents.collect { event ->
             when (event) {
@@ -103,12 +147,27 @@ fun LibraryRoute(
         }
     }
 
+    // Handle error events with centralized error display
+    LaunchedEffect(viewModel.errorEvents) {
+        viewModel.errorEvents.collect { error ->
+            snackbarHostState.showError(error)
+        }
+    }
+
     LibrariesScreen(
         state = state,
         pagedItems = pagedItems,
         onAction = viewModel::onAction,
         scrollRequest = state.initialScrollIndex,
-        onScrollConsumed = { }
+        onScrollConsumed = { },
+        snackbarHostState = snackbarHostState,
+        visibleTabs = visibleTabs,
+        selectedTabIndex = selectedTabIndex,
+        showSidebar = showSidebar,
+        serverLabel = serverLabel,
+        isServerFiltered = isServerFiltered,
+        genreLabel = genreLabel,
+        isGenreFiltered = isGenreFiltered,
     )
 }
 
@@ -120,19 +179,28 @@ fun LibrariesScreen(
     onAction: (LibraryAction) -> Unit,
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
+    snackbarHostState: SnackbarHostState,
+    visibleTabs: List<LibraryTab> = emptyList(),
+    selectedTabIndex: Int = 0,
+    showSidebar: Boolean = false,
+    serverLabel: String = "Server: All",
+    isServerFiltered: Boolean = false,
+    genreLabel: String = "Genre: All",
+    isGenreFiltered: Boolean = false,
 ) {
-    val gridState = rememberTvLazyGridState()
-    val listState = rememberTvLazyListState()
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
 
     LaunchedEffect(scrollRequest) {
         if (scrollRequest != null) {
-            gridState.scrollToItem(0)
-            listState.scrollToItem(0)
+            gridState.scrollToItem(scrollRequest)
+            listState.scrollToItem(scrollRequest)
             onScrollConsumed()
         }
     }
     Scaffold(
         containerColor = NetflixBlack, // Set Scaffold background
+        snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
         topBar = {
             Column(modifier = Modifier.background(NetflixBlack)) { // Update TopBar background
                 // Main Top Bar
@@ -143,41 +211,90 @@ fun LibrariesScreen(
                         onClose = { onAction(LibraryAction.ToggleSearch) },
                     )
                 } else {
+                    // Compact header: Title on left, Filters on right (same row)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 58.dp, top = 24.dp, end = 16.dp, bottom = 12.dp),
+                            .padding(start = 58.dp, top = 80.dp, end = 58.dp, bottom = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        // Left side: Title
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (state.mediaType == MediaType.Movie) "Movies" else "TV Shows",
+                                text = stringResource(if (state.mediaType == MediaType.Movie) R.string.library_movies else R.string.library_tv_shows),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                             if (state.totalItems > 0) {
                                 Spacer(modifier = Modifier.width(12.dp))
+                                val hasActiveFilter = state.filteredItems != null && state.filteredItems != state.totalItems
                                 Text(
-                                    text = "${state.totalItems} Titles",
+                                    text = if (hasActiveFilter) {
+                                        stringResource(R.string.library_title_count_filtered, state.filteredItems!!, state.totalItems)
+                                    } else {
+                                        stringResource(R.string.library_title_count, state.totalItems)
+                                    },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White.copy(alpha = 0.5f),
                                 )
                             }
                         }
-                        
-                        Row {
-                            // Search icon removed to avoid duplication with Global Top Bar
-                            
+
+                        // Right side: Filters + View Mode
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Filter Buttons (derived via derivedStateOf at Route level)
+                            FilterButton(
+                                text = serverLabel,
+                                isActive = isServerFiltered,
+                                onClick = { onAction(LibraryAction.OpenServerFilter) },
+                                testTag = "library_filter_server"
+                            )
+
+                            FilterButton(
+                                text = genreLabel,
+                                isActive = isGenreFiltered,
+                                onClick = { onAction(LibraryAction.OpenGenreFilter) },
+                                testTag = "library_filter_genre"
+                            )
+
+                            FilterButton(
+                                text = state.currentSort ?: "Title",
+                                isActive = false,
+                                onClick = { onAction(LibraryAction.OpenSortDialog) },
+                                testTag = "library_sort_button"
+                            )
+
+                            // Refresh Button
+                            IconButton(
+                                onClick = {
+                                    pagedItems.refresh() // Force network refresh
+                                    onAction(LibraryAction.Refresh)
+                                },
+                                modifier = Modifier.testTag("library_refresh_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.library_refresh_description),
+                                    tint = Color.White
+                                )
+                            }
+
                             // View Mode Switch
-                            IconButton(onClick = {
-                                val newMode = if (state.viewMode == LibraryViewMode.Grid) LibraryViewMode.List else LibraryViewMode.Grid
-                                onAction(LibraryAction.ChangeViewMode(newMode))
-                            }) {
+                            IconButton(
+                                onClick = {
+                                    val newMode = if (state.viewMode == LibraryViewMode.Grid) LibraryViewMode.List else LibraryViewMode.Grid
+                                    onAction(LibraryAction.ChangeViewMode(newMode))
+                                },
+                                modifier = Modifier.testTag("library_view_mode")
+                            ) {
                                 Icon(
                                     imageVector = if (state.viewMode == LibraryViewMode.Grid) Icons.Default.List else Icons.Default.GridView,
-                                    contentDescription = "Switch View Mode",
+                                    contentDescription = stringResource(R.string.library_view_mode_description),
                                     tint = Color.White
                                 )
                             }
@@ -185,17 +302,7 @@ fun LibrariesScreen(
                     }
                 }
 
-                // Tabs
-                // Use a smaller height for the tab row
-                val visibleTabs =
-                    remember(state.selectedTab) {
-                        LibraryTab.values().filter { it == LibraryTab.Browse }
-                    }
-                val selectedTabIndex = visibleTabs.indexOf(state.selectedTab).coerceAtLeast(0)
-
-                // Simplified Tab Row or remove if only Browse exists often?
-                // The code filters to only Browse? "filter { it == LibraryTab.Browse }" means only Browse is visible?
-                // If so, we can skip the TabRow if there's only one.
+                // Tabs (derived via derivedStateOf at Route level)
                 if (visibleTabs.size > 1) {
                     ScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,
@@ -231,41 +338,6 @@ fun LibrariesScreen(
                         }
                     }
                 }
-
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 58.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    // Filter Buttons updated style
-                    val serverLabel = if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "All Servers"
-                    val isServerFiltered = state.selectedServerFilter != null
-
-                    FilterButton(
-                        text = serverLabel,
-                        isActive = isServerFiltered,
-                        onClick = { onAction(LibraryAction.OpenServerFilter) },
-                    )
-
-                    val genreLabel = if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Values"
-                    val isGenreFiltered = state.selectedGenre != null
-
-                    FilterButton(
-                        text = genreLabel,
-                        isActive = isGenreFiltered,
-                        onClick = { onAction(LibraryAction.OpenGenreFilter) },
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    FilterButton(
-                        text = state.currentSort ?: "Date Added",
-                        isActive = false,
-                        onClick = { onAction(LibraryAction.OpenSortDialog) },
-                    )
-                }
             }
         },
     ) { padding ->
@@ -274,6 +346,10 @@ fun LibrariesScreen(
                 Modifier
                     .padding(padding)
                     .fillMaxSize()
+                    .testTag(if (state.mediaType == MediaType.Movie) "screen_movies" else "screen_tvshows")
+                    .semantics {
+                        contentDescription = if (state.mediaType == MediaType.Movie) "Écran de films" else "Écran de séries"
+                    }
                     .background(NetflixBlack),
         ) {
             // ... (Dialogs preserved)
@@ -312,23 +388,11 @@ fun LibrariesScreen(
             // ...
 
             when {
-                // Error state
-                state.error != null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = state.error, color = MaterialTheme.colorScheme.error)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(onClick = { onAction(LibraryAction.Refresh) }) {
-                                Text("Retry")
-                            }
-                        }
-                    }
-                }
                 // Loading state (only for INITIAL load)
                 pagedItems.loadState.refresh is androidx.paging.LoadState.Loading && pagedItems.itemCount == 0 -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = NetflixRed)
-                    }
+                    LibraryGridSkeleton(
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
                 // Content
                 else -> {
@@ -345,9 +409,10 @@ fun LibrariesScreen(
                             onAction = onAction,
                             gridState = gridState,
                             listState = listState,
-                            showSidebar = state.currentSort == "Title",
+                            showSidebar = showSidebar,
                             scrollRequest = scrollRequest,
                             onScrollConsumed = onScrollConsumed,
+                            lastFocusedId = state.lastFocusedId,
                         )
                     }
                 }
@@ -361,6 +426,7 @@ fun FilterButton(
     text: String,
     isActive: Boolean = false,
     onClick: () -> Unit,
+    testTag: String = "",
 ) {
     // Netflix style chips: Dark grey background, White text.
     val containerColor = if (isActive) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
@@ -376,7 +442,9 @@ fun FilterButton(
         ),
         border = borderStroke, // Use border only if active or keep it transparent
         shape = RoundedCornerShape(50),
-        modifier = Modifier.height(32.dp),
+        modifier = Modifier
+            .height(32.dp)
+            .then(if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier),
     ) {
         Text(text = text, style = MaterialTheme.typography.labelMedium)
         Spacer(modifier = Modifier.width(4.dp))
@@ -394,23 +462,30 @@ fun LibraryContent(
     viewMode: LibraryViewMode,
     onItemClick: (MediaItem) -> Unit,
     onAction: (LibraryAction) -> Unit,
-    gridState: TvLazyGridState,
-    listState: TvLazyListState,
+    gridState: LazyGridState,
+    listState: LazyListState,
     showSidebar: Boolean = false,
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
+    lastFocusedId: String? = null,
 ) {
+    // Focus restoration: request focus on the item that was previously focused
+    val focusRestorationRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    var hasRestoredFocus by remember { mutableStateOf(false) }
+
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             if (viewMode == LibraryViewMode.Grid) {
-                TvLazyVerticalGrid(
-                    columns = TvGridCells.Adaptive(minSize = 140.dp),
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 140.dp),
                     state = gridState,
                     contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("library_grid")
+                        .semantics { contentDescription = "Grille de la bibliothèque" },
                 ) {
                     items(
                         count = pagedItems.itemCount,
@@ -419,13 +494,24 @@ fun LibraryContent(
                     ) { index ->
                         val item = pagedItems[index]
                         if (item != null) {
+                            val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
                             var isFocused by remember { mutableStateOf(false) }
+
+                            if (shouldRestoreFocus) {
+                                LaunchedEffect(Unit) {
+                                    try {
+                                        focusRestorationRequester.requestFocus()
+                                        hasRestoredFocus = true
+                                    } catch (_: Exception) { }
+                                }
+                            }
+
                             Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
                                 NetflixMediaCard(
                                     media = item,
                                     onClick = { onItemClick(item) },
                                     onPlay = { },
-                                    onFocus = { focused -> 
+                                    onFocus = { focused ->
                                         isFocused = focused
                                         if (focused) {
                                             onAction(LibraryAction.OnItemFocused(item))
@@ -433,7 +519,9 @@ fun LibraryContent(
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(2f/3f)
+                                        .then(
+                                            if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
+                                        )
                                 )
                             }
                         } else {
@@ -441,26 +529,25 @@ fun LibraryContent(
                             Box(
                                 modifier =
                                     Modifier
-                                        .aspectRatio(2f/3f)
                                         .fillMaxWidth()
+                                        .height(250.dp)
                                         .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)),
                             )
                         }
                     }
                     
                      if (pagedItems.loadState.append is LoadState.Loading) {
-                        item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(maxLineSpan) }) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             LoadingMoreIndicator()
                         }
                     }
                 }
             } else {
                 // List View
-                TvLazyColumn(
+                LazyColumn(
                     state = listState,
                     contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    pivotOffsets = PivotOffsets(parentFraction = 0.0f),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(
@@ -527,7 +614,7 @@ fun RecommendedContent(
     if (hubs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                text = "No recommendations found.",
+                text = stringResource(R.string.library_no_recommendations),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -535,13 +622,15 @@ fun RecommendedContent(
         return
     }
 
-    TvLazyColumn(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(top = 56.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
-        pivotOffsets = PivotOffsets(parentFraction = 0.0f)
     ) {
-        items(hubs) { hub ->
+        items(
+            items = hubs,
+            key = { hub -> hub.hubIdentifier ?: hub.title },
+        ) { hub ->
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = hub.title,
@@ -551,12 +640,14 @@ fun RecommendedContent(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
 
-                TvLazyRow(
+                LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    pivotOffsets = PivotOffsets(parentFraction = 0.0f)
                 ) {
-                    items(hub.items) { item ->
+                    items(
+                        items = hub.items,
+                        key = { item -> "${item.serverId}_${item.ratingKey}" },
+                    ) { item ->
                         MediaCard(
                             media = item,
                             onClick = { onItemClick(item) },
@@ -583,9 +674,9 @@ fun Thumbnail(
         if (url != null) {
             AsyncImage(
                 model =
-                    coil.request.ImageRequest.Builder(LocalContext.current)
+                    coil3.request.ImageRequest.Builder(LocalContext.current)
                         .data(url)
-                        .crossfade(false) // Performance: Disable crossfade for smoother scrolling
+                        .size(180, 270) // Explicit size for 60dp×90dp at xxhdpi (×3 density)
                         .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

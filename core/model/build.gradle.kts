@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
@@ -27,4 +26,10 @@ android {
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.compose.runtime.annotation)
+    implementation(libs.retrofit)
+
+    // Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.truth)
 }

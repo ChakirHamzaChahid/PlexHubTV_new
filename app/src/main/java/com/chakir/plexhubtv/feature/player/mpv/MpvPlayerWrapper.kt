@@ -81,9 +81,14 @@ class MpvPlayerWrapper(
             MPVLib.setOptionString("opengl-es", "yes")
             MPVLib.setOptionString("hwdec", "mediacodec")
 
-            // Enable ASS subtitles
+            // Subtitles: use Android system fonts (fontconfig unavailable on Android)
             MPVLib.setOptionString("sub-ass", "yes")
+            MPVLib.setOptionString("sub-font-provider", "none")
+            MPVLib.setOptionString("sub-fonts-dir", "/system/fonts")
+            MPVLib.setOptionString("sub-font", "sans-serif")
             MPVLib.setOptionString("sub-font-size", "55")
+            MPVLib.setOptionString("sub-color", "#FFFFFFFF")
+            MPVLib.setOptionString("sub-border-size", "3")
 
             MPVLib.init()
 
@@ -117,9 +122,6 @@ class MpvPlayerWrapper(
                     holder.setFormat(PixelFormat.TRANSLUCENT) // Important for GPU output
                 }
             viewGroup.addView(surfaceView)
-
-            // Copy fonts for ASS if needed (can implement later)
-            // copyAssets()
 
             isInitialized = true
             Timber.d("MPV Initialized successfully")

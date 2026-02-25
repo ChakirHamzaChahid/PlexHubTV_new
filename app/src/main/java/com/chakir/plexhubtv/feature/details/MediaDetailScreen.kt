@@ -33,16 +33,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.DetailHeroSkeleton
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.showError
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
 import com.chakir.plexhubtv.feature.home.MediaCard
 import timber.log.Timber
@@ -56,7 +65,6 @@ import timber.log.Timber
 @Composable
 fun MediaDetailRoute(
     viewModel: MediaDetailViewModel = hiltViewModel(),
-    enrichmentViewModel: MediaEnrichmentViewModel = hiltViewModel(),
     onNavigateToPlayer: (String, String) -> Unit,
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateToSeason: (String, String) -> Unit,
@@ -64,24 +72,12 @@ fun MediaDetailRoute(
     onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val enrichmentState by viewModel.uiState.collectAsState()
-    
-    // Combine states for the Screen
-    val combinedState = uiState.copy(
-        similarItems = enrichmentState.similarItems,
-        collections = enrichmentState.collections
-    )
-
-    // Trigger enrichment when media is loaded
-    LaunchedEffect(uiState.media) {
-        val media = uiState.media
-        if (media != null) {
-             enrichmentViewModel.loadEnrichment(media)
-        }
-    }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val events = viewModel.navigationEvents
+    val errorEvents = viewModel.errorEvents
 
+    // Handle navigation events
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
@@ -94,10 +90,21 @@ fun MediaDetailRoute(
         }
     }
 
+    // Handle error events with centralized error display
+    LaunchedEffect(errorEvents) {
+        errorEvents.collect { error ->
+            val result = snackbarHostState.showError(error)
+            if (result == SnackbarResult.ActionPerformed && error.isRetryable()) {
+                viewModel.onEvent(MediaDetailEvent.Retry)
+            }
+        }
+    }
+
     MediaDetailScreen(
-        state = combinedState,
+        state = uiState,
         onAction = viewModel::onEvent,
         onCollectionClicked = viewModel::onCollectionClicked,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -106,23 +113,24 @@ fun MediaDetailScreen(
     state: MediaDetailUiState,
     onAction: (MediaDetailEvent) -> Unit,
     onCollectionClicked: (String, String) -> Unit,
+    snackbarHostState: SnackbarHostState,
 ) {
-    Scaffold { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.background)) {
+    val detailScreenDesc = stringResource(R.string.detail_screen_description)
+    Scaffold(
+        snackbarHost = { ErrorSnackbarHost(snackbarHostState) }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("screen_media_detail")
+                .semantics { contentDescription = detailScreenDesc }
+                .padding(padding)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
             if (state.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (state.error != null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Error: ${state.error}", color = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { onAction(MediaDetailEvent.Retry) }) {
-                            Text("Retry")
-                        }
-                    }
-                }
+                DetailHeroSkeleton(
+                    modifier = Modifier.fillMaxSize()
+                )
             } else if (state.media != null) {
                 NetflixDetailScreen(
                     media = state.media,
@@ -153,7 +161,14 @@ fun ActionButtonsRow(
     media: MediaItem,
     state: MediaDetailUiState,
     onAction: (MediaDetailEvent) -> Unit,
+    playButtonFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
 ) {
+    val playLoadingDesc = stringResource(R.string.detail_loading_description)
+    val playDesc = stringResource(R.string.detail_play_description)
+    val removeFavDesc = stringResource(R.string.detail_remove_favorite_description)
+    val addFavDesc = stringResource(R.string.detail_add_favorite_description)
+    val watchStatusDesc = stringResource(R.string.detail_watch_status_description)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,30 +177,43 @@ fun ActionButtonsRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Play Button
-        val playInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-        val isPlayFocused by playInteractionSource.collectIsFocusedAsState()
+        var isPlayFocused by remember { mutableStateOf(false) }
 
         Button(
             onClick = { onAction(MediaDetailEvent.PlayClicked) },
+            enabled = !state.isPlayButtonLoading,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isPlayFocused) MaterialTheme.colorScheme.primary else Color.White,
                 contentColor = if (isPlayFocused) MaterialTheme.colorScheme.onPrimary else Color.Black,
+                disabledContainerColor = Color.White.copy(alpha = 0.5f),
+                disabledContentColor = Color.Black.copy(alpha = 0.5f),
             ),
             shape = RoundedCornerShape(4.dp),
             modifier = Modifier
                 .height(40.dp)
+                .testTag("play_button")
+                .semantics { contentDescription = if (state.isPlayButtonLoading) "Chargement..." else "Lancer la lecture" }
                 .scale(if (isPlayFocused) 1.05f else 1f)
-                .focusable(interactionSource = playInteractionSource),
-            interactionSource = playInteractionSource,
+                .then(if (playButtonFocusRequester != null) Modifier.focusRequester(playButtonFocusRequester) else Modifier)
+                .onFocusChanged { isPlayFocused = it.isFocused },
         ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Play", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            if (state.isPlayButtonLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = if (isPlayFocused) MaterialTheme.colorScheme.onPrimary else Color.Black,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Loading...", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            } else {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Play", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            }
         }
 
         // Download Button
-        val downloadInteractionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-        val isDownloadFocused by downloadInteractionSource.collectIsFocusedAsState()
+        var isDownloadFocused by remember { mutableStateOf(false) }
 
         Button(
             onClick = { onAction(MediaDetailEvent.DownloadClicked) },
@@ -197,8 +225,7 @@ fun ActionButtonsRow(
             modifier = Modifier
                 .height(40.dp)
                 .scale(if (isDownloadFocused) 1.05f else 1f)
-                .focusable(interactionSource = downloadInteractionSource),
-            interactionSource = downloadInteractionSource
+                .onFocusChanged { isDownloadFocused = it.isFocused },
         ) {
             Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(8.dp))
@@ -234,6 +261,8 @@ fun ActionButtonsRow(
             modifier =
                 Modifier
                     .size(40.dp) // Smaller
+                    .testTag("favorite_button")
+                    .semantics { contentDescription = if (media.isFavorite) "Retirer des favoris" else "Ajouter aux favoris" }
                     .onFocusChanged { favFocused = it.isFocused }
                     .background(
                         if (favFocused) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.1f),
@@ -243,7 +272,7 @@ fun ActionButtonsRow(
         ) {
             Icon(
                 imageVector = if (media.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = "Favorite",
+                contentDescription = null,
                 tint = if (media.isFavorite) MaterialTheme.colorScheme.error else Color.White,
                 modifier = Modifier.size(20.dp),
             )
@@ -265,6 +294,7 @@ fun PreviewMediaDetailMovie() {
         state = MediaDetailUiState(media = movie),
         onAction = {},
         onCollectionClicked = { _, _ -> },
+        snackbarHostState = remember { SnackbarHostState() },
     )
 }
 
@@ -286,5 +316,6 @@ fun PreviewMediaDetailShow() {
         state = MediaDetailUiState(media = show, seasons = seasons),
         onAction = {},
         onCollectionClicked = { _, _ -> },
+        snackbarHostState = remember { SnackbarHostState() },
     )
 }

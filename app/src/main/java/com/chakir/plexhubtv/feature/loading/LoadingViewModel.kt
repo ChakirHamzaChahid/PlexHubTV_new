@@ -2,9 +2,14 @@ package com.chakir.plexhubtv.feature.loading
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.work.LibrarySyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -29,14 +34,34 @@ class LoadingViewModel
 
         private fun checkSyncStatus() {
             viewModelScope.launch {
+                // 0. Safety check: ensure library selection was completed
+                if (!settingsDataStore.isLibrarySelectionComplete.first()) {
+                    _navigationEvent.emit(LoadingNavigationEvent.NavigateToLibrarySelection)
+                    return@launch
+                }
+
                 // 1. Check if sync is already complete
                 if (settingsDataStore.isFirstSyncComplete.first()) {
                     _navigationEvent.emit(LoadingNavigationEvent.NavigateToMain)
                     return@launch
                 }
 
-                // 2. Observe WorkManager for "LibrarySync_Initial" or "LibrarySync"
-                // We verify both unique work names just in case
+                // 2. Enqueue initial sync if not yet done (triggered after library selection confirm)
+                if (!settingsDataStore.isFirstSyncComplete.first()) {
+                    val constraints = Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build()
+                    val syncRequest = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
+                        .setConstraints(constraints)
+                        .build()
+                    workManager.enqueueUniqueWork(
+                        "LibrarySync_Initial",
+                        ExistingWorkPolicy.KEEP,
+                        syncRequest,
+                    )
+                }
+
+                // 3. Observe WorkManager for "LibrarySync_Initial"
                 val workFlow = workManager.getWorkInfosForUniqueWorkFlow("LibrarySync_Initial")
 
                 workFlow.collectLatest { workInfos ->
@@ -72,6 +97,12 @@ class LoadingViewModel
         fun onRetry() {
             checkSyncStatus()
         }
+
+        fun onExit() {
+            viewModelScope.launch {
+                _navigationEvent.emit(LoadingNavigationEvent.NavigateToAuth)
+            }
+        }
     }
 
 sealed class LoadingUiState {
@@ -84,4 +115,6 @@ sealed class LoadingUiState {
 
 sealed class LoadingNavigationEvent {
     data object NavigateToMain : LoadingNavigationEvent()
+    data object NavigateToAuth : LoadingNavigationEvent()
+    data object NavigateToLibrarySelection : LoadingNavigationEvent()
 }

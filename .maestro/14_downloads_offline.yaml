@@ -1,0 +1,24 @@
+# .maestro/14_downloads_offline.yaml
+appId: com.chakir.plexhubtv
+name: "Downloads - Écran téléchargements"
+tags:
+  - downloads
+  - offline
+---
+- runFlow: subflows/launch_and_wait.yaml
+
+# Naviguer vers Téléchargements
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_downloads"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_downloads"
+    timeout: 60000  # Augmenté pour stabilité
+
+# L'écran peut être vide ou contenir des éléments
+# Vérifier qu'il ne crashe pas
+- assertVisible:
+    id: "screen_downloads"

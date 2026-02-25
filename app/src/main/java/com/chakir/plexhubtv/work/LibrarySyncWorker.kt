@@ -5,8 +5,9 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.chakir.plexhubtv.data.repository.SyncRepositoryImpl
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.domain.repository.SyncRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,7 @@ class LibrarySyncWorker
         @Assisted appContext: Context,
         @Assisted workerParams: WorkerParameters,
         private val authRepository: AuthRepository,
-        private val syncRepository: SyncRepositoryImpl,
+        private val syncRepository: SyncRepository,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
     ) : CoroutineWorker(appContext, workerParams) {
@@ -128,19 +129,23 @@ class LibrarySyncWorker
                         return@withContext Result.success()
                     }
 
-                    Timber.d("→ Syncing ${servers.size} server(s)")
+                    val serverNames = servers.joinToString { it.name }
+                    Timber.d("→ Syncing ${servers.size} server(s): [$serverNames]")
 
                     var failureCount = 0
                     servers.forEach { server ->
                         try {
+                            Timber.d("→ [${server.name}] Starting sync (relay=${server.relay}, candidates=${server.connectionCandidates.size}, urls=${server.connectionCandidates.map { it.uri }})")
                             updateNotification("Syncing ${server.name}...")
                             val syncResult = syncRepository.syncServer(server)
                             if (syncResult.isFailure) {
-                                Timber.w("✗ Failed to sync ${server.name}")
+                                Timber.w("✗ [${server.name}] Sync failed: ${syncResult.exceptionOrNull()?.message}")
                                 failureCount++
+                            } else {
+                                Timber.d("✓ [${server.name}] Sync complete")
                             }
                         } catch (e: Exception) {
-                            Timber.e("✗ Exception syncing ${server.name}: ${e.message}")
+                            Timber.e("✗ [${server.name}] Exception: ${e.javaClass.simpleName} - ${e.message}")
                             failureCount++
                         }
                     }
@@ -157,14 +162,14 @@ class LibrarySyncWorker
                     syncRepository.onProgressUpdate = null
 
                     if (failureCount == servers.size && servers.isNotEmpty()) {
-                        Timber.w("All servers failed, marking complete anyway")
+                        Timber.w("✗ All ${servers.size} servers failed: [$serverNames]")
                         settingsDataStore.saveFirstSyncComplete(true)
                         Result.success()
                     } else {
                         // MARK SYNC AS COMPLETE
                         settingsDataStore.saveLastSyncTime(System.currentTimeMillis())
                         settingsDataStore.saveFirstSyncComplete(true)
-                        Timber.i("✓ Sync complete! Failures: $failureCount/${servers.size}")
+                        Timber.i("✓ Sync complete! ${servers.size - failureCount}/${servers.size} servers OK [$serverNames]")
 
                         // TRIGGER COLLECTION SYNC NOW THAT WE HAVE DATA
                         try {
@@ -209,7 +214,7 @@ class LibrarySyncWorker
         private fun updateNotification(text: String) {
             val notification =
                 androidx.core.app.NotificationCompat.Builder(applicationContext, channelId)
-                    .setContentTitle("PlexHubTV")
+                    .setContentTitle(applicationContext.getString(R.string.sync_notification_title))
                     .setContentText(text)
                     .setSmallIcon(android.R.drawable.stat_notify_sync)
                     .setOngoing(true)
@@ -227,7 +232,7 @@ class LibrarySyncWorker
                 val channel =
                     android.app.NotificationChannel(
                         channelId,
-                        "Synchronisation de la Bibliothèque",
+                        applicationContext.getString(R.string.sync_library_channel_name),
                         android.app.NotificationManager.IMPORTANCE_LOW,
                     )
                 notificationManager.createNotificationChannel(channel)
@@ -235,8 +240,8 @@ class LibrarySyncWorker
 
             val notification =
                 androidx.core.app.NotificationCompat.Builder(applicationContext, channelId)
-                    .setContentTitle("PlexHubTV")
-                    .setContentText("Synchronisation des médias en cours...")
+                    .setContentTitle(applicationContext.getString(R.string.sync_notification_title))
+                    .setContentText(applicationContext.getString(R.string.sync_library_in_progress))
                     .setSmallIcon(android.R.drawable.stat_notify_sync)
                     .setOngoing(true)
                     .build()

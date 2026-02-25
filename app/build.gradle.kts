@@ -11,6 +11,9 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
+    alias(libs.plugins.firebase.perf)
 }
 
 android {
@@ -20,9 +23,9 @@ android {
     defaultConfig {
         applicationId = "com.chakir.plexhubtv"
         minSdk = 27
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
-        versionName = "0.8.0"
+        versionName = "1.0.0"
     }
 
     signingConfigs {
@@ -108,6 +111,10 @@ android {
         }
         jniLibs {
             pickFirsts.add("lib/*/libc++_shared.so")
+            pickFirsts.add("lib/armeabi-v7a/libc++_shared.so")
+            pickFirsts.add("lib/arm64-v8a/libc++_shared.so")
+            pickFirsts.add("lib/x86/libc++_shared.so")
+            pickFirsts.add("lib/x86_64/libc++_shared.so")
         }
     }
 
@@ -146,10 +153,12 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.foundation)
+    implementation(libs.androidx.compose.animation)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.compose.navigation)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
+    implementation(libs.coil.network.okhttp)
 
     // --- Networking & Data ---
     implementation(libs.kotlinx.serialization.json)
@@ -210,4 +219,10 @@ dependencies {
     implementation(libs.play.services.basement)
     implementation(libs.play.services.base)
     implementation(libs.conscrypt.android)
+
+    // --- Firebase ---
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.perf)
 }

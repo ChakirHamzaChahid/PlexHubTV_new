@@ -1,11 +1,10 @@
 package com.chakir.plexhubtv.feature.hub
 
 import androidx.compose.foundation.layout.*
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.grid.TvGridCells
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.items
-import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.GridView
@@ -15,6 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -69,11 +71,6 @@ fun HubDetailScreen(
                         )
                     }
                 },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 actions = {
                     IconButton(
                         onClick = {
@@ -89,15 +86,33 @@ fun HubDetailScreen(
             )
         },
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .testTag("screen_hub_detail")
+                .semantics { contentDescription = "Écran de détails du hub" }
+        ) {
             when {
                 state.isLoading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("hub_loading")
+                            .semantics { contentDescription = "Chargement du hub" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         CircularProgressIndicator()
                     }
                 }
                 state.error != null -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("hub_error")
+                            .semantics { contentDescription = "Erreur: ${state.error}" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 "Error loading hub",
@@ -112,7 +127,13 @@ fun HubDetailScreen(
                     }
                 }
                 state.items.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("hub_empty")
+                            .semantics { contentDescription = "Aucun élément trouvé" },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
                             "No items found",
                             style = MaterialTheme.typography.titleLarge,
@@ -122,16 +143,21 @@ fun HubDetailScreen(
                 }
                 else -> {
                     if (viewMode == ViewMode.GRID) {
-                        val gridState = rememberTvLazyGridState()
-                        TvLazyVerticalGrid(
+                        val gridState = rememberLazyGridState()
+                        LazyVerticalGrid(
                             state = gridState,
-                            columns = TvGridCells.Adaptive(minSize = 150.dp),
+                            columns = GridCells.Adaptive(minSize = 150.dp),
                             contentPadding = PaddingValues(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
+                            modifier = Modifier
+                                .testTag("hub_items_grid")
+                                .semantics { contentDescription = "Grille des éléments du hub" },
                         ) {
-                            items(state.items) { item ->
+                            items(
+                                items = state.items,
+                                key = { item -> "${item.serverId}_${item.ratingKey}" },
+                            ) { item ->
                                 val index = state.items.indexOf(item)
                                 val fr = remember { androidx.compose.ui.focus.FocusRequester() }
                                 if (index == 0) {
@@ -140,7 +166,7 @@ fun HubDetailScreen(
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
-                                    onPlay = { /* TODO */ },
+                                    onPlay = { /* Direct play not implemented yet */ },
                                     onFocus = { /* Optional background update */ },
                                     modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )
@@ -148,15 +174,20 @@ fun HubDetailScreen(
                         }
                     } else {
                         // List view implementation
-                        val listState = rememberTvLazyGridState()
-                        TvLazyVerticalGrid(
+                        val listState = rememberLazyGridState()
+                        LazyVerticalGrid(
                             state = listState,
-                            columns = TvGridCells.Fixed(1),
+                            columns = GridCells.Fixed(1),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
+                            modifier = Modifier
+                                .testTag("hub_items_list")
+                                .semantics { contentDescription = "Liste des éléments du hub" },
                         ) {
-                            items(state.items) { item ->
+                            items(
+                                items = state.items,
+                                key = { item -> "${item.serverId}_${item.ratingKey}" },
+                            ) { item ->
                                 val index = state.items.indexOf(item)
                                 val fr = remember { androidx.compose.ui.focus.FocusRequester() }
                                 if (index == 0) {
@@ -165,7 +196,7 @@ fun HubDetailScreen(
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
-                                    onPlay = { /* TODO */ },
+                                    onPlay = { /* Direct play not implemented yet */ },
                                     onFocus = { /* Optional background update */ },
                                     modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )

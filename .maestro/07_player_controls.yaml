@@ -1,0 +1,65 @@
+# .maestro/07_player_controls.yaml
+appId: com.chakir.plexhubtv
+name: "Player - Contrôles avancés (seek, skip)"
+tags:
+  - player
+  - controls
+---
+- runFlow: subflows/launch_and_wait.yaml
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_movies"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 150000
+
+- runFlow: subflows/select_first_media.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 150000
+
+# Lancer la lecture
+- pressKey: "Remote Dpad Center"
+- extendedWaitUntil:
+    visible:
+      id: "screen_player"
+    timeout: 200000
+
+# --- Test des contrôles ---
+
+# Avance rapide
+- pressKey: "Remote Media Fast Forward"
+- pressKey: "Remote Media Fast Forward"
+
+# Retour rapide
+- pressKey: "Remote Media Rewind"
+
+# Pause
+- pressKey: "Remote Media Play Pause"
+
+# Afficher l'overlay contrôles (touche center ou dpad)
+- pressKey: "Remote Dpad Center"
+- extendedWaitUntil:
+    visible:
+      id: "player_controls_overlay"
+    timeout: 50000
+
+# Naviguer dans les contrôles (seekbar)
+- pressKey: "Remote Dpad Right"
+- pressKey: "Remote Dpad Right"
+- pressKey: "Remote Dpad Right"
+
+# Vérifier que la seekbar est présente
+- assertVisible:
+    id: "player_seekbar"
+
+# Reprendre la lecture
+- pressKey: "Remote Media Play Pause"
+
+# Quitter
+- pressKey: back

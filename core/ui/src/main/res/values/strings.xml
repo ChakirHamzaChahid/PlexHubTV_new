@@ -16,4 +16,22 @@
     <!-- Error messages -->
     <string name="error_fragment_message">An error occurred</string>
     <string name="dismiss_error">Dismiss</string>
+
+    <!-- Top Bar -->
+    <string name="topbar_title">PlexHub TV</string>
+    <string name="topbar_logo_description">PlexHub TV Logo</string>
+    <string name="topbar_search_description">Search</string>
+    <string name="topbar_settings_description">Settings</string>
+    <string name="topbar_profile_description">Switch profile</string>
+
+    <!-- Hero Billboard -->
+    <string name="hero_play_button">Play</string>
+    <string name="hero_more_info_button">More Info</string>
+    <string name="hero_play_description">Start playback</string>
+    <string name="hero_more_info_description">More information</string>
+    <string name="hero_transition_label">HeroImageTransition</string>
+
+    <!-- Sidebar -->
+    <string name="sidebar_navigation_description">Navigation menu</string>
+    <string name="sidebar_profile_description">User profile</string>
 </resources>

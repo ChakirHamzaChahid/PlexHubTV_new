@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.core.network
 
+import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.Module
@@ -12,20 +13,32 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.net.InetAddress
+import java.net.Socket
+import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLEngine
+import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509ExtendedTrustManager
 import javax.net.ssl.X509TrustManager
 
 /**
  * Module Dagger Hilt pour la configuration réseau.
  *
- * Fournit :
- * - [OkHttpClient] : Configuré avec logging et TrustManager qui accepte les certificats
- *   auto-signés uniquement pour les serveurs sur le réseau local (IPs privées).
+ * Fournit deux OkHttpClients avec des politiques SSL distinctes :
+ *
+ * - **Default [OkHttpClient]** : Utilise un [X509ExtendedTrustManager] hostname-aware qui
+ *   accepte les certificats auto-signés UNIQUEMENT pour les IPs privées (LAN).
  *   Les connexions vers des domaines publics (plex.tv, etc.) utilisent la validation SSL standard.
+ *   Utilisé par : PlexApiService (plex.tv + serveurs LAN), ConnectionTester, ImageLoader.
+ *
+ * - **@Named("public") [OkHttpClient]** : Validation SSL standard du système, aucun TrustManager
+ *   custom. Utilisé par : TMDb API, OMDb API.
+ *
  * - [Retrofit] : Point d'entrée pour l'API Plex.
  * - [PlexApiService] : Interface Retrofit.
  * - [Gson] : Sérialisation JSON.
@@ -33,7 +46,7 @@ import javax.net.ssl.X509TrustManager
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-    private fun isPrivateAddress(host: String): Boolean {
+    internal fun isPrivateAddress(host: String): Boolean {
         return try {
             if (host == "localhost" || host == "127.0.0.1" || host == "::1") return true
             val address = InetAddress.getByName(host)
@@ -54,7 +67,11 @@ object NetworkModule {
     @Singleton
     fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
     }
 
@@ -62,28 +79,58 @@ object NetworkModule {
     @Singleton
     fun provideAuthInterceptor(
         settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
-        @com.chakir.plexhubtv.core.di.ApplicationScope scope: CoroutineScope
+        @ApplicationScope scope: CoroutineScope,
+        authEventBus: com.chakir.plexhubtv.core.common.auth.AuthEventBus,
     ): AuthInterceptor {
-        return AuthInterceptor(settingsDataStore, scope)
+        return AuthInterceptor(settingsDataStore, scope, authEventBus)
     }
 
+    /**
+     * Public OkHttpClient with standard system SSL validation.
+     * No custom TrustManager — certificates are validated normally.
+     * Used by TMDb and OMDb APIs (external public services).
+     */
+    @Provides
+    @Singleton
+    @Named("public")
+    fun providePublicOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        loggingInterceptor: HttpLoggingInterceptor,
+    ): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
+            .addInterceptor(loggingInterceptor)
+            .connectionPool(okhttp3.ConnectionPool(5, 5, TimeUnit.MINUTES))
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /**
+     * Default OkHttpClient with hostname-aware TrustManager.
+     * Uses [X509ExtendedTrustManager] to access the actual hostname during TLS handshake:
+     * - Public domains (plex.tv, etc.): Standard certificate validation (rejects self-signed)
+     * - Private IPs (192.168.x.x, 10.x.x.x, etc.): Accepts self-signed certs (Plex LAN servers)
+     *
+     * Used by PlexApiService (plex.tv cloud + LAN servers), ConnectionTester, ImageLoader.
+     */
     @Provides
     @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
         loggingInterceptor: HttpLoggingInterceptor,
     ): OkHttpClient {
-        // Get the default system trust manager for public domains
         val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
         trustManagerFactory.init(null as java.security.KeyStore?)
         val defaultTrustManager =
             trustManagerFactory.trustManagers
                 .filterIsInstance<X509TrustManager>()
-                .first()
+                .firstOrNull()
+                ?: throw IllegalStateException("No X509TrustManager found in system TrustManagers")
 
-        // Trust manager that skips validation only for private/local IPs
         val localAwareTrustManager =
-            object : X509TrustManager {
+            object : X509ExtendedTrustManager() {
                 override fun checkClientTrusted(
                     chain: Array<out X509Certificate>?,
                     authType: String?,
@@ -91,22 +138,67 @@ object NetworkModule {
                     defaultTrustManager.checkClientTrusted(chain, authType)
                 }
 
+                override fun checkClientTrusted(
+                    chain: Array<out X509Certificate>?,
+                    authType: String?,
+                    socket: Socket,
+                ) {
+                    defaultTrustManager.checkClientTrusted(chain, authType)
+                }
+
+                override fun checkClientTrusted(
+                    chain: Array<out X509Certificate>?,
+                    authType: String?,
+                    engine: SSLEngine,
+                ) {
+                    defaultTrustManager.checkClientTrusted(chain, authType)
+                }
+
+                // Legacy method without hostname: enforce strict validation (no catch)
                 override fun checkServerTrusted(
                     chain: Array<out X509Certificate>?,
                     authType: String?,
                 ) {
-                    // For local IPs, accept self-signed certs (Plex Media Server on LAN)
-                    val host = chain?.firstOrNull()?.subjectX500Principal?.name ?: ""
-                    // We can't reliably get the hostname here, so we delegate to hostnameVerifier
-                    // and use a permissive approach for the trust manager since hostnameVerifier
-                    // will enforce the private IP check.
-                    // However, we still validate public certificates by default.
+                    defaultTrustManager.checkServerTrusted(chain, authType)
+                }
+
+                // Socket variant: called by JSSE during TLS handshake, gives us hostname
+                override fun checkServerTrusted(
+                    chain: Array<out X509Certificate>?,
+                    authType: String?,
+                    socket: Socket,
+                ) {
                     try {
-                        defaultTrustManager.checkServerTrusted(chain, authType)
-                    } catch (_: Exception) {
-                        // If default validation fails, we allow it only if hostname verifier
-                        // later confirms it's a private IP. OkHttp calls hostnameVerifier after
-                        // the trust manager, so we accept here and let hostnameVerifier decide.
+                        if (defaultTrustManager is X509ExtendedTrustManager) {
+                            defaultTrustManager.checkServerTrusted(chain, authType, socket)
+                        } else {
+                            defaultTrustManager.checkServerTrusted(chain, authType)
+                        }
+                    } catch (e: CertificateException) {
+                        // Accept self-signed ONLY for private/local IPs
+                        val hostname = (socket as? SSLSocket)?.handshakeSession?.peerHost
+                        if (hostname != null && isPrivateAddress(hostname)) return
+                        throw e
+                    }
+                }
+
+                // SSLEngine variant: same logic for NIO-based connections
+                override fun checkServerTrusted(
+                    chain: Array<out X509Certificate>?,
+                    authType: String?,
+                    engine: SSLEngine,
+                ) {
+                    try {
+                        if (defaultTrustManager is X509ExtendedTrustManager) {
+                            defaultTrustManager.checkServerTrusted(chain, authType, engine)
+                        } else {
+                            defaultTrustManager.checkServerTrusted(chain, authType)
+                        }
+                    } catch (e: CertificateException) {
+                        // Accept self-signed ONLY for private/local IPs
+                        val hostname = engine.handshakeSession?.peerHost
+                        if (hostname != null && isPrivateAddress(hostname)) return
+                        throw e
                     }
                 }
 
@@ -127,7 +219,7 @@ object NetworkModule {
                 // For public domains, use standard hostname verification
                 javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier().verify(hostname, session)
             }
-            .connectTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
@@ -154,8 +246,8 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideServerConnectionTester(): ServerConnectionTester {
-        return OkHttpConnectionTester()
+    fun provideServerConnectionTester(okHttpClient: OkHttpClient): ServerConnectionTester {
+        return OkHttpConnectionTester(okHttpClient)
     }
 
     // ========================================
@@ -164,13 +256,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @javax.inject.Named("tmdb")
-    fun provideTmdbRetrofit(gson: Gson): Retrofit {
-        val tmdbClient = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
+    @Named("tmdb")
+    fun provideTmdbRetrofit(@Named("public") okHttpClient: OkHttpClient, gson: Gson): Retrofit {
+        val tmdbClient = okHttpClient.newBuilder()
+            .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
-        
+
         return Retrofit.Builder()
             .baseUrl("https://api.themoviedb.org/")
             .client(tmdbClient)
@@ -181,7 +273,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideTmdbApiService(
-        @javax.inject.Named("tmdb") retrofit: Retrofit,
+        @Named("tmdb") retrofit: Retrofit,
     ): TmdbApiService {
         return retrofit.create(TmdbApiService::class.java)
     }
@@ -192,13 +284,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @javax.inject.Named("omdb")
-    fun provideOmdbRetrofit(gson: Gson): Retrofit {
-        val omdbClient = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
+    @Named("omdb")
+    fun provideOmdbRetrofit(@Named("public") okHttpClient: OkHttpClient, gson: Gson): Retrofit {
+        val omdbClient = okHttpClient.newBuilder()
+            .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
-        
+
         return Retrofit.Builder()
             .baseUrl("https://www.omdbapi.com/")
             .client(omdbClient)
@@ -209,7 +301,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOmdbApiService(
-        @javax.inject.Named("omdb") retrofit: Retrofit,
+        @Named("omdb") retrofit: Retrofit,
     ): OmdbApiService {
         return retrofit.create(OmdbApiService::class.java)
     }

@@ -1,0 +1,19 @@
+# .maestro/18_full_regression.yaml
+appId: com.chakir.plexhubtv
+name: "Régression complète PlexHubTV"
+tags:
+  - regression
+  - full
+---
+- runFlow: 03_home_screen.yaml
+- runFlow: 04_browse_movies_dpad.yaml
+- runFlow: 05_movie_detail.yaml
+- runFlow: 06_play_movie.yaml
+- runFlow: 07_player_controls.yaml
+- runFlow: 09_search.yaml
+- runFlow: 10_favorites.yaml
+- runFlow: 11_browse_tvshows.yaml
+- runFlow: 12_settings.yaml
+- runFlow: 14_downloads_offline.yaml
+- runFlow: 15_history.yaml
+- runFlow: 16_iptv.yaml

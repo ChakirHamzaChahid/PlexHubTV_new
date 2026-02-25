@@ -29,13 +29,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.HomeScreenSkeleton
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
+import com.chakir.plexhubtv.core.ui.showError
 
 // Backward compatibility wrapper
 @Composable
@@ -61,19 +65,26 @@ fun MediaCard(
 
 
 /**
- * Écran d'accueil principal (Discover).
- * Affiche le contenu "On Deck" (en cours) et les "Hubs" (sections recommandées, récemment ajoutés, etc.).
- * Gère l'affichage de l'état de synchronisation initiale.
+ * Écran d'accueil principal.
+ * Affiche uniquement le Hero Billboard avec les items On Deck.
  */
 @Composable
 fun HomeRoute(
     viewModel: HomeViewModel = hiltViewModel(),
     onNavigateToDetails: (String, String) -> Unit,
     onNavigateToPlayer: (String, String) -> Unit,
+    onScrollStateChanged: (Boolean) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
+    val errorEvents = viewModel.errorEvents
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    val heroItems by remember {
+        derivedStateOf { uiState.onDeck.take(10) }
+    }
+
+    // Handle navigation events
     LaunchedEffect(events) {
         events.collect { event ->
             when (event) {
@@ -83,45 +94,52 @@ fun HomeRoute(
         }
     }
 
+    // Handle error events with centralized error display
+    LaunchedEffect(errorEvents) {
+        errorEvents.collect { error ->
+            val result = snackbarHostState.showError(error)
+            if (result == SnackbarResult.ActionPerformed && error.isRetryable()) {
+                viewModel.onAction(HomeAction.Refresh)
+            }
+        }
+    }
+
     DiscoverScreen(
         state = uiState,
+        heroItems = heroItems,
         onAction = viewModel::onAction,
+        snackbarHostState = snackbarHostState,
     )
 }
 
 @Composable
 fun DiscoverScreen(
     state: HomeUiState,
+    heroItems: List<MediaItem>,
     onAction: (HomeAction) -> Unit,
-    onScrollStateChanged: (Boolean) -> Unit = {},
+    snackbarHostState: SnackbarHostState,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { ErrorSnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // AnimatedBackground REMOVED — hero billboard handles its own backdrop.
-            // Double background was causing double memory usage for full-screen images.
-
             when {
-                state.isInitialSync && state.onDeck.isEmpty() && state.hubs.isEmpty() ->
+                state.isInitialSync && state.onDeck.isEmpty() ->
                     InitialSyncState(
                         state.syncProgress,
                         state.syncMessage,
                     )
                 state.isLoading -> LoadingState()
-                state.error != null -> ErrorState(state.error) { onAction(HomeAction.Refresh) }
-                state.onDeck.isEmpty() && state.hubs.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
+                state.onDeck.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
                 else ->
                     NetflixHomeContent(
-                        onDeck = state.onDeck,
-                        hubs = state.hubs,
-                        favorites = state.favorites,
+                        heroItems = heroItems,
                         onAction = onAction,
-                        onScrollStateChanged = onScrollStateChanged,
                     )
             }
         }
@@ -130,12 +148,9 @@ fun DiscoverScreen(
 
 @Composable
 fun LoadingState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-    }
+    HomeScreenSkeleton(
+        modifier = Modifier.fillMaxSize()
+    )
 }
 
 @Composable
@@ -215,9 +230,8 @@ fun AnimatedBackground(
         Box(modifier = modifier.fillMaxSize()) {
             AsyncImage(
                 model =
-                    coil.request.ImageRequest.Builder(LocalContext.current)
+                    coil3.request.ImageRequest.Builder(LocalContext.current)
                         .data(targetUrl)
-                        .crossfade(true)
                         .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

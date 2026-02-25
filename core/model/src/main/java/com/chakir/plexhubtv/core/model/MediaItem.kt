@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.core.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Entité principale représentant un élément multimédia unifié.
  *
@@ -22,7 +24,7 @@ package com.chakir.plexhubtv.core.model
  * @property remoteSources Liste des serveurs alternatifs proposant ce même média.
  */
 
-
+@Immutable
 data class MediaItem(
     val id: String, // serverId + ratingKey
     val ratingKey: String,
@@ -32,6 +34,8 @@ data class MediaItem(
     val type: MediaType,
     val thumbUrl: String? = null,
     val artUrl: String? = null,
+    // Alternative poster URLs from other servers for fallback if primary fails
+    val alternativeThumbUrls: List<String> = emptyList(),
     val summary: String? = null,
     val year: Int? = null,
     val durationMs: Long? = null,

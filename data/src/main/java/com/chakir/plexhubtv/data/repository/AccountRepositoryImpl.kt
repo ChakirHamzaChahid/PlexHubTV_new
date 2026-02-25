@@ -1,6 +1,8 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.common.safeApiCall
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.PlexHomeUser
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.domain.repository.AccountRepository
@@ -21,18 +23,19 @@ class AccountRepositoryImpl
         private val userMapper: com.chakir.plexhubtv.data.mapper.UserMapper,
     ) : AccountRepository {
         override suspend fun getHomeUsers(): Result<List<PlexHomeUser>> {
-            return try {
-                val token = settingsDataStore.plexToken.first() ?: return Result.failure(Exception("Not logged in"))
+            val token = settingsDataStore.plexToken.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Not logged in"))
+
+            return safeApiCall("getHomeUsers") {
                 val clientId = settingsDataStore.clientId.first() ?: ""
                 val response = api.getHomeUsers(token, clientId)
-                if (response.isSuccessful) {
-                    val users = response.body()?.map { userMapper.mapDtoToDomain(it) } ?: emptyList()
-                    Result.success(users)
-                } else {
-                    Result.failure(Exception("API Error: ${response.code()}"))
+
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("API Error: ${response.code()}")
                 }
-            } catch (e: Exception) {
-                Result.failure(e)
+
+                val users = response.body()?.mediaContainer?.users ?: emptyList()
+                users.map { userMapper.mapDtoToDomain(it) }
             }
         }
 
@@ -40,24 +43,23 @@ class AccountRepositoryImpl
             user: PlexHomeUser,
             pin: String?,
         ): Result<Boolean> {
-            return try {
-                val currentToken = settingsDataStore.plexToken.first() ?: return Result.failure(Exception("Not logged in"))
+            val currentToken = settingsDataStore.plexToken.first()
+                ?: return Result.failure(AppError.Auth.InvalidToken("Not logged in"))
+
+            return safeApiCall("switchUser") {
                 val clientId = settingsDataStore.clientId.first() ?: ""
                 val response = api.switchUser(user.uuid, pin, currentToken, clientId)
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    if (body != null) {
-                        settingsDataStore.saveToken(body.authToken)
-                        settingsDataStore.saveUser(user.uuid, user.displayName)
-                        Result.success(true)
-                    } else {
-                        Result.failure(Exception("Empty switch response"))
-                    }
-                } else {
-                    Result.failure(Exception("PIN likely incorrect or API error: ${response.code()}"))
+
+                if (!response.isSuccessful) {
+                    throw AppError.Auth.InvalidToken("PIN likely incorrect or API error: ${response.code()}")
                 }
-            } catch (e: Exception) {
-                Result.failure(e)
+
+                val body = response.body()
+                    ?: throw AppError.Network.ServerError("Empty switch response")
+
+                settingsDataStore.saveToken(body.authToken)
+                settingsDataStore.saveUser(user.uuid, user.displayName)
+                true
             }
         }
 

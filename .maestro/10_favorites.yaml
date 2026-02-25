@@ -1,0 +1,55 @@
+# .maestro/10_favorites.yaml
+appId: com.chakir.plexhubtv
+name: "Favorites - Ajout et consultation des favoris"
+tags:
+  - favorites
+---
+- runFlow: subflows/launch_and_wait.yaml
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_movies"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Aller sur un film
+- runFlow: subflows/select_first_media.yaml
+- extendedWaitUntil:
+    visible:
+      id: "screen_media_detail"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Naviguer vers le bouton favoris
+- scrollUntilVisible:
+    element:
+      id: "favorite_button"
+    direction: RIGHT
+    timeout: 60000  # Augmenté pour stabilité
+
+# Toggle favoris (ajouter)
+- pressKey: "Remote Dpad Center"
+
+# Retour
+- pressKey: back
+- extendedWaitUntil:
+    visible:
+      id: "screen_movies"
+    timeout: 30000  # Augmenté pour stabilité
+
+# Naviguer vers l'écran Favoris
+- runFlow:
+    file: subflows/navigate_to.yaml
+    env:
+      NAV_TARGET: "nav_item_favorites"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen_favorites"
+    timeout: 60000  # Augmenté pour stabilité
+
+# Vérifier que la liste n'est pas vide (le film ajouté devrait être là)
+- assertNotVisible:
+    id: "favorites_empty"

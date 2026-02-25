@@ -67,35 +67,29 @@ class GetMediaDetailUseCase
                 }
 
                 coroutineScope {
-                    // 1. Start fetching primary detail
+                    // 1. Fetch primary detail + speculatively fetch children in TRUE parallel
+                    // Both getMediaDetail and getChildren are Room-first (~5ms), so launching both
+                    // simultaneously saves the sequential wait even if children aren't needed.
                     val itemDeferred = async { mediaDetailRepository.getMediaDetail(ratingKey, serverId) }
+                    val childrenDeferred = async { mediaDetailRepository.getShowSeasons(ratingKey, serverId) }
 
                     val itemResult = itemDeferred.await()
 
                     if (itemResult.isSuccess) {
                         val item = itemResult.getOrThrow()
 
-                        // 2. Parallelize Children Fetch
-                        val childrenDeferred =
-                            async {
-                                when (item.type) {
-                                    MediaType.Show -> mediaDetailRepository.getShowSeasons(ratingKey, serverId)
-                                    MediaType.Season -> mediaDetailRepository.getSeasonEpisodes(ratingKey, serverId)
-                                    else -> Result.success(emptyList())
-                                }
+                        // 2. Use speculative children only for Show/Season types
+                        val children = when (item.type) {
+                            MediaType.Show, MediaType.Season -> childrenDeferred.await().getOrDefault(emptyList())
+                            else -> {
+                                childrenDeferred.cancel()
+                                emptyList()
                             }
+                        }
 
-                        val childrenResult = childrenDeferred.await()
-
-                        emit(
-                            Result.success(
-                                MediaDetail(
-                                    item = item,
-                                    children = childrenResult.getOrDefault(emptyList()),
-                                ),
-                            ),
-                        )
+                        emit(Result.success(MediaDetail(item = item, children = children)))
                     } else {
+                        childrenDeferred.cancel()
                         emit(Result.failure(itemResult.exceptionOrNull() ?: Exception("Failed to load details")))
                     }
                 }

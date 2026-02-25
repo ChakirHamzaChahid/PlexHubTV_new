@@ -98,6 +98,135 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_22_23 =
+        object : androidx.room.migration.Migration(22, 23) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Create profiles table for multi-user support
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `profiles` (
+                        `id` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `avatarUrl` TEXT,
+                        `avatarEmoji` TEXT,
+                        `isKidsProfile` INTEGER NOT NULL,
+                        `ageRating` TEXT NOT NULL,
+                        `autoPlayNext` INTEGER NOT NULL,
+                        `preferredAudioLanguage` TEXT,
+                        `preferredSubtitleLanguage` TEXT,
+                        `preferredQuality` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `lastUsed` INTEGER NOT NULL,
+                        `isActive` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                    """
+                )
+
+                // Create index on isActive for faster active profile queries
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_profiles_isActive` ON `profiles` (`isActive`)")
+
+                // Create default profile
+                val uuid = java.util.UUID.randomUUID().toString()
+                val now = System.currentTimeMillis()
+                database.execSQL(
+                    """
+                    INSERT INTO `profiles` (
+                        `id`, `name`, `avatarUrl`, `avatarEmoji`, `isKidsProfile`,
+                        `ageRating`, `autoPlayNext`, `preferredAudioLanguage`,
+                        `preferredSubtitleLanguage`, `preferredQuality`,
+                        `createdAt`, `lastUsed`, `isActive`
+                    ) VALUES (
+                        '$uuid', 'Default', NULL, '😊', 0,
+                        'GENERAL', 1, NULL, NULL, 'AUTO',
+                        $now, $now, 1
+                    )
+                    """
+                )
+            }
+        }
+
+    private val MIGRATION_23_24 =
+        object : androidx.room.migration.Migration(23, 24) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `search_cache` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `query` TEXT NOT NULL,
+                        `serverId` TEXT NOT NULL,
+                        `resultsJson` TEXT NOT NULL,
+                        `resultCount` INTEGER NOT NULL DEFAULT 0,
+                        `lastUpdated` INTEGER NOT NULL
+                    )
+                    """
+                )
+                database.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS `index_search_cache_query_serverId`
+                    ON `search_cache` (`query`, `serverId`)
+                    """
+                )
+            }
+        }
+
+    private val MIGRATION_24_25 =
+        object : androidx.room.migration.Migration(24, 25) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE servers ADD COLUMN relay INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE servers ADD COLUMN publicAddress TEXT")
+                database.execSQL("ALTER TABLE servers ADD COLUMN httpsRequired INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE servers ADD COLUMN connectionCandidatesJson TEXT NOT NULL DEFAULT '[]'")
+                // Clear stale server cache so fresh data with all candidates is fetched from API
+                database.execSQL("DELETE FROM servers")
+            }
+        }
+
+    private val MIGRATION_25_26 =
+        object : androidx.room.migration.Migration(25, 26) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Clear stale server cache for users who already migrated to v25 without the DELETE
+                database.execSQL("DELETE FROM servers")
+            }
+        }
+
+    private val MIGRATION_26_27 =
+        object : androidx.room.migration.Migration(26, 27) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add parentIndex column for episode matching by season number instead of season title
+                // This eliminates 18 network requests per enrichment by enabling reliable Room-first matching
+                database.execSQL("ALTER TABLE media ADD COLUMN parentIndex INTEGER DEFAULT NULL")
+            }
+        }
+
+    private val MIGRATION_27_28 =
+        object : androidx.room.migration.Migration(27, 28) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add alternativeThumbUrls for fallback image loading from other servers
+                // Stores pipe-separated list of resolvedThumbUrl from all servers for the same media
+                database.execSQL("ALTER TABLE media ADD COLUMN alternativeThumbUrls TEXT DEFAULT NULL")
+            }
+        }
+
+    private val MIGRATION_28_29 =
+        object : androidx.room.migration.Migration(28, 29) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add displayRating: canonical pre-computed rating for sort and display
+                // Formula: COALESCE(scrapedRating, audienceRating, rating, 0.0)
+                database.execSQL("ALTER TABLE media ADD COLUMN displayRating REAL NOT NULL DEFAULT 0.0")
+
+                // Backfill: compute displayRating for all existing rows
+                database.execSQL(
+                    "UPDATE media SET displayRating = COALESCE(scrapedRating, audienceRating, rating, 0.0)"
+                )
+
+                // Add composite index for performant rating sort
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_type_displayRating ON media (type, displayRating)"
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -128,7 +257,14 @@ object DatabaseModule {
                 MIGRATION_18_19,
                 MIGRATION_19_20,
                 MIGRATION_20_21,
-                MIGRATION_21_22
+                MIGRATION_21_22,
+                MIGRATION_22_23,
+                MIGRATION_23_24,
+                MIGRATION_24_25,
+                MIGRATION_25_26,
+                MIGRATION_26_27,
+                MIGRATION_27_28,
+                MIGRATION_28_29
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -178,5 +314,15 @@ object DatabaseModule {
     @Provides
     fun provideCollectionDao(database: PlexDatabase): CollectionDao {
         return database.collectionDao()
+    }
+
+    @Provides
+    fun provideProfileDao(database: PlexDatabase): ProfileDao {
+        return database.profileDao()
+    }
+
+    @Provides
+    fun provideSearchCacheDao(database: PlexDatabase): SearchCacheDao {
+        return database.searchCacheDao()
     }
 }

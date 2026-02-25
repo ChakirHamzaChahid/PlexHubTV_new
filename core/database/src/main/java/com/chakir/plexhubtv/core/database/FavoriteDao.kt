@@ -20,6 +20,9 @@ interface FavoriteDao {
         serverId: String,
     ): Flow<Boolean>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE ratingKey IN (:ratingKeys))")
+    fun isFavoriteAny(ratingKeys: List<String>): Flow<Boolean>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFavorite(favorite: FavoriteEntity)
 

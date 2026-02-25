@@ -112,4 +112,70 @@ class SettingsRepositoryImpl
         override suspend fun saveOmdbApiKey(key: String) {
             settingsDataStore.saveOmdbApiKey(key)
         }
+
+        // Rating Sync Configuration
+        override val ratingSyncSource: Flow<String> = settingsDataStore.ratingSyncSource
+        override val ratingSyncDelay: Flow<Long> = settingsDataStore.ratingSyncDelay
+        override val ratingSyncBatchingEnabled: Flow<Boolean> = settingsDataStore.ratingSyncBatchingEnabled
+        override val ratingSyncDailyLimit: Flow<Int> = settingsDataStore.ratingSyncDailyLimit
+        override val ratingSyncProgressSeries: Flow<Int> = settingsDataStore.ratingSyncProgressSeries
+        override val ratingSyncProgressMovies: Flow<Int> = settingsDataStore.ratingSyncProgressMovies
+        override val ratingSyncLastRunDate: Flow<String?> = settingsDataStore.ratingSyncLastRunDate
+
+        override suspend fun saveRatingSyncSource(source: String) {
+            settingsDataStore.saveRatingSyncSource(source)
+        }
+
+        override suspend fun saveRatingSyncDelay(delayMs: Long) {
+            settingsDataStore.saveRatingSyncDelay(delayMs)
+        }
+
+        override suspend fun saveRatingSyncBatchingEnabled(enabled: Boolean) {
+            settingsDataStore.saveRatingSyncBatchingEnabled(enabled)
+        }
+
+        override suspend fun saveRatingSyncDailyLimit(limit: Int) {
+            settingsDataStore.saveRatingSyncDailyLimit(limit)
+        }
+
+        override suspend fun saveRatingSyncProgressSeries(progress: Int) {
+            settingsDataStore.saveRatingSyncProgressSeries(progress)
+        }
+
+        override suspend fun saveRatingSyncProgressMovies(progress: Int) {
+            settingsDataStore.saveRatingSyncProgressMovies(progress)
+        }
+
+        override suspend fun saveRatingSyncLastRunDate(date: String) {
+            settingsDataStore.saveRatingSyncLastRunDate(date)
+        }
+
+        override suspend fun resetRatingSyncProgress() {
+            settingsDataStore.resetRatingSyncProgress()
+        }
+
+        // TV Channels
+        override val isTvChannelsEnabled: Flow<Boolean> = settingsDataStore.isTvChannelsEnabled
+
+        override suspend fun setTvChannelsEnabled(enabled: Boolean) {
+            settingsDataStore.setTvChannelsEnabled(enabled)
+        }
+
+        // Library Filter Preferences
+        override val librarySort: Flow<String> = settingsDataStore.librarySort
+        override val librarySortDescending: Flow<Boolean> = settingsDataStore.librarySortDescending
+        override val libraryGenre: Flow<String?> = settingsDataStore.libraryGenre
+        override val libraryServerFilter: Flow<String?> = settingsDataStore.libraryServerFilter
+
+        override suspend fun saveLibrarySort(sort: String, isDescending: Boolean) {
+            settingsDataStore.saveLibrarySort(sort, isDescending)
+        }
+
+        override suspend fun saveLibraryGenre(genre: String?) {
+            settingsDataStore.saveLibraryGenre(genre)
+        }
+
+        override suspend fun saveLibraryServerFilter(serverName: String?) {
+            settingsDataStore.saveLibraryServerFilter(serverName)
+        }
     }

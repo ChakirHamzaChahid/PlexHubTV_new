@@ -1,10 +1,13 @@
 package com.chakir.plexhubtv.data.di
 
+import com.chakir.plexhubtv.core.network.ApiCache
+import com.chakir.plexhubtv.data.cache.RoomApiCache
 import com.chakir.plexhubtv.data.repository.AuthRepositoryImpl
 import com.chakir.plexhubtv.data.repository.DownloadsRepositoryImpl
 import com.chakir.plexhubtv.data.repository.LibraryRepositoryImpl
 import com.chakir.plexhubtv.data.repository.MediaRepositoryImpl
 import com.chakir.plexhubtv.data.repository.OfflineWatchSyncRepositoryImpl
+import com.chakir.plexhubtv.data.repository.ProfileRepositoryImpl
 import com.chakir.plexhubtv.data.repository.SearchRepositoryImpl
 import com.chakir.plexhubtv.data.repository.SettingsRepositoryImpl
 import com.chakir.plexhubtv.domain.repository.AuthRepository
@@ -12,6 +15,7 @@ import com.chakir.plexhubtv.domain.repository.DownloadsRepository
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import com.chakir.plexhubtv.domain.repository.MediaRepository
 import com.chakir.plexhubtv.domain.repository.OfflineWatchSyncRepository
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import dagger.Binds
@@ -121,4 +125,30 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindOfflineWatchSyncRepository(impl: OfflineWatchSyncRepositoryImpl): OfflineWatchSyncRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProfileRepository(impl: ProfileRepositoryImpl): ProfileRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindApiCache(impl: RoomApiCache): ApiCache
+
+    @Binds
+    @Singleton
+    abstract fun bindTrackPreferenceRepository(
+        impl: com.chakir.plexhubtv.data.repository.TrackPreferenceRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.TrackPreferenceRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindResolveEpisodeSourcesUseCase(
+        impl: com.chakir.plexhubtv.data.usecase.ResolveEpisodeSourcesUseCaseImpl,
+    ): com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase
+
+    @Binds
+    @Singleton
+    abstract fun bindTvChannelManager(
+        impl: com.chakir.plexhubtv.data.util.TvChannelManagerImpl,
+    ): com.chakir.plexhubtv.domain.service.TvChannelManager
 }

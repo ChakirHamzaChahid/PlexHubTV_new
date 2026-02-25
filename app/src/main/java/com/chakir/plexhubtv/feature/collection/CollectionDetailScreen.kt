@@ -2,11 +2,10 @@ package com.chakir.plexhubtv.feature.collection
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.tv.foundation.PivotOffsets
-import androidx.tv.foundation.lazy.grid.TvGridCells
-import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
-import androidx.tv.foundation.lazy.grid.items
-import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -19,8 +18,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.feature.home.MediaCard
 
 @Composable
@@ -45,20 +49,19 @@ fun CollectionDetailScreen(
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
+    val collectionTitle = stringResource(R.string.collection_title)
+    val screenDesc = stringResource(R.string.collection_screen_description)
+    val loadingDesc = stringResource(R.string.collection_loading_description)
+    val itemsDesc = stringResource(R.string.collection_items_description)
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.collection?.title ?: "Collection") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                title = { Text(state.collection?.title ?: collectionTitle) },
                 colors =
                     TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black,
                         titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
                     ),
             )
         },
@@ -68,19 +71,28 @@ fun CollectionDetailScreen(
             modifier =
                 Modifier
                     .fillMaxSize()
+                    .testTag("screen_collection_detail")
+                    .semantics { contentDescription = screenDesc }
                     .padding(paddingValues)
                     .background(Color.Black),
         ) {
             if (state.isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .testTag("collection_loading")
+                        .semantics { contentDescription = loadingDesc },
                     color = MaterialTheme.colorScheme.primary,
                 )
             } else if (state.error != null) {
+                val errorDesc = stringResource(R.string.collection_error_description, state.error)
                 Text(
                     text = state.error,
                     color = Color.Red,
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .testTag("collection_error")
+                        .semantics { contentDescription = errorDesc },
                 )
             } else {
                 state.collection?.let { collection ->
@@ -97,22 +109,30 @@ fun CollectionDetailScreen(
                             }
                         }
 
-                        val gridState = rememberTvLazyGridState()
-                        TvLazyVerticalGrid(
+                        val gridState = rememberLazyGridState()
+                        val gridFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+
+                        // Request focus ONCE, outside the items lambda
+                        LaunchedEffect(Unit) {
+                            gridFocusRequester.requestFocus()
+                        }
+
+                        LazyVerticalGrid(
                             state = gridState,
-                            columns = TvGridCells.Adaptive(minSize = 120.dp),
+                            columns = GridCells.Adaptive(minSize = 120.dp),
                             contentPadding = PaddingValues(16.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
-                            pivotOffsets = PivotOffsets(parentFraction = 0.0f),
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .focusRequester(gridFocusRequester)
+                                .testTag("collection_items_list")
+                                .semantics { contentDescription = itemsDesc },
                         ) {
-                            items(collection.items) { item ->
-                                val index = collection.items.indexOf(item)
-                                val fr = remember { androidx.compose.ui.focus.FocusRequester() }
-                                if (index == 0) {
-                                    LaunchedEffect(Unit) { fr.requestFocus() }
-                                }
+                            items(
+                                items = collection.items,
+                                key = { item -> "${item.serverId}_${item.ratingKey}" },
+                            ) { item ->
                                 MediaCard(
                                     media = item,
                                     onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
@@ -120,7 +140,6 @@ fun CollectionDetailScreen(
                                     onFocus = {},
                                     width = 120.dp,
                                     height = 180.dp,
-                                    modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
                                 )
                             }
                         }
