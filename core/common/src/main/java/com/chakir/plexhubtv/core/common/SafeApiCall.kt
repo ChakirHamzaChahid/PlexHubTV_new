@@ -1,8 +1,6 @@
 package com.chakir.plexhubtv.core.common
 
 import com.chakir.plexhubtv.core.model.AppError
-import com.chakir.plexhubtv.core.model.toAppError
-import com.chakir.plexhubtv.core.model.toHttpAppError
 import retrofit2.HttpException
 import timber.log.Timber
 import java.io.IOException
@@ -36,9 +34,16 @@ suspend inline fun <T> safeApiCall(
         Result.failure(AppError.Network.ServerError(e.message, e))
     } catch (e: HttpException) {
         Timber.e(e, "%s: HTTP %d", tag, e.code())
-        Result.failure(e.toHttpAppError())
+        Result.failure(e.toAppError())
     } catch (e: Exception) {
         Timber.e(e, "%s: Unknown error", tag)
         Result.failure(AppError.Unknown(e.message, e))
     }
+}
+
+fun HttpException.toAppError(): AppError = when (code()) {
+    401, 403 -> AppError.Network.Unauthorized("HTTP ${code()}", this)
+    404 -> AppError.Network.NotFound("HTTP ${code()}", this)
+    in 500..599 -> AppError.Network.ServerError("HTTP ${code()}", this)
+    else -> AppError.Unknown("HTTP ${code()}: ${message()}", this)
 }

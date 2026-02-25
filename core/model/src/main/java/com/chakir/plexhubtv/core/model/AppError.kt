@@ -82,17 +82,7 @@ fun Throwable.toAppError(): AppError {
         is AppError -> this
         is java.net.UnknownHostException -> AppError.Network.NoConnection(this.message)
         is java.net.SocketTimeoutException -> AppError.Network.Timeout(this.message)
-        is retrofit2.HttpException -> this.toHttpAppError()
         is java.io.IOException -> AppError.Network.ServerError(this.message, this)
         else -> AppError.Unknown(this.message, this)
-    }
-}
-
-fun retrofit2.HttpException.toHttpAppError(): AppError {
-    return when (code()) {
-        401, 403 -> AppError.Network.Unauthorized("HTTP ${code()}", this)
-        404 -> AppError.Network.NotFound("HTTP ${code()}", this)
-        in 500..599 -> AppError.Network.ServerError("HTTP ${code()}", this)
-        else -> AppError.Unknown("HTTP ${code()}: ${message()}", this)
     }
 }
