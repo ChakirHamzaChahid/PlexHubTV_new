@@ -76,7 +76,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
 
     // Gson for JSON parsing in mappers
-    implementation("com.google.code.gson:gson:2.11.0")
+    implementation(libs.gson)
 
     // Networking (already in core:network, but needed for mappers)
     implementation(libs.kotlinx.serialization.json)

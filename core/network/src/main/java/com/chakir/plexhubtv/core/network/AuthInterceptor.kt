@@ -1,7 +1,7 @@
 package com.chakir.plexhubtv.core.network
 
 import android.os.Build
-import com.chakir.plexhubtv.core.common.auth.AuthEventBus
+import com.chakir.plexhubtv.core.network.auth.AuthEventBus
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope

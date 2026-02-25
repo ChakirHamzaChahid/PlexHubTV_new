@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.util
+package com.chakir.plexhubtv.util
 
 import android.content.Context
 import android.net.Uri

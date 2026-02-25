@@ -10,7 +10,7 @@ import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.GenericPlexResponse
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
-import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.data.repository.aggregation.MediaDeduplicator

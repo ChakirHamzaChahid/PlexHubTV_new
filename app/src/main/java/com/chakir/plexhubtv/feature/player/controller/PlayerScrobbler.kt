@@ -4,7 +4,7 @@ import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.core.util.WatchNextHelper
+import com.chakir.plexhubtv.util.WatchNextHelper
 import com.chakir.plexhubtv.domain.service.TvChannelManager
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import com.chakir.plexhubtv.domain.usecase.PrefetchNextEpisodeUseCase

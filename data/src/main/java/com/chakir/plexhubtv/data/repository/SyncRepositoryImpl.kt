@@ -8,7 +8,7 @@ import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
-import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository

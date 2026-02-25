@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.common.auth
+package com.chakir.plexhubtv.core.network.auth
 
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow

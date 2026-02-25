@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.common.auth
+package com.chakir.plexhubtv.core.network.auth
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch

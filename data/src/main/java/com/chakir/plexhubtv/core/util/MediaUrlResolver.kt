@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.core.util
 
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.core.network.PlexImageHelper.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import javax.inject.Inject
 
 /**

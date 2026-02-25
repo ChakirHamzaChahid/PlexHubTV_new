@@ -7,7 +7,7 @@ import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.core.network.model.StreamDTO
 import com.chakir.plexhubtv.core.util.ContentRatingHelper
-import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import javax.inject.Inject
 
 /**

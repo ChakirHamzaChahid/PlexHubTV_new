@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.common
+package com.chakir.plexhubtv.core.network.util
 
 import com.chakir.plexhubtv.core.model.AppError
 import retrofit2.HttpException

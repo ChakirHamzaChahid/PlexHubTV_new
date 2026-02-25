@@ -1,7 +1,7 @@
 package com.chakir.plexhubtv.di
 
 import com.chakir.plexhubtv.BuildConfig
-import com.chakir.plexhubtv.core.common.handler.IsDebugBuild
+import com.chakir.plexhubtv.handler.IsDebugBuild
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

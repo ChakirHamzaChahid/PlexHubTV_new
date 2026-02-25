@@ -16,7 +16,7 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.feature.player.ExoStreamMetadata
 import com.chakir.plexhubtv.feature.player.PlayerFactory
-import com.chakir.plexhubtv.core.common.handler.GlobalCoroutineExceptionHandler
+import com.chakir.plexhubtv.handler.GlobalCoroutineExceptionHandler
 import com.chakir.plexhubtv.core.di.DefaultDispatcher
 import com.chakir.plexhubtv.core.di.MainDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager

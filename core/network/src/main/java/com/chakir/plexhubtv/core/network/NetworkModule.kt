@@ -82,7 +82,7 @@ object NetworkModule {
     fun provideAuthInterceptor(
         settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         @ApplicationScope scope: CoroutineScope,
-        authEventBus: com.chakir.plexhubtv.core.common.auth.AuthEventBus,
+        authEventBus: com.chakir.plexhubtv.core.network.auth.AuthEventBus,
     ): AuthInterceptor {
         return AuthInterceptor(settingsDataStore, scope, authEventBus)
     }

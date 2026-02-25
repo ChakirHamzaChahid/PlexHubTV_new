@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.util
+package com.chakir.plexhubtv.di
 
 import android.content.Context
 import androidx.work.WorkManager

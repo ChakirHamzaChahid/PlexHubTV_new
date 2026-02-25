@@ -9,7 +9,7 @@ import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.core.database.RemoteKey
 import com.chakir.plexhubtv.core.network.PlexApiService
-import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import retrofit2.HttpException
 import timber.log.Timber

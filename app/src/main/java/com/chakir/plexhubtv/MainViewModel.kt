@@ -3,8 +3,8 @@ package com.chakir.plexhubtv
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
-import com.chakir.plexhubtv.core.common.auth.AuthEvent
-import com.chakir.plexhubtv.core.common.auth.AuthEventBus
+import com.chakir.plexhubtv.core.network.auth.AuthEvent
+import com.chakir.plexhubtv.core.network.auth.AuthEventBus
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.google.firebase.Firebase
 import com.google.firebase.analytics.analytics

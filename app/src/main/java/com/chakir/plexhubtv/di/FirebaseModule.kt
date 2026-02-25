@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.di
+package com.chakir.plexhubtv.di
 
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import dagger.Module

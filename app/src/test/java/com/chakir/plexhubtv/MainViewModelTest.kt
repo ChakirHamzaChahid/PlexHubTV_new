@@ -1,6 +1,6 @@
 package com.chakir.plexhubtv
 
-import com.chakir.plexhubtv.core.common.auth.AuthEventBus
+import com.chakir.plexhubtv.core.network.auth.AuthEventBus
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import io.mockk.coVerify
 import io.mockk.mockk

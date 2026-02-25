@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.common.handler
+package com.chakir.plexhubtv.handler
 
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import io.mockk.mockk

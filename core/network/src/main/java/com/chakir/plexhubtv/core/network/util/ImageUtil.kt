@@ -1,4 +1,4 @@
-package com.chakir.plexhubtv.core.util
+package com.chakir.plexhubtv.core.network.util
 
 import java.net.URI
 import java.net.URLEncoder
