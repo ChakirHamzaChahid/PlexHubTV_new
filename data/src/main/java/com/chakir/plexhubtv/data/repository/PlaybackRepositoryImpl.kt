@@ -9,7 +9,6 @@ import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.ApiCache
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
-import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
@@ -30,7 +29,6 @@ class PlaybackRepositoryImpl
         private val mediaDao: MediaDao,
         private val apiCache: ApiCache,
         private val mapper: MediaMapper,
-        private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDetailRepository: MediaDetailRepository,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : PlaybackRepository {
@@ -132,19 +130,20 @@ class PlaybackRepositoryImpl
             offset: Int,
         ): Flow<List<MediaItem>> {
             return mediaDao.getHistory(limit, offset).map { entities ->
-                // Fetch servers to resolve base URLs
-                val servers = authRepository.getServers().getOrNull() ?: emptyList()
+                // Build server map once for O(1) lookups (memory-cached in AuthRepository)
+                val serverMap = authRepository.getServers().getOrNull()
+                    ?.associateBy { it.clientIdentifier }
+                    .orEmpty()
 
                 entities.map { entity ->
-                    val server = servers.find { it.clientIdentifier == entity.serverId }
-                    val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
-
+                    // Mapper already uses resolvedThumbUrl/resolvedArtUrl if populated
                     val domain = mapper.mapEntityToDomain(entity)
+                    val server = serverMap[entity.serverId]
+                    val baseUrl = entity.resolvedBaseUrl
+                        ?: server?.let { connectionManager.getCachedUrl(it.clientIdentifier) ?: it.address }
+
                     if (server != null && baseUrl != null) {
-                        mediaUrlResolver.resolveUrls(domain, baseUrl, server.accessToken).copy(
-                            baseUrl = baseUrl,
-                            accessToken = server.accessToken,
-                        )
+                        domain.copy(baseUrl = baseUrl, accessToken = server.accessToken)
                     } else {
                         domain
                     }

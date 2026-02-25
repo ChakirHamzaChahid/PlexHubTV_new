@@ -8,6 +8,7 @@ import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
+import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
@@ -144,6 +145,7 @@ class SyncRepositoryImpl
                                 val ratingKeys = validMetadata.map { it.ratingKey }
                                 val existingRatingsMap = mediaDao.getScrapedRatings(ratingKeys, server.clientIdentifier)
 
+                                val accessToken = server.accessToken ?: ""
                                 val entities =
                                     validMetadata.mapIndexed { index, dto ->
                                         val dtoWithLib = dto.copy(librarySectionID = libraryKey)
@@ -158,6 +160,15 @@ class SyncRepositoryImpl
                                             scrapedRating = restoredScrapedRating,
                                             displayRating = restoredScrapedRating
                                                 ?: entity.displayRating,
+                                            resolvedThumbUrl = entity.thumbUrl?.let { path ->
+                                                getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 300, 450)
+                                                    ?: "$baseUrl$path?X-Plex-Token=$accessToken"
+                                            },
+                                            resolvedArtUrl = entity.artUrl?.let { path ->
+                                                getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 1280, 720)
+                                                    ?: "$baseUrl$path?X-Plex-Token=$accessToken"
+                                            },
+                                            resolvedBaseUrl = baseUrl,
                                         )
                                     }
 

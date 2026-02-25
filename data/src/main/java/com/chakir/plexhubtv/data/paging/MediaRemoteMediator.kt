@@ -9,6 +9,7 @@ import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.core.database.RemoteKey
 import com.chakir.plexhubtv.core.network.PlexApiService
+import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import retrofit2.HttpException
 import timber.log.Timber
@@ -160,13 +161,22 @@ class MediaRemoteMediator(
 
                 val entities =
                     items.mapIndexed { index, dto ->
-                        mapper.mapDtoToEntity(dto, serverId, libraryKey)
-                            .copy(
-                                librarySectionId = libraryKey,
-                                filter = filter,
-                                sortOrder = sortOrder,
-                                pageOffset = offset + index,
-                            )
+                        val entity = mapper.mapDtoToEntity(dto, serverId, libraryKey)
+                        entity.copy(
+                            librarySectionId = libraryKey,
+                            filter = filter,
+                            sortOrder = sortOrder,
+                            pageOffset = offset + index,
+                            resolvedThumbUrl = entity.thumbUrl?.let { path ->
+                                getOptimizedImageUrl("$serverUrl$path?X-Plex-Token=$token", 300, 450)
+                                    ?: "$serverUrl$path?X-Plex-Token=$token"
+                            },
+                            resolvedArtUrl = entity.artUrl?.let { path ->
+                                getOptimizedImageUrl("$serverUrl$path?X-Plex-Token=$token", 1280, 720)
+                                    ?: "$serverUrl$path?X-Plex-Token=$token"
+                            },
+                            resolvedBaseUrl = serverUrl,
+                        )
                     }
 
                 mediaDao.upsertMedia(entities)
