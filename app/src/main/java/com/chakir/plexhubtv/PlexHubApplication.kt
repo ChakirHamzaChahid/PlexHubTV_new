@@ -81,9 +81,11 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
             Timber.plant(Timber.DebugTree())
         }
 
-        installSecurityProviders()
-
-        initializeFirebase()
+        // Move security + Firebase init off main thread (no UI dependency)
+        appScope.launch(Dispatchers.Default) {
+            installSecurityProviders()
+            initializeFirebase()
+        }
 
         // Launch parallel initialization
         initializeAppInParallel()

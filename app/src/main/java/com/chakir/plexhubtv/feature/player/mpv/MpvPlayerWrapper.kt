@@ -98,7 +98,6 @@ class MpvPlayerWrapper(
             MPVLib.observeProperty("time-pos", MPVLib.MPV_FORMAT_DOUBLE)
             MPVLib.observeProperty("duration", MPVLib.MPV_FORMAT_DOUBLE)
             MPVLib.observeProperty("pause", MPVLib.MPV_FORMAT_FLAG)
-            MPVLib.observeProperty("pause", MPVLib.MPV_FORMAT_FLAG)
             MPVLib.observeProperty("paused-for-cache", MPVLib.MPV_FORMAT_FLAG)
 
             // Stats

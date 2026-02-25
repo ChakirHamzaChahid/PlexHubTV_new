@@ -2,7 +2,6 @@ package com.chakir.plexhubtv.feature.player.controller
 
 import android.app.Application
 import android.net.Uri
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.PlaybackException
@@ -309,7 +308,7 @@ class PlayerController @Inject constructor(
     }
     
     fun switchToMpv() {
-         Log.d("METRICS", "SCREEN [Player] switchToMpv() called")
+        Timber.d("SCREEN [Player] switchToMpv() called")
         if (isMpvMode) return
         isMpvMode = true
         FirebaseCrashlytics.getInstance().setCustomKey("player_engine", "MPV")

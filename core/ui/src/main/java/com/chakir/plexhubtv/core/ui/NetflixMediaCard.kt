@@ -28,7 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,8 +79,8 @@ fun NetflixMediaCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    // Notify parent of focus changes — SideEffect avoids coroutine creation per focus change
-    SideEffect { onFocus(isFocused) }
+    // Notify parent of focus changes only when focus state actually changes
+    LaunchedEffect(isFocused) { onFocus(isFocused) }
 
     // Animations
     val scale by animateFloatAsState(
@@ -265,8 +265,8 @@ fun NetflixMediaCard(
                 }
             }
 
-            // Debug IDs Badge — Visible when focused (bottom-left corner)
-            if (isFocused && (media.imdbId != null || media.tmdbId != null || media.unificationId != null)) {
+            // Debug IDs Badge — Visible when focused (bottom-left corner), debug builds only
+            if (BuildConfig.DEBUG && isFocused && (media.imdbId != null || media.tmdbId != null || media.unificationId != null)) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -328,17 +328,10 @@ fun NetflixMediaCard(
         }
 
         // Title and Metadata — always fully visible regardless of focus state
-        // Title remains at full opacity to ensure readability at all times
-        val metadataAlpha by animateFloatAsState(
-            targetValue = 1f, // Always fully visible
-            animationSpec = tween(durationMillis = 200),
-            label = "metadataAlpha"
-        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp)
-                .graphicsLayer { alpha = metadataAlpha }
         ) {
             Text(
                 text = media.title,
