@@ -32,8 +32,12 @@ class TranscodeUrlBuilder
             val token = media.accessToken ?: ""
 
             if (isDirectPlay) {
-                // Direct Play Strategy: Use the file key directly
                 val partKey = part.key
+                // External URL (CDN-hosted extras): use as-is without prepending baseUrl
+                if (partKey.startsWith("http://") || partKey.startsWith("https://")) {
+                    return Uri.parse(partKey)
+                }
+                // Direct Play: local file key on server
                 return Uri.parse("$baseUrl$partKey?X-Plex-Token=$token")
             } else {
                 // Transcoding Strategy

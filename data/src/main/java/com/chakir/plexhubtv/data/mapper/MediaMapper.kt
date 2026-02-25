@@ -120,6 +120,35 @@ class MediaMapper
                             endTime = it.endTimeOffset ?: 0L,
                         )
                     } ?: emptyList(),
+                extras =
+                    dto.extras?.metadata?.map { extraDto ->
+                        com.chakir.plexhubtv.core.model.Extra(
+                            ratingKey = extraDto.ratingKey,
+                            title = extraDto.title,
+                            subtype = com.chakir.plexhubtv.core.model.ExtraType.fromPlex(extraDto.subtype),
+                            thumbUrl = extraDto.thumb?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
+                            durationMs = extraDto.duration,
+                            year = extraDto.year,
+                            playbackKey = extraDto.key,
+                            mediaParts = extraDto.media?.flatMap { mediaDto ->
+                                mediaDto.parts?.map { partDto ->
+                                    com.chakir.plexhubtv.core.model.MediaPart(
+                                        id = partDto.id,
+                                        key = partDto.key,
+                                        duration = partDto.duration,
+                                        file = partDto.file,
+                                        size = partDto.size,
+                                        container = partDto.container,
+                                        streams = partDto.streams?.map { streamDto ->
+                                            mapStream(streamDto)
+                                        } ?: emptyList(),
+                                    )
+                                } ?: emptyList()
+                            } ?: emptyList(),
+                            baseUrl = baseUrl,
+                            accessToken = accessToken,
+                        )
+                    } ?: emptyList(),
             )
         }
 

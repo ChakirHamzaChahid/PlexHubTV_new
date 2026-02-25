@@ -131,6 +131,7 @@ fun MainScreen(
                 HomeRoute(
                     onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
                     onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                    onNavigateUp = { requestTopBarFocus = true },
                 )
             }
             composable(Screen.Hub.route) {

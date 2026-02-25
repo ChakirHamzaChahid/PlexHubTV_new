@@ -225,6 +225,26 @@ class MediaDetailViewModel
                         playItem(startItem, opId, event.source.serverId)
                     }
                 }
+                is MediaDetailEvent.PlayExtra -> {
+                    val extra = event.extra
+                    val media = _uiState.value.media ?: return
+                    viewModelScope.launch {
+                        val extraItem = MediaItem(
+                            id = "extra_${extra.ratingKey}",
+                            ratingKey = extra.ratingKey,
+                            serverId = media.serverId,
+                            title = extra.title,
+                            type = MediaType.Clip,
+                            thumbUrl = extra.thumbUrl,
+                            durationMs = extra.durationMs,
+                            mediaParts = extra.mediaParts,
+                            baseUrl = extra.baseUrl,
+                            accessToken = extra.accessToken,
+                        )
+                        playbackManager.play(extraItem, listOf(extraItem))
+                        _navigationEvents.send(MediaDetailNavigationEvent.NavigateToPlayer(extraItem.ratingKey, extraItem.serverId))
+                    }
+                }
                 is MediaDetailEvent.Retry -> {
                     loadDetail()
                     checkFavoriteStatus()

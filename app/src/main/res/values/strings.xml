@@ -190,6 +190,15 @@
     <string name="detail_tab_episodes">EPISODES</string>
     <string name="detail_tab_more_like_this">MORE LIKE THIS</string>
     <string name="detail_tab_collections">COLLECTIONS</string>
+    <string name="detail_tab_trailers">TRAILERS &amp; MORE</string>
+    <string name="detail_no_trailers">No trailers available</string>
+    <string name="detail_extra_trailer">Trailer</string>
+    <string name="detail_extra_behind_the_scenes">Behind the Scenes</string>
+    <string name="detail_extra_scene">Scene</string>
+    <string name="detail_extra_deleted_scene">Deleted Scene</string>
+    <string name="detail_extra_interview">Interview</string>
+    <string name="detail_extra_featurette">Featurette</string>
+    <string name="detail_extra_unknown">Extra</string>
     <string name="detail_screen_description">Details screen</string>
     <string name="detail_collection_fallback">Collection</string>
     <string name="collection_title">Collection</string>

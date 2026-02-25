@@ -58,12 +58,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.chakir.plexhubtv.core.model.Extra
+import com.chakir.plexhubtv.core.model.ExtraType
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
+import androidx.compose.material.icons.filled.PlayArrow
 
 @Composable
 fun NetflixDetailScreen(
@@ -238,7 +241,8 @@ fun NetflixDetailScreen(
                     selectedTab = selectedTab,
                     onTabSelected = { selectedTab = it },
                     showEpisodes = media.type == MediaType.Show,
-                    showCollections = state.collections.isNotEmpty()
+                    showCollections = state.collections.isNotEmpty(),
+                    showTrailers = media.extras.isNotEmpty(),
                 )
             }
 
@@ -311,6 +315,29 @@ fun NetflixDetailScreen(
                     } else {
                         item(key = "detail_no_collections") {
                             Text("No collections available", color = NetflixLightGray)
+                        }
+                    }
+                }
+                DetailTab.Trailers -> {
+                    val extras = media.extras
+                    if (extras.isNotEmpty()) {
+                        item(key = "detail_trailers_row") {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(end = 50.dp),
+                                modifier = Modifier.focusGroup()
+                            ) {
+                                items(extras, key = { it.ratingKey }) { extra ->
+                                    ExtraCard(
+                                        extra = extra,
+                                        onClick = { onAction(MediaDetailEvent.PlayExtra(extra)) },
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        item(key = "detail_no_trailers") {
+                            Text("No trailers available", color = NetflixLightGray)
                         }
                     }
                 }
@@ -400,6 +427,127 @@ private fun CollectionCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ExtraCard(
+    extra: Extra,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.05f else 1f,
+        animationSpec = tween(200),
+        label = "extraScale"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White else Color.Transparent,
+        animationSpec = tween(200),
+        label = "extraBorder"
+    )
+
+    val shape = RoundedCornerShape(8.dp)
+    val durationText = extra.durationMs?.let {
+        val totalSeconds = it / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        "${minutes}:${"%02d".format(seconds)}"
+    }
+
+    val subtypeLabel = when (extra.subtype) {
+        ExtraType.Trailer -> "Trailer"
+        ExtraType.BehindTheScenes -> "Behind the Scenes"
+        ExtraType.SceneOrSample -> "Scene"
+        ExtraType.DeletedScene -> "Deleted Scene"
+        ExtraType.Interview -> "Interview"
+        ExtraType.Featurette -> "Featurette"
+        ExtraType.Unknown -> "Extra"
+    }
+
+    Column(
+        modifier = modifier.width(280.dp)
+    ) {
+        // Thumbnail with play overlay
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .scale(scale)
+                .clip(shape)
+                .border(2.dp, borderColor, shape)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick,
+                ),
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(extra.thumbUrl)
+                    .size(560, 315)
+                    .build(),
+                contentDescription = extra.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            // Dark overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = if (isFocused) 0.2f else 0.4f))
+            )
+
+            // Play icon center
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = if (isFocused) 1f else 0.8f),
+                modifier = Modifier
+                    .size(48.dp)
+                    .align(Alignment.Center),
+            )
+
+            // Duration badge bottom-right
+            if (durationText != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = durationText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Title
+        Text(
+            text = extra.title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isFocused) Color.White else Color.White.copy(alpha = 0.9f),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        // Subtype label
+        Text(
+            text = subtypeLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = NetflixLightGray,
+        )
     }
 }
 

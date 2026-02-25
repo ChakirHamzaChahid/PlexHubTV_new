@@ -78,6 +78,7 @@ fun NetflixHeroBillboard(
     autoRotateIntervalMs: Long = 8000L,
     initialFocusRequester: FocusRequester? = null,
     onNavigateDown: (() -> Unit)? = null,
+    onNavigateUp: (() -> Unit)? = null,
     buttonsFocusRequester: FocusRequester? = null, // For UP navigation from first hub
 ) {
     if (items.isEmpty()) return
@@ -231,6 +232,7 @@ fun NetflixHeroBillboard(
                 NetflixPlayButton(
                     onClick = { onPlay(currentItem) },
                     onNavigateDown = onNavigateDown,
+                    onNavigateUp = onNavigateUp,
                     modifier = Modifier
                         .focusRequester(playButtonFocusRequester)
                         .testTag("hero_play_button")
@@ -238,6 +240,7 @@ fun NetflixHeroBillboard(
                 NetflixInfoButton(
                     onClick = { onInfo(currentItem) },
                     onNavigateDown = onNavigateDown,
+                    onNavigateUp = onNavigateUp,
                     modifier = Modifier
                         .focusRequester(infoButtonFocusRequester)
                         .testTag("hero_info_button")
@@ -272,7 +275,8 @@ fun NetflixHeroBillboard(
 fun NetflixPlayButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onNavigateDown: (() -> Unit)? = null
+    onNavigateDown: (() -> Unit)? = null,
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -292,7 +296,10 @@ fun NetflixPlayButton(
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
                     when (keyEvent.nativeKeyEvent.keyCode) {
-                        android.view.KeyEvent.KEYCODE_DPAD_UP -> true // Block UP
+                        android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                            onNavigateUp?.invoke()
+                            onNavigateUp != null
+                        }
                         android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
                             onNavigateDown?.invoke()
                             true
@@ -323,7 +330,8 @@ fun NetflixPlayButton(
 fun NetflixInfoButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onNavigateDown: (() -> Unit)? = null
+    onNavigateDown: (() -> Unit)? = null,
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -342,7 +350,10 @@ fun NetflixInfoButton(
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
                     when (keyEvent.nativeKeyEvent.keyCode) {
-                        android.view.KeyEvent.KEYCODE_DPAD_UP -> true // Block UP
+                        android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                            onNavigateUp?.invoke()
+                            onNavigateUp != null
+                        }
                         android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
                             onNavigateDown?.invoke()
                             true

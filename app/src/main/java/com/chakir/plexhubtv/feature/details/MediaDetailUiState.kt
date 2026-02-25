@@ -46,5 +46,7 @@ sealed interface MediaDetailEvent {
 
     data object Back : MediaDetailEvent
 
+    data class PlayExtra(val extra: com.chakir.plexhubtv.core.model.Extra) : MediaDetailEvent
+
     data object Retry : MediaDetailEvent
 }

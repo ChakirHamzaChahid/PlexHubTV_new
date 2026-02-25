@@ -74,6 +74,7 @@ fun HomeRoute(
     onNavigateToDetails: (String, String) -> Unit,
     onNavigateToPlayer: (String, String) -> Unit,
     onScrollStateChanged: (Boolean) -> Unit = {},
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -109,6 +110,7 @@ fun HomeRoute(
         heroItems = heroItems,
         onAction = viewModel::onAction,
         snackbarHostState = snackbarHostState,
+        onNavigateUp = onNavigateUp,
     )
 }
 
@@ -118,6 +120,7 @@ fun DiscoverScreen(
     heroItems: List<MediaItem>,
     onAction: (HomeAction) -> Unit,
     snackbarHostState: SnackbarHostState,
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -140,6 +143,7 @@ fun DiscoverScreen(
                     NetflixHomeContent(
                         heroItems = heroItems,
                         onAction = onAction,
+                        onNavigateUp = onNavigateUp,
                     )
             }
         }

@@ -516,7 +516,8 @@ class PlayerController @Inject constructor(
 
             val part = media.mediaParts.firstOrNull()
 
-            isDirectPlay = bitrate >= 200000 && part?.key != null
+            // Extras (Clip) are CDN-hosted — must go through server transcode/proxy, not direct play
+            isDirectPlay = bitrate >= 200000 && part?.key != null && media.type != com.chakir.plexhubtv.core.model.MediaType.Clip
 
             val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
                  rKey, sId, part, audioStreamId, subtitleStreamId

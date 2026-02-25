@@ -93,6 +93,13 @@ data class MetadataDTO(
     @SerializedName("Status") val statusAlt: String? = null,
     val seriesStatus: String? = null,
     val originallyAvailableAt: String? = null,
+    val subtype: String? = null, // Extra type: trailer, behindTheScenes, sceneOrSample, etc.
+    @SerializedName("Extras") val extras: ExtrasContainerDTO? = null,
+)
+
+data class ExtrasContainerDTO(
+    val size: Int = 0,
+    @SerializedName("Metadata") val metadata: List<MetadataDTO>? = null,
 )
 
 data class ChapterDTO(

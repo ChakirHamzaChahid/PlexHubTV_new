@@ -21,7 +21,7 @@ enum class DetailTab(val title: String) {
     Episodes("EPISODES"),
     MoreLikeThis("MORE LIKE THIS"),
     Collections("COLLECTIONS"),
-    // Trailers("TRAILERS & MORE") // For future
+    Trailers("TRAILERS & MORE"),
 }
 
 @Composable
@@ -30,11 +30,13 @@ fun NetflixDetailTabs(
     onTabSelected: (DetailTab) -> Unit,
     showEpisodes: Boolean,
     showCollections: Boolean = false,
+    showTrailers: Boolean = false,
 ) {
     val tabs = buildList {
         if (showEpisodes) add(DetailTab.Episodes)
         add(DetailTab.MoreLikeThis)
         if (showCollections) add(DetailTab.Collections)
+        if (showTrailers) add(DetailTab.Trailers)
     }
     val selectedIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)
 

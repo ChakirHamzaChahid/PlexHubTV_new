@@ -80,6 +80,8 @@ data class MediaItem(
     val markers: List<Marker> = emptyList(),
     // Agrégation
     val remoteSources: List<MediaSource> = emptyList(),
+    // Extras (trailers, behind the scenes, etc.)
+    val extras: List<Extra> = emptyList(),
 )
 
 data class MediaSource(
@@ -107,6 +109,41 @@ data class CastMember(
     val tag: String?,
     val thumb: String?,
 )
+
+data class Extra(
+    val ratingKey: String,
+    val title: String,
+    val subtype: ExtraType,
+    val thumbUrl: String? = null,
+    val durationMs: Long? = null,
+    val year: Int? = null,
+    val playbackKey: String? = null,
+    val mediaParts: List<MediaPart> = emptyList(),
+    val baseUrl: String? = null,
+    val accessToken: String? = null,
+)
+
+enum class ExtraType {
+    Trailer,
+    BehindTheScenes,
+    SceneOrSample,
+    DeletedScene,
+    Interview,
+    Featurette,
+    Unknown;
+
+    companion object {
+        fun fromPlex(subtype: String?): ExtraType = when (subtype) {
+            "trailer" -> Trailer
+            "behindTheScenes" -> BehindTheScenes
+            "sceneOrSample" -> SceneOrSample
+            "deletedScene" -> DeletedScene
+            "interview" -> Interview
+            "featurette" -> Featurette
+            else -> Unknown
+        }
+    }
+}
 
 enum class MediaType {
     Movie,

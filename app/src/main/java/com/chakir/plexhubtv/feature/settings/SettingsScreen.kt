@@ -31,8 +31,7 @@ import com.chakir.plexhubtv.BuildConfig
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 
-// TODO: Replace with your hosted privacy policy URL (e.g. GitHub Pages)
-private const val PRIVACY_POLICY_URL = "https://github.com/chakir-elarram/PlexHubTV/blob/main/docs/privacy-policy-en.md"
+private const val PRIVACY_POLICY_URL = "https://chakir-elarram.github.io/PlexHubTV/privacy-policy-en.html"
 
 /**
  * Écran principal des paramètres.
