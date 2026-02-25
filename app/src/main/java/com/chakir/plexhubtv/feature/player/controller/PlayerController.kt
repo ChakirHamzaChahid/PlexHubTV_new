@@ -146,12 +146,20 @@ class PlayerController @Inject constructor(
     }
 
     private fun playDirectUrl(url: String) {
+        // Defense-in-depth: only allow safe streaming schemes
+        val scheme = Uri.parse(url).scheme?.lowercase()
+        if (scheme == null || scheme !in ALLOWED_DIRECT_SCHEMES) {
+            Timber.e("Rejected direct URL with disallowed scheme '$scheme': ${url.take(80)}")
+            _uiState.update { it.copy(error = "Invalid stream URL") }
+            return
+        }
+
          val dummyItem = MediaItem(
             id = "iptv-$url",
             ratingKey = "iptv",
             serverId = "iptv",
-            title = "Live Stream", // Title handling needs improvement if passed from VM
-            type = MediaType.Movie, 
+            title = "Live Stream",
+            type = MediaType.Movie,
             mediaParts = emptyList()
         )
 
@@ -162,7 +170,7 @@ class PlayerController @Inject constructor(
                 isBuffering = true
             )
         }
-        
+
         scope.launch {
             val streamUri = Uri.parse(url)
             player?.apply {
@@ -170,12 +178,16 @@ class PlayerController @Inject constructor(
                     .setUri(streamUri)
                     .setMediaId("iptv")
                     .build()
-                    
+
                 setMediaItem(mediaItem)
                 prepare()
                 playWhenReady = true
             }
         }
+    }
+
+    companion object {
+        private val ALLOWED_DIRECT_SCHEMES = setOf("http", "https", "rtsp", "rtp")
     }
 
     /**

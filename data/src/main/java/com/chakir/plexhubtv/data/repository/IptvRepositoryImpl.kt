@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.data.repository
 
+import android.net.Uri
 import com.chakir.plexhubtv.core.model.IptvChannel
 import com.chakir.plexhubtv.data.iptv.M3uParser
 import com.chakir.plexhubtv.domain.repository.IptvRepository
@@ -23,10 +24,22 @@ class IptvRepositoryImpl
     ) : IptvRepository {
         private val _channels = MutableStateFlow<List<IptvChannel>>(emptyList())
 
+        private companion object {
+            val ALLOWED_M3U_SCHEMES = setOf("http", "https")
+        }
+
         override fun getChannels(): Flow<List<IptvChannel>> = _channels.asStateFlow()
 
         override suspend fun refreshChannels(url: String): Result<Unit> =
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val scheme = Uri.parse(url).scheme?.lowercase()
+                if (scheme == null || scheme !in ALLOWED_M3U_SCHEMES) {
+                    Timber.e("Rejected M3U URL with disallowed scheme '$scheme': ${url.take(80)}")
+                    return@withContext Result.failure(
+                        IOException("Invalid playlist URL: only http and https are allowed")
+                    )
+                }
+
                 return@withContext try {
                     Timber.d("Fetching M3U from: $url")
                     val request = Request.Builder().url(url).build()
@@ -74,6 +87,11 @@ class IptvRepositoryImpl
         }
 
         override suspend fun saveM3uUrl(url: String) {
+            val scheme = Uri.parse(url).scheme?.lowercase()
+            if (scheme == null || scheme !in ALLOWED_M3U_SCHEMES) {
+                Timber.e("Refused to save M3U URL with disallowed scheme '$scheme'")
+                return
+            }
             settingsRepository.saveIptvPlaylistUrl(url)
         }
     }

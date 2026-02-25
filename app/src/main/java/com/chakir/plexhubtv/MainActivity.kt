@@ -1,10 +1,15 @@
 package com.chakir.plexhubtv
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -43,16 +48,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Timber.i("APP STARTUP: Launching PlexHubTV")
 
-        // Play Intro Sound - DISABLED (video intro has sound instead)
-        // try {
-        //     val mediaPlayer = android.media.MediaPlayer.create(this, R.raw.intro_sound)
-        //     mediaPlayer.setOnCompletionListener { it.release() }
-        //     mediaPlayer.start()
-        // } catch (e: Exception) {
-        //     Timber.e("Failed to play intro: ${e.message}")
-        // }
+        requestNotificationPermission()
 
         enableEdgeToEdge()
+
         setContent {
             val appThemeState = settingsDataStore.appTheme.collectAsState(initial = "Plex")
 
@@ -67,6 +66,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    REQUEST_NOTIFICATION_PERMISSION,
+                )
+            }
+        }
+    }
+
+    companion object {
+        private const val REQUEST_NOTIFICATION_PERMISSION = 1001
     }
 }
 
