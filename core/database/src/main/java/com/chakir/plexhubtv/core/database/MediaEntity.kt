@@ -36,6 +36,10 @@ import androidx.room.Entity
         androidx.room.Index(value = ["parentRatingKey"]),
         // Locale-aware sorting support
         androidx.room.Index(value = ["titleSortable"]),
+        // Watch history performance: index for WHERE lastViewedAt > 0 ORDER BY lastViewedAt DESC
+        androidx.room.Index(value = ["lastViewedAt"]),
+        // Watch history GROUP BY optimization: materialized group key
+        androidx.room.Index(value = ["historyGroupKey"]),
     ],
 )
 data class MediaEntity(
@@ -93,6 +97,9 @@ data class MediaEntity(
     // Alternative poster URLs from other servers (pipe-separated: "url1|url2|url3")
     // Used for fallback if primary resolvedThumbUrl fails/times out
     val alternativeThumbUrls: String? = null,
+    // Materialized GROUP BY key for watch history: avoids CASE expression in query
+    // = unificationId if non-empty, else ratingKey + serverId
+    val historyGroupKey: String = "",
     // PERSISTENCE: Rating fetched from external sources (TMDb/OMDb) - Preserved during sync
     val scrapedRating: Double? = null,
 )

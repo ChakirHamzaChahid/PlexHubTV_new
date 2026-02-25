@@ -199,14 +199,15 @@ class MediaMapper
             serverId: String,
             libraryKey: String,
         ): MediaEntity {
+            val unificationId = calculateUnificationId(dto)
             return MediaEntity(
                 ratingKey = dto.ratingKey,
                 serverId = serverId,
                 librarySectionId = libraryKey,
                 title = dto.title,
                 titleSortable = StringNormalizer.normalizeForSorting(dto.title),
-                // PHASE 2: Pre-calculate unificationId
-                unificationId = calculateUnificationId(dto),
+                unificationId = unificationId,
+                historyGroupKey = unificationId.ifEmpty { dto.ratingKey + serverId },
                 guid = dto.guid,
                 imdbId = extractImdbId(dto),
                 tmdbId = extractTmdbId(dto),
@@ -282,11 +283,13 @@ class MediaMapper
             item: MediaItem,
             libraryKey: String,
         ): MediaEntity {
+            val unificationId = item.unificationId ?: "${item.serverId}_${item.ratingKey}"
             return MediaEntity(
                 ratingKey = item.ratingKey,
                 serverId = item.serverId,
                 librarySectionId = libraryKey,
-                unificationId = item.unificationId ?: "${item.serverId}_${item.ratingKey}",
+                unificationId = unificationId,
+                historyGroupKey = unificationId.ifEmpty { item.ratingKey + item.serverId },
                 title = item.title,
                 titleSortable = StringNormalizer.normalizeForSorting(item.title),
                 guid = item.guid,

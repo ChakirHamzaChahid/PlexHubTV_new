@@ -133,7 +133,7 @@ interface MediaDao {
 
     @Query(
         "SELECT *, MAX(lastViewedAt) as lastViewedAt FROM media WHERE lastViewedAt > 0 " +
-        "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END " +
+        "GROUP BY historyGroupKey " +
         "ORDER BY lastViewedAt DESC LIMIT :limit OFFSET :offset"
     )
     fun getHistory(

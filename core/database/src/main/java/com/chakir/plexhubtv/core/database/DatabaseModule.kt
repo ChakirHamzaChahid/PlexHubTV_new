@@ -227,6 +227,29 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_29_30 =
+        object : androidx.room.migration.Migration(29, 30) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add historyGroupKey: materialized GROUP BY key for watch history
+                database.execSQL("ALTER TABLE media ADD COLUMN historyGroupKey TEXT NOT NULL DEFAULT ''")
+
+                // Backfill: compute historyGroupKey for all existing rows
+                database.execSQL(
+                    "UPDATE media SET historyGroupKey = CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END"
+                )
+
+                // Add index on lastViewedAt for WHERE lastViewedAt > 0 ORDER BY lastViewedAt DESC
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_lastViewedAt ON media (lastViewedAt)"
+                )
+
+                // Add index on historyGroupKey for GROUP BY
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_historyGroupKey ON media (historyGroupKey)"
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -264,7 +287,8 @@ object DatabaseModule {
                 MIGRATION_25_26,
                 MIGRATION_26_27,
                 MIGRATION_27_28,
-                MIGRATION_28_29
+                MIGRATION_28_29,
+                MIGRATION_29_30
             )
             .fallbackToDestructiveMigration()
             .build()

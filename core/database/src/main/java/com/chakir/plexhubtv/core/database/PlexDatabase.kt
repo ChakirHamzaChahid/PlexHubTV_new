@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 29 : Ajout de displayRating (note canonique pré-calculée) + index pour tri par note performant.
+ * Version 30 : Ajout de historyGroupKey + index lastViewedAt pour requêtes historique performantes.
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -27,7 +27,7 @@ import androidx.room.TypeConverters
         ProfileEntity::class,
         SearchCacheEntity::class,
     ],
-    version = 29,
+    version = 30,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
