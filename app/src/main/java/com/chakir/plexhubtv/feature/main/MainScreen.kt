@@ -35,7 +35,7 @@ import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.navigation.NavigationItem
 import com.chakir.plexhubtv.core.ui.NetflixTopBar
-import com.chakir.plexhubtv.di.navigation.Screen
+import com.chakir.plexhubtv.core.navigation.Screen
 import com.chakir.plexhubtv.feature.downloads.DownloadsRoute
 import com.chakir.plexhubtv.feature.home.HomeRoute
 import com.chakir.plexhubtv.feature.hub.HubRoute
