@@ -20,9 +20,9 @@ import com.chakir.plexhubtv.work.LibrarySyncWorker
 import com.chakir.plexhubtv.work.ChannelSyncWorker
 import com.chakir.plexhubtv.domain.service.TvChannelManager
 import dagger.hilt.android.HiltAndroidApp
+import com.chakir.plexhubtv.core.di.DefaultDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -65,6 +65,9 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
     @Inject @IoDispatcher
     lateinit var ioDispatcher: CoroutineDispatcher
 
+    @Inject @DefaultDispatcher
+    lateinit var defaultDispatcher: CoroutineDispatcher
+
     @Inject lateinit var connectionManager: ConnectionManager
 
     @Inject lateinit var authRepository: AuthRepository
@@ -82,7 +85,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
         }
 
         // Move security + Firebase init off main thread (no UI dependency)
-        appScope.launch(Dispatchers.Default) {
+        appScope.launch(defaultDispatcher) {
             installSecurityProviders()
             initializeFirebase()
         }
@@ -115,7 +118,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                 val jobs =
                     listOf(
                         // Job 1: Warm up Settings DataStore
-                        async(Dispatchers.IO) {
+                        async(ioDispatcher) {
                             try {
                                 Timber.d("Init: Loading settings...")
                                 settingsDataStore.isFirstSyncComplete.first()
@@ -125,7 +128,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                             }
                         },
                         // Job 2: Pre-warm ImageLoader (triggers Coil initialization)
-                        async(Dispatchers.Default) {
+                        async(defaultDispatcher) {
                             try {
                                 Timber.d("Init: Warming image cache...")
                                 // Access imageLoader to trigger Coil setup
@@ -137,7 +140,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                             }
                         },
                         // Job 3: Pre-warm WorkManager (ensure ready for sync)
-                        async(Dispatchers.Default) {
+                        async(defaultDispatcher) {
                             try {
                                 Timber.d("Init: Warming WorkManager...")
                                 // Access workerFactory to ensure DI ready
@@ -149,7 +152,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                             }
                         },
                         // Job 4: Pre-warm OkHttpClient connection pool
-                        async(Dispatchers.IO) {
+                        async(ioDispatcher) {
                             try {
                                 Timber.d("Init: Warming network stack...")
                                 // Access okHttpClient to trigger connection pool setup
@@ -161,7 +164,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                         },
                         // Job 5: Pre-warm ConnectionManager with known servers
                         // Tests connections in parallel so URLs are ready before Home screen loads
-                        async(Dispatchers.IO) {
+                        async(ioDispatcher) {
                             try {
                                 Timber.d("Init: Pre-warming server connections...")
                                 val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: emptyList()

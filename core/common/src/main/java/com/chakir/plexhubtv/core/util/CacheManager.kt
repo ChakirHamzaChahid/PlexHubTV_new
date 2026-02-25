@@ -1,8 +1,9 @@
 package com.chakir.plexhubtv.core.util
 
 import android.content.Context
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -17,14 +18,15 @@ class CacheManager
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
         suspend fun getCacheSize(): Long =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 getFolderSize(context.cacheDir)
             }
 
         suspend fun clearCache() =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 deleteDir(context.cacheDir)
             }
 

@@ -1,8 +1,11 @@
 package com.chakir.plexhubtv.domain.usecase
 
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -16,9 +19,10 @@ class GetPlayQueueUseCase
     @Inject
     constructor(
         private val mediaDetailRepository: MediaDetailRepository,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
         suspend operator fun invoke(startEpisode: MediaItem): Result<List<MediaItem>> =
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 if (startEpisode.type != MediaType.Episode) {
                     return@withContext Result.success(listOf(startEpisode)) // Single item queue for Movies/Others
                 }

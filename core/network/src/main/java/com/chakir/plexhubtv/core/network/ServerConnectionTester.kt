@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.core.network
 
-import kotlinx.coroutines.Dispatchers
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -34,6 +35,7 @@ class OkHttpConnectionTester
     @Inject
     constructor(
         baseClient: OkHttpClient,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : ServerConnectionTester {
         // Derive from the app's OkHttpClient to inherit SSL trust config (self-signed certs on LAN)
         private val defaultClient =
@@ -55,7 +57,7 @@ class OkHttpConnectionTester
             timeoutSeconds: Int,
         ): ConnectionResult {
             val client = if (timeoutSeconds > 10) relayClient else defaultClient
-            return withContext(Dispatchers.IO) {
+            return withContext(ioDispatcher) {
                 val start = System.currentTimeMillis()
                 val request =
                     Request.Builder()

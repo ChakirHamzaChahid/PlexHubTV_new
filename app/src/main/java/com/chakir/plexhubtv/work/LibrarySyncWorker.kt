@@ -8,9 +8,10 @@ import androidx.work.workDataOf
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -40,6 +41,7 @@ class LibrarySyncWorker
         private val syncRepository: SyncRepository,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : CoroutineWorker(appContext, workerParams) {
         private val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         private val channelId = "library_sync"
@@ -58,7 +60,7 @@ class LibrarySyncWorker
          * Gestion des erreurs : Retourne toujours Success pour éviter de bloquer l'app.
          */
         override suspend fun doWork(): Result =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 Timber.d("→ doWork() STARTED")
 
                 try {

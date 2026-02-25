@@ -1,12 +1,14 @@
 package com.chakir.plexhubtv.core.network
 
 import com.chakir.plexhubtv.core.di.ApplicationScope
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -246,8 +248,8 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideServerConnectionTester(okHttpClient: OkHttpClient): ServerConnectionTester {
-        return OkHttpConnectionTester(okHttpClient)
+    fun provideServerConnectionTester(okHttpClient: OkHttpClient, @IoDispatcher ioDispatcher: CoroutineDispatcher): ServerConnectionTester {
+        return OkHttpConnectionTester(okHttpClient, ioDispatcher)
     }
 
     // ========================================

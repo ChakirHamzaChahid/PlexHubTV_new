@@ -3,7 +3,8 @@ package com.chakir.plexhubtv.data.cache
 import com.chakir.plexhubtv.core.database.ApiCacheDao
 import com.chakir.plexhubtv.core.database.ApiCacheEntity
 import com.chakir.plexhubtv.core.network.ApiCache
-import kotlinx.coroutines.Dispatchers
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,9 +18,10 @@ class RoomApiCache
     @Inject
     constructor(
         private val apiCacheDao: ApiCacheDao,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : ApiCache {
         override suspend fun get(cacheKey: String): String? {
-            return withContext(Dispatchers.IO) {
+            return withContext(ioDispatcher) {
                 val entry = apiCacheDao.getEntry(cacheKey)
                 if (entry != null) {
                     if (entry.isExpired()) {
@@ -39,7 +41,7 @@ class RoomApiCache
             data: String,
             ttlSeconds: Int,
         ) {
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val entry =
                     ApiCacheEntity(
                         cacheKey = cacheKey,
@@ -52,7 +54,7 @@ class RoomApiCache
         }
 
         override suspend fun evict(cacheKey: String) {
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 apiCacheDao.deleteEntry(cacheKey)
             }
         }

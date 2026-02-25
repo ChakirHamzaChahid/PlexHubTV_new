@@ -1,13 +1,15 @@
 package com.chakir.plexhubtv.feature.player.controller
 
+import com.chakir.plexhubtv.core.di.ApplicationScope
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.util.WatchNextHelper
 import com.chakir.plexhubtv.domain.service.TvChannelManager
 import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import com.chakir.plexhubtv.domain.usecase.PrefetchNextEpisodeUseCase
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +33,8 @@ class PlayerScrobbler
         private val watchNextHelper: WatchNextHelper,
         private val tvChannelManager: TvChannelManager,
         private val prefetchNextEpisodeUseCase: PrefetchNextEpisodeUseCase,
+        @ApplicationScope private val applicationScope: CoroutineScope,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
         private var scrobbleJob: Job? = null
         private var autoNextTriggered = false
@@ -99,7 +103,7 @@ class PlayerScrobbler
             prefetchNextEpisodeUseCase.reset()
 
             // Update TV channel once when playback stops (fire-and-forget on IO)
-            CoroutineScope(Dispatchers.IO).launch {
+            applicationScope.launch(ioDispatcher) {
                 try {
                     tvChannelManager.updateContinueWatching()
                 } catch (e: Exception) {

@@ -5,7 +5,9 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.VideoStream
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
@@ -35,6 +37,7 @@ class EnrichMediaItemUseCase
         private val mediaDetailRepository: MediaDetailRepository,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
         // In-memory cache: keyed by "ratingKey:serverId" → enriched MediaItem
         private val cache = ConcurrentHashMap<String, MediaItem>()
@@ -193,7 +196,7 @@ class EnrichMediaItemUseCase
             serverMap: Map<String, String>,
             opId: String,
         ): MediaItem =
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            kotlinx.coroutines.withContext(ioDispatcher) {
                 coroutineScope {
                     val networkStart = System.currentTimeMillis()
                     val matchesDeferred =

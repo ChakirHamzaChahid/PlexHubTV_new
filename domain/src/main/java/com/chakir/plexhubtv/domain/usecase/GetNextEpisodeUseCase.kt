@@ -1,8 +1,11 @@
 package com.chakir.plexhubtv.domain.usecase
 
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -17,9 +20,10 @@ class GetNextEpisodeUseCase
     @Inject
     constructor(
         private val mediaDetailRepository: MediaDetailRepository,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
         suspend operator fun invoke(media: MediaItem): Result<MediaItem> =
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     when (media.type) {
                         MediaType.Episode -> {

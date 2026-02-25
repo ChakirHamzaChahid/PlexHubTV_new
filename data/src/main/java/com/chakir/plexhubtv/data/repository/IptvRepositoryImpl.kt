@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
@@ -21,6 +24,7 @@ class IptvRepositoryImpl
     constructor(
         private val okHttpClient: OkHttpClient,
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : IptvRepository {
         private val _channels = MutableStateFlow<List<IptvChannel>>(emptyList())
 
@@ -31,7 +35,7 @@ class IptvRepositoryImpl
         override fun getChannels(): Flow<List<IptvChannel>> = _channels.asStateFlow()
 
         override suspend fun refreshChannels(url: String): Result<Unit> =
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val scheme = Uri.parse(url).scheme?.lowercase()
                 if (scheme == null || scheme !in ALLOWED_M3U_SCHEMES) {
                     Timber.e("Rejected M3U URL with disallowed scheme '$scheme': ${url.take(80)}")

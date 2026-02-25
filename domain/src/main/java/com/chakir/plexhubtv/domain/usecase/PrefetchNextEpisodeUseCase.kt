@@ -1,9 +1,10 @@
 package com.chakir.plexhubtv.domain.usecase
 
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class PrefetchNextEpisodeUseCase @Inject constructor(
     private val mediaDetailRepository: MediaDetailRepository,
     private val episodeNavigationUseCase: EpisodeNavigationUseCase,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
 
     private var lastPrefetchedEpisodeId: String? = null
@@ -33,7 +35,7 @@ class PrefetchNextEpisodeUseCase @Inject constructor(
      * @return Le prochain épisode préchargé, ou null si aucun épisode suivant
      */
     suspend operator fun invoke(currentEpisode: MediaItem): Result<MediaItem?> =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             try {
                 // Skip if not an episode
                 if (currentEpisode.type != MediaType.Episode) {

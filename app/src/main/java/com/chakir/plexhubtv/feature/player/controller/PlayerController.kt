@@ -18,6 +18,7 @@ import com.chakir.plexhubtv.feature.player.ExoStreamMetadata
 import com.chakir.plexhubtv.feature.player.PlayerFactory
 import com.chakir.plexhubtv.core.common.handler.GlobalCoroutineExceptionHandler
 import com.chakir.plexhubtv.core.di.DefaultDispatcher
+import com.chakir.plexhubtv.core.di.MainDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.feature.player.PlayerUiState
 import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
@@ -45,9 +46,10 @@ class PlayerController @Inject constructor(
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
     private val connectionManager: ConnectionManager,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
+    @MainDispatcher private val mainDispatcher: CoroutineDispatcher,
     private val globalHandler: GlobalCoroutineExceptionHandler,
 ) {
-    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + globalHandler)
+    private var scope = CoroutineScope(SupervisorJob() + mainDispatcher + globalHandler)
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -136,7 +138,7 @@ class PlayerController @Inject constructor(
         // Cancel ALL coroutines (position tracker, scrobbler, stats, collectors)
         scope.cancel()
         // Recreate a fresh scope for the next initialize() cycle
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + globalHandler)
+        scope = CoroutineScope(SupervisorJob() + mainDispatcher + globalHandler)
 
         // Reset state so a fresh session doesn't inherit stale values
         _uiState.value = PlayerUiState()

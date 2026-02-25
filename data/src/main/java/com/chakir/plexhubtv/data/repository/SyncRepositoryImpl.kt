@@ -12,7 +12,8 @@ import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
-import kotlinx.coroutines.Dispatchers
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -38,12 +39,13 @@ class SyncRepositoryImpl
         private val mediaMapper: MediaMapper,
         private val libraryRepository: LibraryRepository,
         private val settingsDataStore: SettingsDataStore,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : SyncRepository {
         // Callback for progress updates (set by LibrarySyncWorker)
         override var onProgressUpdate: ((current: Int, total: Int, libraryName: String) -> Unit)? = null
 
         override suspend fun syncServer(server: Server): Result<Unit> =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     Timber.d("Starting sync for server: ${server.name}")
                     // 1. Get Libraries
@@ -108,7 +110,7 @@ class SyncRepositoryImpl
             libraryKey: String,
             libraryName: String,
         ): Result<Unit> =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     val baseUrl = connectionManager.findBestConnection(server)
                         ?: return@withContext Result.failure(AppError.Network.NoConnection("No connection to ${server.name}"))

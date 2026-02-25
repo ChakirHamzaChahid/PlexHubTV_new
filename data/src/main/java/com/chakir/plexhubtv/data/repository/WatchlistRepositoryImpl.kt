@@ -10,7 +10,8 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.WatchlistRepository
-import kotlinx.coroutines.Dispatchers
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -27,6 +28,7 @@ class WatchlistRepositoryImpl
         private val mediaMapper: MediaMapper,
         private val mediaDao: MediaDao,
         private val favoriteDao: FavoriteDao,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : WatchlistRepository {
         override suspend fun getWatchlist(): Result<List<MediaItem>> {
             val token = settingsDataStore.plexToken.first()
@@ -114,7 +116,7 @@ class WatchlistRepositoryImpl
         }
 
         override suspend fun syncWatchlist(): Result<Unit> =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val token = settingsDataStore.plexToken.first()
                     ?: return@withContext Result.failure(AppError.Auth.InvalidToken("No token"))
                 val clientId = settingsDataStore.clientId.first()

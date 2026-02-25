@@ -1,8 +1,10 @@
 package com.chakir.plexhubtv.domain.usecase
 
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +30,7 @@ class GetMediaDetailUseCase
     @Inject
     constructor(
         private val mediaDetailRepository: MediaDetailRepository,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
         /**
          * @param ratingKey ID de l'élément sur le serveur principal.
@@ -93,5 +96,5 @@ class GetMediaDetailUseCase
                         emit(Result.failure(itemResult.exceptionOrNull() ?: Exception("Failed to load details")))
                     }
                 }
-            }.flowOn(kotlinx.coroutines.Dispatchers.IO)
+            }.flowOn(ioDispatcher)
     }
