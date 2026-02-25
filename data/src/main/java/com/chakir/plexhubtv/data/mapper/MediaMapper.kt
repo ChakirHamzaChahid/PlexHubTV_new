@@ -336,8 +336,10 @@ class MediaMapper
                 type = mapType(entity.type),
                 imdbId = entity.imdbId,
                 tmdbId = entity.tmdbId,
-                thumbUrl = entity.resolvedThumbUrl ?: entity.thumbUrl,
-                artUrl = entity.resolvedArtUrl ?: entity.artUrl,
+                // Always use raw relative paths — callers resolve against current baseUrl
+                // (resolvedThumbUrl may embed a stale server address from sync time)
+                thumbUrl = entity.thumbUrl,
+                artUrl = entity.artUrl,
                 alternativeThumbUrls = entity.alternativeThumbUrls?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
                 summary = entity.summary,
                 year = entity.year,

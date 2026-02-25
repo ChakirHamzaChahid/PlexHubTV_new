@@ -9,6 +9,7 @@ import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.ApiCache
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
+import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
@@ -29,6 +30,7 @@ class PlaybackRepositoryImpl
         private val mediaDao: MediaDao,
         private val apiCache: ApiCache,
         private val mapper: MediaMapper,
+        private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDetailRepository: MediaDetailRepository,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : PlaybackRepository {
@@ -136,14 +138,18 @@ class PlaybackRepositoryImpl
                     .orEmpty()
 
                 entities.map { entity ->
-                    // Mapper already uses resolvedThumbUrl/resolvedArtUrl if populated
                     val domain = mapper.mapEntityToDomain(entity)
                     val server = serverMap[entity.serverId]
-                    val baseUrl = entity.resolvedBaseUrl
-                        ?: server?.let { connectionManager.getCachedUrl(it.clientIdentifier) ?: it.address }
+                    // Always use current connection URL, not stale resolvedBaseUrl
+                    val baseUrl = server?.let {
+                        connectionManager.getCachedUrl(it.clientIdentifier) ?: it.address
+                    }
 
                     if (server != null && baseUrl != null) {
-                        domain.copy(baseUrl = baseUrl, accessToken = server.accessToken)
+                        mediaUrlResolver.resolveUrls(domain, baseUrl, server.accessToken).copy(
+                            baseUrl = baseUrl,
+                            accessToken = server.accessToken,
+                        )
                     } else {
                         domain
                     }

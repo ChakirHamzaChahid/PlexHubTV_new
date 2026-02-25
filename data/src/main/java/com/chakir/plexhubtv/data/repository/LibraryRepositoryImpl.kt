@@ -11,6 +11,7 @@ import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
@@ -171,6 +172,7 @@ class LibraryRepositoryImpl
                         media.displayRating,
                         media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
                         media.scrapedRating,
+                        media.historyGroupKey,
                         GROUP_CONCAT(media.ratingKey) as ratingKeys,
                         GROUP_CONCAT(media.serverId) as serverIds,
                         GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """,
@@ -345,20 +347,28 @@ class LibraryRepositoryImpl
                                     domain
                                 }
 
-                            if (baseUrl != null && finalDomain.thumbUrl?.startsWith("http") == false) {
+                            // Always resolve URLs against CURRENT baseUrl (resolvedThumbUrl may
+                            // contain a stale server address if the connection changed since sync)
+                            if (baseUrl != null) {
+                                val thumbPath = entity.thumbUrl // raw relative path
+                                val artPath = entity.artUrl
                                 finalDomain.copy(
-                                    thumbUrl = "${baseUrl}${finalDomain.thumbUrl}?X-Plex-Token=$token",
-                                    artUrl =
-                                        finalDomain.artUrl?.let {
-                                            if (!it.startsWith(
-                                                    "http",
-                                                )
-                                            ) {
-                                                "${baseUrl}$it?X-Plex-Token=$token"
-                                            } else {
-                                                it
-                                            }
-                                        },
+                                    thumbUrl = thumbPath?.let {
+                                        getOptimizedImageUrl("$baseUrl$it?X-Plex-Token=$token", 300, 450)
+                                            ?: "$baseUrl$it?X-Plex-Token=$token"
+                                    },
+                                    artUrl = artPath?.let {
+                                        getOptimizedImageUrl("$baseUrl$it?X-Plex-Token=$token", 1280, 720)
+                                            ?: "$baseUrl$it?X-Plex-Token=$token"
+                                    },
+                                    parentThumb = entity.parentThumb?.let {
+                                        getOptimizedImageUrl("$baseUrl$it?X-Plex-Token=$token", 300, 450)
+                                            ?: "$baseUrl$it?X-Plex-Token=$token"
+                                    },
+                                    grandparentThumb = entity.grandparentThumb?.let {
+                                        getOptimizedImageUrl("$baseUrl$it?X-Plex-Token=$token", 300, 450)
+                                            ?: "$baseUrl$it?X-Plex-Token=$token"
+                                    },
                                     baseUrl = baseUrl,
                                     accessToken = token,
                                 )
