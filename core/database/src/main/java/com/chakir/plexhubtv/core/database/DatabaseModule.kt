@@ -250,6 +250,33 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_30_31 =
+        object : androidx.room.migration.Migration(30, 31) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Create FTS4 virtual table linked to media (external content)
+                database.execSQL(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS `media_fts` USING FTS4(`title`, `summary`, `genres`, content=`media`)"
+                )
+
+                // Populate FTS index from existing media rows
+                database.execSQL("INSERT INTO media_fts(media_fts) VALUES('rebuild')")
+
+                // Content-sync triggers (Room generates these on fresh install; migration needs them explicitly)
+                database.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_media_fts_BEFORE_UPDATE BEFORE UPDATE ON `media` BEGIN DELETE FROM `media_fts` WHERE `docid`=OLD.`rowid`; END"
+                )
+                database.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_media_fts_AFTER_UPDATE AFTER UPDATE ON `media` BEGIN INSERT INTO `media_fts`(`docid`, `title`, `summary`, `genres`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`summary`, NEW.`genres`); END"
+                )
+                database.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_media_fts_BEFORE_DELETE BEFORE DELETE ON `media` BEGIN DELETE FROM `media_fts` WHERE `docid`=OLD.`rowid`; END"
+                )
+                database.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_media_fts_AFTER_INSERT AFTER INSERT ON `media` BEGIN INSERT INTO `media_fts`(`docid`, `title`, `summary`, `genres`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`summary`, NEW.`genres`); END"
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -288,7 +315,8 @@ object DatabaseModule {
                 MIGRATION_26_27,
                 MIGRATION_27_28,
                 MIGRATION_28_29,
-                MIGRATION_29_30
+                MIGRATION_29_30,
+                MIGRATION_30_31
             )
             .fallbackToDestructiveMigration()
             .build()

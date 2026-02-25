@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 30 : Ajout de historyGroupKey + index lastViewedAt pour requêtes historique performantes.
+ * Version 31 : Ajout de FTS4 sur media pour recherche plein texte performante.
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -26,8 +26,9 @@ import androidx.room.TypeConverters
         MediaCollectionCrossRef::class,
         ProfileEntity::class,
         SearchCacheEntity::class,
+        MediaFts::class,
     ],
-    version = 30,
+    version = 31,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {

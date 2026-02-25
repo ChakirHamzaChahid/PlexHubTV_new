@@ -176,8 +176,9 @@ class MediaRepositoryImpl
         override suspend fun searchMedia(query: String): Result<List<MediaItem>> =
             coroutineScope {
                 try {
-                    val movies = async { mediaDao.searchMedia(query, "movie") }
-                    val shows = async { mediaDao.searchMedia(query, "show") }
+                    val ftsQuery = sanitizeFtsQuery(query)
+                    val movies = async { mediaDao.searchMediaFts(ftsQuery, "movie") }
+                    val shows = async { mediaDao.searchMediaFts(ftsQuery, "show") }
 
                     val allEntities = movies.await() + shows.await()
                     val servers = authRepository.getServers().getOrNull() ?: emptyList()
@@ -211,5 +212,15 @@ class MediaRepositoryImpl
             subtitleStreamId: String?,
         ): Result<Unit> {
             return playbackRepository.updateStreamSelection(serverId, partId, audioStreamId, subtitleStreamId)
+        }
+
+        /**
+         * Sanitize user input for FTS4 MATCH: strip special chars, add prefix wildcard per token.
+         * "star war" → "star* war*"
+         */
+        private fun sanitizeFtsQuery(query: String): String {
+            val cleaned = query.replace(Regex("[^\\p{L}\\p{N}\\s]"), "").trim()
+            if (cleaned.isEmpty()) return "\"\""
+            return cleaned.split(Regex("\\s+")).joinToString(" ") { "$it*" }
         }
     }

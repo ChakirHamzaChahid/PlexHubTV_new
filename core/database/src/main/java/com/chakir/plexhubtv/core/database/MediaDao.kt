@@ -73,6 +73,18 @@ interface MediaDao {
         type: String,
     ): List<MediaEntity>
 
+    @Query(
+        "SELECT media.* FROM media " +
+        "JOIN media_fts ON media.rowid = media_fts.rowid " +
+        "WHERE media_fts MATCH :ftsQuery " +
+        "AND media.type = :type " +
+        "ORDER BY media.title ASC"
+    )
+    suspend fun searchMediaFts(
+        ftsQuery: String,
+        type: String,
+    ): List<MediaEntity>
+
     // ========================================
     // Rating Sync Queries (IMDb/TMDb)
     // ========================================
