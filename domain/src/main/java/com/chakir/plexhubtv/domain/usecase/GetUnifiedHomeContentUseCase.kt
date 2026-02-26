@@ -44,6 +44,7 @@ class GetUnifiedHomeContentUseCase
     constructor(
         private val onDeckRepository: OnDeckRepository,
         private val hubsRepository: HubsRepository,
+        private val sortOnDeck: SortOnDeckUseCase,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
         @ApplicationScope private val appScope: CoroutineScope,
     ) {
@@ -89,8 +90,9 @@ class GetUnifiedHomeContentUseCase
                 emit(emptyList())
             }
             return combine(onDeckFlow, hubsFlow) { onDeck, hubs ->
-                Timber.i("HOME [UseCase] combine emission: OnDeck=${onDeck.size} Hubs=${hubs.size}")
-                Result.success(HomeContent(onDeck = onDeck, hubs = hubs))
+                val sorted = sortOnDeck(onDeck)
+                Timber.i("HOME [UseCase] combine emission: OnDeck=${sorted.size} Hubs=${hubs.size}")
+                Result.success(HomeContent(onDeck = sorted, hubs = hubs))
             }
                 .flowOn(ioDispatcher)
                 .catch { e -> emit(Result.failure(e)) }
