@@ -52,6 +52,9 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE type = :type")
     fun getAllMediaByType(type: String): Flow<List<MediaEntity>>
 
+    @Query("SELECT * FROM media WHERE serverId = :serverId AND type = :type AND filter = :filter ORDER BY titleSortable ASC")
+    suspend fun getMediaByServerTypeFilter(serverId: String, type: String, filter: String): List<MediaEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMedia(media: MediaEntity)
 
