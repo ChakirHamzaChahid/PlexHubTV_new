@@ -537,7 +537,7 @@ fun EnhancedEpisodeItem(
             }
 
             // Progress indicator at bottom
-            if (hasProgress && episode.viewedStatus != "watched") {
+            if (hasProgress && !episode.isWatched) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -633,7 +633,7 @@ fun EnhancedEpisodeItem(
                     )
                 }
 
-                if (!isOfflineMode && episode.viewedStatus == "watched") {
+                if (!isOfflineMode && episode.isWatched) {
                     Text(
                         " \u2022 ",
                         style = MaterialTheme.typography.bodySmall,

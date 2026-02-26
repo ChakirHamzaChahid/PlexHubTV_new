@@ -33,4 +33,7 @@
     <!-- Barre latérale -->
     <string name="sidebar_navigation_description">Menu de navigation</string>
     <string name="sidebar_profile_description">Profil utilisateur</string>
+
+    <!-- Badges des cartes média -->
+    <string name="watched_badge">Vu</string>
 </resources>

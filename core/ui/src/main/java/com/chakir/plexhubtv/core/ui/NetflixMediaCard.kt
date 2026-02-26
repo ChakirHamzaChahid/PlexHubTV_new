@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -265,6 +267,15 @@ fun NetflixMediaCard(
                 }
             }
 
+            // Watched Badge — top-start, shifts down if multi-server badge is also present
+            if (media.isWatched) {
+                WatchedBadge(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = if (serverCount > 1) 30.dp else 6.dp, start = 6.dp)
+                )
+            }
+
             // Debug IDs Badge — Visible when focused (bottom-left corner), debug builds only
             if (BuildConfig.DEBUG && isFocused && (media.imdbId != null || media.tmdbId != null || media.unificationId != null)) {
                 Column(
@@ -420,6 +431,35 @@ fun NetflixProgressBar(
                     .fillMaxWidth(progress)
                     .height(4.dp)
                     .background(NetflixRed)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WatchedBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .background(
+                color = Color.Black.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(4.dp),
+            )
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = Color(0xFF66BB6A),
+                modifier = Modifier.size(12.dp),
+            )
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = stringResource(R.string.watched_badge),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
             )
         }
     }

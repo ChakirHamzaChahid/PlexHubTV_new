@@ -34,4 +34,7 @@
     <!-- Sidebar -->
     <string name="sidebar_navigation_description">Navigation menu</string>
     <string name="sidebar_profile_description">User profile</string>
+
+    <!-- Media Card Badges -->
+    <string name="watched_badge">Watched</string>
 </resources>
