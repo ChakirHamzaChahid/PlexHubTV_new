@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -107,7 +108,7 @@ class AuthViewModel
             val timeoutMs = 120_000L // 2 minutes
             val startTime = System.currentTimeMillis()
 
-            while (viewModelScope.isActive && System.currentTimeMillis() - startTime < timeoutMs) {
+            while (currentCoroutineContext().isActive && System.currentTimeMillis() - startTime < timeoutMs) {
                 delay(2000) // Poll every 2 seconds
 
                 val progress = (System.currentTimeMillis() - startTime).toFloat() / timeoutMs

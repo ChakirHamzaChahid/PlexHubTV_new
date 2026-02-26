@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.feature.search
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
@@ -35,8 +36,11 @@ class SearchViewModel
     @Inject
     constructor(
         private val searchAcrossServersUseCase: SearchAcrossServersUseCase,
+        private val savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(SearchUiState())
+        private val _uiState = MutableStateFlow(
+            SearchUiState(query = savedStateHandle.get<String>("search_query") ?: "")
+        )
         val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
         private val _navigationEvents = Channel<SearchNavigationEvent>(Channel.BUFFERED)
@@ -67,8 +71,8 @@ class SearchViewModel
         fun onAction(action: SearchAction) {
             when (action) {
                 is SearchAction.QueryChange -> {
-                    // Only update the query text, don't trigger search automatically
                     _uiState.update { it.copy(query = action.query) }
+                    savedStateHandle["search_query"] = action.query
                     if (action.query.isBlank()) {
                         _uiState.update { it.copy(searchState = SearchState.Idle, results = emptyList()) }
                         searchJob?.cancel()
@@ -76,6 +80,7 @@ class SearchViewModel
                 }
                 is SearchAction.ClearQuery -> {
                     _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = emptyList()) }
+                    savedStateHandle["search_query"] = ""
                     searchJob?.cancel()
                 }
                 is SearchAction.ExecuteSearch -> {
