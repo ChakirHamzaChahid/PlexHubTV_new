@@ -232,7 +232,7 @@ fun LibrariesScreen(
                                 val hasActiveFilter = state.filteredItems != null && state.filteredItems != state.totalItems
                                 Text(
                                     text = if (hasActiveFilter) {
-                                        stringResource(R.string.library_title_count_filtered, state.filteredItems!!, state.totalItems)
+                                        stringResource(R.string.library_title_count_filtered, state.filteredItems ?: 0, state.totalItems)
                                     } else {
                                         stringResource(R.string.library_title_count, state.totalItems)
                                     },
