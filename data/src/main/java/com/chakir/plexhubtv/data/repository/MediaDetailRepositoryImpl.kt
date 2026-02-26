@@ -8,6 +8,8 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
+import com.chakir.plexhubtv.domain.repository.XtreamSeriesRepository
+import com.chakir.plexhubtv.domain.usecase.MediaDetail
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -27,15 +29,25 @@ class MediaDetailRepositoryImpl
         private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
+        private val xtreamSeriesRepository: XtreamSeriesRepository,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MediaDetailRepository {
         // In-memory cache for similar items: "ratingKey:serverId" → (timestampMs, items)
         private val similarCache = ConcurrentHashMap<String, Pair<Long, List<MediaItem>>>()
         private val similarCacheTtlMs = 10 * 60 * 1000L // 10 minutes
+
+        // In-memory cache for Xtream series detail (avoids double API call from parallel fetches)
+        private val xtreamSeriesDetailCache = ConcurrentHashMap<String, Pair<Long, MediaDetail>>()
+        private val xtreamSeriesDetailCacheTtlMs = 60 * 1000L // 1 minute
         override suspend fun getMediaDetail(
             ratingKey: String,
             serverId: String,
         ): Result<MediaItem> {
+            // Xtream: direct-play content — no mediaParts/streams needed
+            if (serverId.startsWith("xtream_")) {
+                return getXtreamMediaDetail(ratingKey, serverId)
+            }
+
             // 1. BDD first — synced every 6h, instant access
             val localEntity = mediaDao.getMedia(ratingKey, serverId)
             if (localEntity != null) {
@@ -84,6 +96,11 @@ class MediaDetailRepositoryImpl
             // 1. Cache-first: Return Room data immediately when available (~5ms)
             val localEntities = mediaDao.getChildren(ratingKey, serverId)
             if (localEntities.isNotEmpty()) {
+                // Xtream: no URL resolution needed (direct-play URLs built at playback time)
+                if (serverId.startsWith("xtream_")) {
+                    return Result.success(localEntities.map { mapper.mapEntityToDomain(it) })
+                }
+
                 val client = serverClientResolver.getClient(serverId)
                 val baseUrl = client?.baseUrl
                 val token = client?.server?.accessToken
@@ -97,6 +114,11 @@ class MediaDetailRepositoryImpl
                     }
                 }
                 return Result.success(cachedItems)
+            }
+
+            // Xtream: if no episodes in Room, they haven't been fetched yet (empty result is fine)
+            if (serverId.startsWith("xtream_")) {
+                return Result.success(emptyList())
             }
 
             // 2. API fallback: Only if not in cache (new season, not yet synced)
@@ -166,6 +188,13 @@ class MediaDetailRepositoryImpl
             ratingKey: String,
             serverId: String,
         ): Result<List<MediaItem>> {
+            // Xtream shows: seasons come from series info API (not stored in Room)
+            if (serverId.startsWith("xtream_") && ratingKey.startsWith("series_")) {
+                val detail = getCachedXtreamSeriesDetail(ratingKey, serverId)
+                return detail?.let { Result.success(it.children) }
+                    ?: Result.success(emptyList())
+            }
+
             return getSeasonEpisodes(ratingKey, serverId) // Plex uses getChildren for both seasons of show and episodes of season
         }
 
@@ -304,5 +333,44 @@ class MediaDetailRepositoryImpl
                     }
                 }
                 .flowOn(ioDispatcher)
+        }
+
+        // --- Xtream detail helpers ---
+
+        private suspend fun getXtreamMediaDetail(ratingKey: String, serverId: String): Result<MediaItem> {
+            // For movies: return from Room directly (synced during library sync)
+            val localEntity = mediaDao.getMedia(ratingKey, serverId)
+            if (localEntity != null) {
+                return Result.success(mapper.mapEntityToDomain(localEntity))
+            }
+
+            // For shows not in Room: fetch full detail from Xtream API
+            if (ratingKey.startsWith("series_")) {
+                val detail = getCachedXtreamSeriesDetail(ratingKey, serverId)
+                if (detail != null) return Result.success(detail.item)
+            }
+
+            return Result.failure(AppError.Media.NotFound("Xtream media $ratingKey not found"))
+        }
+
+        /**
+         * Fetch Xtream series detail with a brief cache to avoid double API calls
+         * from parallel getMediaDetail() + getShowSeasons() in GetMediaDetailUseCase.
+         */
+        private suspend fun getCachedXtreamSeriesDetail(ratingKey: String, serverId: String): MediaDetail? {
+            val cacheKey = "$ratingKey:$serverId"
+            val cached = xtreamSeriesDetailCache[cacheKey]
+            if (cached != null && System.currentTimeMillis() - cached.first < xtreamSeriesDetailCacheTtlMs) {
+                return cached.second
+            }
+
+            val accountId = serverId.removePrefix("xtream_")
+            val seriesId = ratingKey.removePrefix("series_").toIntOrNull() ?: return null
+
+            return xtreamSeriesRepository.getSeriesDetail(accountId, seriesId)
+                .onSuccess { detail ->
+                    xtreamSeriesDetailCache[cacheKey] = System.currentTimeMillis() to detail
+                }
+                .getOrNull()
         }
     }
