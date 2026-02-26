@@ -9,6 +9,8 @@ import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
 import com.chakir.plexhubtv.core.di.IoDispatcher
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.model.toAppError
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CoroutineDispatcher
@@ -164,9 +166,9 @@ class LibrarySyncWorker
                     syncRepository.onProgressUpdate = null
 
                     if (failureCount == servers.size && servers.isNotEmpty()) {
-                        Timber.w("✗ All ${servers.size} servers failed: [$serverNames]")
+                        Timber.w("✗ All ${servers.size} servers failed — scheduling retry: [$serverNames]")
                         settingsDataStore.saveFirstSyncComplete(true)
-                        Result.success()
+                        Result.retry()
                     } else {
                         // MARK SYNC AS COMPLETE
                         settingsDataStore.saveLastSyncTime(System.currentTimeMillis())
@@ -209,7 +211,9 @@ class LibrarySyncWorker
                         Timber.e("Failed to mark sync complete: ${ex.message}")
                     }
 
-                    Result.success() // Changed from failure to success to avoid blocking
+                    // S-10: Retry on transient errors, fail on permanent
+                    val appError = e.toAppError()
+                    if (appError.isRetryable()) Result.retry() else Result.failure()
                 }
             }
 
