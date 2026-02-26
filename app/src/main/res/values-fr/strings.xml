@@ -523,12 +523,14 @@
          ══════════════════════════════════════════════ -->
     <string name="downloads_title">Téléchargements</string>
     <string name="downloads_empty">Aucun contenu téléchargé.</string>
+    <string name="downloads_empty_hint">Le contenu téléchargé apparaîtra ici pour la lecture hors-ligne.</string>
 
     <!-- ══════════════════════════════════════════════
          Écran des favoris
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">Ma liste</string>
     <string name="favorites_empty">Aucun favori pour le moment.</string>
+    <string name="favorites_empty_hint">Ajoutez des films et séries à votre liste depuis l\'écran de détails.</string>
     <string name="favorites_screen_description">Écran des favoris</string>
     <string name="favorites_loading_description">Chargement des favoris</string>
     <string name="favorites_empty_description">Aucun favori</string>
@@ -538,6 +540,7 @@
          ══════════════════════════════════════════════ -->
     <string name="history_title">Historique de visionnage</string>
     <string name="history_empty">Aucun historique disponible.</string>
+    <string name="history_empty_hint">Votre contenu récemment regardé apparaîtra ici.</string>
     <string name="history_screen_description">Écran d\'historique</string>
     <string name="history_empty_description">Aucun historique</string>
 

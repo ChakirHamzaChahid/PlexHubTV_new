@@ -2,7 +2,6 @@ package com.chakir.plexhubtv.feature.search
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -34,6 +33,7 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
+import com.chakir.plexhubtv.core.ui.MediaRowSkeleton
 import com.chakir.plexhubtv.core.ui.NetflixContentRow
 import com.chakir.plexhubtv.core.ui.NetflixOnScreenKeyboard
 
@@ -153,11 +153,11 @@ fun NetflixSearchScreen(
                     }
                 }
                 SearchState.Searching -> {
-                    Box(
+                    Column(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        CircularProgressIndicator(color = NetflixWhite)
+                        repeat(3) { MediaRowSkeleton() }
                     }
                 }
                 SearchState.NoResults -> {

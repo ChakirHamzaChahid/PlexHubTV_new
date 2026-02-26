@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -19,13 +20,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
+import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 
 /**
@@ -97,15 +100,12 @@ fun FavoritesScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         if (uiState.isLoading) {
-            Box(
+            LibraryGridSkeleton(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("favorites_loading")
                     .semantics { contentDescription = loadingDescription },
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = NetflixRed)
-            }
+            )
         } else if (uiState.favorites.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -114,11 +114,26 @@ fun FavoritesScreen(
                     .semantics { contentDescription = emptyDescription },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = stringResource(R.string.favorites_empty),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.6f),
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = Color.White.copy(alpha = 0.4f),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = stringResource(R.string.favorites_empty),
+                        style = typography.titleLarge,
+                        color = Color.White.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.favorites_empty_hint),
+                        style = typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.4f),
+                    )
+                }
             }
         } else {
             // Sort chip

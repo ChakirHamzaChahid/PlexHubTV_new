@@ -13,8 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -32,8 +34,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.ui.EpisodeItemSkeleton
 
 /**
  * Écran de gestion des téléchargements.
@@ -81,14 +85,13 @@ fun DownloadsScreen(
                 .semantics { contentDescription = "Écran des téléchargements" }
         ) {
             if (state.isLoading) {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag("downloads_loading")
                         .semantics { contentDescription = "Chargement des téléchargements" },
-                    contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    repeat(5) { EpisodeItemSkeleton() }
                 }
             } else if (state.downloads.isEmpty()) {
                 Box(
@@ -98,7 +101,26 @@ fun DownloadsScreen(
                         .semantics { contentDescription = "Aucun téléchargement" },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No downloaded content.")
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.CloudDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = androidx.compose.ui.res.stringResource(R.string.downloads_empty),
+                            style = typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = androidx.compose.ui.res.stringResource(R.string.downloads_empty_hint),
+                            style = typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        )
+                    }
                 }
             } else {
                 val listState = rememberLazyListState()

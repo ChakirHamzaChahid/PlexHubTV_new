@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
+import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import com.chakir.plexhubtv.feature.home.MediaCard
 
 @Composable
@@ -77,12 +78,11 @@ fun CollectionDetailScreen(
                     .background(Color.Black),
         ) {
             if (state.isLoading) {
-                CircularProgressIndicator(
+                LibraryGridSkeleton(
                     modifier = Modifier
-                        .align(Alignment.Center)
+                        .fillMaxSize()
                         .testTag("collection_loading")
                         .semantics { contentDescription = loadingDesc },
-                    color = MaterialTheme.colorScheme.primary,
                 )
             } else if (state.error != null) {
                 val errorDesc = stringResource(R.string.collection_error_description, state.error)

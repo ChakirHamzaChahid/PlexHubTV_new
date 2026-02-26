@@ -6,8 +6,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,11 +24,13 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chakir.plexhubtv.R
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import com.chakir.plexhubtv.feature.home.MediaCard
 
 /**
@@ -71,15 +76,12 @@ fun HistoryScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (uiState.isLoading) {
-            Box(
+            LibraryGridSkeleton(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("history_loading")
                     .semantics { contentDescription = loadingDescription },
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
+            )
         } else if (uiState.historyItems.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -88,11 +90,26 @@ fun HistoryScreen(
                     .semantics { contentDescription = emptyDescription },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = stringResource(R.string.history_empty),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = Color.White.copy(alpha = 0.4f),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = stringResource(R.string.history_empty),
+                        style = typography.titleLarge,
+                        color = Color.White.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.history_empty_hint),
+                        style = typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.4f),
+                    )
+                }
             }
         } else {
             val gridState = rememberLazyGridState()

@@ -530,12 +530,14 @@
          ══════════════════════════════════════════════ -->
     <string name="downloads_title">Downloads</string>
     <string name="downloads_empty">No downloaded content.</string>
+    <string name="downloads_empty_hint">Downloaded content will appear here for offline viewing.</string>
 
     <!-- ══════════════════════════════════════════════
          Favorites Screen
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">My List</string>
     <string name="favorites_empty">No favorites yet.</string>
+    <string name="favorites_empty_hint">Add movies and shows to your list from the detail screen.</string>
     <string name="favorites_screen_description">Favorites screen</string>
     <string name="favorites_loading_description">Loading favorites</string>
     <string name="favorites_empty_description">No favorites</string>
@@ -545,6 +547,7 @@
          ══════════════════════════════════════════════ -->
     <string name="history_title">Watch History</string>
     <string name="history_empty">No history available.</string>
+    <string name="history_empty_hint">Your recently watched content will appear here.</string>
     <string name="history_screen_description">Watch history screen</string>
     <string name="history_empty_description">No history</string>
 
