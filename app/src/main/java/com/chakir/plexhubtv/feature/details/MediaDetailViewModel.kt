@@ -132,8 +132,12 @@ class MediaDetailViewModel
 
                             // 2. CHECK: If we are playing the MAIN media (Movie) and we already have sources enriched, reuse them.
                             // Optimization: Avoid re-running EnrichMediaItemUseCase if loadAvailableServers already did it.
+                            // Xtream items: skip enrichment entirely (no multi-server concept)
                             val enrichedItem =
-                                if (startItem.ratingKey == media.ratingKey && media.remoteSources.size > 1) {
+                                if (startItem.serverId.startsWith("xtream_")) {
+                                    performanceTracker.addCheckpoint(opId, "Enrichment (Xtream Skip)")
+                                    startItem
+                                } else if (startItem.ratingKey == media.ratingKey && media.remoteSources.size > 1) {
                                     performanceTracker.addCheckpoint(opId, "Enrichment (Cache Hit)", mapOf("sources" to media.remoteSources.size))
                                     media // Already enriched by background job
                                 } else {
@@ -257,6 +261,20 @@ class MediaDetailViewModel
             opId: String? = null,
             forcedServerId: String? = null,
         ) {
+            // Xtream: direct navigation — URL will be built in PlayerControlViewModel
+            val targetServerId = forcedServerId ?: item.serverId
+            if (targetServerId.startsWith("xtream_")) {
+                opId?.let {
+                    performanceTracker.addCheckpoint(it, "Xtream Direct Navigation")
+                    performanceTracker.endOperation(it, success = true, additionalMeta = mapOf("finalRatingKey" to item.ratingKey))
+                }
+                // Still set up PlaybackManager for queue (Next/Previous support)
+                val queue = getPlayQueueUseCase(item).getOrElse { listOf(item) }
+                playbackManager.play(item, queue)
+                _navigationEvents.send(MediaDetailNavigationEvent.NavigateToPlayer(item.ratingKey, targetServerId))
+                return
+            }
+
             val finalItem =
                 if (forcedServerId != null && forcedServerId != item.serverId) {
                     // Find the source matching forcedServerId to get its ratingKey

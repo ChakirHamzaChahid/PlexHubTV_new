@@ -155,7 +155,29 @@ class PlayerController @Inject constructor(
         hasShownResumeToast = false
     }
 
+    /**
+     * Play a direct stream URL with optional metadata from a real MediaItem.
+     * Used for Xtream IPTV content and plain URL streams.
+     *
+     * @param url The direct stream URL (http/https/rtsp/rtp)
+     * @param item Optional MediaItem for metadata (title, thumbnail, etc.).
+     *             If null, a placeholder item is created.
+     */
+    fun playDirectStream(url: String, item: MediaItem? = null) {
+        this.directUrl = url
+        if (item != null) {
+            this.ratingKey = item.ratingKey
+            this.serverId = item.serverId
+        }
+
+        playDirectUrlInternal(url, item)
+    }
+
     private fun playDirectUrl(url: String) {
+        playDirectUrlInternal(url, null)
+    }
+
+    private fun playDirectUrlInternal(url: String, item: MediaItem?) {
         // Defense-in-depth: only allow safe streaming schemes
         val scheme = Uri.parse(url).scheme?.lowercase()
         if (scheme == null || scheme !in ALLOWED_DIRECT_SCHEMES) {
@@ -164,7 +186,7 @@ class PlayerController @Inject constructor(
             return
         }
 
-         val dummyItem = MediaItem(
+        val mediaItem = item ?: MediaItem(
             id = "iptv-$url",
             ratingKey = "iptv",
             serverId = "iptv",
@@ -175,21 +197,22 @@ class PlayerController @Inject constructor(
 
         _uiState.update {
             it.copy(
-                currentItem = dummyItem,
+                currentItem = mediaItem,
                 isPlaying = true,
-                isBuffering = true
+                isBuffering = true,
+                currentPosition = if (it.currentItem?.id != mediaItem.id) 0L else it.currentPosition,
             )
         }
 
         scope.launch {
             val streamUri = Uri.parse(url)
             player?.apply {
-                val mediaItem = ExoMediaItem.Builder()
+                val exoItem = ExoMediaItem.Builder()
                     .setUri(streamUri)
-                    .setMediaId("iptv")
+                    .setMediaId(mediaItem.ratingKey)
                     .build()
 
-                setMediaItem(mediaItem)
+                setMediaItem(exoItem)
                 prepare()
                 playWhenReady = true
             }
