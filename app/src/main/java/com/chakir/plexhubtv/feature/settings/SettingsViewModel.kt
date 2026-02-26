@@ -43,9 +43,8 @@ class SettingsViewModel
         private val authRepository: AuthRepository,
         private val workManager: WorkManager,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
+        private val tvChannelManager: com.chakir.plexhubtv.domain.service.TvChannelManager,
     ) : ViewModel() {
-        @Inject
-        lateinit var tvChannelManager: com.chakir.plexhubtv.domain.service.TvChannelManager
         private val _uiState = MutableStateFlow(SettingsUiState())
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 

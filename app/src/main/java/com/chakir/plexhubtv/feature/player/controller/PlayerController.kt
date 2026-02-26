@@ -637,7 +637,13 @@ class PlayerController @Inject constructor(
                     part.streams.filterIsInstance<com.chakir.plexhubtv.core.model.SubtitleStream>()
                         .filter { it.isExternal && !it.key.isNullOrEmpty() }
                         .mapNotNull { stream ->
+                            // S-12: Validate subtitle URI scheme before passing to ExoPlayer
                             val subtitleUri = android.net.Uri.parse("$baseUrl${stream.key}?X-Plex-Token=$token")
+                            val scheme = subtitleUri.scheme?.lowercase()
+                            if (scheme == null || scheme !in setOf("http", "https")) {
+                                Timber.w("PlayerController: Rejected subtitle URI with scheme '$scheme'")
+                                return@mapNotNull null
+                            }
                             val mimeType = when (stream.codec?.lowercase()) {
                                 "srt" -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
                                 "ass", "ssa" -> androidx.media3.common.MimeTypes.TEXT_SSA
