@@ -269,6 +269,7 @@
     <string name="player_play_now">Lire maintenant</string>
     <string name="player_unknown_title">Titre inconnu</string>
     <string name="player_playing_from">Lecture depuis %1$s</string>
+    <string name="player_resuming_from">Reprise à %1$s</string>
     <string name="player_server">Serveur</string>
     <string name="player_server_fallback">Serveur</string>
     <string name="player_back">Retour</string>

@@ -23,6 +23,7 @@ import com.chakir.plexhubtv.core.di.MainDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.feature.player.PlayerUiState
 import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
+import com.chakir.plexhubtv.core.common.util.FormatUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import timber.log.Timber
@@ -194,6 +195,13 @@ class PlayerController @Inject constructor(
 
     companion object {
         private val ALLOWED_DIRECT_SCHEMES = setOf("http", "https", "rtsp", "rtp")
+        /** PLY-19: Only show resume indicator for positions > 30s to avoid false positives */
+        private const val RESUME_THRESHOLD_MS = 30_000L
+    }
+
+    /** PLY-19: Dismiss the resume playback indicator */
+    fun clearResumeMessage() {
+        _uiState.update { it.copy(resumeMessage = null) }
     }
 
     /**
@@ -602,6 +610,10 @@ class PlayerController @Inject constructor(
                 if (seekTarget > 0) {
                     mpvPlayer?.seekTo(seekTarget)
                     performanceTracker.addCheckpoint(opId, "MPV Seek Applied", mapOf("position" to seekTarget))
+                    // PLY-19: Show resume indicator for significant positions
+                    if (seekTarget > RESUME_THRESHOLD_MS) {
+                        _uiState.update { it.copy(resumeMessage = FormatUtils.formatDurationTimestamp(seekTarget)) }
+                    }
                 }
 
                 // Track/Sub selection for MPV in Direct Play
@@ -702,6 +714,10 @@ class PlayerController @Inject constructor(
                     if (seekTarget > 0) {
                         seekTo(seekTarget)
                         performanceTracker.addCheckpoint(opId, "ExoPlayer Seek Applied", mapOf("position" to seekTarget))
+                        // PLY-19: Show resume indicator for significant positions
+                        if (seekTarget > RESUME_THRESHOLD_MS) {
+                            _uiState.update { it.copy(resumeMessage = FormatUtils.formatDurationTimestamp(seekTarget)) }
+                        }
                     }
 
                     playWhenReady = true

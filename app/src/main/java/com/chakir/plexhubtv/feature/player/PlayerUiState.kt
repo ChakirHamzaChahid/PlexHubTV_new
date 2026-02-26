@@ -50,6 +50,8 @@ data class PlayerUiState(
     // Network error handling
     val errorType: PlayerErrorType = PlayerErrorType.None,
     val networkRetryCount: Int = 0,
+    // PLY-19: Resume playback indicator
+    val resumeMessage: String? = null,
 )
 
 data class PlayerStats(
@@ -131,4 +133,6 @@ sealed interface PlayerAction {
     data object RetryPlayback : PlayerAction // Retry playback after network error
 
     data object SwitchToMpv : PlayerAction // Manually switch to MPV player
+
+    data object ClearResumeMessage : PlayerAction // PLY-19: Dismiss resume indicator
 }

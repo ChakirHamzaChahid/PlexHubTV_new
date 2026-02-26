@@ -127,6 +127,9 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.SwitchToMpv -> {
                 playerController.switchToMpv()
             }
+            is PlayerAction.ClearResumeMessage -> {
+                playerController.clearResumeMessage()
+            }
             is PlayerAction.TogglePerformanceOverlay -> {
                 playerController.updateState { it.copy(showPerformanceOverlay = !it.showPerformanceOverlay) }
             }

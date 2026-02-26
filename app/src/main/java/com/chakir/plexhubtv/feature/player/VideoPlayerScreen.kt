@@ -44,6 +44,9 @@ import com.chakir.plexhubtv.R
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import kotlinx.coroutines.delay
@@ -325,6 +328,21 @@ fun VideoPlayerScreen(
             )
         }
 
+        // PLY-19: Resume playback indicator
+        val resumeMsg = uiState.resumeMessage
+        if (resumeMsg != null) {
+            LaunchedEffect(resumeMsg) {
+                delay(3000)
+                onAction(PlayerAction.ClearResumeMessage)
+            }
+            ResumeToast(
+                formattedTime = resumeMsg,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 48.dp, bottom = 100.dp),
+            )
+        }
+
         // Performance Overlay
         val playerStats = uiState.playerStats
         if (uiState.showPerformanceOverlay && playerStats != null) {
@@ -534,6 +552,31 @@ fun AutoNextPopup(
 }
 
 // Local PlayerControls removed in favor of com.chakir.plexhubtv.feature.player.PlayerControls
+
+/**
+ * PLY-19: Ephemeral toast indicating resume position.
+ * Non-focusable so it doesn't interfere with D-Pad navigation.
+ */
+@Composable
+private fun ResumeToast(
+    formattedTime: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.testTag("player_resume_toast"),
+        shape = RoundedCornerShape(8.dp),
+        color = Color.Black.copy(alpha = 0.75f),
+        shadowElevation = 4.dp,
+    ) {
+        Text(
+            text = stringResource(R.string.player_resuming_from, formattedTime),
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        )
+    }
+}
 
 @Preview(showBackground = true)
 @Composable

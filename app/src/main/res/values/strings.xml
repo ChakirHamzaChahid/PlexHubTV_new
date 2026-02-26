@@ -269,6 +269,7 @@
     <string name="player_play_now">Play Now</string>
     <string name="player_unknown_title">Unknown Title</string>
     <string name="player_playing_from">Playing from %1$s</string>
+    <string name="player_resuming_from">Resuming from %1$s</string>
     <string name="player_server">Server</string>
     <string name="player_server_fallback">Server</string>
     <string name="player_back">Back</string>
