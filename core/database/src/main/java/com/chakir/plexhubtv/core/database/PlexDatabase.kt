@@ -28,7 +28,7 @@ import androidx.room.TypeConverters
         SearchCacheEntity::class,
         MediaFts::class,
     ],
-    version = 31,
+    version = 32,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {

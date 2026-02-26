@@ -277,6 +277,13 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_31_32 =
+        object : androidx.room.migration.Migration(31, 32) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE media ADD COLUMN viewCount INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -316,7 +323,8 @@ object DatabaseModule {
                 MIGRATION_27_28,
                 MIGRATION_28_29,
                 MIGRATION_29_30,
-                MIGRATION_30_31
+                MIGRATION_30_31,
+                MIGRATION_31_32
             )
             .fallbackToDestructiveMigration()
             .build()

@@ -218,6 +218,7 @@ class MediaMapper
                 year = dto.year,
                 duration = dto.duration,
                 viewOffset = dto.viewOffset ?: 0,
+                viewCount = dto.viewCount?.toLong() ?: 0,
                 lastViewedAt = dto.lastViewedAt ?: 0,
                 parentTitle = dto.parentTitle,
                 parentRatingKey = dto.parentRatingKey,
@@ -302,6 +303,7 @@ class MediaMapper
                 year = item.year,
                 duration = item.durationMs,
                 viewOffset = item.viewOffset,
+                viewCount = item.viewCount,
                 lastViewedAt = item.lastViewedAt ?: 0,
                 parentTitle = item.parentTitle,
                 parentRatingKey = item.parentRatingKey,
@@ -345,6 +347,11 @@ class MediaMapper
                 year = entity.year,
                 durationMs = entity.duration,
                 viewOffset = entity.viewOffset,
+                viewCount = entity.viewCount,
+                isWatched = entity.viewCount > 0 || run {
+                    val dur = entity.duration ?: 0L
+                    entity.viewOffset > 0 && dur > 0 && entity.viewOffset.toFloat() / dur.toFloat() >= 0.9f
+                },
                 lastViewedAt = entity.lastViewedAt,
                 parentTitle = entity.parentTitle,
                 parentRatingKey = entity.parentRatingKey,

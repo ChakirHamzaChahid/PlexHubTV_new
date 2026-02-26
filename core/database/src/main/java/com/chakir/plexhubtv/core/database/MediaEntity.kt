@@ -60,6 +60,7 @@ data class MediaEntity(
     val summary: String? = null,
     // Playback Progress
     val viewOffset: Long = 0,
+    val viewCount: Long = 0,
     val lastViewedAt: Long = 0,
     // Hierarchy / Episode details
     val parentTitle: String? = null,
