@@ -324,6 +324,21 @@ class PlayerController @Inject constructor(
         player = null
 
         mpvPlayer = playerFactory.createMpvPlayer(application, scope)
+
+        // S-05: Observe MPV init/runtime errors to avoid stuck screen
+        scope.launch {
+            mpvPlayer?.error?.filterNotNull()?.collect { errorMsg ->
+                Timber.e("PlayerController: MPV error: $errorMsg")
+                _uiState.update {
+                    it.copy(
+                        error = errorMsg,
+                        errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Generic,
+                        isBuffering = false
+                    )
+                }
+            }
+        }
+
         _uiState.update {
             it.copy(
                 isMpvMode = true,
