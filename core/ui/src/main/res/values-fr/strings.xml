@@ -36,4 +36,9 @@
 
     <!-- Badges des cartes média -->
     <string name="watched_badge">Vu</string>
+
+    <!-- Progression / Temps restant -->
+    <string name="remaining_time_less_than_one">&lt; 1 min restante</string>
+    <string name="remaining_time_one_min">1 min restante</string>
+    <string name="remaining_time_minutes">%d min restantes</string>
 </resources>

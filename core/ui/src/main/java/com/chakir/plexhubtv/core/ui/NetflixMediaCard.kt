@@ -320,18 +320,18 @@ fun NetflixMediaCard(
 
             // Progress Bar with Remaining Time
             val durationMs = media.durationMs
-            val playbackPositionMs = media.playbackPositionMs ?: 0L
-            if (playbackPositionMs > 0 && durationMs != null && durationMs > 0) {
-                val progress by remember(playbackPositionMs, durationMs) {
+            val viewOffset = media.viewOffset
+            if (viewOffset > 0 && durationMs != null && durationMs > 0) {
+                val progress by remember(viewOffset, durationMs) {
                     mutableFloatStateOf(
-                        (playbackPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                        (viewOffset.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
                     )
                 }
-                val remainingMs = (durationMs - playbackPositionMs).coerceAtLeast(0)
+                val remainingMs = (durationMs - viewOffset).coerceAtLeast(0)
                 NetflixProgressBar(
                     progress = progress,
                     remainingMs = remainingMs,
-                    showRemainingTime = isFocused && cardType == CardType.WIDE,
+                    showRemainingTime = isFocused,
                     ratingKey = media.ratingKey,
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
@@ -404,9 +404,9 @@ fun NetflixProgressBar(
             ) {
                 val remainingMinutes = (remainingMs / 60000).toInt()
                 val remainingText = when {
-                    remainingMinutes < 1 -> "< 1 min left"
-                    remainingMinutes == 1 -> "1 min left"
-                    else -> "$remainingMinutes min left"
+                    remainingMinutes < 1 -> stringResource(R.string.remaining_time_less_than_one)
+                    remainingMinutes == 1 -> stringResource(R.string.remaining_time_one_min)
+                    else -> stringResource(R.string.remaining_time_minutes, remainingMinutes)
                 }
                 Text(
                     text = remainingText,
