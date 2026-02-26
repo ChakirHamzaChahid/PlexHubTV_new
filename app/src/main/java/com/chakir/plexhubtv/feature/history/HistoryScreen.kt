@@ -60,7 +60,7 @@ fun HistoryScreen(
                 .testTag("screen_history")
                 .semantics { contentDescription = screenDescription }
                 .background(MaterialTheme.colorScheme.background)
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 80.dp),
+                .padding(start = 48.dp, end = 48.dp, bottom = 48.dp, top = 80.dp),
     ) {
         Text(
             text = stringResource(R.string.history_title),

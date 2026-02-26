@@ -103,7 +103,7 @@ fun CollectionDetailScreen(
                                     text = summary,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = Color.White.copy(alpha = 0.7f),
-                                    modifier = Modifier.padding(16.dp),
+                                    modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
                                     maxLines = 5,
                                 )
                             }
@@ -120,7 +120,7 @@ fun CollectionDetailScreen(
                         LazyVerticalGrid(
                             state = gridState,
                             columns = GridCells.Adaptive(minSize = 120.dp),
-                            contentPadding = PaddingValues(16.dp),
+                            contentPadding = PaddingValues(48.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier

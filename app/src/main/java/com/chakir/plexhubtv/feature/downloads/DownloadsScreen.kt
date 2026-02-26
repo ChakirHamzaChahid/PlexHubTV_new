@@ -113,7 +113,7 @@ fun DownloadsScreen(
 
                 LazyColumn(
                     state = listState,
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(horizontal = 48.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier
                         .testTag("downloads_list")
