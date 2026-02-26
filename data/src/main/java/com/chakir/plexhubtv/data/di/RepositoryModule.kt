@@ -145,4 +145,10 @@ abstract class RepositoryModule {
     abstract fun bindTvChannelManager(
         impl: com.chakir.plexhubtv.data.util.TvChannelManagerImpl,
     ): com.chakir.plexhubtv.domain.service.TvChannelManager
+
+    @Binds
+    @Singleton
+    abstract fun bindXtreamAccountRepository(
+        impl: com.chakir.plexhubtv.data.repository.XtreamAccountRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
 }

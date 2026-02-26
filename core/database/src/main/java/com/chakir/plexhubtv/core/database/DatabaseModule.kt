@@ -284,6 +284,32 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_32_33 =
+        object : androidx.room.migration.Migration(32, 33) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `xtream_accounts` (
+                        `id` TEXT NOT NULL,
+                        `label` TEXT NOT NULL,
+                        `baseUrl` TEXT NOT NULL,
+                        `port` INTEGER NOT NULL,
+                        `username` TEXT NOT NULL,
+                        `passwordKey` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `expirationDate` INTEGER,
+                        `maxConnections` INTEGER NOT NULL,
+                        `allowedFormatsJson` TEXT NOT NULL,
+                        `serverUrl` TEXT,
+                        `httpsPort` INTEGER,
+                        `lastSyncedAt` INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY(`id`)
+                    )
+                    """
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -324,7 +350,8 @@ object DatabaseModule {
                 MIGRATION_28_29,
                 MIGRATION_29_30,
                 MIGRATION_30_31,
-                MIGRATION_31_32
+                MIGRATION_31_32,
+                MIGRATION_32_33
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -384,5 +411,10 @@ object DatabaseModule {
     @Provides
     fun provideSearchCacheDao(database: PlexDatabase): SearchCacheDao {
         return database.searchCacheDao()
+    }
+
+    @Provides
+    fun provideXtreamAccountDao(database: PlexDatabase): XtreamAccountDao {
+        return database.xtreamAccountDao()
     }
 }

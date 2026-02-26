@@ -27,8 +27,9 @@ import androidx.room.TypeConverters
         ProfileEntity::class,
         SearchCacheEntity::class,
         MediaFts::class,
+        XtreamAccountEntity::class,
     ],
-    version = 32,
+    version = 33,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -59,4 +60,6 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
 
     abstract fun searchCacheDao(): SearchCacheDao
+
+    abstract fun xtreamAccountDao(): XtreamAccountDao
 }

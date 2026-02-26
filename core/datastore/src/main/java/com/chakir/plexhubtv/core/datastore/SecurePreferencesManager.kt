@@ -169,6 +169,31 @@ class SecurePreferencesManager
         }
 
         /**
+         * Stores an arbitrary secret under the given key.
+         * Used for Xtream account passwords and other dynamic credentials.
+         */
+        fun putSecret(key: String, value: String) {
+            synchronized(this) {
+                encryptedPrefs.edit().putString(key, value).apply()
+            }
+        }
+
+        /**
+         * Retrieves an arbitrary secret by key.
+         */
+        fun getSecret(key: String): String? =
+            encryptedPrefs.getString(key, null)
+
+        /**
+         * Removes an arbitrary secret by key.
+         */
+        fun removeSecret(key: String) {
+            synchronized(this) {
+                encryptedPrefs.edit().remove(key).apply()
+            }
+        }
+
+        /**
          * Clears all secure preferences.
          */
         fun clearAll() {
