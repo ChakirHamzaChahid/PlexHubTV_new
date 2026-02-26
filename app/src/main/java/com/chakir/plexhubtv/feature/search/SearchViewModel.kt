@@ -39,10 +39,10 @@ class SearchViewModel
         private val _uiState = MutableStateFlow(SearchUiState())
         val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<SearchNavigationEvent>()
+        private val _navigationEvents = Channel<SearchNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
-        private val _errorEvents = Channel<AppError>()
+        private val _errorEvents = Channel<AppError>(Channel.BUFFERED)
         val errorEvents = _errorEvents.receiveAsFlow()
 
         private var searchJob: Job? = null

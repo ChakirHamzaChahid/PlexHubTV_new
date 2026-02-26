@@ -37,10 +37,10 @@ class HomeViewModel
         private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
         val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<HomeNavigationEvent>()
+        private val _navigationEvents = Channel<HomeNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
-        private val _errorEvents = Channel<AppError>()
+        private val _errorEvents = Channel<AppError>(Channel.BUFFERED)
         val errorEvents = _errorEvents.receiveAsFlow()
 
         init {
