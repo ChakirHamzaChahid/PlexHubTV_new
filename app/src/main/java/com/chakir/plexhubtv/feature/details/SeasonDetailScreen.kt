@@ -20,7 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -80,6 +83,7 @@ fun SeasonDetailRoute(
     )
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SeasonDetailScreen(
     state: SeasonDetailUiState,
@@ -88,6 +92,7 @@ fun SeasonDetailScreen(
     onNavigateBack: () -> Unit,
 ) {
     val firstEpisodeFocusRequester = remember { FocusRequester() }
+    val seasonInfoFocusRequester = remember { FocusRequester() }
 
     BackHandler(onBack = onNavigateBack)
 
@@ -230,7 +235,8 @@ fun SeasonDetailScreen(
                         Column(
                             modifier = Modifier
                                 .weight(0.35f)
-                                .padding(end = 32.dp),
+                                .padding(end = 32.dp)
+                                .focusRequester(seasonInfoFocusRequester),
                         ) {
                             // Season title
                             Text(
@@ -286,6 +292,7 @@ fun SeasonDetailScreen(
                                         icon = Icons.Filled.Check,
                                         label = "Mark Watched",
                                         onClick = { onAction(SeasonDetailEvent.MarkSeasonWatched) },
+                                        focusRequester = seasonInfoFocusRequester,
                                     )
                                     SeasonActionButton(
                                         icon = if (state.season?.isFavorite == true) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -303,7 +310,16 @@ fun SeasonDetailScreen(
                             modifier = Modifier
                                 .weight(0.65f)
                                 .testTag("episodes_list")
-                                .semantics { contentDescription = "Liste des épisodes" },
+                                .semantics { contentDescription = "Liste des épisodes" }
+                                // NAV-04: Route LEFT from episodes back to season info panel
+                                .focusProperties {
+                                    exit = { direction ->
+                                        when (direction) {
+                                            FocusDirection.Left -> seasonInfoFocusRequester
+                                            else -> FocusRequester.Default
+                                        }
+                                    }
+                                },
                             state = listState,
                         ) {
                             itemsIndexed(state.episodes, key = { _, episode -> episode.ratingKey }) { index, episode ->
@@ -377,12 +393,14 @@ private fun SeasonActionButton(
     label: String,
     isFavorite: Boolean = false,
     onClick: () -> Unit,
+    focusRequester: FocusRequester? = null,
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(8.dp),

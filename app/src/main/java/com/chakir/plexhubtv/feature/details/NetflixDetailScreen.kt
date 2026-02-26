@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -68,6 +69,8 @@ import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import androidx.compose.material.icons.filled.PlayArrow
 
+private enum class DetailFocusTarget { PlayButton, Tabs, ContentRow }
+
 @Composable
 fun NetflixDetailScreen(
     media: MediaItem,
@@ -80,10 +83,19 @@ fun NetflixDetailScreen(
     var selectedTab by remember { mutableStateOf(if (media.type == MediaType.Show) DetailTab.Episodes else DetailTab.MoreLikeThis) }
     val listState = rememberLazyListState()
     val playButtonFocusRequester = remember { FocusRequester() }
+    val tabsFocusRequester = remember { FocusRequester() }
+    val contentRowFocusRequester = remember { FocusRequester() }
+    var lastFocusTarget by remember { mutableStateOf(DetailFocusTarget.PlayButton) }
 
-    // Request focus on Play button when screen opens
+    // NAV-03: Restore focus to last-active element (play button, tabs, or content row)
     LaunchedEffect(Unit) {
-        playButtonFocusRequester.requestFocus()
+        try {
+            when (lastFocusTarget) {
+                DetailFocusTarget.PlayButton -> playButtonFocusRequester.requestFocus()
+                DetailFocusTarget.Tabs -> tabsFocusRequester.requestFocus()
+                DetailFocusTarget.ContentRow -> contentRowFocusRequester.requestFocus()
+            }
+        } catch (_: Exception) { }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(NetflixBlack)) {
@@ -223,7 +235,11 @@ fun NetflixDetailScreen(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    ActionButtonsRow(media, state, onAction, playButtonFocusRequester)
+                    Box(modifier = Modifier.onFocusChanged {
+                        if (it.hasFocus) lastFocusTarget = DetailFocusTarget.PlayButton
+                    }) {
+                        ActionButtonsRow(media, state, onAction, playButtonFocusRequester)
+                    }
                     Spacer(modifier = Modifier.height(24.dp))
 
                     ExpandableSummary(
@@ -237,13 +253,18 @@ fun NetflixDetailScreen(
 
             // 3. Tabs
             item(key = "detail_tabs") {
-                NetflixDetailTabs(
-                    selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it },
-                    showEpisodes = media.type == MediaType.Show,
-                    showCollections = state.collections.isNotEmpty(),
-                    showTrailers = media.extras.isNotEmpty(),
-                )
+                Box(modifier = Modifier
+                    .focusRequester(tabsFocusRequester)
+                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.Tabs }
+                ) {
+                    NetflixDetailTabs(
+                        selectedTab = selectedTab,
+                        onTabSelected = { selectedTab = it },
+                        showEpisodes = media.type == MediaType.Show,
+                        showCollections = state.collections.isNotEmpty(),
+                        showTrailers = media.extras.isNotEmpty(),
+                    )
+                }
             }
 
             // 4. Tab Content — LazyRow for proper D-Pad inside LazyColumn
@@ -254,7 +275,10 @@ fun NetflixDetailScreen(
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier.focusGroup() // Group horizontal navigation
+                                modifier = Modifier
+                                    .focusGroup()
+                                    .focusRequester(contentRowFocusRequester)
+                                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
                                 items(seasons, key = { "${it.ratingKey}_${it.serverId}" }) { season ->
                                     NetflixMediaCard(
@@ -277,7 +301,10 @@ fun NetflixDetailScreen(
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier.focusGroup() // Group horizontal navigation
+                                modifier = Modifier
+                                    .focusGroup()
+                                    .focusRequester(contentRowFocusRequester)
+                                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
                                 items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }) { item ->
                                     NetflixMediaCard(
@@ -300,7 +327,10 @@ fun NetflixDetailScreen(
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier.focusGroup()
+                                modifier = Modifier
+                                    .focusGroup()
+                                    .focusRequester(contentRowFocusRequester)
+                                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
                                 items(state.collections, key = { it.id }) { collection ->
                                     CollectionCard(
@@ -325,7 +355,10 @@ fun NetflixDetailScreen(
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier.focusGroup()
+                                modifier = Modifier
+                                    .focusGroup()
+                                    .focusRequester(contentRowFocusRequester)
+                                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
                                 items(extras, key = { it.ratingKey }) { extra ->
                                     ExtraCard(
