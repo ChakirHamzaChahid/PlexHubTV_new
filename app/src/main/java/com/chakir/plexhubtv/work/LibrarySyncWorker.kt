@@ -43,6 +43,8 @@ class LibrarySyncWorker
         private val syncRepository: SyncRepository,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
+        private val syncXtreamLibraryUseCase: com.chakir.plexhubtv.domain.usecase.SyncXtreamLibraryUseCase,
+        private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : CoroutineWorker(appContext, workerParams) {
         private val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
@@ -152,6 +154,29 @@ class LibrarySyncWorker
                             Timber.e("✗ [${server.name}] Exception: ${e.javaClass.simpleName} - ${e.message}")
                             failureCount++
                         }
+                    }
+
+                    // SYNC XTREAM ACCOUNTS (VOD + Series)
+                    try {
+                        val xtreamAccounts = xtreamAccountRepository.observeAccounts().first()
+                        if (xtreamAccounts.isNotEmpty()) {
+                            Timber.d("→ Syncing ${xtreamAccounts.size} Xtream account(s)")
+                            xtreamAccounts.forEach { account ->
+                                try {
+                                    updateNotification("Syncing Xtream: ${account.label}...")
+                                    val result = syncXtreamLibraryUseCase(account.id)
+                                    if (result.isFailure) {
+                                        Timber.w("✗ [Xtream:${account.label}] Sync failed: ${result.exceptionOrNull()?.message}")
+                                    } else {
+                                        Timber.d("✓ [Xtream:${account.label}] Sync complete")
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e("✗ [Xtream:${account.label}] Exception: ${e.message}")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e("✗ Xtream sync failed: ${e.message}")
                     }
 
                     // AUTOMATE WATCHLIST SYNC
