@@ -68,6 +68,8 @@ class PlayerController @Inject constructor(
     private var positionTrackerJob: Job? = null
     private var isMpvMode = false
     private var isDirectPlay = false
+    /** PLY-19: Prevents resume toast from re-appearing on quality/track changes */
+    private var hasShownResumeToast = false
 
     private var ratingKey: String? = null
     private var serverId: String? = null
@@ -150,6 +152,7 @@ class PlayerController @Inject constructor(
         _uiState.value = PlayerUiState()
         isMpvMode = false
         isDirectPlay = false
+        hasShownResumeToast = false
     }
 
     private fun playDirectUrl(url: String) {
@@ -610,8 +613,9 @@ class PlayerController @Inject constructor(
                 if (seekTarget > 0) {
                     mpvPlayer?.seekTo(seekTarget)
                     performanceTracker.addCheckpoint(opId, "MPV Seek Applied", mapOf("position" to seekTarget))
-                    // PLY-19: Show resume indicator for significant positions
-                    if (seekTarget > RESUME_THRESHOLD_MS) {
+                    // PLY-19: Show resume indicator for significant positions (once per session)
+                    if (seekTarget > RESUME_THRESHOLD_MS && !hasShownResumeToast) {
+                        hasShownResumeToast = true
                         _uiState.update { it.copy(resumeMessage = FormatUtils.formatDurationTimestamp(seekTarget)) }
                     }
                 }
