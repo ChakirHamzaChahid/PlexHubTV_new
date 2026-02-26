@@ -39,6 +39,7 @@ import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.HomeScreenSkeleton
 import com.chakir.plexhubtv.core.ui.NetflixContentRow
 import com.chakir.plexhubtv.core.ui.showError
+import com.chakir.plexhubtv.feature.hub.components.RemoveFromOnDeckDialog
 
 @Composable
 fun HubRoute(
@@ -127,6 +128,14 @@ fun HubScreen(
                         onScrollStateChanged = onScrollStateChanged,
                     )
             }
+
+            state.pendingRemoval?.let { media ->
+                RemoveFromOnDeckDialog(
+                    media = media,
+                    onConfirm = { onAction(HubAction.ConfirmRemoveFromOnDeck) },
+                    onDismiss = { onAction(HubAction.DismissRemoveDialog) },
+                )
+            }
         }
     }
 }
@@ -182,6 +191,7 @@ fun HubContent(
                     cardType = CardType.WIDE,
                     onItemClick = { onAction(HubAction.OpenMedia(it)) },
                     onItemPlay = { onAction(HubAction.PlayMedia(it)) },
+                    onItemLongPress = { onAction(HubAction.ShowRemoveDialog(it)) },
                     rowId = "on_deck",
                     modifier = Modifier.focusRequester(firstRowFocusRequester)
                 )

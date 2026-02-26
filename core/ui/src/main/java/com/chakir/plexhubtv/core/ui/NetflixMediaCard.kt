@@ -4,8 +4,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
@@ -70,12 +71,14 @@ enum class CardType {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun NetflixMediaCard(
     media: MediaItem,
     onClick: () -> Unit,
     onPlay: () -> Unit,
     modifier: Modifier = Modifier,
     cardType: CardType = CardType.POSTER,
+    onLongPress: (() -> Unit)? = null,
     onFocus: (Boolean) -> Unit = {}
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -126,10 +129,11 @@ fun NetflixMediaCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .clickable(
+            .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick
+                onClick = onClick,
+                onLongClick = onLongPress,
             )
     ) {
         Box(

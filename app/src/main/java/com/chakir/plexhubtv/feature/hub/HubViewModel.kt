@@ -7,6 +7,7 @@ import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
+import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ class HubViewModel
     constructor(
         private val getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase,
         private val favoritesRepository: FavoritesRepository,
+        private val toggleWatchStatusUseCase: ToggleWatchStatusUseCase,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(HubUiState(isLoading = true))
         val uiState: StateFlow<HubUiState> = _uiState.asStateFlow()
@@ -68,6 +70,29 @@ class HubViewModel
                 is HubAction.PlayMedia -> {
                     viewModelScope.launch {
                         _navigationEvents.send(HubNavigationEvent.NavigateToPlayer(action.media.ratingKey, action.media.serverId))
+                    }
+                }
+                is HubAction.ShowRemoveDialog -> {
+                    _uiState.update { it.copy(pendingRemoval = action.media) }
+                }
+                is HubAction.DismissRemoveDialog -> {
+                    _uiState.update { it.copy(pendingRemoval = null) }
+                }
+                is HubAction.ConfirmRemoveFromOnDeck -> {
+                    val media = _uiState.value.pendingRemoval ?: return
+                    // Optimistic UI: remove item immediately
+                    _uiState.update { current ->
+                        current.copy(
+                            pendingRemoval = null,
+                            onDeck = current.onDeck
+                                .filter { it.ratingKey != media.ratingKey || it.serverId != media.serverId }
+                                .toImmutableList(),
+                        )
+                    }
+                    // Scrobble (mark as watched) to remove from Plex On Deck
+                    viewModelScope.launch {
+                        toggleWatchStatusUseCase(media, isWatched = true)
+                        getUnifiedHomeContentUseCase.refresh()
                     }
                 }
             }

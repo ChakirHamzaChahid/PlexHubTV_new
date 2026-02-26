@@ -589,4 +589,12 @@
     <string name="session_expired_title">Session Expired</string>
     <string name="session_expired_message">Your Plex session has expired. Please sign in again.</string>
     <string name="reconnect">Reconnect</string>
+
+    <!-- ══════════════════════════════════════════════
+         Continue Watching / On Deck
+         ══════════════════════════════════════════════ -->
+    <string name="remove_from_continue_watching_title">Remove from Continue Watching?</string>
+    <string name="remove_from_continue_watching_subtitle">This will mark \"%1$s\" as watched</string>
+    <string name="remove_button">Remove</string>
+    <string name="cancel_button">Cancel</string>
 </resources>

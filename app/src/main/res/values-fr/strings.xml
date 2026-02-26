@@ -582,4 +582,12 @@
     <string name="session_expired_title">Session expirée</string>
     <string name="session_expired_message">Votre session Plex a expiré. Veuillez vous reconnecter.</string>
     <string name="reconnect">Se reconnecter</string>
+
+    <!-- ══════════════════════════════════════════════
+         Reprendre la lecture / On Deck
+         ══════════════════════════════════════════════ -->
+    <string name="remove_from_continue_watching_title">Retirer de Reprendre la lecture ?</string>
+    <string name="remove_from_continue_watching_subtitle">Cela marquera « %1$s » comme vu</string>
+    <string name="remove_button">Retirer</string>
+    <string name="cancel_button">Annuler</string>
 </resources>
