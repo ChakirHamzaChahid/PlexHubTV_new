@@ -9,6 +9,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -42,10 +44,15 @@ class HistoryViewModel
             val startTime = System.currentTimeMillis()
             Timber.d("SCREEN [History]: Loading start")
             getWatchHistoryUseCase()
+                .distinctUntilChanged { old, new ->
+                    // Only re-process when the list composition changes (new/removed/reordered items).
+                    // Ignore viewOffset/lastViewedAt updates from PlayerScrobbler to avoid
+                    // redundant reprocessing + network calls while the player is active.
+                    old.map { it.ratingKey to it.serverId } == new.map { it.ratingKey to it.serverId }
+                }
                 .safeCollectIn(
                     scope = viewModelScope,
                     onError = { e ->
-                        val duration = System.currentTimeMillis() - startTime
                         Timber.e(e, "HistoryViewModel: loadHistory failed")
                         _uiState.update {
                             it.copy(
