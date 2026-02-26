@@ -17,6 +17,7 @@ import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.feature.player.ExoStreamMetadata
 import com.chakir.plexhubtv.feature.player.PlayerFactory
 import com.chakir.plexhubtv.handler.GlobalCoroutineExceptionHandler
+import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.DefaultDispatcher
 import com.chakir.plexhubtv.core.di.MainDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager
@@ -45,11 +46,15 @@ class PlayerController @Inject constructor(
     private val transcodeUrlBuilder: TranscodeUrlBuilder,
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
     private val connectionManager: ConnectionManager,
+    @ApplicationScope private val applicationScope: CoroutineScope,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     @MainDispatcher private val mainDispatcher: CoroutineDispatcher,
     private val globalHandler: GlobalCoroutineExceptionHandler,
 ) {
-    private var scope = CoroutineScope(SupervisorJob() + mainDispatcher + globalHandler)
+    // S-04: Child of applicationScope for structured concurrency — cancelled/recreated per session
+    private var sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
+    private val scope: CoroutineScope
+        get() = CoroutineScope(sessionJob + mainDispatcher + globalHandler)
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -136,9 +141,9 @@ class PlayerController @Inject constructor(
         mpvPlayer = null
 
         // Cancel ALL coroutines (position tracker, scrobbler, stats, collectors)
-        scope.cancel()
-        // Recreate a fresh scope for the next initialize() cycle
-        scope = CoroutineScope(SupervisorJob() + mainDispatcher + globalHandler)
+        sessionJob.cancel()
+        // Recreate a fresh child Job for the next initialize() cycle
+        sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
 
         // Reset state so a fresh session doesn't inherit stale values
         _uiState.value = PlayerUiState()
