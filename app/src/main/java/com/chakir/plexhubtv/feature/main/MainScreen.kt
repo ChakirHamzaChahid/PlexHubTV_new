@@ -17,6 +17,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -68,6 +70,9 @@ fun MainScreen(
     // TopBar focus management for Back button handling
     var requestTopBarFocus by remember { mutableStateOf(false) }
     var isTopBarFocused by remember { mutableStateOf(false) }
+
+    // NAV-14: Focus requester so TopBar DPAD_DOWN can route focus into content area
+    val contentFocusRequester = remember { FocusRequester() }
 
     // Determines the current selected item based on the route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -125,7 +130,8 @@ fun MainScreen(
             startDestination = Screen.Home.route,
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background)
+                .focusRequester(contentFocusRequester),
         ) {
             composable(Screen.Home.route) {
                 HomeRoute(
@@ -244,6 +250,7 @@ fun MainScreen(
                 appLogoPainter = painterResource(id = R.drawable.ic_launcher_tv),
                 requestFocusOnSelectedItem = requestTopBarFocus,
                 onFocusChanged = { hasFocus -> isTopBarFocused = hasFocus },
+                contentFocusRequester = contentFocusRequester,
             )
         }
     }
