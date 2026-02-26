@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -127,13 +130,22 @@ fun FavoritesScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             val gridState = rememberLazyGridState()
+            val gridFocusRequester = remember { FocusRequester() }
+
+            // NAV-06: Request focus on first grid item when content loads
+            LaunchedEffect(uiState.favorites) {
+                if (uiState.favorites.isNotEmpty()) {
+                    try { gridFocusRequester.requestFocus() } catch (_: Exception) { }
+                }
+            }
+
             LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(minSize = 140.dp),
                 contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().focusRequester(gridFocusRequester),
             ) {
                 items(
                     items = uiState.favorites,

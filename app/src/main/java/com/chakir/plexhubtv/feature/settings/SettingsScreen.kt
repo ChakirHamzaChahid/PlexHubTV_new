@@ -18,6 +18,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -117,6 +119,13 @@ fun SettingsScreen(
     ) { padding ->
         val screenDescription = stringResource(R.string.settings_screen_description)
         val listState = rememberLazyListState()
+        val listFocusRequester = remember { FocusRequester() }
+
+        // NAV-09: Request focus on settings list on arrival
+        LaunchedEffect(Unit) {
+            try { listFocusRequester.requestFocus() } catch (_: Exception) { }
+        }
+
         LazyColumn(
             state = listState,
             modifier =
@@ -124,7 +133,8 @@ fun SettingsScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .testTag("screen_settings")
-                    .semantics { contentDescription = screenDescription },
+                    .semantics { contentDescription = screenDescription }
+                    .focusRequester(listFocusRequester),
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
