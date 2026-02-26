@@ -4,9 +4,6 @@ import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.core.model.VideoStream
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
-import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
@@ -37,8 +34,7 @@ class ResolveEpisodeSourcesUseCaseImpl
     constructor(
         private val authRepository: AuthRepository,
         private val searchRepository: SearchRepository,
-        private val connectionManager: ConnectionManager,
-        private val api: PlexApiService,
+        private val serverClientResolver: com.chakir.plexhubtv.data.repository.ServerClientResolver,
         private val mapper: MediaMapper,
     ) : com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase {
         /**
@@ -119,8 +115,8 @@ class ResolveEpisodeSourcesUseCaseImpl
                                         it.title.equals(showTitle, ignoreCase = true) && it.type == com.chakir.plexhubtv.core.model.MediaType.Show
                                     } ?: return@async null
 
-                                val baseUrl = connectionManager.findBestConnection(server) ?: return@async null
-                                val client = PlexClient(server, api, baseUrl)
+                                val client = serverClientResolver.resolveClient(server) ?: return@async null
+                                val baseUrl = client.baseUrl
 
                                 // 2. Find Season (by Index)
                                 val seasonsResponse = client.getChildren(showMatch.ratingKey)

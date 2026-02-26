@@ -37,7 +37,7 @@ class LibraryRepositoryImpl
         override suspend fun getLibraries(serverId: String): Result<List<LibrarySection>> {
             try {
                 val client =
-                    getClient(serverId) ?: run {
+                    serverClientResolver.getClient(serverId) ?: run {
                         // Offline: Try DB
                         val cached = database.librarySectionDao().getLibrarySections(serverId).first()
                         if (cached.isNotEmpty()) {
@@ -129,7 +129,7 @@ class LibraryRepositoryImpl
                     }
                 }
 
-                val client = getClient(resolvedServerId)
+                val client = serverClientResolver.getClient(resolvedServerId)
                 val normalizedFilter = filter?.lowercase() ?: "all"
                 val baseSort =
                     when (sort) {
@@ -574,25 +574,4 @@ class LibraryRepositoryImpl
             return mediaDao.getMediaCountRaw(rawQuery)
         }
 
-        private suspend fun getClient(serverId: String): PlexClient? {
-            val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
-
-            val targetServer =
-                if (serverId == "default_server" || serverId == "all") {
-                    servers.firstOrNull()
-                } else {
-                    servers.find { it.clientIdentifier == serverId }
-                } ?: return null
-
-            // Use cached connection directly here too for consistency, or non-blocking logic
-            // But getLibraryContent handles connection itself for fetching.
-            // If we need a client, we need a URL. For now, use existing flow but prefer cache if exposed
-            val baseUrl =
-                connectionManager.getCachedUrl(targetServer.clientIdentifier)
-                    ?: connectionManager.findBestConnection(targetServer) // This might still block if not cached?
-            // Actually findBestConnection inside getClient IS blocking.
-            // Ideally we should use getCachedUrl and fallback.
-
-            return if (baseUrl != null) PlexClient(targetServer, api, baseUrl) else null
-        }
     }

@@ -38,7 +38,7 @@ class PlaybackRepositoryImpl
             media: MediaItem,
             isWatched: Boolean,
         ): Result<Unit> {
-            val client = getClient(media.serverId)
+            val client = serverClientResolver.getClient(media.serverId)
                 ?: return Result.failure(AppError.Network.ServerError("Server ${media.serverId} unavailable"))
 
             return safeApiCall("toggleWatchStatus") {
@@ -58,7 +58,7 @@ class PlaybackRepositoryImpl
             media: MediaItem,
             positionMs: Long,
         ): Result<Unit> {
-            val client = getClient(media.serverId)
+            val client = serverClientResolver.getClient(media.serverId)
                 ?: return Result.failure(AppError.Network.ServerError("Server ${media.serverId} unavailable"))
 
             val result = safeApiCall("updatePlaybackProgress") {
@@ -163,7 +163,7 @@ class PlaybackRepositoryImpl
             audioStreamId: String?,
             subtitleStreamId: String?,
         ): Result<Unit> {
-            val client = getClient(serverId)
+            val client = serverClientResolver.getClient(serverId)
                 ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
 
             return safeApiCall("updateStreamSelection") {
@@ -182,10 +182,4 @@ class PlaybackRepositoryImpl
             }
         }
 
-        private suspend fun getClient(serverId: String): PlexClient? {
-            val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
-            val server = servers.find { it.clientIdentifier == serverId } ?: return null
-            val baseUrl = connectionManager.findBestConnection(server) ?: return null
-            return PlexClient(server, api, baseUrl)
-        }
     }

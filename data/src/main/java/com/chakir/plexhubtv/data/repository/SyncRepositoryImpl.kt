@@ -5,9 +5,6 @@ import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.model.toAppError
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
-import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
@@ -33,8 +30,7 @@ import javax.inject.Inject
 class SyncRepositoryImpl
     @Inject
     constructor(
-        private val api: PlexApiService,
-        private val connectionManager: ConnectionManager,
+        private val serverClientResolver: ServerClientResolver,
         private val mediaDao: MediaDao,
         private val mediaMapper: MediaMapper,
         private val libraryRepository: LibraryRepository,
@@ -112,9 +108,9 @@ class SyncRepositoryImpl
         ): Result<Unit> =
             withContext(ioDispatcher) {
                 try {
-                    val baseUrl = connectionManager.findBestConnection(server)
+                    val client = serverClientResolver.resolveClient(server)
                         ?: return@withContext Result.failure(AppError.Network.NoConnection("No connection to ${server.name}"))
-                    val client = PlexClient(server, api, baseUrl)
+                    val baseUrl = client.baseUrl
 
                     var start = 0
                     val size = 500 // Batch size

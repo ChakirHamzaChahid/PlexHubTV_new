@@ -5,8 +5,6 @@ import com.chakir.plexhubtv.core.database.DownloadDao
 import com.chakir.plexhubtv.core.database.OfflineWatchProgressDao
 import com.chakir.plexhubtv.core.database.OfflineWatchProgressEntity
 import com.chakir.plexhubtv.core.model.Server
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.OfflineWatchSyncRepository
@@ -32,8 +30,7 @@ class OfflineWatchSyncRepositoryImpl
         private val apiCacheDao: ApiCacheDao,
         private val downloadDao: DownloadDao,
         private val authRepository: AuthRepository,
-        private val connectionManager: ConnectionManager,
-        private val apiService: PlexApiService,
+        private val serverClientResolver: ServerClientResolver,
     ) : OfflineWatchSyncRepository {
         private var lastSyncTime: Long? = null
 
@@ -377,7 +374,6 @@ class OfflineWatchSyncRepositoryImpl
         }
 
         private suspend fun getOnlineClient(server: Server): PlexClient? {
-            val baseUrl = connectionManager.findBestConnection(server) ?: return null
-            return PlexClient(server, apiService, baseUrl)
+            return serverClientResolver.resolveClient(server)
         }
     }
