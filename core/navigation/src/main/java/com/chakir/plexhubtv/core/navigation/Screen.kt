@@ -67,6 +67,8 @@ sealed class Screen(val route: String) {
 
     data object Iptv : Screen("iptv")
 
+    data object XtreamSetup : Screen("xtream_setup")
+
     data object VideoPlayer : Screen("video_player/{ratingKey}?serverId={serverId}&startOffset={startOffset}&url={url}&title={title}") {
         fun createRoute(
             ratingKey: String,

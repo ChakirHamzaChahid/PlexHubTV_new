@@ -308,6 +308,13 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
             )
         }
 
+        // Xtream Setup
+        composable(Screen.XtreamSetup.route) {
+            com.chakir.plexhubtv.feature.xtream.XtreamSetupRoute(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+
         // VideoPlayer
         composable(
             route = Screen.VideoPlayer.route,
