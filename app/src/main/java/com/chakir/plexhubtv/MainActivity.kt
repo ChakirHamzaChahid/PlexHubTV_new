@@ -239,6 +239,9 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 onNavigateToLibrarySelection = {
                     navController.navigate(Screen.LibrarySelection.route)
                 },
+                onNavigateToXtreamSetup = {
+                    navController.navigate(Screen.XtreamSetup.route)
+                },
             )
         }
 

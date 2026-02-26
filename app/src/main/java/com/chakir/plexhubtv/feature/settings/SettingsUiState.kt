@@ -93,4 +93,6 @@ sealed interface SettingsAction {
     data object ManageAppProfiles : SettingsAction
 
     data object ManageLibrarySelection : SettingsAction
+
+    data object ManageXtreamAccounts : SettingsAction
 }

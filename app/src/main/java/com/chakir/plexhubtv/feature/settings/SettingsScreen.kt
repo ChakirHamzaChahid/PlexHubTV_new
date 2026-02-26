@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwitchAccount
+import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,6 +50,7 @@ fun SettingsRoute(
     onNavigateToPlexHomeSwitch: () -> Unit = {},
     onNavigateToAppProfiles: () -> Unit = {},
     onNavigateToLibrarySelection: () -> Unit = {},
+    onNavigateToXtreamSetup: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -63,6 +65,7 @@ fun SettingsRoute(
                 is SettingsNavigationEvent.NavigateToPlexHomeSwitch -> onNavigateToPlexHomeSwitch()
                 is SettingsNavigationEvent.NavigateToAppProfiles -> onNavigateToAppProfiles()
                 is SettingsNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
+                is SettingsNavigationEvent.NavigateToXtreamSetup -> onNavigateToXtreamSetup()
             }
         }
     }
@@ -411,9 +414,16 @@ fun SettingsScreen(
                 )
             }
 
-            // --- IPTV ---
+            // --- IPTV & Xtream ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_iptv)) {
+                    SettingsTile(
+                        title = "Xtream Accounts",
+                        subtitle = "Manage Xtream Codes IPTV accounts",
+                        icon = Icons.Filled.LiveTv,
+                        onClick = { onAction(SettingsAction.ManageXtreamAccounts) },
+                    )
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()

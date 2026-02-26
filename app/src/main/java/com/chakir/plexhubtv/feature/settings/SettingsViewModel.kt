@@ -290,6 +290,11 @@ class SettingsViewModel
                         _navigationEvents.send(SettingsNavigationEvent.NavigateToLibrarySelection)
                     }
                 }
+                is SettingsAction.ManageXtreamAccounts -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToXtreamSetup)
+                    }
+                }
             }
         }
 
@@ -436,4 +441,6 @@ sealed interface SettingsNavigationEvent {
     data object NavigateToAppProfiles : SettingsNavigationEvent
 
     data object NavigateToLibrarySelection : SettingsNavigationEvent
+
+    data object NavigateToXtreamSetup : SettingsNavigationEvent
 }
