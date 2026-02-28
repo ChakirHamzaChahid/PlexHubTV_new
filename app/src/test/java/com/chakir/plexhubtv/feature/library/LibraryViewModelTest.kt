@@ -108,6 +108,7 @@ class LibraryViewModelTest {
             workManager = workManager,
             getLibraryIndexUseCase = getLibraryIndexUseCase,
             xtreamAccountRepository = mockk(relaxed = true),
+            backendRepository = mockk(relaxed = true),
             savedStateHandle = savedStateHandle
         )
     }
