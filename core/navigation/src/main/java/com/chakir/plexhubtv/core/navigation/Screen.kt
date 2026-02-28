@@ -69,6 +69,10 @@ sealed class Screen(val route: String) {
 
     data object XtreamSetup : Screen("xtream_setup")
 
+    data object XtreamCategorySelection : Screen("xtream_category_selection/{accountId}") {
+        fun createRoute(accountId: String) = "xtream_category_selection/$accountId"
+    }
+
     data object VideoPlayer : Screen("video_player/{ratingKey}?serverId={serverId}&startOffset={startOffset}&url={url}&title={title}") {
         fun createRoute(
             ratingKey: String,
@@ -90,5 +94,6 @@ sealed class Screen(val route: String) {
         const val ARG_START_OFFSET = "startOffset"
         const val ARG_URL = "url"
         const val ARG_TITLE = "title"
+        const val ARG_ACCOUNT_ID = "accountId"
     }
 }

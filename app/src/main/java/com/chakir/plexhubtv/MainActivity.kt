@@ -242,6 +242,9 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 onNavigateToXtreamSetup = {
                     navController.navigate(Screen.XtreamSetup.route)
                 },
+                onNavigateToXtreamCategorySelection = { accountId ->
+                    navController.navigate(Screen.XtreamCategorySelection.createRoute(accountId))
+                },
             )
         }
 
@@ -314,6 +317,18 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
         // Xtream Setup
         composable(Screen.XtreamSetup.route) {
             com.chakir.plexhubtv.feature.xtream.XtreamSetupRoute(
+                onNavigateBack = { navController.popBackStack() },
+            )
+        }
+
+        // Xtream Category Selection
+        composable(
+            route = Screen.XtreamCategorySelection.route,
+            arguments = listOf(
+                navArgument(Screen.ARG_ACCOUNT_ID) { type = NavType.StringType },
+            ),
+        ) {
+            com.chakir.plexhubtv.feature.xtream.XtreamCategorySelectionRoute(
                 onNavigateBack = { navController.popBackStack() },
             )
         }

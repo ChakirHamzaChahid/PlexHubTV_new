@@ -60,6 +60,7 @@ fun MainScreen(
     onLogout: () -> Unit,
     onNavigateToLibrarySelection: () -> Unit = {},
     onNavigateToXtreamSetup: () -> Unit = {},
+    onNavigateToXtreamCategorySelection: (String) -> Unit = {},
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
@@ -192,6 +193,7 @@ fun MainScreen(
                     onNavigateToAppProfiles = { onNavigateToProfiles() },
                     onNavigateToLibrarySelection = { onNavigateToLibrarySelection() },
                     onNavigateToXtreamSetup = { onNavigateToXtreamSetup() },
+                    onNavigateToXtreamCategorySelection = { accountId -> onNavigateToXtreamCategorySelection(accountId) },
                 )
             }
             composable(Screen.ServerStatus.route) {
