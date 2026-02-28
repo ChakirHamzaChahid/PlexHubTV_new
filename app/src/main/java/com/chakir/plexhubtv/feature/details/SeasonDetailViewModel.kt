@@ -191,6 +191,8 @@ class SeasonDetailViewModel
                                         selectedEpisodeForSources = enrichedEpisode,
                                     )
                                 }
+                                // Lazy-fetch stream details for sources missing technical info
+                                lazyFetchSourceDetails(enrichedEpisode)
                                 // Will end when user selects source
                             } else {
                                 performanceTracker.addCheckpoint(opId, "Single Source - Direct Navigation")
@@ -257,6 +259,48 @@ class SeasonDetailViewModel
                         toggleWatchStatusUseCase(season, true)
                         // Then reload or update state manually
                         loadSeason()
+                    }
+                }
+            }
+        }
+
+        private fun lazyFetchSourceDetails(episode: MediaItem) {
+            val sourcesNeedingDetails = episode.remoteSources.filter { source ->
+                // Plex sources without resolution info need lazy fetch
+                !source.serverId.startsWith("xtream_") &&
+                    !source.serverId.startsWith("backend_") &&
+                    source.resolution == null
+            }
+            if (sourcesNeedingDetails.isEmpty()) return
+
+            for (source in sourcesNeedingDetails) {
+                viewModelScope.launch {
+                    try {
+                        val detail = getMediaDetailUseCase(source.ratingKey, source.serverId).first()
+                        val detailItem = detail.getOrNull()?.item ?: return@launch
+                        val part = detailItem.mediaParts?.firstOrNull()
+                        val videoStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
+                        val audioStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.firstOrNull()
+                        val enrichedSource = source.copy(
+                            resolution = videoStream?.displayTitle,
+                            videoCodec = videoStream?.codec,
+                            audioCodec = audioStream?.codec,
+                            audioChannels = audioStream?.channels,
+                            hasHDR = videoStream?.hasHDR ?: false,
+                            container = part?.container,
+                            fileSize = part?.size,
+                        )
+                        // Update the source in UI state progressively
+                        _uiState.update { state ->
+                            val currentEp = state.selectedEpisodeForSources ?: return@update state
+                            val updatedSources = currentEp.remoteSources.map { s ->
+                                if (s.serverId == source.serverId && s.ratingKey == source.ratingKey) enrichedSource else s
+                            }
+                            state.copy(selectedEpisodeForSources = currentEp.copy(remoteSources = updatedSources))
+                        }
+                        Timber.d("Lazy-fetched stream details for source ${source.serverName}")
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to lazy-fetch source details for ${source.serverName}")
                     }
                 }
             }
