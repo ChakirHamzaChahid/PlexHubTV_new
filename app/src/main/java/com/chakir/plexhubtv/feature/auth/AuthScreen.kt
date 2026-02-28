@@ -89,14 +89,9 @@ fun IdleState(onAction: (AuthEvent) -> Unit) {
     val tokenFieldDescription = stringResource(R.string.auth_token_field_description)
     val loginButtonDescription = stringResource(R.string.auth_login_button_description)
 
-    // Auto-login if test token is set
+    // Auto-login with BuildConfig token is handled in AuthViewModel.init
     LaunchedEffect(Unit) {
-        if (BuildConfig.PLEX_TOKEN.isNotBlank()) {
-            onAction(AuthEvent.SubmitToken(BuildConfig.PLEX_TOKEN))
-        } else {
-            // Request focus on PIN button for TV navigation
-            pinButtonFocusRequester.requestFocus()
-        }
+        pinButtonFocusRequester.requestFocus()
     }
 
     Column(

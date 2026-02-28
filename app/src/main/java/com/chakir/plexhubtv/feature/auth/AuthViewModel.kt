@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 import com.google.firebase.Firebase
 import com.google.firebase.analytics.analytics
@@ -35,15 +37,14 @@ class AuthViewModel
         val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
         private var pollingJob: Job? = null
+        private var loginJob: Job? = null
 
         init {
-            checkAuthStatus()
-        }
-
-        private fun checkAuthStatus() {
             viewModelScope.launch {
                 if (authRepository.checkAuthentication()) {
                     fetchServers()
+                } else if (com.chakir.plexhubtv.BuildConfig.PLEX_TOKEN.isNotBlank()) {
+                    doLoginWithToken(com.chakir.plexhubtv.BuildConfig.PLEX_TOKEN)
                 }
             }
         }
@@ -60,18 +61,29 @@ class AuthViewModel
         }
 
         private fun loginWithToken(token: String) {
-            viewModelScope.launch {
-                _uiState.value = AuthUiState.Authenticating(pinCode = "Verifying Token...", pinId = "")
-                authRepository.loginWithToken(token.trim())
-                    .onSuccess {
-                        fetchServers()
-                    }
-                    .onFailure { e ->
-                        Firebase.analytics.logEvent("auth_failed") {
-                            param("method", "token")
+            loginJob?.cancel()
+            loginJob = viewModelScope.launch {
+                doLoginWithToken(token)
+            }
+        }
+
+        private suspend fun doLoginWithToken(token: String) {
+            _uiState.value = AuthUiState.Authenticating(pinCode = "Verifying Token...", pinId = "")
+            try {
+                withTimeout(20_000) {
+                    authRepository.loginWithToken(token.trim())
+                        .onSuccess {
+                            fetchServers()
                         }
-                        _uiState.value = AuthUiState.Error("Token verification failed: ${e.message}")
-                    }
+                        .onFailure { e ->
+                            Firebase.analytics.logEvent("auth_failed") {
+                                param("method", "token")
+                            }
+                            _uiState.value = AuthUiState.Error("Token verification failed: ${e.message}")
+                        }
+                }
+            } catch (_: TimeoutCancellationException) {
+                _uiState.value = AuthUiState.Error("Token verification timed out. Check your network connection.")
             }
         }
 
@@ -142,6 +154,7 @@ class AuthViewModel
 
         private fun cancelAuth() {
             pollingJob?.cancel()
+            loginJob?.cancel()
             _uiState.value = AuthUiState.Idle
         }
     }
