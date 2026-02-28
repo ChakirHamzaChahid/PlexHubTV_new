@@ -141,26 +141,33 @@ class SeasonDetailViewModel
                         performanceTracker.addCheckpoint(opId, "UI Loading State Shown")
 
                         try {
-                            // 1. Enrich episode with remote sources (Room-first ~5ms, network fallback if needed)
-                            val enrichStart = System.currentTimeMillis()
-                            val enrichedEpisode = try {
-                                val enriched = enrichMediaItemUseCase(event.episode)
-                                val enrichDuration = System.currentTimeMillis() - enrichStart
-                                performanceTracker.addCheckpoint(
-                                    opId,
-                                    "Enrichment Success",
-                                    mapOf(
-                                        "duration" to enrichDuration,
-                                        "sources" to enriched.remoteSources.size,
-                                        "cacheHit" to (enrichDuration < 10).toString()
-                                    )
-                                )
-                                enriched
-                            } catch (e: Exception) {
-                                val enrichDuration = System.currentTimeMillis() - enrichStart
-                                performanceTracker.addCheckpoint(opId, "Enrichment Failed (Fallback)", mapOf("duration" to enrichDuration, "error" to (e.message ?: "unknown")))
-                                Timber.w(e, "Episode enrichment failed for ${event.episode.title}")
+                            // 1. Enrich episode with remote sources
+                            // If sources already pre-loaded (from unified seasons), skip enrichment
+                            val enrichedEpisode = if (event.episode.remoteSources.size > 1) {
+                                performanceTracker.addCheckpoint(opId, "Enrichment (Pre-loaded Skip)", mapOf("sources" to event.episode.remoteSources.size))
                                 event.episode
+                            } else {
+                                // Room-first ~5ms, network fallback if needed
+                                val enrichStart = System.currentTimeMillis()
+                                try {
+                                    val enriched = enrichMediaItemUseCase(event.episode)
+                                    val enrichDuration = System.currentTimeMillis() - enrichStart
+                                    performanceTracker.addCheckpoint(
+                                        opId,
+                                        "Enrichment Success",
+                                        mapOf(
+                                            "duration" to enrichDuration,
+                                            "sources" to enriched.remoteSources.size,
+                                            "cacheHit" to (enrichDuration < 10).toString()
+                                        )
+                                    )
+                                    enriched
+                                } catch (e: Exception) {
+                                    val enrichDuration = System.currentTimeMillis() - enrichStart
+                                    performanceTracker.addCheckpoint(opId, "Enrichment Failed (Fallback)", mapOf("duration" to enrichDuration, "error" to (e.message ?: "unknown")))
+                                    Timber.w(e, "Episode enrichment failed for ${event.episode.title}")
+                                    event.episode
+                                }
                             }
 
                             // 2. Populate Queue
