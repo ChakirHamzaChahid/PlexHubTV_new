@@ -163,4 +163,16 @@ abstract class RepositoryModule {
     abstract fun bindXtreamSeriesRepository(
         impl: com.chakir.plexhubtv.data.repository.XtreamSeriesRepositoryImpl,
     ): com.chakir.plexhubtv.domain.repository.XtreamSeriesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBackendRepository(
+        impl: com.chakir.plexhubtv.data.repository.BackendRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.BackendRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCategoryRepository(
+        impl: com.chakir.plexhubtv.data.repository.HybridCategoryRepository,
+    ): com.chakir.plexhubtv.domain.repository.CategoryRepository
 }
