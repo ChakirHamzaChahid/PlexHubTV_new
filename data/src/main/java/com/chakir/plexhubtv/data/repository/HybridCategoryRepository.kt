@@ -51,7 +51,17 @@ class HybridCategoryRepository @Inject constructor(
 
         return if (backendId != null) {
             Timber.d("HybridCategory: updating categories via backend $backendId")
-            backendRepository.updateCategories(backendId, accountId, filterMode, categories)
+            val updateResult = backendRepository.updateCategories(backendId, accountId, filterMode, categories)
+            if (updateResult.isSuccess) {
+                // Trigger backend-side sync so is_in_allowed_categories gets recalculated
+                val syncResult = backendRepository.triggerAccountSync(backendId, accountId)
+                syncResult.onSuccess { jobId ->
+                    Timber.i("HybridCategory: triggered backend sync after category update (jobId=$jobId)")
+                }.onFailure { e ->
+                    Timber.w(e, "HybridCategory: failed to trigger backend sync after category update (non-fatal)")
+                }
+            }
+            updateResult
         } else {
             Timber.d("HybridCategory: saving categories locally")
             saveXtreamCategoriesLocally(accountId, categories)

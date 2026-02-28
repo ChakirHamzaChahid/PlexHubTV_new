@@ -39,6 +39,8 @@ interface BackendRepository {
 
     suspend fun syncAll(backendId: String): Result<String>
 
+    suspend fun triggerAccountSync(backendId: String, accountId: String): Result<String>
+
     suspend fun getCategories(backendId: String, accountId: String): Result<CategoryConfig>
 
     suspend fun updateCategories(

@@ -14,6 +14,7 @@ import com.chakir.plexhubtv.core.network.backend.BackendAccountCreate
 import com.chakir.plexhubtv.core.network.backend.BackendApiClient
 import com.chakir.plexhubtv.core.network.backend.BackendCategoryUpdate
 import com.chakir.plexhubtv.core.network.backend.BackendCategoryUpdateRequest
+import com.chakir.plexhubtv.core.network.backend.BackendSyncRequest
 import com.chakir.plexhubtv.data.mapper.BackendMediaMapper
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.BackendRepository
@@ -264,6 +265,16 @@ class BackendRepositoryImpl @Inject constructor(
                     ?: throw IllegalStateException("Backend server $backendId not found")
                 val service = backendApiClient.getService(backend.baseUrl)
                 service.triggerSyncAll().jobId
+            }
+        }
+
+    override suspend fun triggerAccountSync(backendId: String, accountId: String): Result<String> =
+        withContext(ioDispatcher) {
+            runCatching {
+                val backend = backendServerDao.getById(backendId)
+                    ?: throw IllegalStateException("Backend server $backendId not found")
+                val service = backendApiClient.getService(backend.baseUrl)
+                service.triggerSync(BackendSyncRequest(accountId = accountId)).jobId
             }
         }
 
