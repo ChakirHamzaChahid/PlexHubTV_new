@@ -5,6 +5,10 @@ package com.chakir.plexhubtv.core.model
  * Used to control which VOD/Series categories are synced from Xtream servers.
  */
 data class CategoryConfig(
+    /**
+     * Filter mode: "all", "whitelist", or "blacklist".
+     * String type matches backend API for simpler DTO mapping.
+     */
     val filterMode: String = "whitelist",
     val categories: List<Category> = emptyList()
 )
@@ -15,7 +19,11 @@ data class CategoryConfig(
 data class Category(
     val categoryId: String,
     val categoryName: String,
-    val categoryType: String, // "vod" or "series"
+    /**
+     * Category type: "vod" or "series".
+     * String type matches backend API for simpler DTO mapping.
+     */
+    val categoryType: String,
     val isAllowed: Boolean
 )
 
@@ -25,6 +33,10 @@ data class Category(
  */
 data class CategorySelection(
     val categoryId: String,
-    val categoryType: String, // "vod" or "series"
+    /**
+     * Category type: "vod" or "series".
+     * String type matches backend API for simpler DTO mapping.
+     */
+    val categoryType: String,
     val isAllowed: Boolean
 )
