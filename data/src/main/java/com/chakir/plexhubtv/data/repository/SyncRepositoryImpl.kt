@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.database.IdBridgeDao
+import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.AppError
@@ -32,6 +34,7 @@ class SyncRepositoryImpl
     constructor(
         private val serverClientResolver: ServerClientResolver,
         private val mediaDao: MediaDao,
+        private val idBridgeDao: IdBridgeDao,
         private val mediaMapper: MediaMapper,
         private val libraryRepository: LibraryRepository,
         private val settingsDataStore: SettingsDataStore,
@@ -172,6 +175,12 @@ class SyncRepositoryImpl
 
                                 if (entities.isNotEmpty()) {
                                     mediaDao.upsertMedia(entities)
+                                    val bridgeEntries = entities.mapNotNull { entity ->
+                                        val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+                                        val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+                                        if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                                    }
+                                    if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
                                 }
                                 val dbDuration = System.currentTimeMillis() - dbStartTime
                                 val skippedCount = metadata.size - entities.size

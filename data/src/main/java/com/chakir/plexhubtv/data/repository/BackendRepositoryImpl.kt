@@ -2,6 +2,8 @@ package com.chakir.plexhubtv.data.repository
 
 import com.chakir.plexhubtv.core.database.BackendServerDao
 import com.chakir.plexhubtv.core.database.BackendServerEntity
+import com.chakir.plexhubtv.core.database.IdBridgeDao
+import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.BackendConnectionInfo
@@ -32,6 +34,7 @@ class BackendRepositoryImpl @Inject constructor(
     private val backendApiClient: BackendApiClient,
     private val backendServerDao: BackendServerDao,
     private val mediaDao: MediaDao,
+    private val idBridgeDao: IdBridgeDao,
     private val mapper: BackendMediaMapper,
     private val mediaMapper: MediaMapper,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -102,6 +105,7 @@ class BackendRepositoryImpl @Inject constructor(
                     val entities = response.items.map { mapper.mapDtoToEntity(it, backendId) }
                     if (entities.isNotEmpty()) {
                         mediaDao.upsertMedia(entities)
+                        populateIdBridge(entities)
                         entities.forEach { syncedRatingKeys.add(it.ratingKey) }
                         totalSynced += entities.size
                     }
@@ -115,6 +119,7 @@ class BackendRepositoryImpl @Inject constructor(
                     val entities = response.items.map { mapper.mapDtoToEntity(it, backendId) }
                     if (entities.isNotEmpty()) {
                         mediaDao.upsertMedia(entities)
+                        populateIdBridge(entities)
                         entities.forEach { syncedRatingKeys.add(it.ratingKey) }
                         totalSynced += entities.size
                     }
@@ -178,6 +183,7 @@ class BackendRepositoryImpl @Inject constructor(
                     val entities = response.items.map { mapper.mapDtoToEntity(it, backendId) }
                     if (entities.isNotEmpty()) {
                         mediaDao.upsertMedia(entities)
+                        populateIdBridge(entities)
                         allEpisodes.addAll(entities.map { mediaMapper.mapEntityToDomain(it) })
                     }
                     offset += 500
@@ -335,6 +341,15 @@ class BackendRepositoryImpl @Inject constructor(
                 Unit
             }
         }
+
+    private suspend fun populateIdBridge(entities: List<com.chakir.plexhubtv.core.database.MediaEntity>) {
+        val bridgeEntries = entities.mapNotNull { entity ->
+            val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+            val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+            if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+        }
+        if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
+    }
 
     private fun BackendServerEntity.toDomain() = BackendServer(
         id = id,

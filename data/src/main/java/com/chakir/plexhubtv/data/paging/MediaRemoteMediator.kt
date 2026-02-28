@@ -5,6 +5,7 @@ import androidx.paging.LoadType
 import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import androidx.room.withTransaction
+import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.core.database.RemoteKey
@@ -37,6 +38,7 @@ class MediaRemoteMediator(
 ) : RemoteMediator<Int, MediaEntity>() {
     private val remoteKeysDao = database.remoteKeysDao()
     private val mediaDao = database.mediaDao()
+    private val idBridgeDao = database.idBridgeDao()
 
     override suspend fun initialize(): InitializeAction {
         // Check if we have cached data for this specific filter/sort combination
@@ -180,6 +182,13 @@ class MediaRemoteMediator(
                     }
 
                 mediaDao.upsertMedia(entities)
+
+                val bridgeEntries = entities.mapNotNull { entity ->
+                    val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+                    val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+                    if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                }
+                if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
             }
             val dbDuration = System.currentTimeMillis() - dbStartTime
             val totalLoadDuration = System.currentTimeMillis() - startTime

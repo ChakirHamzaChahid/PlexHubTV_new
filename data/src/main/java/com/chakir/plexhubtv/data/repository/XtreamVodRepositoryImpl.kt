@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.database.IdBridgeDao
+import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -23,6 +25,7 @@ class XtreamVodRepositoryImpl @Inject constructor(
     private val apiClient: XtreamApiClient,
     private val accountRepo: XtreamAccountRepository,
     private val mediaDao: MediaDao,
+    private val idBridgeDao: IdBridgeDao,
     private val xtreamMapper: XtreamMediaMapper,
     private val mediaMapper: MediaMapper,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -50,6 +53,12 @@ class XtreamVodRepositoryImpl @Inject constructor(
 
                 if (entities.isNotEmpty()) {
                     mediaDao.upsertMedia(entities)
+                    val bridgeEntries = entities.mapNotNull { entity ->
+                        val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+                        val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+                        if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                    }
+                    if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
                 }
 
                 Timber.i("XTREAM [VOD] Synced ${entities.size} movies for account $accountId")
