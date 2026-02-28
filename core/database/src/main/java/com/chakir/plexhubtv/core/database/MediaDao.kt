@@ -221,6 +221,15 @@ interface MediaDao {
     @Query("SELECT DISTINCT serverId FROM media")
     suspend fun getDistinctServerIds(): List<String>
 
+    @Query("""
+        SELECT * FROM media
+        WHERE type = 'episode'
+        AND grandparentTitle = :showTitle
+        AND serverId IN (:enabledServerIds)
+        ORDER BY parentIndex ASC, `index` ASC
+    """)
+    suspend fun getUnifiedEpisodes(showTitle: String, enabledServerIds: List<String>): List<MediaEntity>
+
     // Persistence helper to survive library syncs
     @Query("SELECT ratingKey, scrapedRating FROM media WHERE ratingKey IN (:ratingKeys) AND serverId = :serverId")
     suspend fun getScrapedRatings(
