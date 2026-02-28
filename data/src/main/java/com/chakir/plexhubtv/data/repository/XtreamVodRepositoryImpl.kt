@@ -67,6 +67,28 @@ class XtreamVodRepositoryImpl @Inject constructor(
             emit(entity.map { mediaMapper.mapEntityToDomain(it) })
         }.flowOn(ioDispatcher)
 
+    override suspend fun enrichMovieDetail(accountId: String, vodId: Int, ratingKey: String): Result<Unit> =
+        withContext(ioDispatcher) {
+            runCatching {
+                val (service, username, password) = getServiceCredentials(accountId)
+                val response = service.getVodInfo(username, password, vodId = vodId)
+                val info = response.info ?: return@runCatching
+
+                val serverId = "xtream_$accountId"
+                val existing = mediaDao.getMedia(ratingKey, serverId) ?: return@runCatching
+
+                val updated = existing.copy(
+                    summary = info.plot ?: info.description ?: existing.summary,
+                    genres = info.genre ?: existing.genres,
+                    tmdbId = info.tmdbId?.toString() ?: existing.tmdbId,
+                    artUrl = info.backdropPath?.firstOrNull()?.takeIf { it.isNotBlank() } ?: existing.artUrl,
+                    duration = info.durationSecs?.takeIf { it > 0 }?.toLong()?.times(1000) ?: existing.duration,
+                )
+                mediaDao.insertMedia(updated)
+                Timber.d("XTREAM [VOD] Enriched detail for ${existing.title} (vod_id=$vodId)")
+            }
+        }
+
     override fun buildStreamUrl(accountId: String, streamId: Int, extension: String): String {
         val account = runCatching {
             kotlinx.coroutines.runBlocking { accountRepo.getAccount(accountId) }

@@ -72,8 +72,11 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
             runCatching {
                 val (service, username, password) = getServiceCredentials(accountId)
                 val response = service.getSeriesInfo(username, password, seriesId = seriesId)
-                val seriesDto = response.info
-                    ?: throw IllegalStateException("Series info not found for seriesId=$seriesId")
+                // Patch seriesId: the "info" object from get_series_info doesn't include series_id,
+                // but we need it for building consistent ratingKeys (season_<seriesId>_<num>, etc.)
+                val seriesDto = (response.info
+                    ?: throw IllegalStateException("Series info not found for seriesId=$seriesId"))
+                    .copy(seriesId = seriesId)
 
                 // Map the show entity
                 val showEntity = xtreamMapper.mapSeriesToEntity(seriesDto, accountId)

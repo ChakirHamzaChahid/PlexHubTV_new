@@ -1,6 +1,11 @@
 package com.chakir.plexhubtv.core.network.xtream
 
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
+import com.google.gson.annotations.JsonAdapter
 import com.google.gson.annotations.SerializedName
+import java.lang.reflect.Type
 
 // ── Authentication ─────────────────────────────────────────
 
@@ -69,10 +74,44 @@ data class XtreamSeriesDto(
     @SerializedName("last_modified") val lastModified: String?,
     val rating: String?,
     @SerializedName("rating_5based") val rating5based: String?,
+    @JsonAdapter(StringOrStringListDeserializer::class)
     @SerializedName("backdrop_path") val backdropPath: List<String>?,
     @SerializedName("youtube_trailer") val youtubeTrailer: String?,
     @SerializedName("episode_run_time") val episodeRunTime: String?,
     @SerializedName("category_id") val categoryId: String?,
+)
+
+// ── VOD Info (detail for a single movie) ──────────────────
+
+data class XtreamVodInfoResponse(
+    val info: XtreamVodInfoDto?,
+    @SerializedName("movie_data") val movieData: XtreamVodMovieDataDto?,
+)
+
+data class XtreamVodInfoDto(
+    @SerializedName("tmdb_id") val tmdbId: Int?,
+    val name: String?,
+    @SerializedName("o_name") val originalName: String?,
+    @SerializedName("cover_big") val coverBig: String?,
+    @SerializedName("movie_image") val movieImage: String?,
+    val releasedate: String?,
+    val director: String?,
+    val cast: String?,
+    val description: String?,
+    val plot: String?,
+    val genre: String?,
+    @JsonAdapter(StringOrStringListDeserializer::class)
+    @SerializedName("backdrop_path") val backdropPath: List<String>?,
+    @SerializedName("duration_secs") val durationSecs: Int?,
+    val rating: String?,
+)
+
+data class XtreamVodMovieDataDto(
+    @SerializedName("stream_id") val streamId: Int?,
+    val name: String?,
+    val added: String?,
+    @SerializedName("category_id") val categoryId: String?,
+    @SerializedName("container_extension") val containerExtension: String?,
 )
 
 // ── Series Info (detail with seasons + episodes) ──────────
@@ -106,3 +145,24 @@ data class XtreamEpisodeInfoDto(
     val releasedate: String?,
     val rating: String?,
 )
+
+/**
+ * Xtream APIs inconsistently return `backdrop_path` as either a JSON array
+ * (`["path1","path2"]`) or a plain string (`""` / `"some_path"`).
+ * This deserializer handles both cases gracefully.
+ */
+class StringOrStringListDeserializer : JsonDeserializer<List<String>?> {
+    override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): List<String>? {
+        if (json == null || json.isJsonNull) return null
+        if (json.isJsonArray) {
+            return json.asJsonArray.mapNotNull { elem ->
+                elem.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
+            }
+        }
+        if (json.isJsonPrimitive) {
+            val value = json.asString
+            return if (value.isNullOrBlank()) emptyList() else listOf(value)
+        }
+        return null
+    }
+}

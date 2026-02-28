@@ -12,4 +12,7 @@ interface XtreamVodRepository {
     fun getMovies(accountId: String, categoryId: Int? = null): Flow<List<MediaItem>>
 
     fun buildStreamUrl(accountId: String, streamId: Int, extension: String): String
+
+    /** Fetch detailed VOD info (plot, cast, genre, tmdb_id) and persist to Room. */
+    suspend fun enrichMovieDetail(accountId: String, vodId: Int, ratingKey: String): Result<Unit>
 }

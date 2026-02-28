@@ -60,6 +60,8 @@ class XtreamApiClient @Inject constructor(
 
     private fun buildBaseUrl(baseUrl: String, port: Int): String {
         val url = baseUrl.trimEnd('/')
-        return "$url:$port/"
+        val isDefaultPort = (url.startsWith("http://") && port == 80) ||
+            (url.startsWith("https://") && port == 443)
+        return if (isDefaultPort) "$url/" else "$url:$port/"
     }
 }

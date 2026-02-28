@@ -15,7 +15,8 @@ class XtreamMediaMapper @Inject constructor() {
 
     fun mapVodToEntity(dto: XtreamVodStreamDto, accountId: String): MediaEntity {
         val serverId = "xtream_$accountId"
-        val ratingKey = "vod_${dto.streamId ?: 0}"
+        val ext = dto.containerExtension?.takeIf { it.isNotBlank() }
+        val ratingKey = if (ext != null) "vod_${dto.streamId ?: 0}.$ext" else "vod_${dto.streamId ?: 0}"
         val (title, year) = parseTitleAndYear(dto.name)
         val rating = parseRating(dto.rating)
 
@@ -63,6 +64,7 @@ class XtreamMediaMapper @Inject constructor() {
             rating = rating.takeIf { it > 0.0 },
             filter = dto.categoryId ?: "all",
             sortOrder = "default",
+            pageOffset = dto.num ?: 0,
             unificationId = buildUnificationId(title, year),
             historyGroupKey = buildUnificationId(title, year).ifEmpty { "$ratingKey$serverId" },
         )
@@ -76,7 +78,10 @@ class XtreamMediaMapper @Inject constructor() {
     ): MediaEntity {
         val serverId = "xtream_$accountId"
         return MediaEntity(
-            ratingKey = "ep_${episode.id ?: "0"}",
+            ratingKey = run {
+                val ext = episode.containerExtension?.takeIf { it.isNotBlank() }
+                if (ext != null) "ep_${episode.id ?: "0"}.$ext" else "ep_${episode.id ?: "0"}"
+            },
             serverId = serverId,
             librarySectionId = "xtream_series",
             title = episode.title ?: "Episode ${episode.episodeNum}",
@@ -93,6 +98,7 @@ class XtreamMediaMapper @Inject constructor() {
             grandparentRatingKey = "series_${seriesDto.seriesId}",
             grandparentTitle = seriesDto.name,
             index = episode.episodeNum,
+            pageOffset = episode.id?.toIntOrNull() ?: (episode.episodeNum ?: 0),
             filter = "all",
             sortOrder = "default",
             displayRating = parseRating(episode.info?.rating),

@@ -48,4 +48,12 @@ interface XtreamApiService {
         @Query("action") action: String = "get_series_info",
         @Query("series_id") seriesId: Int,
     ): XtreamSeriesInfoResponse
+
+    @GET("player_api.php")
+    suspend fun getVodInfo(
+        @Query("username") username: String,
+        @Query("password") password: String,
+        @Query("action") action: String = "get_vod_info",
+        @Query("vod_id") vodId: Int,
+    ): XtreamVodInfoResponse
 }
