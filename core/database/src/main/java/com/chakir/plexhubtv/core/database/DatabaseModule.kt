@@ -328,6 +328,21 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_34_35 =
+        object : androidx.room.migration.Migration(34, 35) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `id_bridge` (
+                        `imdbId` TEXT NOT NULL PRIMARY KEY,
+                        `tmdbId` TEXT NOT NULL
+                    )
+                    """
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_id_bridge_tmdbId` ON `id_bridge` (`tmdbId`)")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -371,6 +386,7 @@ object DatabaseModule {
                 MIGRATION_31_32,
                 MIGRATION_32_33,
                 MIGRATION_33_34,
+                MIGRATION_34_35,
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -440,5 +456,10 @@ object DatabaseModule {
     @Provides
     fun provideBackendServerDao(database: PlexDatabase): BackendServerDao {
         return database.backendServerDao()
+    }
+
+    @Provides
+    fun provideIdBridgeDao(database: PlexDatabase): IdBridgeDao {
+        return database.idBridgeDao()
     }
 }

@@ -29,8 +29,9 @@ import androidx.room.TypeConverters
         MediaFts::class,
         XtreamAccountEntity::class,
         BackendServerEntity::class,
+        IdBridgeEntity::class,
     ],
-    version = 34,
+    version = 35,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -65,4 +66,6 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun xtreamAccountDao(): XtreamAccountDao
 
     abstract fun backendServerDao(): BackendServerDao
+
+    abstract fun idBridgeDao(): IdBridgeDao
 }
