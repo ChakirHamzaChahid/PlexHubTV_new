@@ -3,8 +3,7 @@ package com.chakir.plexhubtv.feature.xtream
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.chakir.plexhubtv.core.model.XtreamCategoryType
-import com.chakir.plexhubtv.domain.model.XtreamCategoryFilterMode
+import com.chakir.plexhubtv.core.model.CategorySelection
 import com.chakir.plexhubtv.domain.repository.CategoryRepository
 import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,7 +22,7 @@ import javax.inject.Inject
 data class SelectableCategory(
     val categoryId: String,
     val categoryName: String,
-    val categoryType: XtreamCategoryType,
+    val categoryType: String, // "vod" or "series"
     val isSelected: Boolean,
 )
 
@@ -39,9 +38,15 @@ data class XtreamCategorySelectionUiState(
     val error: String? = null,
     val sections: List<CategorySection> = emptyList(),
     val isConfirming: Boolean = false,
-    val filterMode: XtreamCategoryFilterMode = XtreamCategoryFilterMode.INCLUDE_ALL,
     val isSyncing: Boolean = false,
-)
+) {
+    // Computed property: unified mode means all categories are selected
+    val isUnifiedMode: Boolean
+        get() = sections.all { section ->
+            section.vodCategories.all { it.isSelected } &&
+            section.seriesCategories.all { it.isSelected }
+        }
+}
 
 sealed interface XtreamCategorySelectionAction {
     data class ToggleVodCategory(val accountId: String, val categoryId: String) : XtreamCategorySelectionAction
@@ -104,26 +109,26 @@ class XtreamCategorySelectionViewModel @Inject constructor(
                 val categoriesResult = categoryRepository.getCategories(accountId)
 
                 categoriesResult.fold(
-                    onSuccess = { categories ->
-                        val vodCategories = categories
-                            .filter { it.categoryType == XtreamCategoryType.VOD }
+                    onSuccess = { config ->
+                        val vodCategories = config.categories
+                            .filter { it.categoryType == "vod" }
                             .map { cat ->
                                 SelectableCategory(
                                     categoryId = cat.categoryId,
                                     categoryName = cat.categoryName,
                                     categoryType = cat.categoryType,
-                                    isSelected = cat.isSelected,
+                                    isSelected = cat.isAllowed,
                                 )
                             }
 
-                        val seriesCategories = categories
-                            .filter { it.categoryType == XtreamCategoryType.SERIES }
+                        val seriesCategories = config.categories
+                            .filter { it.categoryType == "series" }
                             .map { cat ->
                                 SelectableCategory(
                                     categoryId = cat.categoryId,
                                     categoryName = cat.categoryName,
                                     categoryType = cat.categoryType,
-                                    isSelected = cat.isSelected,
+                                    isSelected = cat.isAllowed,
                                 )
                             }
 
@@ -233,16 +238,35 @@ class XtreamCategorySelectionViewModel @Inject constructor(
                 val section = currentState.sections.firstOrNull()
 
                 if (section != null) {
-                    val selectedCategoryIds = (section.vodCategories + section.seriesCategories)
-                        .filter { it.isSelected }
-                        .map { it.categoryId }
-                        .toSet()
+                    val allCategories = section.vodCategories + section.seriesCategories
 
-                    val updateResult = categoryRepository.updateCategories(accountId, selectedCategoryIds)
+                    // Determine filter mode based on selection
+                    val allSelected = allCategories.all { it.isSelected }
+                    val noneSelected = allCategories.none { it.isSelected }
+
+                    val filterMode = when {
+                        allSelected -> "all"
+                        noneSelected -> "all" // Default to all if nothing selected
+                        else -> "whitelist"
+                    }
+
+                    val categorySelections = allCategories.map { cat ->
+                        CategorySelection(
+                            categoryId = cat.categoryId,
+                            categoryType = cat.categoryType,
+                            isAllowed = cat.isSelected
+                        )
+                    }
+
+                    val updateResult = categoryRepository.updateCategories(
+                        accountId = accountId,
+                        filterMode = filterMode,
+                        categories = categorySelections
+                    )
 
                     updateResult.fold(
                         onSuccess = {
-                            Timber.i("Category selection saved: ${selectedCategoryIds.size} categories selected for account $accountId")
+                            Timber.i("Category selection saved for account $accountId (mode: $filterMode)")
                             _navigationEvent.emit(XtreamCategorySelectionNavEvent.NavigateBack)
                         },
                         onFailure = { error ->

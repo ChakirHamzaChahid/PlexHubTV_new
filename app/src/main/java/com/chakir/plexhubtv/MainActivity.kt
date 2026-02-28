@@ -325,10 +325,12 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
         composable(
             route = Screen.XtreamCategorySelection.route,
             arguments = listOf(
-                navArgument(Screen.ARG_ACCOUNT_ID) { type = NavType.StringType },
+                navArgument(Screen.ARG_ACCOUNT_ID) { type = NavType.LongType },
             ),
         ) {
+            val accountId = it.arguments?.getLong(Screen.ARG_ACCOUNT_ID) ?: 0L
             com.chakir.plexhubtv.feature.xtream.XtreamCategorySelectionRoute(
+                accountId = accountId,
                 onNavigateBack = { navController.popBackStack() },
             )
         }

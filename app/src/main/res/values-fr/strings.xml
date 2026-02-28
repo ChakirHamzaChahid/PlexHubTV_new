@@ -478,6 +478,8 @@
     <string name="xtream_category_mode_blacklist">Mode liste noire</string>
     <string name="xtream_category_mode_all">Toutes les categories</string>
     <string name="xtream_category_syncing">Synchronisation…</string>
+    <string name="xtream_filter_unified">Toutes les catégories</string>
+    <string name="xtream_filter_non_unified">Catégories sélectionnées</string>
     <string name="retry">Réessayer</string>
 
     <!-- Mentions légales -->

@@ -485,6 +485,8 @@
     <string name="xtream_category_mode_blacklist">Blacklist mode</string>
     <string name="xtream_category_mode_all">All categories</string>
     <string name="xtream_category_syncing">Syncing…</string>
+    <string name="xtream_filter_unified">All Categories</string>
+    <string name="xtream_filter_non_unified">Selected Categories</string>
     <string name="retry">Retry</string>
 
     <!-- Legal -->
