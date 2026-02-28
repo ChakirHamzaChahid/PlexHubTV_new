@@ -2,11 +2,16 @@ package com.chakir.plexhubtv.data.repository
 
 import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Collection
+import com.chakir.plexhubtv.core.model.EpisodeSource
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.UnifiedEpisode
+import com.chakir.plexhubtv.core.model.UnifiedSeason
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
+import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.BackendRepository
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.XtreamSeriesRepository
@@ -31,6 +36,7 @@ class MediaDetailRepositoryImpl
         private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
+        private val authRepository: AuthRepository,
         private val xtreamSeriesRepository: XtreamSeriesRepository,
         private val xtreamVodRepository: XtreamVodRepository,
         private val backendRepository: BackendRepository,
@@ -193,6 +199,76 @@ class MediaDetailRepositoryImpl
                     )
                 } else domain
             }
+        }
+
+        override suspend fun getUnifiedSeasons(
+            showTitle: String,
+            enabledServerIds: List<String>,
+        ): List<UnifiedSeason> {
+            val allEpisodes = mediaDao.getUnifiedEpisodes(showTitle, enabledServerIds)
+            if (allEpisodes.isEmpty()) return emptyList()
+
+            val serverNames = buildServerNameMap()
+
+            return allEpisodes
+                .filter { it.parentIndex != null && it.index != null }
+                .groupBy { it.parentIndex!! }
+                .toSortedMap()
+                .map { (seasonIdx, seasonEpisodes) ->
+                    val byEpIndex = seasonEpisodes.groupBy { it.index!! }
+                    val unifiedEps = byEpIndex.toSortedMap().map { (epIdx, entities) ->
+                        val best = pickBestEntity(entities)
+                        UnifiedEpisode(
+                            episodeIndex = epIdx,
+                            title = best.title,
+                            duration = best.duration,
+                            thumbUrl = best.thumbUrl ?: best.parentThumb,
+                            summary = best.summary,
+                            bestRatingKey = best.ratingKey,
+                            bestServerId = best.serverId,
+                            sources = entities.map { entity ->
+                                EpisodeSource(
+                                    serverId = entity.serverId,
+                                    serverName = serverNames[entity.serverId] ?: entity.serverId,
+                                    ratingKey = entity.ratingKey,
+                                )
+                            },
+                        )
+                    }
+                    val allServerIds = unifiedEps.flatMap { ep -> ep.sources.map { it.serverId } }.toSet()
+                    val bestSeasonEntity = seasonEpisodes.maxByOrNull { metadataScore(it) }
+                    UnifiedSeason(
+                        seasonIndex = seasonIdx,
+                        title = bestSeasonEntity?.parentTitle ?: "Season $seasonIdx",
+                        thumbUrl = bestSeasonEntity?.parentThumb,
+                        episodes = unifiedEps,
+                        availableServerIds = allServerIds,
+                    )
+                }
+        }
+
+        private fun pickBestEntity(entities: List<MediaEntity>): MediaEntity =
+            entities.maxByOrNull { metadataScore(it) } ?: entities.first()
+
+        private fun metadataScore(entity: MediaEntity): Int {
+            var score = 0
+            if (!entity.summary.isNullOrBlank()) score += 2
+            if (!entity.thumbUrl.isNullOrBlank()) score += 2
+            if (!entity.imdbId.isNullOrBlank()) score += 1
+            if (!entity.tmdbId.isNullOrBlank()) score += 1
+            val year = entity.year
+            if (year != null && year > 0) score += 1
+            if (!entity.genres.isNullOrBlank()) score += 1
+            if (!entity.serverId.startsWith("xtream_") && !entity.serverId.startsWith("backend_")) score += 3
+            return score
+        }
+
+        private suspend fun buildServerNameMap(): Map<String, String> {
+            val map = mutableMapOf<String, String>()
+            authRepository.getServers().getOrNull()?.forEach { server ->
+                map[server.clientIdentifier] = server.name
+            }
+            return map
         }
 
         override suspend fun updateMediaParts(item: MediaItem) {

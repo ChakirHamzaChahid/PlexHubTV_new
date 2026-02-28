@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.domain.repository
 
 import com.chakir.plexhubtv.core.model.Collection
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.UnifiedSeason
 import kotlinx.coroutines.flow.Flow
 
 interface MediaDetailRepository {
@@ -28,6 +29,12 @@ interface MediaDetailRepository {
         ratingKey: String,
         serverId: String,
     ): Result<List<MediaItem>>
+
+    /** Fetches all episodes for a show across enabled servers and merges into unified seasons. */
+    suspend fun getUnifiedSeasons(
+        showTitle: String,
+        enabledServerIds: List<String>,
+    ): List<UnifiedSeason>
 
     /** Trouve les instances du même média sur d'autres serveurs (via unificationId Room). */
     suspend fun findRemoteSources(item: MediaItem): List<MediaItem>
