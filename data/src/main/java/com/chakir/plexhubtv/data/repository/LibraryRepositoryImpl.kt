@@ -173,6 +173,8 @@ class LibraryRepositoryImpl
                         media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
                         media.scrapedRating,
                         media.historyGroupKey,
+                        media.viewCount,
+                        media.sourceServerId,
                         GROUP_CONCAT(media.ratingKey) as ratingKeys,
                         GROUP_CONCAT(media.serverId) as serverIds,
                         GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """,

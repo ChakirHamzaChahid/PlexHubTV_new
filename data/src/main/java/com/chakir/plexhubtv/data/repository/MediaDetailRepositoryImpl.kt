@@ -7,8 +7,10 @@ import com.chakir.plexhubtv.core.model.Collection
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
+import com.chakir.plexhubtv.domain.repository.BackendRepository
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.XtreamSeriesRepository
+import com.chakir.plexhubtv.domain.repository.XtreamVodRepository
 import com.chakir.plexhubtv.domain.usecase.MediaDetail
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +32,8 @@ class MediaDetailRepositoryImpl
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
         private val xtreamSeriesRepository: XtreamSeriesRepository,
+        private val xtreamVodRepository: XtreamVodRepository,
+        private val backendRepository: BackendRepository,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MediaDetailRepository {
         // In-memory cache for similar items: "ratingKey:serverId" → (timestampMs, items)
@@ -43,6 +47,10 @@ class MediaDetailRepositoryImpl
             ratingKey: String,
             serverId: String,
         ): Result<MediaItem> {
+            // Backend: pre-enriched content from PlexHub Backend
+            if (serverId.startsWith("backend_")) {
+                return getBackendMediaDetail(ratingKey, serverId)
+            }
             // Xtream: direct-play content — no mediaParts/streams needed
             if (serverId.startsWith("xtream_")) {
                 return getXtreamMediaDetail(ratingKey, serverId)
@@ -96,8 +104,8 @@ class MediaDetailRepositoryImpl
             // 1. Cache-first: Return Room data immediately when available (~5ms)
             val localEntities = mediaDao.getChildren(ratingKey, serverId)
             if (localEntities.isNotEmpty()) {
-                // Xtream: no URL resolution needed (direct-play URLs built at playback time)
-                if (serverId.startsWith("xtream_")) {
+                // Xtream/Backend: no URL resolution needed (direct-play URLs built at playback time)
+                if (serverId.startsWith("xtream_") || serverId.startsWith("backend_")) {
                     return Result.success(localEntities.map { mapper.mapEntityToDomain(it) })
                 }
 
@@ -116,7 +124,25 @@ class MediaDetailRepositoryImpl
                 return Result.success(cachedItems)
             }
 
-            // Xtream: if no episodes in Room, they haven't been fetched yet (empty result is fine)
+            // Backend: if no episodes in Room, fetch from backend API
+            if (serverId.startsWith("backend_")) {
+                return getBackendEpisodes(ratingKey, serverId)
+            }
+
+            // Xtream: if no episodes in Room, fetch series detail (which persists episodes) and re-query
+            if (serverId.startsWith("xtream_") && ratingKey.startsWith("season_")) {
+                val parts = ratingKey.removePrefix("season_").split("_", limit = 2)
+                if (parts.size == 2) {
+                    val seriesRatingKey = "series_${parts[0]}"
+                    getCachedXtreamSeriesDetail(seriesRatingKey, serverId)
+                    // Re-query after episodes were persisted by getSeriesDetail
+                    val refreshed = mediaDao.getChildren(ratingKey, serverId)
+                    if (refreshed.isNotEmpty()) {
+                        return Result.success(refreshed.map { mapper.mapEntityToDomain(it) })
+                    }
+                }
+                return Result.success(emptyList())
+            }
             if (serverId.startsWith("xtream_")) {
                 return Result.success(emptyList())
             }
@@ -188,6 +214,11 @@ class MediaDetailRepositoryImpl
             ratingKey: String,
             serverId: String,
         ): Result<List<MediaItem>> {
+            // Backend shows: fetch episodes from backend, group by parentIndex to build virtual seasons
+            if (serverId.startsWith("backend_") && ratingKey.startsWith("series_")) {
+                return getBackendSeasons(ratingKey, serverId)
+            }
+
             // Xtream shows: seasons come from series info API (not stored in Room)
             if (serverId.startsWith("xtream_") && ratingKey.startsWith("series_")) {
                 val detail = getCachedXtreamSeriesDetail(ratingKey, serverId)
@@ -202,6 +233,11 @@ class MediaDetailRepositoryImpl
             ratingKey: String,
             serverId: String,
         ): Result<List<MediaItem>> {
+            // Xtream/Backend: no similar media API available
+            if (serverId.startsWith("xtream_") || serverId.startsWith("backend_")) {
+                return Result.success(emptyList())
+            }
+
             // Cache-first: return cached similar items if fresh (avoids 300-1000ms API call)
             val cacheKey = "$ratingKey:$serverId"
             val cached = similarCache[cacheKey]
@@ -335,12 +371,99 @@ class MediaDetailRepositoryImpl
                 .flowOn(ioDispatcher)
         }
 
+        // --- Backend detail helpers ---
+
+        private suspend fun getBackendMediaDetail(ratingKey: String, serverId: String): Result<MediaItem> {
+            // Room first: backend content is synced during library sync
+            val localEntity = mediaDao.getMedia(ratingKey, serverId)
+            if (localEntity != null) {
+                return Result.success(mapper.mapEntityToDomain(localEntity))
+            }
+
+            // For seasons: parse seriesId, fetch episodes from backend, find matching season
+            if (ratingKey.startsWith("season_")) {
+                val parts = ratingKey.removePrefix("season_").split("_", limit = 2)
+                if (parts.size == 2) {
+                    val seriesRatingKey = "series_${parts[0]}"
+                    val seasonNumber = parts[1].toIntOrNull()
+                    // Fetch episodes and build virtual season
+                    val seasons = getBackendSeasons(seriesRatingKey, serverId).getOrNull()
+                    if (seasons != null && seasonNumber != null) {
+                        val season = seasons.find { it.seasonIndex == seasonNumber }
+                        if (season != null) return Result.success(season)
+                    }
+                }
+            }
+
+            // Fallback: fetch from backend API
+            return backendRepository.getMediaDetail(ratingKey, serverId)
+        }
+
+        private suspend fun getBackendEpisodes(ratingKey: String, serverId: String): Result<List<MediaItem>> {
+            // For season ratingKeys (season_<seriesId>_<seasonNum>), extract the parent show key
+            val parentRatingKey = if (ratingKey.startsWith("season_")) {
+                val parts = ratingKey.removePrefix("season_").split("_", limit = 2)
+                if (parts.size == 2) "series_${parts[0]}" else ratingKey
+            } else {
+                ratingKey
+            }
+
+            val seasonNumber = if (ratingKey.startsWith("season_")) {
+                ratingKey.removePrefix("season_").split("_", limit = 2).getOrNull(1)?.toIntOrNull()
+            } else null
+
+            return backendRepository.getEpisodes(parentRatingKey, serverId).map { episodes ->
+                if (seasonNumber != null) {
+                    episodes.filter { it.parentIndex == seasonNumber }
+                } else {
+                    episodes
+                }
+            }
+        }
+
+        private suspend fun getBackendSeasons(ratingKey: String, serverId: String): Result<List<MediaItem>> {
+            // Fetch all episodes for this series, group by parentIndex to build virtual season items
+            val result = backendRepository.getEpisodes(ratingKey, serverId)
+            return result.map { episodes ->
+                episodes.groupBy { it.parentIndex ?: 0 }
+                    .toSortedMap()
+                    .map { (seasonNum, seasonEpisodes) ->
+                        val firstEp = seasonEpisodes.first()
+                        val seriesId = ratingKey.removePrefix("series_")
+                        val seasonRatingKey = "season_${seriesId}_$seasonNum"
+                        MediaItem(
+                            id = "$serverId:$seasonRatingKey",
+                            ratingKey = seasonRatingKey,
+                            serverId = serverId,
+                            title = firstEp.parentTitle ?: "Season $seasonNum",
+                            type = com.chakir.plexhubtv.core.model.MediaType.Season,
+                            parentRatingKey = ratingKey,
+                            seasonIndex = seasonNum,
+                            thumbUrl = firstEp.thumbUrl,
+                            parentTitle = firstEp.grandparentTitle,
+                        )
+                    }
+            }
+        }
+
         // --- Xtream detail helpers ---
 
         private suspend fun getXtreamMediaDetail(ratingKey: String, serverId: String): Result<MediaItem> {
-            // For movies: return from Room directly (synced during library sync)
+            // For movies/episodes: return from Room directly (synced during library sync)
             val localEntity = mediaDao.getMedia(ratingKey, serverId)
             if (localEntity != null) {
+                // VOD movies: enrich on first access (fetch plot, cast, genre, tmdb_id from get_vod_info)
+                if (ratingKey.startsWith("vod_") && localEntity.summary == null) {
+                    val vodId = ratingKey.removePrefix("vod_").substringBefore(".").toIntOrNull()
+                    if (vodId != null) {
+                        val accountId = serverId.removePrefix("xtream_")
+                        xtreamVodRepository.enrichMovieDetail(accountId, vodId, ratingKey)
+                        val enriched = mediaDao.getMedia(ratingKey, serverId)
+                        if (enriched != null) {
+                            return Result.success(mapper.mapEntityToDomain(enriched))
+                        }
+                    }
+                }
                 return Result.success(mapper.mapEntityToDomain(localEntity))
             }
 
@@ -348,6 +471,21 @@ class MediaDetailRepositoryImpl
             if (ratingKey.startsWith("series_")) {
                 val detail = getCachedXtreamSeriesDetail(ratingKey, serverId)
                 if (detail != null) return Result.success(detail.item)
+            }
+
+            // For seasons: parse seriesId, fetch series detail, find matching season
+            if (ratingKey.startsWith("season_")) {
+                // Format: "season_<seriesId>_<seasonNumber>"
+                val parts = ratingKey.removePrefix("season_").split("_", limit = 2)
+                if (parts.size == 2) {
+                    val seriesRatingKey = "series_${parts[0]}"
+                    val seasonNumber = parts[1].toIntOrNull()
+                    val detail = getCachedXtreamSeriesDetail(seriesRatingKey, serverId)
+                    if (detail != null && seasonNumber != null) {
+                        val season = detail.children.find { it.seasonIndex == seasonNumber }
+                        if (season != null) return Result.success(season)
+                    }
+                }
             }
 
             return Result.failure(AppError.Media.NotFound("Xtream media $ratingKey not found"))

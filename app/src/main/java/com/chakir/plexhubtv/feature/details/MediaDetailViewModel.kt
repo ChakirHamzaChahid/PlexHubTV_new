@@ -351,7 +351,12 @@ class MediaDetailViewModel
                         }
                         // Launch ALL secondary fetches in parallel
                         loadSimilarItems()
-                        loadAvailableServers(detail.item)
+                        // Xtream: no multi-server enrichment (no Plex servers to search)
+                        if (!detail.item.serverId.startsWith("xtream_")) {
+                            loadAvailableServers(detail.item)
+                        } else {
+                            _uiState.update { it.copy(isEnriching = false) }
+                        }
                         loadCollection() // Collections are BDD-local, no need to wait for enrichment
                     },
                     onFailure = { error ->

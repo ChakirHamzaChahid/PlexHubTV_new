@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
+import com.chakir.plexhubtv.feature.player.url.BackendUrlBuilder
 import com.chakir.plexhubtv.feature.player.url.XtreamUrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -19,6 +20,7 @@ class PlayerControlViewModel @Inject constructor(
     val chapterMarkerManager: ChapterMarkerManager,
     private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
     private val xtreamUrlBuilder: XtreamUrlBuilder,
+    private val backendUrlBuilder: BackendUrlBuilder,
 ) : ViewModel() {
 
     val uiState = playerController.uiState
@@ -34,22 +36,13 @@ class PlayerControlViewModel @Inject constructor(
             playerController.initialize(ratingKey, serverId, directUrl, startOffset)
         } else if (serverId?.startsWith("xtream_") == true && ratingKey != null) {
             // Xtream content without pre-built URL: build it now
-            playerController.initialize(ratingKey, serverId, null, startOffset)
-            viewModelScope.launch {
-                val url = xtreamUrlBuilder.buildUrl(ratingKey, serverId)
-                if (url != null) {
-                    Timber.i("XTREAM [Player] Built stream URL for $ratingKey on $serverId")
-                    // Use cached MediaItem from PlaybackManager if available
-                    val cachedItem = playbackManager.currentMedia.value?.takeIf {
-                        it.ratingKey == ratingKey && it.serverId == serverId
-                    }
-                    playerController.playDirectStream(url, cachedItem)
-                } else {
-                    Timber.e("XTREAM [Player] Failed to build stream URL for $ratingKey on $serverId")
-                    playerController.updateState {
-                        it.copy(error = "Failed to build Xtream stream URL", isBuffering = false)
-                    }
-                }
+            resolveAndPlayDirectStream(ratingKey, serverId, startOffset) {
+                xtreamUrlBuilder.buildUrl(ratingKey, serverId)
+            }
+        } else if (serverId?.startsWith("backend_") == true && ratingKey != null) {
+            // Backend content: resolve stream URL via backend API
+            resolveAndPlayDirectStream(ratingKey, serverId, startOffset) {
+                backendUrlBuilder.buildUrl(ratingKey, serverId)
             }
         } else {
             // Plex: normal flow
@@ -89,8 +82,8 @@ class PlayerControlViewModel @Inject constructor(
                 playerController.updateState { it.copy(showSettings = false) }
                 val current = uiState.value.currentItem
                 if (current != null) {
-                    if (current.serverId.startsWith("xtream_")) {
-                        // Quality selection not applicable for Xtream direct streams
+                    if (current.serverId.startsWith("xtream_") || current.serverId.startsWith("backend_")) {
+                        // Quality selection not applicable for direct streams
                         return
                     }
                     playerController.loadMedia(current.ratingKey, current.serverId, action.quality.bitrate)
@@ -170,23 +163,47 @@ class PlayerControlViewModel @Inject constructor(
     }
 
     /**
-     * Load or play media, handling both Plex (loadMedia) and Xtream (direct URL) paths.
+     * Load or play media, handling Plex (loadMedia), Xtream, and Backend (direct URL) paths.
      */
     private fun loadOrPlayMedia(media: MediaItem) {
-        if (media.serverId.startsWith("xtream_")) {
-            viewModelScope.launch {
-                val url = xtreamUrlBuilder.buildUrl(media.ratingKey, media.serverId)
-                if (url != null) {
-                    playerController.playDirectStream(url, media)
-                } else {
-                    Timber.e("XTREAM [Player] Failed to build URL for next/prev: ${media.ratingKey}")
-                    playerController.updateState {
-                        it.copy(error = "Failed to build Xtream stream URL")
-                    }
+        when {
+            media.serverId.startsWith("xtream_") -> resolveAndPlayDirectStream(
+                media.ratingKey, media.serverId, 0L, media,
+            ) { xtreamUrlBuilder.buildUrl(media.ratingKey, media.serverId) }
+
+            media.serverId.startsWith("backend_") -> resolveAndPlayDirectStream(
+                media.ratingKey, media.serverId, 0L, media,
+            ) { backendUrlBuilder.buildUrl(media.ratingKey, media.serverId) }
+
+            else -> playerController.loadMedia(media.ratingKey, media.serverId)
+        }
+    }
+
+    /**
+     * Shared helper: resolves a stream URL via a suspend builder, then plays it as a direct stream.
+     * Used by both Xtream and Backend paths to avoid duplicating launch + error handling.
+     */
+    private fun resolveAndPlayDirectStream(
+        ratingKey: String,
+        serverId: String,
+        startOffset: Long,
+        cachedMedia: MediaItem? = null,
+        urlBuilder: suspend () -> String?,
+    ) {
+        playerController.initialize(ratingKey, serverId, null, startOffset)
+        viewModelScope.launch {
+            val url = urlBuilder()
+            if (url != null) {
+                val media = cachedMedia ?: playbackManager.currentMedia.value?.takeIf {
+                    it.ratingKey == ratingKey && it.serverId == serverId
+                }
+                playerController.playDirectStream(url, media)
+            } else {
+                Timber.e("[Player] Failed to resolve stream URL for $ratingKey on $serverId")
+                playerController.updateState {
+                    it.copy(error = "Failed to get stream URL", isBuffering = false)
                 }
             }
-        } else {
-            playerController.loadMedia(media.ratingKey, media.serverId)
         }
     }
 

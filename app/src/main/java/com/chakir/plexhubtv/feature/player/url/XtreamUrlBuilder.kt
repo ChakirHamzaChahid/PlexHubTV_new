@@ -18,7 +18,9 @@ class XtreamUrlBuilder @Inject constructor(
     /**
      * Build a direct-play URL for an Xtream media item.
      *
-     * @param ratingKey The media identifier (e.g. "vod_12345" or "ep_67890")
+     * @param ratingKey The media identifier (e.g. "vod_12345.mkv" or "ep_67890.mp4")
+     *                  The container extension is encoded after the last dot.
+     *                  Legacy keys without extension (e.g. "vod_12345") fall back to account-level preferred format.
      * @param serverId The server identifier (e.g. "xtream_abc12345")
      * @return The direct stream URL, or null if account/credentials not found
      */
@@ -26,25 +28,44 @@ class XtreamUrlBuilder @Inject constructor(
         val accountId = serverId.removePrefix("xtream_")
         val account = accountRepo.getAccount(accountId) ?: return null
         val password = accountRepo.getDecryptedPassword(accountId) ?: return null
-        val ext = preferredExtension(account)
+        val fallbackExt = preferredExtension(account)
 
         return when {
             ratingKey.startsWith("vod_") -> {
-                val streamId = ratingKey.removePrefix("vod_").toIntOrNull() ?: return null
+                val body = ratingKey.removePrefix("vod_")
+                val (idStr, ext) = splitIdAndExtension(body, fallbackExt)
+                val streamId = idStr.toIntOrNull() ?: return null
                 apiClient.buildMovieUrl(account, account.username, password, streamId, ext)
             }
             ratingKey.startsWith("ep_") -> {
-                val episodeId = ratingKey.removePrefix("ep_")
+                val body = ratingKey.removePrefix("ep_")
+                val (episodeId, ext) = splitIdAndExtension(body, fallbackExt)
                 apiClient.buildEpisodeUrl(account, account.username, password, episodeId, ext)
             }
             else -> null
         }
     }
 
+    /**
+     * Split "12345.mkv" into ("12345", "mkv").
+     * If no dot is present (legacy format), returns (body, fallback).
+     */
+    private fun splitIdAndExtension(body: String, fallback: String): Pair<String, String> {
+        val dotIndex = body.lastIndexOf('.')
+        return if (dotIndex > 0) {
+            body.substring(0, dotIndex) to body.substring(dotIndex + 1)
+        } else {
+            body to fallback
+        }
+    }
+
     private fun preferredExtension(account: XtreamAccount): String = when {
-        account.allowedFormats.contains("m3u8") -> "m3u8"
+        // Prefer ts/mp4 over m3u8: Xtream servers return raw streams even for .m3u8 URLs,
+        // which causes ExoPlayer's HLS parser to fail with "Input does not start with #EXTM3U"
         account.allowedFormats.contains("ts") -> "ts"
+        account.allowedFormats.contains("mp4") -> "mp4"
+        account.allowedFormats.contains("m3u8") -> "m3u8"
         account.allowedFormats.isNotEmpty() -> account.allowedFormats.first()
-        else -> "m3u8"
+        else -> "ts"
     }
 }

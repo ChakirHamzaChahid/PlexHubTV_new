@@ -55,6 +55,8 @@ class LibraryViewModel
         private val connectionManager: com.chakir.plexhubtv.core.network.ConnectionManager,
         private val workManager: WorkManager,
         private val getLibraryIndexUseCase: com.chakir.plexhubtv.domain.usecase.GetLibraryIndexUseCase,
+        private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
+        private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
         private val savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         // État de l'UI exposé de manière immuable (StateFlow)
@@ -274,10 +276,32 @@ class LibraryViewModel
             try {
                 val typeFilter = if (mediaType == MediaType.Movie) "movie" else "show"
 
-                // Récupérations des serveurs depuis le repo Auth
+                // Récupérations des serveurs depuis le repo Auth + Xtream accounts
                 val servers = authRepository.getServers().getOrNull() ?: emptyList()
-                val serverNames = servers.map { it.name }
-                val serverMap = servers.associate { it.name to it.clientIdentifier }
+                val serverNames = servers.map { it.name }.toMutableList()
+                val serverMap = servers.associate { it.name to it.clientIdentifier }.toMutableMap()
+
+                // Include Xtream accounts as virtual servers
+                try {
+                    val xtreamAccounts = xtreamAccountRepository.observeAccounts().firstOrNull() ?: emptyList()
+                    xtreamAccounts.forEach { account ->
+                        serverNames.add(account.label)
+                        serverMap[account.label] = "xtream_${account.id}"
+                    }
+                } catch (e: Exception) {
+                    Timber.w("Failed to load Xtream accounts for filter: ${e.message}")
+                }
+
+                // Include Backend servers as virtual servers
+                try {
+                    val backendServers = backendRepository.observeServers().firstOrNull() ?: emptyList()
+                    backendServers.forEach { backend ->
+                        serverNames.add(backend.label)
+                        serverMap[backend.label] = "backend_${backend.id}"
+                    }
+                } catch (e: Exception) {
+                    Timber.w("Failed to load Backend servers for filter: ${e.message}")
+                }
 
                 // Utilisation des groupes de genres définis statiquement (UI_LABELS)
                 val allGenres = com.chakir.plexhubtv.core.model.GenreGrouping.UI_LABELS
