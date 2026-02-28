@@ -103,4 +103,7 @@ data class MediaEntity(
     val historyGroupKey: String = "",
     // PERSISTENCE: Rating fetched from external sources (TMDb/OMDb) - Preserved during sync
     val scrapedRating: Double? = null,
+    // Original serverId from backend (e.g. "xtream_05fd75e9"), used for backend API calls
+    // Only populated for media synced from a PlexHub Backend server
+    val sourceServerId: String? = null,
 )
