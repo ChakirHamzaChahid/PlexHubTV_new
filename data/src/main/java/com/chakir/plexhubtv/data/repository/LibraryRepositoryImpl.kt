@@ -83,6 +83,9 @@ class LibraryRepositoryImpl
             }
         }
 
+        override suspend fun getDistinctServerIds(): List<String> =
+            mediaDao.getDistinctServerIds()
+
         @OptIn(ExperimentalPagingApi::class)
         override fun getLibraryContent(
             serverId: String,

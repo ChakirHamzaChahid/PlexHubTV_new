@@ -218,6 +218,9 @@ interface MediaDao {
         excludeServerId: String,
     ): List<MediaEntity>
 
+    @Query("SELECT DISTINCT serverId FROM media")
+    suspend fun getDistinctServerIds(): List<String>
+
     // Persistence helper to survive library syncs
     @Query("SELECT ratingKey, scrapedRating FROM media WHERE ratingKey IN (:ratingKeys) AND serverId = :serverId")
     suspend fun getScrapedRatings(
