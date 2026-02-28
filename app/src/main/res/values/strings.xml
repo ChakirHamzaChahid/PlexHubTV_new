@@ -453,11 +453,39 @@
     <string name="settings_limit_2500">2500 req/day</string>
     <string name="settings_daily_request_limit">Daily Request Limit</string>
 
+    <!-- PlexHub Backend (Settings) -->
+    <string name="settings_backend_section">PlexHub Backend</string>
+    <string name="settings_add_backend">Add Backend Server</string>
+    <string name="settings_backend_label">Server Name</string>
+    <string name="settings_backend_url">Server URL</string>
+    <string name="settings_backend_url_hint">http://192.168.1.50:8000</string>
+    <string name="settings_backend_sync">Sync from Backend</string>
+    <string name="settings_backend_sync_subtitle">Fetch enriched media from backend</string>
+    <string name="settings_backend_remove_confirm">Remove this backend server?</string>
+
     <!-- IPTV (Settings) -->
     <string name="settings_section_iptv">IPTV</string>
     <string name="settings_iptv_description">Configure your IPTV playlist URL</string>
     <string name="settings_iptv_url_label">IPTV Playlist URL</string>
     <string name="settings_iptv_url_placeholder">http://example.com/playlist.m3u</string>
+    <string name="settings_xtream_accounts">Xtream Accounts</string>
+    <string name="settings_xtream_accounts_subtitle">Manage Xtream Codes IPTV accounts</string>
+    <string name="settings_sync_xtream">Sync Xtream Library</string>
+    <string name="settings_sync_xtream_subtitle">Update Xtream VOD movies and series</string>
+    <string name="settings_xtream_categories">Xtream Categories</string>
+    <string name="settings_xtream_categories_subtitle">Choose which categories to sync</string>
+    <string name="xtream_category_header">Choose Xtream Categories</string>
+    <string name="xtream_category_subtitle">Select the categories you want to sync</string>
+    <string name="xtream_category_vod">Films (VOD)</string>
+    <string name="xtream_category_series">Series</string>
+    <string name="xtream_category_loading">Loading categories…</string>
+    <string name="xtream_category_confirm">Confirm (%1$d/%2$d)</string>
+    <string name="xtream_category_select_one">Select at least one category</string>
+    <string name="xtream_category_mode_whitelist">Whitelist mode</string>
+    <string name="xtream_category_mode_blacklist">Blacklist mode</string>
+    <string name="xtream_category_mode_all">All categories</string>
+    <string name="xtream_category_syncing">Syncing…</string>
+    <string name="retry">Retry</string>
 
     <!-- Legal -->
     <string name="settings_section_legal">Legal</string>

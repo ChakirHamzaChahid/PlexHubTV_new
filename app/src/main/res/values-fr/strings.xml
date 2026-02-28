@@ -446,11 +446,39 @@
     <string name="settings_limit_2500">2500 req/jour</string>
     <string name="settings_daily_request_limit">Limite de requêtes quotidiennes</string>
 
+    <!-- Backend PlexHub (Paramètres) -->
+    <string name="settings_backend_section">Backend PlexHub</string>
+    <string name="settings_add_backend">Ajouter un serveur backend</string>
+    <string name="settings_backend_label">Nom du serveur</string>
+    <string name="settings_backend_url">URL du serveur</string>
+    <string name="settings_backend_url_hint">http://192.168.0.81:8000</string>
+    <string name="settings_backend_sync">Synchroniser depuis le backend</string>
+    <string name="settings_backend_sync_subtitle">Récupérer les médias enrichis depuis le backend</string>
+    <string name="settings_backend_remove_confirm">Supprimer ce serveur backend ?</string>
+
     <!-- IPTV (Paramètres) -->
     <string name="settings_section_iptv">IPTV</string>
     <string name="settings_iptv_description">Configurer l\'URL de votre playlist IPTV</string>
     <string name="settings_iptv_url_label">URL de la playlist IPTV</string>
     <string name="settings_iptv_url_placeholder">http://example.com/playlist.m3u</string>
+    <string name="settings_xtream_accounts">Comptes Xtream</string>
+    <string name="settings_xtream_accounts_subtitle">Gérer les comptes IPTV Xtream Codes</string>
+    <string name="settings_sync_xtream">Synchroniser Xtream</string>
+    <string name="settings_sync_xtream_subtitle">Mettre à jour les films et séries Xtream VOD</string>
+    <string name="settings_xtream_categories">Catégories Xtream</string>
+    <string name="settings_xtream_categories_subtitle">Choisir les catégories à synchroniser</string>
+    <string name="xtream_category_header">Choisissez vos catégories Xtream</string>
+    <string name="xtream_category_subtitle">Sélectionnez les catégories que vous souhaitez synchroniser</string>
+    <string name="xtream_category_vod">Films (VOD)</string>
+    <string name="xtream_category_series">Séries</string>
+    <string name="xtream_category_loading">Chargement des catégories…</string>
+    <string name="xtream_category_confirm">Confirmer (%1$d/%2$d)</string>
+    <string name="xtream_category_select_one">Sélectionnez au moins une catégorie</string>
+    <string name="xtream_category_mode_whitelist">Mode liste blanche</string>
+    <string name="xtream_category_mode_blacklist">Mode liste noire</string>
+    <string name="xtream_category_mode_all">Toutes les categories</string>
+    <string name="xtream_category_syncing">Synchronisation…</string>
+    <string name="retry">Réessayer</string>
 
     <!-- Mentions légales -->
     <string name="settings_section_legal">Mentions légales</string>
