@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.search
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import androidx.lifecycle.SavedStateHandle
 import com.chakir.plexhubtv.domain.usecase.SearchAcrossServersUseCase
 import com.google.common.truth.Truth.assertThat
 import io.mockk.*
@@ -60,7 +61,8 @@ class SearchViewModelTest {
 
     private fun createViewModel(): SearchViewModel {
         return SearchViewModel(
-            searchAcrossServersUseCase = searchAcrossServersUseCase
+            searchAcrossServersUseCase = searchAcrossServersUseCase,
+            savedStateHandle = SavedStateHandle()
         )
     }
 
