@@ -44,6 +44,7 @@ class MediaDetailViewModel
         private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
         private val getSimilarMediaUseCase: com.chakir.plexhubtv.domain.usecase.GetSimilarMediaUseCase,
         private val getMediaCollectionsUseCase: com.chakir.plexhubtv.domain.usecase.GetMediaCollectionsUseCase,
+        private val getUnifiedSeasonsUseCase: com.chakir.plexhubtv.domain.usecase.GetUnifiedSeasonsUseCase,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
@@ -351,6 +352,10 @@ class MediaDetailViewModel
                         }
                         // Launch ALL secondary fetches in parallel
                         loadSimilarItems()
+                        // For shows: load unified seasons across all servers
+                        if (detail.item.type == MediaType.Show) {
+                            loadUnifiedSeasons(detail.item)
+                        }
                         // Xtream: no multi-server enrichment (no Plex servers to search)
                         if (!detail.item.serverId.startsWith("xtream_")) {
                             loadAvailableServers(detail.item)
@@ -410,6 +415,23 @@ class MediaDetailViewModel
                     .onFailure { error ->
                         Timber.w(error, "VM: Failed to load similar items for $ratingKey")
                     }
+            }
+        }
+
+        private fun loadUnifiedSeasons(show: MediaItem) {
+            viewModelScope.launch {
+                val startTime = System.currentTimeMillis()
+                getUnifiedSeasonsUseCase(
+                    showTitle = show.title,
+                    fallbackServerId = show.serverId,
+                    fallbackRatingKey = show.ratingKey,
+                ).onSuccess { unifiedSeasons ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.i("VM: Loaded ${unifiedSeasons.size} unified seasons in ${duration}ms")
+                    _uiState.update { it.copy(unifiedSeasons = unifiedSeasons) }
+                }.onFailure { error ->
+                    Timber.w(error, "VM: Failed to load unified seasons")
+                }
             }
         }
 

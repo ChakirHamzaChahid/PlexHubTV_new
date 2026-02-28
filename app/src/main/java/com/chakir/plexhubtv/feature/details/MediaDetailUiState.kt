@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.feature.details
 
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.UnifiedSeason
 
 /**
  * État de l'UI pour la vue Détail Média.
@@ -11,6 +12,7 @@ data class MediaDetailUiState(
     val isLoading: Boolean = false,
     val media: MediaItem? = null,
     val seasons: List<MediaItem> = emptyList(), // Only if media is Show
+    val unifiedSeasons: List<UnifiedSeason> = emptyList(), // Cross-server unified seasons
     val similarItems: List<MediaItem> = emptyList(),
     val collections: List<com.chakir.plexhubtv.core.model.Collection> = emptyList(),
     val showSourceSelection: Boolean = false,
