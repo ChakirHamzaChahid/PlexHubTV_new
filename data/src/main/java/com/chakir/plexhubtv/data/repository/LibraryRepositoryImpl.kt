@@ -161,6 +161,10 @@ class LibraryRepositoryImpl
                     // table columns (serverIds, ratingKeys, alternativeThumbUrls) and
                     // GROUP_CONCAT aliases. SELECT media.* would include the stored NULL
                     // values AND the computed aliases, causing Room to pick the NULL ones.
+                    //
+                    // The subquery adds metadata_score and LEFT JOINs id_bridge for IMDB↔TMDB bridging.
+                    // ORDER BY metadata_score DESC in the subquery ensures SQLite's GROUP BY picks
+                    // the row with the best metadata (Plex bonus + completeness score).
                     sqlBuilder.append(
                         """SELECT media.ratingKey, media.serverId, media.librarySectionId, media.title,
                         media.titleSortable, media.filter, media.sortOrder, media.pageOffset,
@@ -182,8 +186,23 @@ class LibraryRepositoryImpl
                         GROUP_CONCAT(media.serverId) as serverIds,
                         GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """,
                     )
-                    sqlBuilder.append("FROM media ")
-                    sqlBuilder.append("WHERE type = ? ")
+                    sqlBuilder.append("""FROM (
+                        SELECT m.*,
+                            id_bridge.imdbId as bridgedImdbId,
+                            (CASE WHEN m.summary IS NOT NULL AND m.summary != '' THEN 2 ELSE 0 END)
+                            + (CASE WHEN m.thumbUrl IS NOT NULL AND m.thumbUrl != '' THEN 2 ELSE 0 END)
+                            + (CASE WHEN m.imdbId IS NOT NULL THEN 1 ELSE 0 END)
+                            + (CASE WHEN m.tmdbId IS NOT NULL THEN 1 ELSE 0 END)
+                            + (CASE WHEN m.year IS NOT NULL AND m.year > 0 THEN 1 ELSE 0 END)
+                            + (CASE WHEN m.genres IS NOT NULL AND m.genres != '' THEN 1 ELSE 0 END)
+                            + (CASE WHEN m.serverId NOT LIKE 'xtream_%' AND m.serverId NOT LIKE 'backend_%' THEN 3 ELSE 0 END)
+                            AS metadata_score
+                        FROM media m
+                        LEFT JOIN id_bridge ON m.tmdbId = id_bridge.tmdbId AND m.imdbId IS NULL
+                        WHERE m.type = ?
+                        ORDER BY metadata_score DESC
+                    ) media """)
+                    sqlBuilder.append("WHERE 1=1 ")
                     bindArgs.add(plexTypeStr)
                 } else {
                     sqlBuilder.append("SELECT * FROM media ")
@@ -223,9 +242,14 @@ class LibraryRepositoryImpl
                     bindArgs.add("%$dbQuery%")
                 }
 
-                // Grouping for Unified
+                // Grouping for Unified — COALESCE-based for cross-ID merging (IMDB, bridged IMDB, TMDB, unificationId, fallback)
                 if (isUnified) {
-                    sqlBuilder.append("GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ")
+                    sqlBuilder.append("""GROUP BY COALESCE(
+                        media.imdbId,
+                        media.bridgedImdbId,
+                        CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
+                        CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
+                    ) """)
                 }
 
                 // Add Sorting (whitelist-validated, not parameterizable in SQL)
@@ -427,8 +451,14 @@ class LibraryRepositoryImpl
             val bindArgs = mutableListOf<Any>()
 
             if (isUnified) {
-                sqlBuilder.append("SELECT COUNT(DISTINCT CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END) ")
-                sqlBuilder.append("FROM media WHERE type = ? ")
+                sqlBuilder.append("""SELECT COUNT(DISTINCT COALESCE(
+                    media.imdbId,
+                    id_bridge.imdbId,
+                    CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
+                    CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
+                )) """)
+                sqlBuilder.append("FROM media LEFT JOIN id_bridge ON media.tmdbId = id_bridge.tmdbId AND media.imdbId IS NULL ")
+                sqlBuilder.append("WHERE media.type = ? ")
                 bindArgs.add(typeStr)
             } else {
                 if (resolvedLibraryKey == "default") {
@@ -519,8 +549,14 @@ class LibraryRepositoryImpl
             val bindArgs = mutableListOf<Any>()
 
             if (isUnified) {
-                sqlBuilder.append("SELECT COUNT(DISTINCT CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END) ")
-                sqlBuilder.append("FROM media WHERE type = ? ")
+                sqlBuilder.append("""SELECT COUNT(DISTINCT COALESCE(
+                    media.imdbId,
+                    id_bridge.imdbId,
+                    CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
+                    CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
+                )) """)
+                sqlBuilder.append("FROM media LEFT JOIN id_bridge ON media.tmdbId = id_bridge.tmdbId AND media.imdbId IS NULL ")
+                sqlBuilder.append("WHERE media.type = ? ")
                 bindArgs.add(typeStr)
             } else {
                 // Resolve library key if necessary
