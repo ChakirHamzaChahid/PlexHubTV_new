@@ -70,6 +70,9 @@ interface MediaDao {
     @Query("DELETE FROM media WHERE serverId = :serverId AND librarySectionId = :libraryKey")
     suspend fun deleteMediaByLibrary(serverId: String, libraryKey: String)
 
+    @Query("DELETE FROM media WHERE serverId = :serverId")
+    suspend fun deleteAllMediaByServerId(serverId: String)
+
     @Query("SELECT * FROM media WHERE type = :type AND title LIKE '%' || :query || '%' ORDER BY title ASC")
     suspend fun searchMedia(
         query: String,
