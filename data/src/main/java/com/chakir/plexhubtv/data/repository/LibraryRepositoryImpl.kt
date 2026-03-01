@@ -152,136 +152,29 @@ class LibraryRepositoryImpl
                 val dbServerId = if (selectedServerId == null || selectedServerId == "All") null else selectedServerId
                 val dbQuery = if (query.isNullOrBlank()) null else query
 
-                // Build Dynamic SQL for RawQuery with parameterized queries
+                // Build Dynamic SQL via QueryBuilder
                 val isUnified = serverId == "all"
                 val plexTypeStr = if (mediaType == com.chakir.plexhubtv.core.model.MediaType.Movie) "movie" else "show"
 
-                val sqlBuilder = StringBuilder()
-                val bindArgs = mutableListOf<Any>()
-
-                if (isUnified) {
-                    // CRITICAL: Explicit column list to avoid name collision between
-                    // table columns (serverIds, ratingKeys, alternativeThumbUrls) and
-                    // GROUP_CONCAT aliases. SELECT media.* would include the stored NULL
-                    // values AND the computed aliases, causing Room to pick the NULL ones.
-                    //
-                    // The subquery adds metadata_score and LEFT JOINs id_bridge for IMDB↔TMDB bridging.
-                    // MAX(metadata_score) is the SINGLE min/max aggregate, which triggers SQLite's
-                    // documented extension: non-aggregate columns are taken from the row that
-                    // satisfies the MAX. This reliably picks the row with the best metadata
-                    // (Plex bonus + completeness score) for display columns like thumbUrl, title, etc.
-                    // Sorting by addedAt uses MAX(media.addedAt) directly in ORDER BY.
-                    sqlBuilder.append(
-                        """SELECT media.ratingKey, media.serverId, media.librarySectionId, media.title,
-                        media.titleSortable, media.filter, media.sortOrder, media.pageOffset,
-                        media.type, media.thumbUrl, media.artUrl, media.year, media.duration,
-                        media.summary, media.viewOffset, media.lastViewedAt, media.parentTitle,
-                        media.parentRatingKey, media.parentIndex, media.grandparentTitle,
-                        media.grandparentRatingKey, media.`index`, media.mediaParts, media.guid,
-                        media.imdbId, media.tmdbId, media.rating, media.audienceRating,
-                        media.contentRating, media.genres, media.unificationId,
-                        media.addedAt, media.updatedAt,
-                        media.parentThumb, media.grandparentThumb,
-                        media.displayRating,
-                        media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
-                        media.scrapedRating,
-                        media.historyGroupKey,
-                        media.viewCount,
-                        media.sourceServerId,
-                        MAX(media.metadata_score) as _bestScore,
-                        GROUP_CONCAT(media.ratingKey) as ratingKeys,
-                        GROUP_CONCAT(media.serverId) as serverIds,
-                        GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """,
-                    )
-                    sqlBuilder.append("""FROM (
-                        SELECT m.*,
-                            id_bridge.imdbId as bridgedImdbId,
-                            (CASE WHEN m.summary IS NOT NULL AND m.summary != '' THEN 2 ELSE 0 END)
-                            + (CASE WHEN m.thumbUrl IS NOT NULL AND m.thumbUrl != '' THEN 2 ELSE 0 END)
-                            + (CASE WHEN m.imdbId IS NOT NULL THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.tmdbId IS NOT NULL THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.year IS NOT NULL AND m.year > 0 THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.genres IS NOT NULL AND m.genres != '' THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.serverId NOT LIKE 'xtream_%' AND m.serverId NOT LIKE 'backend_%' THEN 4 ELSE 0 END)
-                            AS metadata_score
-                        FROM media m
-                        LEFT JOIN id_bridge ON m.tmdbId = id_bridge.tmdbId AND m.imdbId IS NULL
-                        WHERE m.type = ?
-                        ORDER BY metadata_score DESC
-                    ) media """)
-                    sqlBuilder.append("WHERE 1=1 ")
-                    bindArgs.add(plexTypeStr)
-                } else {
-                    sqlBuilder.append("SELECT * FROM media ")
-                    sqlBuilder.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
-                    bindArgs.add(resolvedLibraryKey)
-                    bindArgs.add(normalizedFilter)
-                    bindArgs.add(normalizedSort)
-                }
-
-                // Add Genre Filter (Multiple Keywords support)
-                if (!genre.isNullOrEmpty()) {
-                    sqlBuilder.append("AND (")
-                    genre.forEachIndexed { index, keyword ->
-                        if (index > 0) sqlBuilder.append(" OR ")
-                        sqlBuilder.append("genres LIKE ?")
-                        bindArgs.add("%$keyword%")
-                    }
-                    sqlBuilder.append(") ")
-                }
-
-                // Exclude Servers (Unified Only)
-                if (isUnified && excludedServerIds.isNotEmpty()) {
-                    val placeholders = excludedServerIds.joinToString(",") { "?" }
-                    sqlBuilder.append("AND serverId NOT IN ($placeholders) ")
-                    bindArgs.addAll(excludedServerIds)
-                }
-
-                // Add Server Filter (Unified Only)
-                if (isUnified && dbServerId != null) {
-                    sqlBuilder.append("AND serverId = ? ")
-                    bindArgs.add(dbServerId)
-                }
-
-                // Add Search Query
-                if (dbQuery != null) {
-                    sqlBuilder.append("AND title LIKE ? ")
-                    bindArgs.add("%$dbQuery%")
-                }
-
-                // Grouping for Unified — COALESCE-based for cross-ID merging (IMDB, bridged IMDB, TMDB, unificationId, fallback)
-                if (isUnified) {
-                    sqlBuilder.append("""GROUP BY COALESCE(
-                        media.imdbId,
-                        media.bridgedImdbId,
-                        CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
-                        CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
-                    ) """)
-                }
-
-                // Add Sorting (whitelist-validated, not parameterizable in SQL)
-                val safeDirection = if (isDescending) "DESC" else "ASC"
-                val orderBy =
-                    if (isUnified) {
-                        // Use aggregate functions directly in ORDER BY to avoid alias collisions
-                        when (baseSort) {
-                            "title" -> "title $safeDirection"
-                            "year" -> "year $safeDirection, title ASC"
-                            "rating" -> "AVG(media.displayRating) $safeDirection, title ASC"
-                            "addedAt" -> "MAX(media.addedAt) $safeDirection"
-                            else -> "MAX(media.addedAt) $safeDirection"
-                        }
-                    } else {
-                        "pageOffset ASC"
-                    }
-                sqlBuilder.append("ORDER BY $orderBy")
-
-                val rawQuery = SimpleSQLiteQuery(sqlBuilder.toString(), bindArgs.toTypedArray())
+                val queryConfig = MediaLibraryQueryBuilder.QueryConfig(
+                    isUnified = isUnified,
+                    mediaTypeStr = plexTypeStr,
+                    libraryKey = resolvedLibraryKey,
+                    filter = normalizedFilter,
+                    sortOrder = normalizedSort,
+                    genre = genre,
+                    selectedServerId = dbServerId,
+                    excludedServerIds = excludedServerIds,
+                    query = dbQuery,
+                    baseSort = baseSort,
+                    isDescending = isDescending,
+                )
+                val builtQuery = MediaLibraryQueryBuilder.buildPagedQuery(queryConfig)
+                val rawQuery = builtQuery.toSimpleSQLiteQuery()
 
                 // DEBUG: Log SQL query and sort parameters
-                timber.log.Timber.d("LIBRARY_SORT [baseSort=$baseSort, isDesc=$isDescending] SQL Query: ${sqlBuilder.toString().take(500)}")
-                timber.log.Timber.d("LIBRARY_SORT ORDER BY: $orderBy")
-                timber.log.Timber.d("LIBRARY_SORT Bind Args: ${bindArgs.take(5)}")
+                timber.log.Timber.d("LIBRARY_SORT [baseSort=$baseSort, isDesc=$isDescending] SQL Query: ${builtQuery.sql.take(500)}")
+                timber.log.Timber.d("LIBRARY_SORT Bind Args: ${builtQuery.args.take(5)}")
 
                 val factory = { mediaDao.getMediaPagedRaw(rawQuery) }
 
@@ -443,64 +336,29 @@ class LibraryRepositoryImpl
             val isUnified = serverId == "all" || serverId == null
             val typeStr = if (type == com.chakir.plexhubtv.core.model.MediaType.Movie) "movie" else "show"
 
-            val sqlBuilder = StringBuilder()
-            val bindArgs = mutableListOf<Any>()
-
-            if (isUnified) {
-                sqlBuilder.append("""SELECT COUNT(DISTINCT COALESCE(
-                    media.imdbId,
-                    id_bridge.imdbId,
-                    CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
-                    CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
-                )) """)
-                sqlBuilder.append("FROM media LEFT JOIN id_bridge ON media.tmdbId = id_bridge.tmdbId AND media.imdbId IS NULL ")
-                sqlBuilder.append("WHERE media.type = ? ")
-                bindArgs.add(typeStr)
-            } else {
-                if (resolvedLibraryKey == "default") {
-                    val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
-                    if (cachedSection != null) {
-                        resolvedLibraryKey = cachedSection.libraryKey
-                    } else {
-                        val result = getLibraries(resolvedServerId)
-                        val section = result.getOrNull()?.find { it.type == typeStr }
-                        if (section != null) resolvedLibraryKey = section.key
-                    }
+            if (!isUnified && resolvedLibraryKey == "default") {
+                val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
+                if (cachedSection != null) {
+                    resolvedLibraryKey = cachedSection.libraryKey
+                } else {
+                    val result = getLibraries(resolvedServerId)
+                    val section = result.getOrNull()?.find { it.type == typeStr }
+                    if (section != null) resolvedLibraryKey = section.key
                 }
-                sqlBuilder.append("SELECT COUNT(*) FROM media ")
-                sqlBuilder.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
-                bindArgs.add(resolvedLibraryKey)
-                bindArgs.add(normalizedFilter)
-                bindArgs.add(normalizedSort)
             }
 
-            if (!genre.isNullOrEmpty()) {
-                sqlBuilder.append("AND (")
-                genre.forEachIndexed { index, keyword ->
-                    if (index > 0) sqlBuilder.append(" OR ")
-                    sqlBuilder.append("genres LIKE ?")
-                    bindArgs.add("%$keyword%")
-                }
-                sqlBuilder.append(") ")
-            }
-
-            if (isUnified && excludedServerIds.isNotEmpty()) {
-                val placeholders = excludedServerIds.joinToString(",") { "?" }
-                sqlBuilder.append("AND serverId NOT IN ($placeholders) ")
-                bindArgs.addAll(excludedServerIds)
-            }
-
-            if (isUnified && dbServerId != null) {
-                sqlBuilder.append("AND serverId = ? ")
-                bindArgs.add(dbServerId)
-            }
-
-            if (dbQuery != null) {
-                sqlBuilder.append("AND title LIKE ? ")
-                bindArgs.add("%$dbQuery%")
-            }
-
-            val rawQuery = SimpleSQLiteQuery(sqlBuilder.toString(), bindArgs.toTypedArray())
+            val queryConfig = MediaLibraryQueryBuilder.QueryConfig(
+                isUnified = isUnified,
+                mediaTypeStr = typeStr,
+                libraryKey = resolvedLibraryKey,
+                filter = normalizedFilter,
+                sortOrder = normalizedSort,
+                genre = genre,
+                selectedServerId = dbServerId,
+                excludedServerIds = excludedServerIds,
+                query = dbQuery,
+            )
+            val rawQuery = MediaLibraryQueryBuilder.buildCountQuery(queryConfig).toSimpleSQLiteQuery()
             return mediaDao.getMediaCountRaw(rawQuery)
         }
 
@@ -541,73 +399,29 @@ class LibraryRepositoryImpl
             val isUnified = serverId == "all" || serverId == null
             val typeStr = if (type == com.chakir.plexhubtv.core.model.MediaType.Movie) "movie" else "show"
 
-            val sqlBuilder = StringBuilder()
-            val bindArgs = mutableListOf<Any>()
-
-            if (isUnified) {
-                sqlBuilder.append("""SELECT COUNT(DISTINCT COALESCE(
-                    media.imdbId,
-                    id_bridge.imdbId,
-                    CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
-                    CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
-                )) """)
-                sqlBuilder.append("FROM media LEFT JOIN id_bridge ON media.tmdbId = id_bridge.tmdbId AND media.imdbId IS NULL ")
-                sqlBuilder.append("WHERE media.type = ? ")
-                bindArgs.add(typeStr)
-            } else {
-                // Resolve library key if necessary
-                if (resolvedLibraryKey == "default") {
-                    val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
-                    if (cachedSection != null) {
-                        resolvedLibraryKey = cachedSection.libraryKey
-                    } else {
-                        val result = getLibraries(resolvedServerId)
-                        val section = result.getOrNull()?.find { it.type == typeStr }
-                        if (section != null) resolvedLibraryKey = section.key
-                    }
+            if (!isUnified && resolvedLibraryKey == "default") {
+                val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
+                if (cachedSection != null) {
+                    resolvedLibraryKey = cachedSection.libraryKey
+                } else {
+                    val result = getLibraries(resolvedServerId)
+                    val section = result.getOrNull()?.find { it.type == typeStr }
+                    if (section != null) resolvedLibraryKey = section.key
                 }
-                sqlBuilder.append("SELECT COUNT(*) FROM media ")
-                sqlBuilder.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
-                bindArgs.add(resolvedLibraryKey)
-                bindArgs.add(normalizedFilter)
-                bindArgs.add(normalizedSort)
             }
 
-            // Add Genre Filter
-            if (!genre.isNullOrEmpty()) {
-                sqlBuilder.append("AND (")
-                genre.forEachIndexed { index, keyword ->
-                    if (index > 0) sqlBuilder.append(" OR ")
-                    sqlBuilder.append("genres LIKE ?")
-                    bindArgs.add("%$keyword%")
-                }
-                sqlBuilder.append(") ")
-            }
-
-            // Exclude Servers (Unified Only)
-            if (isUnified && excludedServerIds.isNotEmpty()) {
-                val placeholders = excludedServerIds.joinToString(",") { "?" }
-                sqlBuilder.append("AND serverId NOT IN ($placeholders) ")
-                bindArgs.addAll(excludedServerIds)
-            }
-
-            // Add Server Filter (Unified Only)
-            if (isUnified && dbServerId != null) {
-                sqlBuilder.append("AND serverId = ? ")
-                bindArgs.add(dbServerId)
-            }
-
-            // Add Search Query
-            if (dbQuery != null) {
-                sqlBuilder.append("AND title LIKE ? ")
-                bindArgs.add("%$dbQuery%")
-            }
-
-            // Alphabet constraint
-            sqlBuilder.append("AND UPPER(title) < UPPER(?)")
-            bindArgs.add(letter)
-
-            val rawQuery = SimpleSQLiteQuery(sqlBuilder.toString(), bindArgs.toTypedArray())
+            val queryConfig = MediaLibraryQueryBuilder.QueryConfig(
+                isUnified = isUnified,
+                mediaTypeStr = typeStr,
+                libraryKey = resolvedLibraryKey,
+                filter = normalizedFilter,
+                sortOrder = normalizedSort,
+                genre = genre,
+                selectedServerId = dbServerId,
+                excludedServerIds = excludedServerIds,
+                query = dbQuery,
+            )
+            val rawQuery = MediaLibraryQueryBuilder.buildIndexQuery(queryConfig, letter).toSimpleSQLiteQuery()
             return mediaDao.getMediaCountRaw(rawQuery)
         }
 
