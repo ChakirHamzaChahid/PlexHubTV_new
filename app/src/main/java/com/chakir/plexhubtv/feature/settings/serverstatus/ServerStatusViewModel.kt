@@ -6,6 +6,7 @@ import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.ConnectionResult
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.feature.common.launchLoading
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,19 +54,16 @@ class ServerStatusViewModel
         }
 
         private fun loadServers() {
-            viewModelScope.launch {
-                _uiState.update { it.copy(isLoading = true, error = null) }
-
-                val result = authRepository.getServers(forceRefresh = true)
-
-                result.onSuccess { servers ->
-                    // Initial list populate (as loading)
+            launchLoading(
+                onStart = { _uiState.update { it.copy(isLoading = true, error = null) } },
+                block = { authRepository.getServers(forceRefresh = true) },
+                onSuccess = { servers ->
                     val initialUiModels =
                         servers.map { server ->
                             ServerStatusUiModel(
                                 name = server.name,
                                 identifier = server.clientIdentifier,
-                                isOnline = false, // Unknown yet
+                                isOnline = false,
                                 latencyMs = 0,
                                 address = "Scanning...",
                                 details = "Checking availability...",
@@ -73,16 +71,15 @@ class ServerStatusViewModel
                             )
                         }
                     _uiState.update { it.copy(servers = initialUiModels) }
-
-                    // Check status for each server in parallel (but update UI individually)
                     checkAllServers(servers)
-                }.onFailure { error ->
+                },
+                onFailure = { error ->
                     _uiState.update { it.copy(isLoading = false, error = error.message ?: "Available to load servers") }
-                }
-            }
+                },
+            )
         }
 
-        private suspend fun checkAllServers(servers: List<Server>) {
+        private fun checkAllServers(servers: List<Server>) {
             servers.forEach { server ->
                 viewModelScope.launch {
                     val status = connectionManager.checkConnectionStatus(server)

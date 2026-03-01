@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.feature.common.BaseViewModel
+import com.chakir.plexhubtv.feature.common.launchLoading
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.toAppError
@@ -330,48 +331,44 @@ class MediaDetailViewModel
         private fun loadDetail() {
             val rk = ratingKey ?: return
             val sid = serverId ?: return
-            viewModelScope.launch {
-                val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [Detail]: Loading start for $rk on $sid")
-                _uiState.update { it.copy(isLoading = true, error = null) }
-                val result = getMediaDetailUseCase(rk, sid).first()
-                val duration = System.currentTimeMillis() - startTime
-                result.fold(
-                    onSuccess = { detail ->
-                        Timber.i(
-                            "SCREEN [Detail] SUCCESS: Load Duration=${duration}ms | Title=${detail.item.title} | Seasons=${detail.children.size}",
+            val startTime = System.currentTimeMillis()
+            Timber.d("SCREEN [Detail]: Loading start for $rk on $sid")
+            launchLoading(
+                onStart = { _uiState.update { it.copy(isLoading = true, error = null) } },
+                block = { getMediaDetailUseCase(rk, sid).first() },
+                onSuccess = { detail ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.i(
+                        "SCREEN [Detail] SUCCESS: Load Duration=${duration}ms | Title=${detail.item.title} | Seasons=${detail.children.size}",
+                    )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            media = detail.item,
+                            seasons = detail.children,
+                            isEnriching = true,
                         )
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                media = detail.item,
-                                seasons = detail.children,
-                                isEnriching = true, // Start enriching (looking for other servers)
-                            )
-                        }
-                        // Launch ALL secondary fetches in parallel
-                        loadSimilarItems()
-                        // For shows: load unified seasons across all servers
-                        if (detail.item.type == MediaType.Show) {
-                            loadUnifiedSeasons(detail.item)
-                        }
-                        // Xtream: no multi-server enrichment (no Plex servers to search)
-                        if (!detail.item.serverId.startsWith("xtream_")) {
-                            loadAvailableServers(detail.item)
-                        } else {
-                            _uiState.update { it.copy(isEnriching = false) }
-                        }
-                        loadCollection() // Collections are BDD-local, no need to wait for enrichment
-                    },
-                    onFailure = { error ->
-                        Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
-                        viewModelScope.launch {
-                            emitError(AppError.Media.LoadFailed(error.message, error))
-                        }
-                        _uiState.update { it.copy(isLoading = false) }
-                    },
-                )
-            }
+                    }
+                    loadSimilarItems()
+                    if (detail.item.type == MediaType.Show) {
+                        loadUnifiedSeasons(detail.item)
+                    }
+                    if (!detail.item.serverId.startsWith("xtream_")) {
+                        loadAvailableServers(detail.item)
+                    } else {
+                        _uiState.update { it.copy(isEnriching = false) }
+                    }
+                    loadCollection()
+                },
+                onFailure = { error ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
+                    viewModelScope.launch {
+                        emitError(AppError.Media.LoadFailed(error.message, error))
+                    }
+                    _uiState.update { it.copy(isLoading = false) }
+                },
+            )
         }
 
         private fun loadAvailableServers(item: MediaItem) {

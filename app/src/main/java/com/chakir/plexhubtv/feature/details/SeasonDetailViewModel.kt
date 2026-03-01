@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
+import com.chakir.plexhubtv.feature.common.launchLoading
 import com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -296,44 +297,41 @@ class SeasonDetailViewModel
         private fun loadSeason() {
             val rk = ratingKey ?: return
             val sid = serverId ?: return
-            viewModelScope.launch {
-                val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [SeasonDetail]: Loading start for $rk on $sid")
-                _uiState.update { it.copy(isLoading = true, error = null) }
-                val result = getMediaDetailUseCase(rk, sid).first()
-                val duration = System.currentTimeMillis() - startTime
-                result.fold(
-                    onSuccess = { detail ->
-                        Timber.i("SCREEN [SeasonDetail] SUCCESS: Load Duration=${duration}ms | Episodes=${detail.children.size}")
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                season = detail.item,
-                                episodes = detail.children,
-                            )
-                        }
-                        // P1.4: Prefetch enrichment for likely-to-play episodes (warms EnrichMediaItemUseCase cache)
-                        // Skip if sources already pre-loaded (from unified seasons)
-                        val unwatched = detail.children.filter { it.viewedStatus != "watched" }
-                        val toPrefetch = (unwatched.take(3).ifEmpty { detail.children.take(3) })
-                            .filter { it.remoteSources.size <= 1 }
-                        if (toPrefetch.isNotEmpty()) {
-                            viewModelScope.launch {
-                                for (episode in toPrefetch) {
-                                    try {
-                                        enrichMediaItemUseCase(episode)
-                                    } catch (_: Exception) { }
-                                }
-                                Timber.d("SCREEN [SeasonDetail]: Prefetch enrichment done for ${toPrefetch.size} episodes")
+            val startTime = System.currentTimeMillis()
+            Timber.d("SCREEN [SeasonDetail]: Loading start for $rk on $sid")
+            launchLoading(
+                onStart = { _uiState.update { it.copy(isLoading = true, error = null) } },
+                block = { getMediaDetailUseCase(rk, sid).first() },
+                onSuccess = { detail ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.i("SCREEN [SeasonDetail] SUCCESS: Load Duration=${duration}ms | Episodes=${detail.children.size}")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            season = detail.item,
+                            episodes = detail.children,
+                        )
+                    }
+                    val unwatched = detail.children.filter { it.viewedStatus != "watched" }
+                    val toPrefetch = (unwatched.take(3).ifEmpty { detail.children.take(3) })
+                        .filter { it.remoteSources.size <= 1 }
+                    if (toPrefetch.isNotEmpty()) {
+                        viewModelScope.launch {
+                            for (episode in toPrefetch) {
+                                try {
+                                    enrichMediaItemUseCase(episode)
+                                } catch (_: Exception) { }
                             }
+                            Timber.d("SCREEN [SeasonDetail]: Prefetch enrichment done for ${toPrefetch.size} episodes")
                         }
-                    },
-                    onFailure = { error ->
-                        Timber.e("SCREEN [SeasonDetail] FAILED: duration=${duration}ms error=${error.message}")
-                        _uiState.update { it.copy(isLoading = false, error = error.message) }
-                    },
-                )
-            }
+                    }
+                },
+                onFailure = { error ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.e("SCREEN [SeasonDetail] FAILED: duration=${duration}ms error=${error.message}")
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
+                },
+            )
         }
     }
 
