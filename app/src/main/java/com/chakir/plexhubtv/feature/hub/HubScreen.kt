@@ -13,7 +13,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
+import com.chakir.plexhubtv.core.ui.HandleErrors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,12 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.core.model.isRetryable
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.HomeScreenSkeleton
 import com.chakir.plexhubtv.core.ui.NetflixContentRow
-import com.chakir.plexhubtv.core.ui.showError
 import com.chakir.plexhubtv.feature.hub.components.RemoveFromOnDeckDialog
 
 @Composable
@@ -72,13 +70,8 @@ fun HubRoute(
         }
     }
 
-    LaunchedEffect(errorEvents) {
-        errorEvents.collect { error ->
-            val result = snackbarHostState.showError(error)
-            if (result == SnackbarResult.ActionPerformed && error.isRetryable()) {
-                viewModel.onAction(HubAction.Refresh)
-            }
-        }
+    HandleErrors(errorEvents, snackbarHostState) {
+        viewModel.onAction(HubAction.Refresh)
     }
 
     HubScreen(

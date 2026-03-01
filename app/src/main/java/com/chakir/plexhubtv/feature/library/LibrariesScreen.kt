@@ -50,10 +50,9 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.HandleErrors
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
-import com.chakir.plexhubtv.core.ui.showError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -147,12 +146,7 @@ fun LibraryRoute(
         }
     }
 
-    // Handle error events with centralized error display
-    LaunchedEffect(viewModel.errorEvents) {
-        viewModel.errorEvents.collect { error ->
-            snackbarHostState.showError(error)
-        }
-    }
+    HandleErrors(viewModel.errorEvents, snackbarHostState)
 
     LibrariesScreen(
         state = state,

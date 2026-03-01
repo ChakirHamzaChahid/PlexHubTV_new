@@ -48,10 +48,9 @@ import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.HandleErrors
 import com.chakir.plexhubtv.core.ui.DetailHeroSkeleton
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
-import com.chakir.plexhubtv.core.ui.showError
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
 import com.chakir.plexhubtv.feature.home.MediaCard
 import timber.log.Timber
@@ -90,14 +89,8 @@ fun MediaDetailRoute(
         }
     }
 
-    // Handle error events with centralized error display
-    LaunchedEffect(errorEvents) {
-        errorEvents.collect { error ->
-            val result = snackbarHostState.showError(error)
-            if (result == SnackbarResult.ActionPerformed && error.isRetryable()) {
-                viewModel.onEvent(MediaDetailEvent.Retry)
-            }
-        }
+    HandleErrors(errorEvents, snackbarHostState) {
+        viewModel.onEvent(MediaDetailEvent.Retry)
     }
 
     MediaDetailScreen(
