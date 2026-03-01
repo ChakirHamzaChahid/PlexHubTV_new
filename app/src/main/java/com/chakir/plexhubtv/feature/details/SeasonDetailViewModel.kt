@@ -57,6 +57,7 @@ class SeasonDetailViewModel
         private val toggleWatchStatusUseCase: ToggleWatchStatusUseCase,
         private val resolveEpisodeSourcesUseCase: ResolveEpisodeSourcesUseCase,
         private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
+        private val preparePlaybackUseCase: com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase,
         private val getPlayQueueUseCase: com.chakir.plexhubtv.domain.usecase.GetPlayQueueUseCase,
         private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
         private val toggleFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.ToggleFavoriteUseCase,
@@ -141,36 +142,21 @@ class SeasonDetailViewModel
                         performanceTracker.addCheckpoint(opId, "UI Loading State Shown")
 
                         try {
-                            // 1. Enrich episode with remote sources
-                            // If sources already pre-loaded (from unified seasons), skip enrichment
-                            val enrichedEpisode = if (event.episode.remoteSources.size > 1) {
-                                performanceTracker.addCheckpoint(opId, "Enrichment (Pre-loaded Skip)", mapOf("sources" to event.episode.remoteSources.size))
-                                event.episode
-                            } else {
-                                // Room-first ~5ms, network fallback if needed
-                                val enrichStart = System.currentTimeMillis()
-                                try {
-                                    val enriched = enrichMediaItemUseCase(event.episode)
-                                    val enrichDuration = System.currentTimeMillis() - enrichStart
-                                    performanceTracker.addCheckpoint(
-                                        opId,
-                                        "Enrichment Success",
-                                        mapOf(
-                                            "duration" to enrichDuration,
-                                            "sources" to enriched.remoteSources.size,
-                                            "cacheHit" to (enrichDuration < 10).toString()
-                                        )
-                                    )
-                                    enriched
-                                } catch (e: Exception) {
-                                    val enrichDuration = System.currentTimeMillis() - enrichStart
-                                    performanceTracker.addCheckpoint(opId, "Enrichment Failed (Fallback)", mapOf("duration" to enrichDuration, "error" to (e.message ?: "unknown")))
-                                    Timber.w(e, "Episode enrichment failed for ${event.episode.title}")
-                                    event.episode
-                                }
+                            // 1. Prepare playback: enrichment + source determination
+                            val enrichStart = System.currentTimeMillis()
+                            val playbackResult = preparePlaybackUseCase(event.episode)
+                            val enrichDuration = System.currentTimeMillis() - enrichStart
+                            val enrichedEpisode = when (playbackResult) {
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.ReadyToPlay -> playbackResult.item
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.NeedsSourceSelection -> playbackResult.item
                             }
+                            performanceTracker.addCheckpoint(opId, "PreparePlayback", mapOf(
+                                "duration" to enrichDuration,
+                                "sources" to enrichedEpisode.remoteSources.size,
+                                "result" to playbackResult.javaClass.simpleName
+                            ))
 
-                            // 2. Populate Queue
+                            // 2. Build queue + init playback manager
                             val queueStart = System.currentTimeMillis()
                             val queue = getPlayQueueUseCase(enrichedEpisode).getOrElse { listOf(enrichedEpisode) }
                             val queueDuration = System.currentTimeMillis() - queueStart
@@ -180,37 +166,38 @@ class SeasonDetailViewModel
                             performanceTracker.addCheckpoint(opId, "PlaybackManager Initialized")
 
                             _uiState.update { it.copy(isResolvingSources = false) }
-                            performanceTracker.addCheckpoint(opId, "UI Loading State Hidden")
 
-                            // 3. Check sources and show dialog or play directly
-                            if (enrichedEpisode.remoteSources.size > 1) {
-                                performanceTracker.addCheckpoint(opId, "Source Selection Dialog Shown")
-                                _uiState.update {
-                                    it.copy(
-                                        showSourceSelection = true,
-                                        selectedEpisodeForSources = enrichedEpisode,
+                            // 3. Act on result
+                            when (playbackResult) {
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.NeedsSourceSelection -> {
+                                    performanceTracker.addCheckpoint(opId, "Source Selection Dialog Shown")
+                                    _uiState.update {
+                                        it.copy(
+                                            showSourceSelection = true,
+                                            selectedEpisodeForSources = enrichedEpisode,
+                                        )
+                                    }
+                                    lazyFetchSourceDetails(enrichedEpisode)
+                                    // Will end when user selects source
+                                }
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.ReadyToPlay -> {
+                                    performanceTracker.addCheckpoint(opId, "Single Source - Direct Navigation")
+                                    performanceTracker.endOperation(
+                                        opId,
+                                        success = true,
+                                        additionalMeta = mapOf(
+                                            "finalRatingKey" to enrichedEpisode.ratingKey,
+                                            "finalServerId" to enrichedEpisode.serverId
+                                        )
+                                    )
+                                    _navigationEvents.send(
+                                        SeasonDetailNavigationEvent.NavigateToPlayer(
+                                            enrichedEpisode.ratingKey,
+                                            enrichedEpisode.serverId,
+                                            enrichedEpisode.viewOffset,
+                                        ),
                                     )
                                 }
-                                // Lazy-fetch stream details for sources missing technical info
-                                lazyFetchSourceDetails(enrichedEpisode)
-                                // Will end when user selects source
-                            } else {
-                                performanceTracker.addCheckpoint(opId, "Single Source - Direct Navigation")
-                                performanceTracker.endOperation(
-                                    opId,
-                                    success = true,
-                                    additionalMeta = mapOf(
-                                        "finalRatingKey" to enrichedEpisode.ratingKey,
-                                        "finalServerId" to enrichedEpisode.serverId
-                                    )
-                                )
-                                _navigationEvents.send(
-                                    SeasonDetailNavigationEvent.NavigateToPlayer(
-                                        enrichedEpisode.ratingKey,
-                                        enrichedEpisode.serverId,
-                                        enrichedEpisode.viewOffset,
-                                    ),
-                                )
                             }
                         } catch (e: Exception) {
                             performanceTracker.endOperation(opId, success = false, errorMessage = e.message)

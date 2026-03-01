@@ -42,6 +42,7 @@ class MediaDetailViewModel
         private val toggleFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.ToggleFavoriteUseCase,
         private val isFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.IsFavoriteUseCase,
         private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
+        private val preparePlaybackUseCase: com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase,
         private val getSimilarMediaUseCase: com.chakir.plexhubtv.domain.usecase.GetSimilarMediaUseCase,
         private val getMediaCollectionsUseCase: com.chakir.plexhubtv.domain.usecase.GetMediaCollectionsUseCase,
         private val getUnifiedSeasonsUseCase: com.chakir.plexhubtv.domain.usecase.GetUnifiedSeasonsUseCase,
@@ -128,40 +129,41 @@ class MediaDetailViewModel
                                     }
                                 }
 
-                            // 2. CHECK: If we are playing the MAIN media (Movie) and we already have sources enriched, reuse them.
-                            // Optimization: Avoid re-running EnrichMediaItemUseCase if loadAvailableServers already did it.
-                            // Xtream items: skip enrichment entirely (no multi-server concept)
-                            val enrichedItem =
-                                if (startItem.serverId.startsWith("xtream_")) {
-                                    performanceTracker.addCheckpoint(opId, "Enrichment (Xtream Skip)")
-                                    startItem
-                                } else if (startItem.ratingKey == media.ratingKey && media.remoteSources.size > 1) {
-                                    performanceTracker.addCheckpoint(opId, "Enrichment (Cache Hit)", mapOf("sources" to media.remoteSources.size))
-                                    media // Already enriched by background job
-                                } else {
-                                    // Either a different item (Next Episode) or background job not finished yet.
-                                    val enrichStart = System.currentTimeMillis()
-                                    val enriched = enrichMediaItemUseCase(startItem)
-                                    val enrichDuration = System.currentTimeMillis() - enrichStart
-                                    performanceTracker.addCheckpoint(
-                                        opId,
-                                        "Enrichment (Fresh)",
-                                        mapOf("duration" to enrichDuration, "sources" to enriched.remoteSources.size)
-                                    )
-                                    enriched
-                                }
+                            // 2. Prepare playback: enrichment + source determination
+                            // If playing the main media and background enrichment already ran, reuse it
+                            val itemForPlayback = if (startItem.ratingKey == media.ratingKey && media.remoteSources.size > 1) {
+                                performanceTracker.addCheckpoint(opId, "Enrichment (Cache Hit)", mapOf("sources" to media.remoteSources.size))
+                                media
+                            } else {
+                                startItem
+                            }
+
+                            val enrichStart = System.currentTimeMillis()
+                            val playbackResult = preparePlaybackUseCase(itemForPlayback)
+                            val enrichDuration = System.currentTimeMillis() - enrichStart
+                            val enrichedItem = when (playbackResult) {
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.ReadyToPlay -> playbackResult.item
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.NeedsSourceSelection -> playbackResult.item
+                            }
+                            performanceTracker.addCheckpoint(opId, "PreparePlayback", mapOf(
+                                "duration" to enrichDuration,
+                                "sources" to enrichedItem.remoteSources.size,
+                                "result" to playbackResult.javaClass.simpleName
+                            ))
 
                             _uiState.update { it.copy(selectedPlaybackItem = enrichedItem) }
 
-                            // 3. Check for multiple sources on the RESOLVED item
-                            if (enrichedItem.remoteSources.size > 1) {
-                                performanceTracker.addCheckpoint(opId, "Source Selection Dialog Shown")
-                                _uiState.update { it.copy(showSourceSelection = true) }
-                                // Will end operation when user selects source (in PlaySource event)
-                            } else {
-                                performanceTracker.addCheckpoint(opId, "Single Source - Direct Play")
-                                // Single source or no remoteSources (fallback to direct)
-                                playItem(enrichedItem, opId)
+                            // 3. Act on result
+                            when (playbackResult) {
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.NeedsSourceSelection -> {
+                                    performanceTracker.addCheckpoint(opId, "Source Selection Dialog Shown")
+                                    _uiState.update { it.copy(showSourceSelection = true) }
+                                    // Will end operation when user selects source (in PlaySource event)
+                                }
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.ReadyToPlay -> {
+                                    performanceTracker.addCheckpoint(opId, "Single Source - Direct Play")
+                                    playItem(playbackResult.item, opId)
+                                }
                             }
                         } catch (e: Exception) {
                             performanceTracker.endOperation(opId, success = false, errorMessage = e.message)
