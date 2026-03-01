@@ -18,6 +18,7 @@ import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -33,6 +34,7 @@ class LibraryRepositoryImpl
         private val mediaDao: MediaDao,
         private val database: com.chakir.plexhubtv.core.database.PlexDatabase,
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
+        private val serverNameResolver: ServerNameResolver,
     ) : LibraryRepository {
         override suspend fun getLibraries(serverId: String): Result<List<LibrarySection>> {
             try {
@@ -163,8 +165,11 @@ class LibraryRepositoryImpl
                     // values AND the computed aliases, causing Room to pick the NULL ones.
                     //
                     // The subquery adds metadata_score and LEFT JOINs id_bridge for IMDB↔TMDB bridging.
-                    // ORDER BY metadata_score DESC in the subquery ensures SQLite's GROUP BY picks
-                    // the row with the best metadata (Plex bonus + completeness score).
+                    // MAX(metadata_score) is the SINGLE min/max aggregate, which triggers SQLite's
+                    // documented extension: non-aggregate columns are taken from the row that
+                    // satisfies the MAX. This reliably picks the row with the best metadata
+                    // (Plex bonus + completeness score) for display columns like thumbUrl, title, etc.
+                    // Sorting by addedAt uses MAX(media.addedAt) directly in ORDER BY.
                     sqlBuilder.append(
                         """SELECT media.ratingKey, media.serverId, media.librarySectionId, media.title,
                         media.titleSortable, media.filter, media.sortOrder, media.pageOffset,
@@ -174,7 +179,7 @@ class LibraryRepositoryImpl
                         media.grandparentRatingKey, media.`index`, media.mediaParts, media.guid,
                         media.imdbId, media.tmdbId, media.rating, media.audienceRating,
                         media.contentRating, media.genres, media.unificationId,
-                        MAX(media.addedAt) as addedAt, media.updatedAt,
+                        media.addedAt, media.updatedAt,
                         media.parentThumb, media.grandparentThumb,
                         media.displayRating,
                         media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
@@ -182,6 +187,7 @@ class LibraryRepositoryImpl
                         media.historyGroupKey,
                         media.viewCount,
                         media.sourceServerId,
+                        MAX(media.metadata_score) as _bestScore,
                         GROUP_CONCAT(media.ratingKey) as ratingKeys,
                         GROUP_CONCAT(media.serverId) as serverIds,
                         GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """,
@@ -195,7 +201,7 @@ class LibraryRepositoryImpl
                             + (CASE WHEN m.tmdbId IS NOT NULL THEN 1 ELSE 0 END)
                             + (CASE WHEN m.year IS NOT NULL AND m.year > 0 THEN 1 ELSE 0 END)
                             + (CASE WHEN m.genres IS NOT NULL AND m.genres != '' THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.serverId NOT LIKE 'xtream_%' AND m.serverId NOT LIKE 'backend_%' THEN 3 ELSE 0 END)
+                            + (CASE WHEN m.serverId NOT LIKE 'xtream_%' AND m.serverId NOT LIKE 'backend_%' THEN 4 ELSE 0 END)
                             AS metadata_score
                         FROM media m
                         LEFT JOIN id_bridge ON m.tmdbId = id_bridge.tmdbId AND m.imdbId IS NULL
@@ -321,6 +327,8 @@ class LibraryRepositoryImpl
                     }
                 val tokenMap = allServers.associate { it.clientIdentifier to it.accessToken }
 
+                val serverNameMap = serverNameResolver.getServerNameMap()
+
                 // Get preferred server for prioritization in multi-server results
                 val defaultServerName = settingsRepository.defaultServer.first()
                 val preferredServerIdForMapping = if (defaultServerName != "all") {
@@ -355,20 +363,25 @@ class LibraryRepositoryImpl
 
                                     if (sIds.size == rKeys.size && sIds.size > 1) {
                                         val sources =
-                                            sIds.zip(rKeys).mapNotNull { (sId, rKey) ->
-                                                val srv = allServers.find { it.clientIdentifier == sId } ?: return@mapNotNull null
-                                                val connection = clientMap[sId] ?: return@mapNotNull null
+                                            sIds.zip(rKeys)
+                                                .distinctBy { it.first } // Deduplicate by serverId
+                                                .mapNotNull { (sId, rKey) ->
+                                                    val serverName = serverNameMap[sId] ?: return@mapNotNull null
 
-                                                com.chakir.plexhubtv.core.model.MediaSource(
-                                                    serverId = sId,
-                                                    ratingKey = rKey,
-                                                    serverName = srv.name,
-                                                    resolution = null,
-                                                    thumbUrl = null,
-                                                    artUrl = null,
-                                                )
-                                            }
-                                        domain.copy(remoteSources = sources)
+                                                    com.chakir.plexhubtv.core.model.MediaSource(
+                                                        serverId = sId,
+                                                        ratingKey = rKey,
+                                                        serverName = serverName,
+                                                        resolution = null,
+                                                        thumbUrl = null,
+                                                        artUrl = null,
+                                                    )
+                                                }
+                                        if (sources.size > 1) {
+                                            domain.copy(remoteSources = sources)
+                                        } else {
+                                            domain
+                                        }
                                     } else {
                                         domain
                                     }

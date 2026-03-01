@@ -40,6 +40,7 @@ class MediaDetailRepositoryImpl
         private val xtreamSeriesRepository: XtreamSeriesRepository,
         private val xtreamVodRepository: XtreamVodRepository,
         private val backendRepository: BackendRepository,
+        private val serverNameResolver: ServerNameResolver,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MediaDetailRepository {
         // In-memory cache for similar items: "ratingKey:serverId" → (timestampMs, items)
@@ -161,6 +162,10 @@ class MediaDetailRepositoryImpl
                     if (response.isSuccessful) {
                         val metadata = response.body()?.mediaContainer?.metadata
                         if (metadata != null) {
+                            // Persist episodes to Room for unified seasons query
+                            val entities = metadata.map { mapper.mapDtoToEntity(it, serverId, "") }
+                            mediaDao.upsertMedia(entities)
+                            Timber.d("Cached ${entities.size} Plex episodes to Room for $ratingKey")
                             return@safeApiCall metadata.map {
                                 mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
                             }
@@ -208,7 +213,7 @@ class MediaDetailRepositoryImpl
             val allEpisodes = mediaDao.getUnifiedEpisodes(showTitle, enabledServerIds)
             if (allEpisodes.isEmpty()) return emptyList()
 
-            val serverNames = buildServerNameMap()
+            val serverNames = serverNameResolver.getServerNameMap()
 
             return allEpisodes
                 .filter { it.parentIndex != null && it.index != null }
@@ -263,13 +268,6 @@ class MediaDetailRepositoryImpl
             return score
         }
 
-        private suspend fun buildServerNameMap(): Map<String, String> {
-            val map = mutableMapOf<String, String>()
-            authRepository.getServers().getOrNull()?.forEach { server ->
-                map[server.clientIdentifier] = server.name
-            }
-            return map
-        }
 
         override suspend fun updateMediaParts(item: MediaItem) {
             // Persist mediaParts to Room for future sessions (lazy progressive cache)
