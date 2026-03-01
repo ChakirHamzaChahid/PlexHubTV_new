@@ -11,7 +11,7 @@ import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
-import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
@@ -35,6 +35,7 @@ class LibraryRepositoryImpl
         private val database: com.chakir.plexhubtv.core.database.PlexDatabase,
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
         private val serverNameResolver: ServerNameResolver,
+        private val mediaUrlResolver: MediaUrlResolver,
     ) : LibraryRepository {
         override suspend fun getLibraries(serverId: String): Result<List<LibrarySection>> {
             try {
@@ -392,25 +393,7 @@ class LibraryRepositoryImpl
                             // Always resolve URLs against CURRENT baseUrl (resolvedThumbUrl may
                             // contain a stale server address if the connection changed since sync)
                             if (baseUrl != null) {
-                                val thumbPath = entity.thumbUrl // raw relative path
-                                val artPath = entity.artUrl
-                                finalDomain.copy(
-                                    thumbUrl = thumbPath?.let {
-                                        getOptimizedImageUrl("$baseUrl$it?X-Plex-Token=$token", 300, 450)
-                                            ?: "$baseUrl$it?X-Plex-Token=$token"
-                                    },
-                                    artUrl = artPath?.let {
-                                        getOptimizedImageUrl("$baseUrl$it?X-Plex-Token=$token", 1280, 720)
-                                            ?: "$baseUrl$it?X-Plex-Token=$token"
-                                    },
-                                    parentThumb = entity.parentThumb?.let {
-                                        getOptimizedImageUrl("$baseUrl$it?X-Plex-Token=$token", 300, 450)
-                                            ?: "$baseUrl$it?X-Plex-Token=$token"
-                                    },
-                                    grandparentThumb = entity.grandparentThumb?.let {
-                                        getOptimizedImageUrl("$baseUrl$it?X-Plex-Token=$token", 300, 450)
-                                            ?: "$baseUrl$it?X-Plex-Token=$token"
-                                    },
+                                mediaUrlResolver.resolveUrls(finalDomain, baseUrl, token).copy(
                                     baseUrl = baseUrl,
                                     accessToken = token,
                                 )
