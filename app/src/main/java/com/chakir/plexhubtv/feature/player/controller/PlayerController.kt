@@ -47,6 +47,7 @@ class PlayerController @Inject constructor(
     private val transcodeUrlBuilder: TranscodeUrlBuilder,
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
     private val connectionManager: ConnectionManager,
+    private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
     @ApplicationScope private val applicationScope: CoroutineScope,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     @MainDispatcher private val mainDispatcher: CoroutineDispatcher,
@@ -125,8 +126,8 @@ class PlayerController @Inject constructor(
         val initSId = serverId
         if (initUrl != null) {
             playDirectUrl(initUrl)
-        } else if (initRKey != null && initSId != null && !initSId.startsWith("xtream_") && !initSId.startsWith("backend_")) {
-            // Xtream/Backend: URL is built asynchronously by PlayerControlViewModel → playDirectStream()
+        } else if (initRKey != null && initSId != null && mediaSourceResolver.resolve(initSId).needsUrlResolution()) {
+            // Direct-stream sources: URL is built asynchronously by PlayerControlViewModel → playDirectStream()
             loadMedia(initRKey, initSId)
         }
         startPositionTracking()

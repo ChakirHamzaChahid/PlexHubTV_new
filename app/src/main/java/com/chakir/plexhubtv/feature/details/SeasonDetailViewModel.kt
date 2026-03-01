@@ -64,6 +64,7 @@ class SeasonDetailViewModel
         private val toggleFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.ToggleFavoriteUseCase,
         private val isFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.IsFavoriteUseCase,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
+        private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -254,9 +255,8 @@ class SeasonDetailViewModel
 
         private fun lazyFetchSourceDetails(episode: MediaItem) {
             val sourcesNeedingDetails = episode.remoteSources.filter { source ->
-                // Plex sources without resolution info need lazy fetch
-                !source.serverId.startsWith("xtream_") &&
-                    !source.serverId.startsWith("backend_") &&
+                // Only Plex sources (needing URL resolution) require lazy detail fetch
+                mediaSourceResolver.resolve(source.serverId).needsUrlResolution() &&
                     source.resolution == null
             }
             if (sourcesNeedingDetails.isEmpty()) return

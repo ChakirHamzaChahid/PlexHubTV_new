@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.domain.source.MediaSourceHandler
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -10,7 +11,7 @@ import javax.inject.Inject
  *
  * Encapsulates the shared logic between MediaDetailViewModel.PlayClicked
  * and SeasonDetailViewModel.PlayEpisode:
- * - Xtream items: skip enrichment (no multi-server concept)
+ * - Direct-stream sources: skip enrichment (no multi-server concept)
  * - Already enriched items: reuse existing remote sources
  * - Otherwise: run enrichment via EnrichMediaItemUseCase
  *
@@ -18,15 +19,20 @@ import javax.inject.Inject
  */
 class PreparePlaybackUseCase @Inject constructor(
     private val enrichMediaItemUseCase: EnrichMediaItemUseCase,
+    private val sourceHandlers: Set<@JvmSuppressWildcards MediaSourceHandler>,
 ) {
     sealed class Result {
         data class ReadyToPlay(val item: MediaItem) : Result()
         data class NeedsSourceSelection(val item: MediaItem) : Result()
     }
 
+    private fun resolveHandler(serverId: String): MediaSourceHandler? =
+        sourceHandlers.find { it.matches(serverId) }
+
     suspend operator fun invoke(item: MediaItem): Result {
-        // Xtream: skip enrichment entirely (direct-play, no multi-server)
-        if (item.serverId.startsWith("xtream_")) {
+        // Direct-stream sources: skip enrichment (no multi-server concept)
+        val handler = resolveHandler(item.serverId)
+        if (handler != null && !handler.needsEnrichment()) {
             return Result.ReadyToPlay(item)
         }
 

@@ -48,6 +48,7 @@ class MediaDetailViewModel
         private val getMediaCollectionsUseCase: com.chakir.plexhubtv.domain.usecase.GetMediaCollectionsUseCase,
         private val getUnifiedSeasonsUseCase: com.chakir.plexhubtv.domain.usecase.GetUnifiedSeasonsUseCase,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
+        private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
         savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -262,11 +263,11 @@ class MediaDetailViewModel
             opId: String? = null,
             forcedServerId: String? = null,
         ) {
-            // Xtream: direct navigation — URL will be built in PlayerControlViewModel
+            // Direct-stream sources: URL built in PlayerControlViewModel, skip detail fetch
             val targetServerId = forcedServerId ?: item.serverId
-            if (targetServerId.startsWith("xtream_")) {
+            if (!mediaSourceResolver.resolve(targetServerId).needsUrlResolution()) {
                 opId?.let {
-                    performanceTracker.addCheckpoint(it, "Xtream Direct Navigation")
+                    performanceTracker.addCheckpoint(it, "Direct Stream Navigation")
                     performanceTracker.endOperation(it, success = true, additionalMeta = mapOf("finalRatingKey" to item.ratingKey))
                 }
                 // Still set up PlaybackManager for queue (Next/Previous support)
@@ -353,7 +354,7 @@ class MediaDetailViewModel
                     if (detail.item.type == MediaType.Show) {
                         loadUnifiedSeasons(detail.item)
                     }
-                    if (!detail.item.serverId.startsWith("xtream_")) {
+                    if (mediaSourceResolver.resolve(detail.item.serverId).needsEnrichment()) {
                         loadAvailableServers(detail.item)
                     } else {
                         _uiState.update { it.copy(isEnriching = false) }

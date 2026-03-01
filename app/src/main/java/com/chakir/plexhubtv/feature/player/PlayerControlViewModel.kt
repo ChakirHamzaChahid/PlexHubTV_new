@@ -6,8 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
-import com.chakir.plexhubtv.feature.player.url.BackendUrlBuilder
-import com.chakir.plexhubtv.feature.player.url.XtreamUrlBuilder
+import com.chakir.plexhubtv.feature.player.url.DirectStreamUrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -19,8 +18,7 @@ class PlayerControlViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     val chapterMarkerManager: ChapterMarkerManager,
     private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
-    private val xtreamUrlBuilder: XtreamUrlBuilder,
-    private val backendUrlBuilder: BackendUrlBuilder,
+    private val directStreamUrlBuilder: DirectStreamUrlBuilder,
 ) : ViewModel() {
 
     val uiState = playerController.uiState
@@ -34,15 +32,10 @@ class PlayerControlViewModel @Inject constructor(
         if (directUrl != null) {
             // Already have direct URL (IPTV or pre-built Xtream URL)
             playerController.initialize(ratingKey, serverId, directUrl, startOffset)
-        } else if (serverId?.startsWith("xtream_") == true && ratingKey != null) {
-            // Xtream content without pre-built URL: build it now
+        } else if (serverId != null && ratingKey != null && directStreamUrlBuilder.isDirectStream(serverId)) {
+            // Direct-stream source (Xtream/Backend): resolve URL then play
             resolveAndPlayDirectStream(ratingKey, serverId, startOffset) {
-                xtreamUrlBuilder.buildUrl(ratingKey, serverId)
-            }
-        } else if (serverId?.startsWith("backend_") == true && ratingKey != null) {
-            // Backend content: resolve stream URL via backend API
-            resolveAndPlayDirectStream(ratingKey, serverId, startOffset) {
-                backendUrlBuilder.buildUrl(ratingKey, serverId)
+                directStreamUrlBuilder.buildUrl(ratingKey, serverId)
             }
         } else {
             // Plex: normal flow
@@ -82,7 +75,7 @@ class PlayerControlViewModel @Inject constructor(
                 playerController.updateState { it.copy(showSettings = false) }
                 val current = uiState.value.currentItem
                 if (current != null) {
-                    if (current.serverId.startsWith("xtream_") || current.serverId.startsWith("backend_")) {
+                    if (directStreamUrlBuilder.isDirectStream(current.serverId)) {
                         // Quality selection not applicable for direct streams
                         return
                     }
@@ -166,16 +159,12 @@ class PlayerControlViewModel @Inject constructor(
      * Load or play media, handling Plex (loadMedia), Xtream, and Backend (direct URL) paths.
      */
     private fun loadOrPlayMedia(media: MediaItem) {
-        when {
-            media.serverId.startsWith("xtream_") -> resolveAndPlayDirectStream(
+        if (directStreamUrlBuilder.isDirectStream(media.serverId)) {
+            resolveAndPlayDirectStream(
                 media.ratingKey, media.serverId, 0L, media,
-            ) { xtreamUrlBuilder.buildUrl(media.ratingKey, media.serverId) }
-
-            media.serverId.startsWith("backend_") -> resolveAndPlayDirectStream(
-                media.ratingKey, media.serverId, 0L, media,
-            ) { backendUrlBuilder.buildUrl(media.ratingKey, media.serverId) }
-
-            else -> playerController.loadMedia(media.ratingKey, media.serverId)
+            ) { directStreamUrlBuilder.buildUrl(media.ratingKey, media.serverId) }
+        } else {
+            playerController.loadMedia(media.ratingKey, media.serverId)
         }
     }
 
