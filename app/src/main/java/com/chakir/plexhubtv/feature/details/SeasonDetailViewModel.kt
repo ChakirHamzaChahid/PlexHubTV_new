@@ -326,8 +326,10 @@ class SeasonDetailViewModel
                             )
                         }
                         // P1.4: Prefetch enrichment for likely-to-play episodes (warms EnrichMediaItemUseCase cache)
+                        // Skip if sources already pre-loaded (from unified seasons)
                         val unwatched = detail.children.filter { it.viewedStatus != "watched" }
                         val toPrefetch = (unwatched.take(3).ifEmpty { detail.children.take(3) })
+                            .filter { it.remoteSources.size <= 1 }
                         if (toPrefetch.isNotEmpty()) {
                             viewModelScope.launch {
                                 for (episode in toPrefetch) {

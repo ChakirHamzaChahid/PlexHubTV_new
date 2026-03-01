@@ -396,10 +396,43 @@ class MediaDetailViewModel
                         val allKeys = enriched.remoteSources.map { it.ratingKey }
                         checkFavoriteStatus(allKeys)
                     }
+
+                    // For shows with remote sources: proactively fetch episodes from remote servers
+                    // so that unified seasons can find them in Room
+                    if (item.type == MediaType.Show && enriched.remoteSources.size > 1) {
+                        prefetchRemoteEpisodes(enriched)
+                    }
                 } catch (e: Exception) {
                     Timber.w("Failed to enrich media: ${e.message}")
                     _uiState.update { it.copy(isEnriching = false) }
                 }
+            }
+        }
+
+        /**
+         * After enrichment finds remote sources for a show, fetch episodes from those servers
+         * to populate Room, then re-run unified seasons.
+         */
+        private fun prefetchRemoteEpisodes(show: MediaItem) {
+            viewModelScope.launch {
+                val remoteSources = show.remoteSources.filter { it.serverId != show.serverId }
+                Timber.d("VM: Prefetching episodes from ${remoteSources.size} remote server(s)")
+                for (source in remoteSources) {
+                    try {
+                        // Fetch show detail → returns seasons as children
+                        val showDetail = getMediaDetailUseCase(source.ratingKey, source.serverId).first()
+                        val seasons = showDetail.getOrNull()?.children ?: continue
+                        // For each season, fetch episodes (triggers Room persistence via Fix 1)
+                        for (season in seasons) {
+                            getMediaDetailUseCase(season.ratingKey, source.serverId).first()
+                        }
+                        Timber.d("VM: Prefetched ${seasons.size} seasons from ${source.serverName}")
+                    } catch (e: Exception) {
+                        Timber.w(e, "VM: Failed to prefetch episodes from ${source.serverName}")
+                    }
+                }
+                // Re-run unified seasons now that remote episodes are in Room
+                loadUnifiedSeasons(show)
             }
         }
 

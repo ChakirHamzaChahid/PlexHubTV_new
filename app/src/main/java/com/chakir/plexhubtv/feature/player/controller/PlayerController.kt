@@ -125,8 +125,8 @@ class PlayerController @Inject constructor(
         val initSId = serverId
         if (initUrl != null) {
             playDirectUrl(initUrl)
-        } else if (initRKey != null && initSId != null && !initSId.startsWith("xtream_")) {
-            // Xtream: URL is built asynchronously by PlayerControlViewModel → playDirectStream()
+        } else if (initRKey != null && initSId != null && !initSId.startsWith("xtream_") && !initSId.startsWith("backend_")) {
+            // Xtream/Backend: URL is built asynchronously by PlayerControlViewModel → playDirectStream()
             loadMedia(initRKey, initSId)
         }
         startPositionTracking()

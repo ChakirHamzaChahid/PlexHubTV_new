@@ -178,6 +178,7 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.common)
     implementation(libs.media3.session)
+    implementation(libs.media3.datasource.okhttp)
 
     // Hybrid Engine - MPV Fallback
     implementation("dev.jdtech.mpv:libmpv:0.5.1")

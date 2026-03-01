@@ -4,11 +4,15 @@ import android.content.Context
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayer
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayerWrapper
+import com.chakir.plexhubtv.feature.player.net.CrlfFixSocketFactory
 import kotlinx.coroutines.CoroutineScope
+import okhttp3.OkHttpClient
 import javax.inject.Inject
 
 interface PlayerFactory {
@@ -33,7 +37,20 @@ class ExoPlayerFactory
         override fun createExoPlayer(context: Context, isRelay: Boolean): ExoPlayer {
             val loadControl = createLoadControl(isRelay)
 
+            // Use OkHttpDataSource with CrlfFixSocketFactory.
+            // Many Xtream/IPTV servers send HTTP headers with bare \r instead of \r\n.
+            // Both Android's HttpURLConnection and standard OkHttp reject these with
+            // "EOFException: \n not found". CrlfFixSocketFactory transparently inserts
+            // \n after bare \r during header parsing, then passes body bytes through
+            // directly for zero overhead on video streaming.
+            val okHttpClient = OkHttpClient.Builder()
+                .socketFactory(CrlfFixSocketFactory())
+                .build()
+            val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
+            val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+
             return ExoPlayer.Builder(context)
+                .setMediaSourceFactory(mediaSourceFactory)
                 .setLoadControl(loadControl)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
                 .build()

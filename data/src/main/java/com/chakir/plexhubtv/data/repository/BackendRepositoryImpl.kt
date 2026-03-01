@@ -126,9 +126,33 @@ class BackendRepositoryImpl @Inject constructor(
                     offset += 500
                 } while (response.hasMore)
 
+                // Sync episodes for each show (needed for unified seasons query)
+                val syncedShows = mediaDao.getMediaByServerTypeFilter(serverId, "show", "all")
+                for (showEntity in syncedShows) {
+                    try {
+                        var epOffset = 0
+                        do {
+                            val epResponse = service.getEpisodes(
+                                parentRatingKey = showEntity.ratingKey,
+                                limit = 500,
+                                offset = epOffset,
+                            )
+                            val epEntities = epResponse.items.map { mapper.mapDtoToEntity(it, backendId) }
+                            if (epEntities.isNotEmpty()) {
+                                mediaDao.upsertMedia(epEntities)
+                                populateIdBridge(epEntities)
+                                totalSynced += epEntities.size
+                            }
+                            epOffset += 500
+                        } while (epResponse.hasMore)
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to sync episodes for show ${showEntity.title}")
+                    }
+                }
+
                 // Differential cleanup: remove items no longer in backend
                 val existingMovies = mediaDao.getMediaByServerTypeFilter(serverId, "movie", "all")
-                val existingShows = mediaDao.getMediaByServerTypeFilter(serverId, "show", "all")
+                val existingShows = syncedShows
                 val staleItems = (existingMovies + existingShows).filter { it.ratingKey !in syncedRatingKeys }
                 staleItems.forEach { mediaDao.deleteMedia(it.ratingKey, serverId) }
 
@@ -159,6 +183,7 @@ class BackendRepositoryImpl @Inject constructor(
 
                 val service = backendApiClient.getService(backend.baseUrl)
                 val response = service.getStreamUrl(ratingKey, originalServerId)
+                Timber.d("BACKEND getStreamUrl: resolved url=${response.url}")
                 response.url
             }
         }

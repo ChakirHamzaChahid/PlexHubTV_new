@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.player.url
 import com.chakir.plexhubtv.core.model.XtreamAccount
 import com.chakir.plexhubtv.core.network.xtream.XtreamApiClient
 import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,7 +31,7 @@ class XtreamUrlBuilder @Inject constructor(
         val password = accountRepo.getDecryptedPassword(accountId) ?: return null
         val fallbackExt = preferredExtension(account)
 
-        return when {
+        val url = when {
             ratingKey.startsWith("vod_") -> {
                 val body = ratingKey.removePrefix("vod_")
                 val (idStr, ext) = splitIdAndExtension(body, fallbackExt)
@@ -44,14 +45,17 @@ class XtreamUrlBuilder @Inject constructor(
             }
             else -> null
         }
+        Timber.d("XtreamUrlBuilder: ratingKey=$ratingKey → url=$url")
+        return url
     }
 
     /**
      * Split "12345.mkv" into ("12345", "mkv").
      * If no dot is present (legacy format), returns (body, fallback).
+     * Uses FIRST dot to avoid issues with IDs containing extension-like suffixes.
      */
     private fun splitIdAndExtension(body: String, fallback: String): Pair<String, String> {
-        val dotIndex = body.lastIndexOf('.')
+        val dotIndex = body.indexOf('.')
         return if (dotIndex > 0) {
             body.substring(0, dotIndex) to body.substring(dotIndex + 1)
         } else {

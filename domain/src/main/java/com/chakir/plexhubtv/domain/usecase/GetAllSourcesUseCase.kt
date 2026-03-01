@@ -2,9 +2,10 @@ package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.XtreamAccountStatus
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.domain.repository.BackendRepository
 import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
 
 data class ContentSource(
@@ -14,18 +15,22 @@ data class ContentSource(
     val isActive: Boolean,
 )
 
-enum class SourceType { Plex, Xtream }
+enum class SourceType { Plex, Xtream, Backend }
 
 class GetAllSourcesUseCase @Inject constructor(
     private val authRepository: AuthRepository,
     private val xtreamAccountRepository: XtreamAccountRepository,
+    private val backendRepository: BackendRepository,
 ) {
     /**
-     * Returns a Flow of all content sources (Plex servers + Xtream accounts).
-     * Xtream accounts are reactive; Plex servers are fetched as a snapshot per emission.
+     * Returns a Flow of all content sources (Plex servers + Xtream accounts + Backend servers).
+     * Xtream and Backend are reactive; Plex servers are fetched as a snapshot per emission.
      */
     fun observe(): Flow<List<ContentSource>> =
-        xtreamAccountRepository.observeAccounts().map { xtreamAccounts ->
+        combine(
+            xtreamAccountRepository.observeAccounts(),
+            backendRepository.observeServers(),
+        ) { xtreamAccounts, backendServers ->
             val plexSources = authRepository.getServers()
                 .getOrDefault(emptyList())
                 .map { server ->
@@ -44,6 +49,14 @@ class GetAllSourcesUseCase @Inject constructor(
                     isActive = account.status == XtreamAccountStatus.Active,
                 )
             }
-            plexSources + xtreamSources
+            val backendSources = backendServers.map { backend ->
+                ContentSource(
+                    id = "backend_${backend.id}",
+                    name = backend.label,
+                    type = SourceType.Backend,
+                    isActive = backend.isActive,
+                )
+            }
+            plexSources + xtreamSources + backendSources
         }
 }
