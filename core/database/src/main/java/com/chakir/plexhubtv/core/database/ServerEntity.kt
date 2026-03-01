@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.core.database
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Entité représentant un Serveur Plex Media Server (PMS).
@@ -26,6 +27,7 @@ data class ServerEntity(
     fun getBaseUrl(): String = "$protocol://$address:$port/"
 }
 
+@Serializable
 data class ConnectionCandidateEntity(
     val protocol: String,
     val address: String,
