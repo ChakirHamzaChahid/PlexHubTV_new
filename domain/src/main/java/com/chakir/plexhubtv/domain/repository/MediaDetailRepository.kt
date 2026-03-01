@@ -32,7 +32,7 @@ interface MediaDetailRepository {
 
     /** Fetches all episodes for a show across enabled servers and merges into unified seasons. */
     suspend fun getUnifiedSeasons(
-        showTitle: String,
+        showUnificationId: String,
         enabledServerIds: List<String>,
     ): List<UnifiedSeason>
 

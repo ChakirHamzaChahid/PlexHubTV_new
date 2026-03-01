@@ -452,7 +452,7 @@ class MediaDetailViewModel
             viewModelScope.launch {
                 val startTime = System.currentTimeMillis()
                 getUnifiedSeasonsUseCase(
-                    showTitle = show.title,
+                    showUnificationId = show.unificationId ?: return@launch,
                     fallbackServerId = show.serverId,
                     fallbackRatingKey = show.ratingKey,
                 ).onSuccess { unifiedSeasons ->

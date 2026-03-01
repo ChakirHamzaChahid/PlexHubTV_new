@@ -9,12 +9,12 @@ class GetUnifiedSeasonsUseCase @Inject constructor(
     private val getEnabledServerIdsUseCase: GetEnabledServerIdsUseCase,
 ) {
     suspend operator fun invoke(
-        showTitle: String,
+        showUnificationId: String,
         fallbackServerId: String,
         fallbackRatingKey: String,
     ): Result<List<UnifiedSeason>> = runCatching {
         val enabledServerIds = getEnabledServerIdsUseCase()
         if (enabledServerIds.isEmpty()) return@runCatching emptyList()
-        mediaDetailRepository.getUnifiedSeasons(showTitle, enabledServerIds)
+        mediaDetailRepository.getUnifiedSeasons(showUnificationId, enabledServerIds)
     }
 }

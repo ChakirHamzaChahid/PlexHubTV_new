@@ -102,7 +102,7 @@ class XtreamMediaMapper @Inject constructor() {
             parentTitle = "Season $seasonNumber",
             parentIndex = seasonNumber,
             grandparentRatingKey = "series_${seriesDto.seriesId}",
-            grandparentTitle = seriesDto.name,
+            grandparentTitle = parseTitleAndYear(seriesDto.name).first,
             index = episode.episodeNum,
             pageOffset = episode.id?.toIntOrNull() ?: (episode.episodeNum ?: 0),
             filter = "all",

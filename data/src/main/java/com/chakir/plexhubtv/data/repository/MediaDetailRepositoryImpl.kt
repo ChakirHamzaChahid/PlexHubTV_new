@@ -177,13 +177,27 @@ class MediaDetailRepositoryImpl
         }
 
         override suspend fun findRemoteSources(item: MediaItem): List<MediaItem> {
-            // For episodes: match by show title + season index + episode index (unificationId unreliable across servers)
             val entities = if (item.type == com.chakir.plexhubtv.core.model.MediaType.Episode) {
-                val showTitle = item.grandparentTitle
                 val seasonIndex = item.parentIndex
                 val episodeIndex = item.episodeIndex
-                if (showTitle != null && seasonIndex != null && episodeIndex != null) {
-                    mediaDao.findRemoteEpisodeSources(showTitle, seasonIndex, episodeIndex, item.serverId)
+                if (seasonIndex != null && episodeIndex != null) {
+                    // Primary: match via parent show's unificationId (handles title variations across servers)
+                    val grandparentRatingKey = item.grandparentRatingKey
+                    val showUnificationId = if (grandparentRatingKey != null) {
+                        mediaDao.getMedia(grandparentRatingKey, item.serverId)?.unificationId
+                    } else null
+
+                    if (!showUnificationId.isNullOrBlank()) {
+                        mediaDao.findRemoteEpisodesByShowUnificationId(
+                            showUnificationId, seasonIndex, episodeIndex, item.serverId
+                        )
+                    } else {
+                        // Fallback: exact grandparentTitle match
+                        val showTitle = item.grandparentTitle
+                        if (showTitle != null) {
+                            mediaDao.findRemoteEpisodeSources(showTitle, seasonIndex, episodeIndex, item.serverId)
+                        } else emptyList()
+                    }
                 } else {
                     emptyList()
                 }
@@ -207,10 +221,10 @@ class MediaDetailRepositoryImpl
         }
 
         override suspend fun getUnifiedSeasons(
-            showTitle: String,
+            showUnificationId: String,
             enabledServerIds: List<String>,
         ): List<UnifiedSeason> {
-            val allEpisodes = mediaDao.getUnifiedEpisodes(showTitle, enabledServerIds)
+            val allEpisodes = mediaDao.getUnifiedEpisodesByShowId(showUnificationId, enabledServerIds)
             if (allEpisodes.isEmpty()) return emptyList()
 
             val serverNames = serverNameResolver.getServerNameMap()

@@ -218,6 +218,28 @@ interface MediaDao {
         excludeServerId: String,
     ): List<MediaEntity>
 
+    // REMOTE SOURCES: Find same episode on other servers via parent show's unificationId
+    @Query("""
+        SELECT * FROM media
+        WHERE type = 'episode'
+        AND parentIndex = :seasonIndex
+        AND `index` = :episodeIndex
+        AND serverId != :excludeServerId
+        AND grandparentRatingKey IN (
+            SELECT ratingKey FROM media
+            WHERE type = 'show'
+            AND unificationId = :showUnificationId
+            AND unificationId != ''
+        )
+        GROUP BY serverId
+    """)
+    suspend fun findRemoteEpisodesByShowUnificationId(
+        showUnificationId: String,
+        seasonIndex: Int,
+        episodeIndex: Int,
+        excludeServerId: String,
+    ): List<MediaEntity>
+
     @Query("SELECT DISTINCT serverId FROM media")
     suspend fun getDistinctServerIds(): List<String>
 
@@ -229,6 +251,24 @@ interface MediaDao {
         ORDER BY parentIndex ASC, `index` ASC
     """)
     suspend fun getUnifiedEpisodes(showTitle: String, enabledServerIds: List<String>): List<MediaEntity>
+
+    @Query("""
+        SELECT * FROM media
+        WHERE type = 'episode'
+        AND serverId IN (:enabledServerIds)
+        AND grandparentRatingKey IN (
+            SELECT ratingKey FROM media
+            WHERE type = 'show'
+            AND unificationId = :showUnificationId
+            AND unificationId != ''
+            AND serverId IN (:enabledServerIds)
+        )
+        ORDER BY parentIndex ASC, `index` ASC
+    """)
+    suspend fun getUnifiedEpisodesByShowId(
+        showUnificationId: String,
+        enabledServerIds: List<String>,
+    ): List<MediaEntity>
 
     // Persistence helper to survive library syncs
     @Query("SELECT ratingKey, scrapedRating FROM media WHERE ratingKey IN (:ratingKeys) AND serverId = :serverId")
