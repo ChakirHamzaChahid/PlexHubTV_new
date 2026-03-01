@@ -1,13 +1,12 @@
 package com.chakir.plexhubtv.feature.hub
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
-import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,15 +29,12 @@ class HubViewModel
         private val getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase,
         private val favoritesRepository: FavoritesRepository,
         private val toggleWatchStatusUseCase: ToggleWatchStatusUseCase,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         private val _uiState = MutableStateFlow(HubUiState(isLoading = true))
         val uiState: StateFlow<HubUiState> = _uiState.asStateFlow()
 
         private val _navigationEvents = Channel<HubNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
-
-        private val _errorEvents = Channel<AppError>()
-        val errorEvents = _errorEvents.receiveAsFlow()
 
         init {
             observeFavorites()
@@ -119,7 +115,7 @@ class HubViewModel
                         },
                         onFailure = { error ->
                             Timber.e("SCREEN [Hub] FAILED: error=${error.message}")
-                            _errorEvents.send(error.toAppError())
+                            emitError(error.toAppError())
                             _uiState.update { it.copy(isLoading = false) }
                         },
                     )

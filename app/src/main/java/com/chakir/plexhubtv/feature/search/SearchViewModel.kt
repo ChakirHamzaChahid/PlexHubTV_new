@@ -1,11 +1,11 @@
 package com.chakir.plexhubtv.feature.search
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.usecase.SearchAcrossServersUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -37,7 +37,7 @@ class SearchViewModel
     constructor(
         private val searchAcrossServersUseCase: SearchAcrossServersUseCase,
         private val savedStateHandle: SavedStateHandle,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         private val _uiState = MutableStateFlow(
             SearchUiState(query = savedStateHandle.get<String>("search_query") ?: "")
         )
@@ -45,9 +45,6 @@ class SearchViewModel
 
         private val _navigationEvents = Channel<SearchNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
-
-        private val _errorEvents = Channel<AppError>(Channel.BUFFERED)
-        val errorEvents = _errorEvents.receiveAsFlow()
 
         private var searchJob: Job? = null
 
@@ -120,7 +117,7 @@ class SearchViewModel
                                 AppError.Search.SearchFailed(error.message, error)
                             }
                             viewModelScope.launch {
-                                _errorEvents.send(appError)
+                                emitError(appError)
                             }
                             _uiState.update {
                                 it.copy(searchState = SearchState.Error)
@@ -146,7 +143,7 @@ class SearchViewModel
                                     AppError.Search.SearchFailed(error.message, error)
                                 }
                                 viewModelScope.launch {
-                                    _errorEvents.send(appError)
+                                    emitError(appError)
                                 }
                                 _uiState.update {
                                     it.copy(searchState = SearchState.Error)

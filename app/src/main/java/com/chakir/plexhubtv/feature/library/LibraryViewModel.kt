@@ -1,7 +1,6 @@
 package com.chakir.plexhubtv.feature.library
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
 import com.chakir.plexhubtv.core.common.safeCollectIn
@@ -10,11 +9,11 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,7 +57,7 @@ class LibraryViewModel
         private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
         private val savedStateHandle: SavedStateHandle,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         // État de l'UI exposé de manière immuable (StateFlow)
         private val _uiState = MutableStateFlow(LibraryUiState(isLoading = true))
         val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
@@ -66,9 +65,6 @@ class LibraryViewModel
         // Canal pour les événements de navigation (Effets uniques, ex: Toast, Navigation)
         private val _navigationEvents = Channel<LibraryNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
-
-        private val _errorEvents = Channel<AppError>()
-        val errorEvents = _errorEvents.receiveAsFlow()
 
         /**
          * Flux réactif PAGINÉ des médias.
@@ -347,7 +343,7 @@ class LibraryViewModel
 
                 // Emit error via channel for snackbar display
                 viewModelScope.launch {
-                    _errorEvents.send(e.toAppError())
+                    emitError(e.toAppError())
                 }
 
                 _uiState.update { it.copy(isLoading = false) }

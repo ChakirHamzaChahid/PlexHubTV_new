@@ -1,10 +1,10 @@
 package com.chakir.plexhubtv.feature.details
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.AppError
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.toAppError
@@ -47,7 +47,7 @@ class MediaDetailViewModel
         private val getUnifiedSeasonsUseCase: com.chakir.plexhubtv.domain.usecase.GetUnifiedSeasonsUseCase,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         savedStateHandle: SavedStateHandle,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
         private val serverId: String? = savedStateHandle["serverId"]
 
@@ -56,9 +56,6 @@ class MediaDetailViewModel
 
         private val _navigationEvents = Channel<MediaDetailNavigationEvent>()
         val navigationEvents = _navigationEvents.receiveAsFlow()
-
-        private val _errorEvents = Channel<AppError>()
-        val errorEvents = _errorEvents.receiveAsFlow()
 
         init {
             if (ratingKey == null || serverId == null) {
@@ -126,7 +123,7 @@ class MediaDetailViewModel
                                         media
                                     } else {
                                         performanceTracker.endOperation(opId, success = false, errorMessage = "No playable content")
-                                        _errorEvents.send(AppError.Media.NoPlayableContent("No playable episode found for this media."))
+                                        emitError(AppError.Media.NoPlayableContent("No playable episode found for this media."))
                                         return@launch
                                     }
                                 }
@@ -168,7 +165,7 @@ class MediaDetailViewModel
                             }
                         } catch (e: Exception) {
                             performanceTracker.endOperation(opId, success = false, errorMessage = e.message)
-                            _errorEvents.send(AppError.Playback.InitializationFailed(e.message, e))
+                            emitError(AppError.Playback.InitializationFailed(e.message, e))
                         }
                     }
                 }
@@ -367,7 +364,7 @@ class MediaDetailViewModel
                     onFailure = { error ->
                         Timber.e("SCREEN [Detail] FAILED: duration=${duration}ms error=${error.message}")
                         viewModelScope.launch {
-                            _errorEvents.send(AppError.Media.LoadFailed(error.message, error))
+                            emitError(AppError.Media.LoadFailed(error.message, error))
                         }
                         _uiState.update { it.copy(isLoading = false) }
                     },
