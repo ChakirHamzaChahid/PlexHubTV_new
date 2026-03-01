@@ -1,12 +1,26 @@
 package com.chakir.plexhubtv.data.mapper
 
 import com.chakir.plexhubtv.core.database.MediaEntity
+import com.chakir.plexhubtv.core.model.MediaPart
+import com.chakir.plexhubtv.core.model.UnificationId
 import com.chakir.plexhubtv.core.network.backend.BackendMediaItemDto
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class BackendMediaMapper @Inject constructor() {
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private fun parseMediaParts(raw: String?): List<MediaPart> {
+        if (raw.isNullOrBlank() || raw == "[]" || raw == "null") return emptyList()
+        return try {
+            json.decodeFromString<List<MediaPart>>(raw)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     /**
      * Maps a backend DTO to a MediaEntity for Room storage.
@@ -17,7 +31,9 @@ class BackendMediaMapper @Inject constructor() {
      */
     fun mapDtoToEntity(dto: BackendMediaItemDto, backendId: String): MediaEntity {
         val remappedServerId = "backend_$backendId"
-        val unificationId = dto.unificationId
+        val unificationId = dto.unificationId.ifBlank {
+            UnificationId.calculate(dto.imdbId, dto.tmdbId, dto.title, dto.year)
+        }
         val historyGroupKey = dto.historyGroupKey.ifEmpty {
             unificationId.ifEmpty { "${dto.ratingKey}$remappedServerId" }
         }
@@ -65,6 +81,7 @@ class BackendMediaMapper @Inject constructor() {
             resolvedThumbUrl = dto.resolvedThumbUrl ?: dto.thumbUrl,
             resolvedArtUrl = dto.resolvedArtUrl ?: dto.artUrl,
             alternativeThumbUrls = dto.alternativeThumbUrls,
+            mediaParts = parseMediaParts(dto.mediaParts),
         )
     }
 }

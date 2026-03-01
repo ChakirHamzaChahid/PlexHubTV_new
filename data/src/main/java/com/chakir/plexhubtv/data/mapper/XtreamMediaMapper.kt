@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.data.mapper
 
 import com.chakir.plexhubtv.core.common.StringNormalizer
 import com.chakir.plexhubtv.core.database.MediaEntity
+import com.chakir.plexhubtv.core.model.UnificationId
 import com.chakir.plexhubtv.core.model.XtreamCategory
 import com.chakir.plexhubtv.core.network.xtream.XtreamCategoryDto
 import com.chakir.plexhubtv.core.network.xtream.XtreamEpisodeDto
@@ -35,8 +36,8 @@ class XtreamMediaMapper @Inject constructor() {
             pageOffset = dto.num ?: 0,
             displayRating = rating,
             rating = rating.takeIf { it > 0.0 },
-            unificationId = buildUnificationId(title, year),
-            historyGroupKey = buildUnificationId(title, year).ifEmpty { "$ratingKey$serverId" },
+            unificationId = UnificationId.calculateFromTitle(title, year),
+            historyGroupKey = UnificationId.calculateFromTitle(title, year).ifEmpty { "$ratingKey$serverId" },
         )
     }
 
@@ -65,8 +66,8 @@ class XtreamMediaMapper @Inject constructor() {
             filter = dto.categoryId ?: "all",
             sortOrder = "default",
             pageOffset = dto.num ?: 0,
-            unificationId = buildUnificationId(title, year),
-            historyGroupKey = buildUnificationId(title, year).ifEmpty { "$ratingKey$serverId" },
+            unificationId = UnificationId.calculateFromTitle(title, year),
+            historyGroupKey = UnificationId.calculateFromTitle(title, year).ifEmpty { "$ratingKey$serverId" },
         )
     }
 
@@ -79,8 +80,13 @@ class XtreamMediaMapper @Inject constructor() {
         val serverId = "xtream_$accountId"
         return MediaEntity(
             ratingKey = run {
+                val rawId = episode.id ?: "0"
                 val ext = episode.containerExtension?.takeIf { it.isNotBlank() }
-                if (ext != null) "ep_${episode.id ?: "0"}.$ext" else "ep_${episode.id ?: "0"}"
+                if (ext != null && !rawId.endsWith(".$ext")) {
+                    "ep_$rawId.$ext"
+                } else {
+                    "ep_$rawId"
+                }
             },
             serverId = serverId,
             librarySectionId = "xtream_series",
@@ -150,11 +156,4 @@ class XtreamMediaMapper @Inject constructor() {
         return Regex("""(\d{4})""").find(dateStr)?.groupValues?.get(1)?.toIntOrNull()
     }
 
-    private fun buildUnificationId(title: String, year: Int?): String {
-        if (title == "Unknown") return ""
-        val normalized = StringNormalizer.normalizeForSorting(title)
-            .lowercase()
-            .replace(Regex("\\s+"), "_")
-        return if (year != null) "title_${normalized}_$year" else "title_$normalized"
-    }
 }

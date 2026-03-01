@@ -4,6 +4,7 @@ import com.chakir.plexhubtv.core.common.StringNormalizer
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.UnificationId
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.core.network.model.StreamDTO
 import com.chakir.plexhubtv.core.util.ContentRatingHelper
@@ -36,7 +37,7 @@ class MediaMapper
                 id = "${serverId}_${dto.ratingKey}",
                 ratingKey = dto.ratingKey,
                 serverId = serverId,
-                unificationId = calculateUnificationId(dto),
+                unificationId = UnificationId.calculate(extractImdbId(dto), extractTmdbId(dto), dto.title, dto.year),
                 title = dto.title,
                 type = mapType(dto.type),
                 thumbUrl = getOptimizedImageUrl(rawThumb, width = 300, height = 450) ?: rawThumb,
@@ -199,7 +200,7 @@ class MediaMapper
             serverId: String,
             libraryKey: String,
         ): MediaEntity {
-            val unificationId = calculateUnificationId(dto)
+            val unificationId = UnificationId.calculate(extractImdbId(dto), extractTmdbId(dto), dto.title, dto.year)
             return MediaEntity(
                 ratingKey = dto.ratingKey,
                 serverId = serverId,
@@ -416,19 +417,6 @@ class MediaMapper
                 MediaType.Episode -> "episode"
                 MediaType.Season -> "season"
                 else -> "unknown"
-            }
-        }
-
-        private fun calculateUnificationId(dto: MetadataDTO): String {
-            val imdbId = extractImdbId(dto)
-            val tmdbId = extractTmdbId(dto)
-            return when {
-                !imdbId.isNullOrBlank() -> "imdb://$imdbId"
-                !tmdbId.isNullOrBlank() -> "tmdb://$tmdbId"
-                else -> {
-                    val safeTitle = dto.title?.lowercase()?.trim()?.replace(Regex("[^a-z0-9 ]"), "") ?: "unknown"
-                    "${safeTitle}_${dto.year ?: 0}"
-                }
             }
         }
     }
