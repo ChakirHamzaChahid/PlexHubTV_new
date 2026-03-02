@@ -23,6 +23,7 @@ import org.junit.Test
 class GetUnifiedHomeContentUseCaseTest {
     private val onDeckRepository: OnDeckRepository = mockk()
     private val hubsRepository: HubsRepository = mockk()
+    private val sortOnDeckUseCase: SortOnDeckUseCase = mockk(relaxed = true)
 
     @Test
     fun `sharedContent returns success when both sources emit`() =
@@ -32,12 +33,14 @@ class GetUnifiedHomeContentUseCaseTest {
             val hubs = listOf(mockk<Hub>())
             every { onDeckRepository.getUnifiedOnDeck() } returns flowOf(onDeck)
             every { hubsRepository.getUnifiedHubs() } returns flowOf(hubs)
+            every { sortOnDeckUseCase.invoke(any()) } answers { firstArg() }
 
             val testDispatcher = UnconfinedTestDispatcher(testScheduler)
             val testScope = CoroutineScope(testDispatcher + SupervisorJob())
             val useCase = GetUnifiedHomeContentUseCase(
                 onDeckRepository,
                 hubsRepository,
+                sortOnDeckUseCase,
                 testDispatcher,
                 testScope,
             )
@@ -70,12 +73,14 @@ class GetUnifiedHomeContentUseCaseTest {
 
             every { onDeckRepository.getUnifiedOnDeck() } returns flow { throw exception }
             every { hubsRepository.getUnifiedHubs() } returns flowOf(hubs)
+            every { sortOnDeckUseCase.invoke(any()) } answers { firstArg() }
 
             val testDispatcher = UnconfinedTestDispatcher(testScheduler)
             val testScope = CoroutineScope(testDispatcher + SupervisorJob())
             val useCase = GetUnifiedHomeContentUseCase(
                 onDeckRepository,
                 hubsRepository,
+                sortOnDeckUseCase,
                 testDispatcher,
                 testScope,
             )

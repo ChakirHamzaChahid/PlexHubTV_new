@@ -43,11 +43,30 @@ private class CrlfFixSocket : Socket {
     @Volatile
     private var wrappedInput: CrlfFixInputStream? = null
 
-    constructor() : super()
-    constructor(host: String, port: Int) : super(host, port)
-    constructor(host: String, port: Int, localAddr: InetAddress, localPort: Int) : super(host, port, localAddr, localPort)
-    constructor(host: InetAddress, port: Int) : super(host, port)
-    constructor(host: InetAddress, port: Int, localAddr: InetAddress, localPort: Int) : super(host, port, localAddr, localPort)
+    constructor() : super() { applyReceiveBuffer() }
+    constructor(host: String, port: Int) : super(host, port) { applyReceiveBuffer() }
+    constructor(host: String, port: Int, localAddr: InetAddress, localPort: Int) : super(host, port, localAddr, localPort) { applyReceiveBuffer() }
+    constructor(host: InetAddress, port: Int) : super(host, port) { applyReceiveBuffer() }
+    constructor(host: InetAddress, port: Int, localAddr: InetAddress, localPort: Int) : super(host, port, localAddr, localPort) { applyReceiveBuffer() }
+
+    /**
+     * Enlarge the TCP receive buffer so the kernel can absorb data while
+     * ExoPlayer's loader briefly pauses (buffer full → waits for playback
+     * to consume ~2s before resuming). With a large receive buffer the TCP
+     * window stays open and the server keeps sending instead of seeing us
+     * as idle and closing the connection. 4 MB handles streams up to ~25 Mbps
+     * with a 1-2 second loader gap.
+     *
+     * OkHttp calls createSocket() (no-args) then connect() separately, so
+     * the buffer is set BEFORE the TCP handshake for optimal window negotiation.
+     */
+    private fun applyReceiveBuffer() {
+        try { receiveBufferSize = RECV_BUFFER_SIZE } catch (_: Exception) { /* kernel may cap */ }
+    }
+
+    companion object {
+        private const val RECV_BUFFER_SIZE = 4 * 1024 * 1024 // 4 MB
+    }
 
     override fun getInputStream(): InputStream {
         if (wrappedInput == null) {

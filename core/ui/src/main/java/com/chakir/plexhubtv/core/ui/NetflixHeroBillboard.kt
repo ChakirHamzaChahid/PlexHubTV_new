@@ -3,7 +3,6 @@ package com.chakir.plexhubtv.core.ui
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -108,8 +107,7 @@ fun NetflixHeroBillboard(
 
     Box(
         modifier = modifier
-            .fillMaxWidth()
-            .height(450.dp) // Reduced height per design spec
+            .fillMaxSize()
             .onGloballyPositioned { coordinates ->
                 val bounds = coordinates.boundsInWindow()
                 isVisibleOnScreen = !bounds.isEmpty && bounds.bottom > 0f
@@ -241,6 +239,9 @@ fun NetflixHeroBillboard(
                     onClick = { onInfo(currentItem) },
                     onNavigateDown = onNavigateDown,
                     onNavigateUp = onNavigateUp,
+                    onNextHero = if (items.size > 1) {
+                        { currentIndex = (currentIndex + 1) % items.size }
+                    } else null,
                     modifier = Modifier
                         .focusRequester(infoButtonFocusRequester)
                         .testTag("hero_info_button")
@@ -286,13 +287,12 @@ fun NetflixPlayButton(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White,
-            contentColor = Color.Black
+            containerColor = if (isFocused) Color.White else Color.White.copy(alpha = 0.15f),
+            contentColor = if (isFocused) Color.Black else Color.White
         ),
         interactionSource = interactionSource,
         contentPadding = ButtonDefaults.ContentPadding,
         modifier = modifier
-            .border(2.dp, if (isFocused) Color.White else Color.Transparent)
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
                     when (keyEvent.nativeKeyEvent.keyCode) {
@@ -332,6 +332,7 @@ fun NetflixInfoButton(
     modifier: Modifier = Modifier,
     onNavigateDown: (() -> Unit)? = null,
     onNavigateUp: (() -> Unit)? = null,
+    onNextHero: (() -> Unit)? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -341,12 +342,11 @@ fun NetflixInfoButton(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isFocused) Color.Gray.copy(alpha = 0.8f) else Color.Gray.copy(alpha = 0.5f),
-            contentColor = Color.White
+            containerColor = if (isFocused) Color.White else Color.White.copy(alpha = 0.15f),
+            contentColor = if (isFocused) Color.Black else Color.White
         ),
         interactionSource = interactionSource,
         modifier = modifier
-            .border(2.dp, if (isFocused) Color.White else Color.Transparent)
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
                     when (keyEvent.nativeKeyEvent.keyCode) {
@@ -357,6 +357,10 @@ fun NetflixInfoButton(
                         android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
                             onNavigateDown?.invoke()
                             true
+                        }
+                        android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            onNextHero?.invoke()
+                            onNextHero != null
                         }
                         else -> false
                     }

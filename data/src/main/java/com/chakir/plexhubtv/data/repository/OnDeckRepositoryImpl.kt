@@ -144,12 +144,20 @@ class OnDeckRepositoryImpl
                     allEntities
                 }
 
+                // Sort merged results: items with lastViewedAt first (most recent),
+                // then items without (preserving Plex API order via stable sort).
+                val sorted = filteredEntities.sortedByDescending { it.lastViewedAt }
+
                 // Update DB transactionally
-                mediaDao.upsertMedia(filteredEntities)
+                mediaDao.upsertMedia(sorted)
+
+                // Clear stale On Deck entries before inserting fresh ones —
+                // without this, items removed from On Deck months ago persist forever.
+                homeContentDao.clearHomeContent("onDeck", "onDeck")
 
                 // Update HomeContent for ordering
                 val homeContent =
-                    filteredEntities.mapIndexed { index, entity ->
+                    sorted.mapIndexed { index, entity ->
                         com.chakir.plexhubtv.core.database.HomeContentEntity(
                             type = "onDeck",
                             hubIdentifier = "onDeck",

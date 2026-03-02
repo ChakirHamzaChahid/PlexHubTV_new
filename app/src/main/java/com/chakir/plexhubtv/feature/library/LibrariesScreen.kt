@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
@@ -53,6 +54,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import com.chakir.plexhubtv.core.ui.HandleErrors
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -91,6 +93,7 @@ import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.zIndex
 
 // ... (Rest of imports likely preserved by smart apply, but I should be careful)
@@ -110,26 +113,26 @@ fun LibraryRoute(
         derivedStateOf { LibraryTab.values().filter { it == LibraryTab.Browse } }
     }
     val selectedTabIndex by remember {
-        derivedStateOf { visibleTabs.indexOf(state.selectedTab).coerceAtLeast(0) }
+        derivedStateOf { visibleTabs.indexOf(state.display.selectedTab).coerceAtLeast(0) }
     }
     val showSidebar by remember {
-        derivedStateOf { state.currentSort == "Title" }
+        derivedStateOf { state.filter.currentSort == "Title" }
     }
     val serverLabel by remember {
         derivedStateOf {
-            if (state.selectedServerFilter != null) "Server: ${state.selectedServerFilter}" else "Server: All"
+            if (state.filter.selectedServerFilter != null) "Server: ${state.filter.selectedServerFilter}" else "Server: All"
         }
     }
     val isServerFiltered by remember {
-        derivedStateOf { state.selectedServerFilter != null }
+        derivedStateOf { state.filter.selectedServerFilter != null }
     }
     val genreLabel by remember {
         derivedStateOf {
-            if (state.selectedGenre != null) "Genre: ${state.selectedGenre}" else "Genre: All"
+            if (state.filter.selectedGenre != null) "Genre: ${state.filter.selectedGenre}" else "Genre: All"
         }
     }
     val isGenreFiltered by remember {
-        derivedStateOf { state.selectedGenre != null }
+        derivedStateOf { state.filter.selectedGenre != null }
     }
 
     // Handle navigation events
@@ -152,7 +155,7 @@ fun LibraryRoute(
         state = state,
         pagedItems = pagedItems,
         onAction = viewModel::onAction,
-        scrollRequest = state.initialScrollIndex,
+        scrollRequest = state.scroll.initialScrollIndex,
         onScrollConsumed = { },
         snackbarHostState = snackbarHostState,
         visibleTabs = visibleTabs,
@@ -184,6 +187,16 @@ fun LibrariesScreen(
 ) {
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
+    val topBarFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    var topBarHasFocus by remember { mutableStateOf(false) }
+
+    // Back handler: move focus to top bar instead of leaving the screen.
+    // If top bar already has focus, let the system handle back (exit to home).
+    BackHandler(enabled = !topBarHasFocus) {
+        try {
+            topBarFocusRequester.requestFocus()
+        } catch (_: Exception) { }
+    }
 
     LaunchedEffect(scrollRequest) {
         if (scrollRequest != null) {
@@ -198,10 +211,10 @@ fun LibrariesScreen(
         topBar = {
             Column(modifier = Modifier.background(NetflixBlack)) { // Update TopBar background
                 // Main Top Bar
-                if (state.isSearchVisible) {
+                if (state.filter.isSearchVisible) {
                     SearchAppBar(
-                        query = state.searchQuery,
-                        onQueryChange = { onAction(LibraryAction.UpdateSearchQuery(it)) },
+                        query = state.filter.searchQuery,
+                        onSearch = { onAction(LibraryAction.UpdateSearchQuery(it)) },
                         onClose = { onAction(LibraryAction.ToggleSearch) },
                     )
                 } else {
@@ -209,26 +222,29 @@ fun LibrariesScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 58.dp, top = 80.dp, end = 58.dp, bottom = 16.dp),
+                            .padding(start = 58.dp, top = 80.dp, end = 58.dp, bottom = 16.dp)
+                            .onFocusChanged { focusState ->
+                                topBarHasFocus = focusState.hasFocus
+                            },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         // Left side: Title
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = stringResource(if (state.mediaType == MediaType.Movie) R.string.library_movies else R.string.library_tv_shows),
+                                text = stringResource(if (state.display.mediaType == MediaType.Movie) R.string.library_movies else R.string.library_tv_shows),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
-                            if (state.totalItems > 0) {
+                            if (state.display.totalItems > 0) {
                                 Spacer(modifier = Modifier.width(12.dp))
-                                val hasActiveFilter = state.filteredItems != null && state.filteredItems != state.totalItems
+                                val hasActiveFilter = state.display.filteredItems != null && state.display.filteredItems != state.display.totalItems
                                 Text(
                                     text = if (hasActiveFilter) {
-                                        stringResource(R.string.library_title_count_filtered, state.filteredItems ?: 0, state.totalItems)
+                                        stringResource(R.string.library_title_count_filtered, state.display.filteredItems ?: 0, state.display.totalItems)
                                     } else {
-                                        stringResource(R.string.library_title_count, state.totalItems)
+                                        stringResource(R.string.library_title_count, state.display.totalItems)
                                     },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = Color.White.copy(alpha = 0.5f),
@@ -246,7 +262,8 @@ fun LibrariesScreen(
                                 text = serverLabel,
                                 isActive = isServerFiltered,
                                 onClick = { onAction(LibraryAction.OpenServerFilter) },
-                                testTag = "library_filter_server"
+                                testTag = "library_filter_server",
+                                focusRequester = topBarFocusRequester,
                             )
 
                             FilterButton(
@@ -257,7 +274,7 @@ fun LibrariesScreen(
                             )
 
                             FilterButton(
-                                text = state.currentSort ?: "Title",
+                                text = state.filter.currentSort,
                                 isActive = false,
                                 onClick = { onAction(LibraryAction.OpenSortDialog) },
                                 testTag = "library_sort_button"
@@ -278,16 +295,24 @@ fun LibrariesScreen(
                                 )
                             }
 
-                            // View Mode Switch
+                            // View Mode Switch (Grid → Compact → List → Grid)
                             IconButton(
                                 onClick = {
-                                    val newMode = if (state.viewMode == LibraryViewMode.Grid) LibraryViewMode.List else LibraryViewMode.Grid
+                                    val newMode = when (state.display.viewMode) {
+                                        LibraryViewMode.Grid -> LibraryViewMode.Compact
+                                        LibraryViewMode.Compact -> LibraryViewMode.List
+                                        LibraryViewMode.List -> LibraryViewMode.Grid
+                                    }
                                     onAction(LibraryAction.ChangeViewMode(newMode))
                                 },
                                 modifier = Modifier.testTag("library_view_mode")
                             ) {
                                 Icon(
-                                    imageVector = if (state.viewMode == LibraryViewMode.Grid) Icons.Default.List else Icons.Default.GridView,
+                                    imageVector = when (state.display.viewMode) {
+                                        LibraryViewMode.Grid -> Icons.Default.Apps
+                                        LibraryViewMode.Compact -> Icons.Default.List
+                                        LibraryViewMode.List -> Icons.Default.GridView
+                                    },
                                     contentDescription = stringResource(R.string.library_view_mode_description),
                                     tint = Color.White
                                 )
@@ -340,17 +365,17 @@ fun LibrariesScreen(
                 Modifier
                     .padding(padding)
                     .fillMaxSize()
-                    .testTag(if (state.mediaType == MediaType.Movie) "screen_movies" else "screen_tvshows")
+                    .testTag(if (state.display.mediaType == MediaType.Movie) "screen_movies" else "screen_tvshows")
                     .semantics {
-                        contentDescription = if (state.mediaType == MediaType.Movie) "Écran de films" else "Écran de séries"
+                        contentDescription = if (state.display.mediaType == MediaType.Movie) "Écran de films" else "Écran de séries"
                     }
                     .background(NetflixBlack),
         ) {
             // ... (Dialogs preserved)
-            if (state.isServerFilterOpen) {
+            if (state.dialog.isServerFilterOpen) {
                 ServerFilterDialog(
-                    availableServers = state.availableServers,
-                    selectedServer = state.selectedServerFilter,
+                    availableServers = state.filter.availableServers,
+                    selectedServer = state.filter.selectedServerFilter,
                     onDismiss = { onAction(LibraryAction.CloseServerFilter) },
                     onApply = { server ->
                         onAction(LibraryAction.SelectServerFilter(server))
@@ -359,10 +384,10 @@ fun LibrariesScreen(
                 )
             }
 
-            if (state.isGenreFilterOpen) {
+            if (state.dialog.isGenreFilterOpen) {
                 GenreFilterDialog(
-                    availableGenres = state.availableGenres,
-                    selectedGenre = state.selectedGenre,
+                    availableGenres = state.filter.availableGenres,
+                    selectedGenre = state.filter.selectedGenre,
                     onDismiss = { onAction(LibraryAction.CloseGenreFilter) },
                     onApply = { genre ->
                         onAction(LibraryAction.SelectGenre(genre))
@@ -371,10 +396,10 @@ fun LibrariesScreen(
                 )
             }
 
-            if (state.isSortDialogOpen) {
+            if (state.dialog.isSortDialogOpen) {
                 SortDialog(
-                    currentSort = state.currentSort,
-                    isDescending = state.isSortDescending,
+                    currentSort = state.filter.currentSort,
+                    isDescending = state.filter.isSortDescending,
                     onDismiss = { onAction(LibraryAction.CloseSortDialog) },
                     onSelectSort = { sort: String, isDesc: Boolean -> onAction(LibraryAction.ApplySort(sort, isDesc)) },
                 )
@@ -390,15 +415,15 @@ fun LibrariesScreen(
                 }
                 // Content
                 else -> {
-                    if (state.selectedTab == LibraryTab.Recommended) {
+                    if (state.display.selectedTab == LibraryTab.Recommended) {
                         RecommendedContent(
-                            hubs = state.hubs,
+                            hubs = state.display.hubs,
                             onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
                         )
                     } else {
                         LibraryContent(
                             pagedItems = pagedItems,
-                            viewMode = state.viewMode,
+                            viewMode = state.display.viewMode,
                             onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
                             onAction = onAction,
                             gridState = gridState,
@@ -406,7 +431,7 @@ fun LibrariesScreen(
                             showSidebar = showSidebar,
                             scrollRequest = scrollRequest,
                             onScrollConsumed = onScrollConsumed,
-                            lastFocusedId = state.lastFocusedId,
+                            lastFocusedId = state.scroll.lastFocusedId,
                         )
                     }
                 }
@@ -421,6 +446,7 @@ fun FilterButton(
     isActive: Boolean = false,
     onClick: () -> Unit,
     testTag: String = "",
+    focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
 ) {
     // Netflix style chips: Dark grey background, White text.
     val containerColor = if (isActive) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
@@ -438,6 +464,7 @@ fun FilterButton(
         shape = RoundedCornerShape(50),
         modifier = Modifier
             .height(32.dp)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .then(if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier),
     ) {
         Text(text = text, style = MaterialTheme.typography.labelMedium)
@@ -469,111 +496,121 @@ fun LibraryContent(
 
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
-            if (viewMode == LibraryViewMode.Grid) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 140.dp),
-                    state = gridState,
-                    contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("library_grid")
-                        .semantics { contentDescription = "Grille de la bibliothèque" },
-                ) {
-                    items(
-                        count = pagedItems.itemCount,
-                        key = pagedItems.itemKey { it.id },
-                        contentType = pagedItems.itemContentType { "media_item" },
-                    ) { index ->
-                        val item = pagedItems[index]
-                        if (item != null) {
-                            val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
-                            var isFocused by remember { mutableStateOf(false) }
+            when (viewMode) {
+                LibraryViewMode.Grid, LibraryViewMode.Compact -> {
+                    val isCompact = viewMode == LibraryViewMode.Compact
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = if (isCompact) 90.dp else 140.dp),
+                        state = gridState,
+                        contentPadding = PaddingValues(
+                            start = if (isCompact) 40.dp else 58.dp,
+                            end = if (isCompact) 40.dp else 58.dp,
+                            top = 16.dp,
+                            bottom = 32.dp,
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag(if (isCompact) "library_compact_grid" else "library_grid")
+                            .semantics { contentDescription = "Grille de la bibliothèque" },
+                    ) {
+                        items(
+                            count = pagedItems.itemCount,
+                            key = pagedItems.itemKey { it.id },
+                            contentType = pagedItems.itemContentType { "media_item" },
+                        ) { index ->
+                            val item = pagedItems[index]
+                            if (item != null) {
+                                val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
+                                var isFocused by remember { mutableStateOf(false) }
 
-                            if (shouldRestoreFocus) {
-                                LaunchedEffect(Unit) {
-                                    try {
-                                        focusRestorationRequester.requestFocus()
-                                        hasRestoredFocus = true
-                                    } catch (_: Exception) { }
+                                if (shouldRestoreFocus) {
+                                    LaunchedEffect(Unit) {
+                                        try {
+                                            focusRestorationRequester.requestFocus()
+                                            hasRestoredFocus = true
+                                        } catch (_: Exception) { }
+                                    }
                                 }
-                            }
 
-                            Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                                NetflixMediaCard(
-                                    media = item,
-                                    onClick = { onItemClick(item) },
-                                    onPlay = { },
-                                    onFocus = { focused ->
-                                        isFocused = focused
-                                        if (focused) {
-                                            onAction(LibraryAction.OnItemFocused(item))
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .then(
-                                            if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
-                                        )
+                                Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
+                                    NetflixMediaCard(
+                                        media = item,
+                                        onClick = { onItemClick(item) },
+                                        onPlay = { },
+                                        onFocus = { focused ->
+                                            isFocused = focused
+                                            if (focused) {
+                                                onAction(LibraryAction.OnItemFocused(item))
+                                            }
+                                        },
+                                        compact = isCompact,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .then(
+                                                if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
+                                            )
+                                    )
+                                }
+                            } else {
+                                // Placeholder
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .height(if (isCompact) 135.dp else 250.dp)
+                                            .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)),
                                 )
                             }
-                        } else {
-                            // Placeholder
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(250.dp)
-                                        .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)),
-                            )
                         }
-                    }
-                    
-                     if (pagedItems.loadState.append is LoadState.Loading) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            LoadingMoreIndicator()
+
+                         if (pagedItems.loadState.append is LoadState.Loading) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                LoadingMoreIndicator()
+                            }
                         }
                     }
                 }
-            } else {
-                // List View
-                LazyColumn(
-                    state = listState,
-                    contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(
-                        count = pagedItems.itemCount,
-                        key = pagedItems.itemKey { it.id },
-                        contentType = pagedItems.itemContentType { "media_item" },
-                    ) { index ->
-                        val item = pagedItems[index]
-                        if (item != null) {
-                            Row(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable { onItemClick(item) }
-                                        .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
-                                        .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Thumbnail(url = item.thumbUrl, modifier = Modifier.size(60.dp, 90.dp))
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column {
-                                    Text(text = item.title, style = MaterialTheme.typography.titleMedium, color = Color.White)
-                                    Text(text = "${item.year ?: ""}", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
+
+                LibraryViewMode.List -> {
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(start = 58.dp, end = 58.dp, top = 16.dp, bottom = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(
+                            count = pagedItems.itemCount,
+                            key = pagedItems.itemKey { it.id },
+                            contentType = pagedItems.itemContentType { "media_item" },
+                        ) { index ->
+                            val item = pagedItems[index]
+                            if (item != null) {
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onItemClick(item) }
+                                            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                                            .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Thumbnail(url = item.thumbUrl, modifier = Modifier.size(60.dp, 90.dp))
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column {
+                                        Text(text = item.title, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                                        Text(text = "${item.year ?: ""}", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
+                                    }
                                 }
+                            } else {
+                                // Placeholder
+                                Box(modifier = Modifier.height(80.dp).fillMaxWidth().background(Color.White.copy(alpha = 0.1f)))
                             }
-                        } else {
-                            // Placeholder
-                            Box(modifier = Modifier.height(80.dp).fillMaxWidth().background(Color.White.copy(alpha = 0.1f)))
                         }
-                    }
-                    if (pagedItems.loadState.append is LoadState.Loading) {
-                        item { LoadingMoreIndicator() }
+                        if (pagedItems.loadState.append is LoadState.Loading) {
+                            item { LoadingMoreIndicator() }
+                        }
                     }
                 }
             }

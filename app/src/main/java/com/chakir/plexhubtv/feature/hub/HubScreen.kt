@@ -210,10 +210,12 @@ fun HubContent(
         hubs.forEachIndexed { index, hub ->
             item(key = hub.hubIdentifier ?: hub.title ?: hub.key ?: "hub_$index") {
                 val isFirstItem = !hasContinueWatching && !hasMyList && index == 0
+                val isEpisodeHub = hub.type == "episode"
+                        || hub.items.firstOrNull()?.type == com.chakir.plexhubtv.core.model.MediaType.Episode
                 NetflixContentRow(
                     title = hub.title ?: "",
                     items = hub.items,
-                    cardType = CardType.POSTER,
+                    cardType = if (isEpisodeHub) CardType.WIDE else CardType.POSTER,
                     onItemClick = { onAction(HubAction.OpenMedia(it)) },
                     onItemPlay = { onAction(HubAction.PlayMedia(it)) },
                     rowId = hub.hubIdentifier ?: hub.title?.lowercase()?.replace(" ", "_") ?: "hub_$index",

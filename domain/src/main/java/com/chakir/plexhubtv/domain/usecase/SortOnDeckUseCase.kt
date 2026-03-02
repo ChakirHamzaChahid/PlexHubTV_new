@@ -8,8 +8,10 @@ import javax.inject.Singleton
 /**
  * Tri intelligent des items On Deck / Continue Watching.
  *
- * Clé 1 : `lastViewedAt` décroissant (les plus récemment regardés en premier).
- * Clé 2 : priorité aux épisodes/films en cours de visionnage (< 90% de progression)
+ * Clé 1 : timestamp effectif décroissant — `lastViewedAt` si disponible,
+ *          sinon `addedAt` comme indicateur de récence pour les épisodes
+ *          de continuation (non commencés mais "prochains" dans une série).
+ * Clé 2 : priorité aux épisodes/films en cours de visionnage (< 90 %)
  *          par rapport aux items terminés mais encore présents dans On Deck.
  */
 @Singleton
@@ -18,9 +20,21 @@ class SortOnDeckUseCase
     constructor() {
         operator fun invoke(items: List<MediaItem>): List<MediaItem> =
             items.sortedWith(
-                compareByDescending<MediaItem> { it.lastViewedAt ?: 0L }
+                compareByDescending<MediaItem> { effectiveTimestamp(it) }
                     .thenByDescending { priorityScore(it) },
             )
+
+        /**
+         * Returns the best available recency timestamp for sorting.
+         * - Items with `lastViewedAt > 0`: use it directly (most accurate).
+         * - Continuation episodes (`lastViewedAt = 0/null`): fall back to `addedAt`
+         *   which approximates when the show became relevant in the library.
+         */
+        private fun effectiveTimestamp(item: MediaItem): Long {
+            val viewed = item.lastViewedAt ?: 0L
+            if (viewed > 0L) return viewed
+            return item.addedAt ?: 0L
+        }
 
         private fun priorityScore(item: MediaItem): Int {
             val duration = item.durationMs ?: return 0

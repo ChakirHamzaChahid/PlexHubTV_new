@@ -59,7 +59,7 @@ class LibraryViewModel
         private val savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         // État de l'UI exposé de manière immuable (StateFlow)
-        private val _uiState = MutableStateFlow(LibraryUiState(isLoading = true))
+        private val _uiState = MutableStateFlow(LibraryUiState(display = LibraryDisplayState(isLoading = true)))
         val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
         // Canal pour les événements de navigation (Effets uniques, ex: Toast, Navigation)
@@ -80,28 +80,28 @@ class LibraryViewModel
         val pagedItems: kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<MediaItem>> =
             _uiState
                 .map { state ->
-                    val serverFilterId = state.availableServersMap[state.selectedServerFilter]
+                    val serverFilterId = state.filter.availableServersMap[state.filter.selectedServerFilter]
 
                     // Map UI Genre to database genre keyword list
                     val genreQuery =
-                        if (state.selectedGenre != null && state.selectedGenre != "All") {
-                            com.chakir.plexhubtv.core.model.GenreGrouping.GROUPS[state.selectedGenre] ?: listOf(state.selectedGenre)
+                        if (state.filter.selectedGenre != null && state.filter.selectedGenre != "All") {
+                            com.chakir.plexhubtv.core.model.GenreGrouping.GROUPS[state.filter.selectedGenre] ?: listOf(state.filter.selectedGenre)
                         } else {
                             null
                         }
 
                     FilterParams(
-                        filter = state.currentFilter,
-                        sort = state.currentSort,
-                        isDescending = state.isSortDescending,
-                        libraryId = state.selectedLibraryId ?: "default",
-                        mediaType = state.mediaType,
+                        filter = state.filter.currentFilter,
+                        sort = state.filter.currentSort,
+                        isDescending = state.filter.isSortDescending,
+                        libraryId = state.selection.selectedLibraryId ?: "default",
+                        mediaType = state.display.mediaType,
                         genre = genreQuery,
-                        serverId = state.selectedServerId ?: "all",
+                        serverId = state.selection.selectedServerId ?: "all",
                         serverFilterId = serverFilterId,
-                        excludedServerIds = state.excludedServerIds.toList(),
-                        initialScrollIndex = state.initialScrollIndex,
-                        query = state.searchQuery.ifBlank { null },
+                        excludedServerIds = state.filter.excludedServerIds.toList(),
+                        initialScrollIndex = state.scroll.initialScrollIndex,
+                        query = state.filter.searchQuery.ifBlank { null },
                     )
                 }
                 .distinctUntilChanged { old, new ->
@@ -169,11 +169,9 @@ class LibraryViewModel
 
             _uiState.update {
                 it.copy(
-                    mediaType = initialMediaType,
-                    isLoading = true,
-                    selectedLibraryId = restoredLibraryId,
-                    initialScrollIndex = restoredItemIndex,
-                    lastFocusedId = restoredFocusId,
+                    display = it.display.copy(mediaType = initialMediaType, isLoading = true),
+                    selection = it.selection.copy(selectedLibraryId = restoredLibraryId),
+                    scroll = it.scroll.copy(initialScrollIndex = restoredItemIndex, lastFocusedId = restoredFocusId),
                 )
             }
 
@@ -188,7 +186,7 @@ class LibraryViewModel
                         Timber.e(e, "LibraryViewModel: excludedServerIds collection failed")
                     }
                 ) { excluded ->
-                    _uiState.update { it.copy(excludedServerIds = excluded) }
+                    _uiState.update { it.copy(filter = it.filter.copy(excludedServerIds = excluded)) }
                 }
 
                 // Restore persisted filter preferences
@@ -203,10 +201,12 @@ class LibraryViewModel
 
                 _uiState.update {
                     it.copy(
-                        currentSort = savedSort,
-                        isSortDescending = savedSortDesc,
-                        selectedGenre = savedGenre,
-                        selectedServerFilter = serverFilter,
+                        filter = it.filter.copy(
+                            currentSort = savedSort,
+                            isSortDescending = savedSortDesc,
+                            selectedGenre = savedGenre,
+                            selectedServerFilter = serverFilter,
+                        ),
                     )
                 }
             }
@@ -215,24 +215,24 @@ class LibraryViewModel
             viewModelScope.launch {
                 _uiState
                     .map { state ->
-                        val serverFilterId = state.availableServersMap[state.selectedServerFilter]
+                        val serverFilterId = state.filter.availableServersMap[state.filter.selectedServerFilter]
                         val genreQuery =
-                            if (state.selectedGenre != null && state.selectedGenre != "All") {
-                                com.chakir.plexhubtv.core.model.GenreGrouping.GROUPS[state.selectedGenre] ?: listOf(state.selectedGenre)
+                            if (state.filter.selectedGenre != null && state.filter.selectedGenre != "All") {
+                                com.chakir.plexhubtv.core.model.GenreGrouping.GROUPS[state.filter.selectedGenre] ?: listOf(state.filter.selectedGenre)
                             } else {
                                 null
                             }
                         CountParams(
-                            filter = state.currentFilter,
-                            sort = state.currentSort,
-                            isDescending = state.isSortDescending,
-                            libraryId = state.selectedLibraryId ?: "default",
-                            mediaType = state.mediaType,
+                            filter = state.filter.currentFilter,
+                            sort = state.filter.currentSort,
+                            isDescending = state.filter.isSortDescending,
+                            libraryId = state.selection.selectedLibraryId ?: "default",
+                            mediaType = state.display.mediaType,
                             genre = genreQuery,
-                            serverId = state.selectedServerId ?: "all",
+                            serverId = state.selection.selectedServerId ?: "all",
                             serverFilterId = serverFilterId,
-                            excludedServerIds = state.excludedServerIds.toList(),
-                            query = state.searchQuery.ifBlank { null },
+                            excludedServerIds = state.filter.excludedServerIds.toList(),
+                            query = state.filter.searchQuery.ifBlank { null },
                         )
                     }
                     .distinctUntilChanged()
@@ -250,7 +250,7 @@ class LibraryViewModel
                                 libraryKey = params.libraryId,
                                 query = params.query,
                             )
-                            _uiState.update { it.copy(filteredItems = count) }
+                            _uiState.update { it.copy(display = it.display.copy(filteredItems = count)) }
                         } catch (e: Exception) {
                             Timber.e(e, "Failed to compute filtered count")
                         }
@@ -321,16 +321,13 @@ class LibraryViewModel
 
                 _uiState.update {
                     it.copy(
-                        availableServers = serverNames,
-                        availableServersMap = serverMap,
-                        availableGenres = allGenres,
-                        totalItems = totalCount,
-                        isLoading = false,
+                        display = it.display.copy(totalItems = totalCount, isLoading = false),
+                        filter = it.filter.copy(availableServers = serverNames, availableServersMap = serverMap, availableGenres = allGenres),
                     )
                 }
 
                 // Si la bibliothèque semble vide ou corrompue, déclencher une synchro arrière-plan
-                if (totalCount < 100 && _uiState.value.selectedServerId == "all") {
+                if (totalCount < 100 && _uiState.value.selection.selectedServerId == "all") {
                     Timber.i("Low item count ($totalCount), triggering background sync...")
                     triggerBackgroundSync()
                 }
@@ -346,7 +343,7 @@ class LibraryViewModel
                     emitError(e.toAppError())
                 }
 
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update { it.copy(display = it.display.copy(isLoading = false)) }
             }
         }
 
@@ -379,10 +376,10 @@ class LibraryViewModel
             Timber.d("ACTION [Library] Action=${action.javaClass.simpleName}")
             when (action) {
                 is LibraryAction.SelectTab -> {
-                    _uiState.update { it.copy(selectedTab = action.tab) }
+                    _uiState.update { it.copy(display = it.display.copy(selectedTab = action.tab)) }
                 }
                 is LibraryAction.ChangeViewMode -> {
-                    _uiState.update { it.copy(viewMode = action.mode) }
+                    _uiState.update { it.copy(display = it.display.copy(viewMode = action.mode)) }
                 }
                 is LibraryAction.LoadNextPage -> {
                     // Handled by Paging 3 automatically
@@ -392,47 +389,52 @@ class LibraryViewModel
                 }
                 is LibraryAction.OpenMedia -> {
                     // Sync lastFocusedId to UiState before navigation so focus can be restored on back
-                    _uiState.update { it.copy(lastFocusedId = action.media.ratingKey) }
+                    _uiState.update { it.copy(scroll = it.scroll.copy(lastFocusedId = action.media.ratingKey)) }
                     viewModelScope.launch {
                         _navigationEvents.send(LibraryNavigationEvent.NavigateToDetail(action.media.ratingKey, action.media.serverId))
                     }
                 }
                 is LibraryAction.SelectLibrary -> {
                     savedStateHandle["selectedLibraryId"] = action.libraryId
-                    _uiState.update { it.copy(selectedLibraryId = action.libraryId) }
+                    _uiState.update { it.copy(selection = it.selection.copy(selectedLibraryId = action.libraryId)) }
                 }
                 is LibraryAction.ApplyFilter -> {
-                    _uiState.update { it.copy(currentFilter = action.filter) }
+                    _uiState.update { it.copy(filter = it.filter.copy(currentFilter = action.filter)) }
                 }
                 is LibraryAction.ApplySort -> {
-                    _uiState.update { it.copy(currentSort = action.sort, isSortDescending = action.isDescending, isSortDialogOpen = false) }
+                    _uiState.update {
+                        it.copy(
+                            filter = it.filter.copy(currentSort = action.sort, isSortDescending = action.isDescending),
+                            dialog = it.dialog.copy(isSortDialogOpen = false),
+                        )
+                    }
                     viewModelScope.launch { settingsRepository.saveLibrarySort(action.sort, action.isDescending) }
                 }
-                is LibraryAction.OpenServerFilter -> _uiState.update { it.copy(isServerFilterOpen = true) }
-                is LibraryAction.CloseServerFilter -> _uiState.update { it.copy(isServerFilterOpen = false) }
-                is LibraryAction.OpenGenreFilter -> _uiState.update { it.copy(isGenreFilterOpen = true) }
-                is LibraryAction.CloseGenreFilter -> _uiState.update { it.copy(isGenreFilterOpen = false) }
-                is LibraryAction.OpenSortDialog -> _uiState.update { it.copy(isSortDialogOpen = true) }
-                is LibraryAction.CloseSortDialog -> _uiState.update { it.copy(isSortDialogOpen = false) }
+                is LibraryAction.OpenServerFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isServerFilterOpen = true)) }
+                is LibraryAction.CloseServerFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isServerFilterOpen = false)) }
+                is LibraryAction.OpenGenreFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isGenreFilterOpen = true)) }
+                is LibraryAction.CloseGenreFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isGenreFilterOpen = false)) }
+                is LibraryAction.OpenSortDialog -> _uiState.update { it.copy(dialog = it.dialog.copy(isSortDialogOpen = true)) }
+                is LibraryAction.CloseSortDialog -> _uiState.update { it.copy(dialog = it.dialog.copy(isSortDialogOpen = false)) }
                 is LibraryAction.ToggleSearch -> {
                     _uiState.update {
-                        val newVisible = !it.isSearchVisible
+                        val newVisible = !it.filter.isSearchVisible
                         if (!newVisible) {
-                            it.copy(isSearchVisible = false, searchQuery = "")
+                            it.copy(filter = it.filter.copy(isSearchVisible = false, searchQuery = ""))
                         } else {
-                            it.copy(isSearchVisible = true)
+                            it.copy(filter = it.filter.copy(isSearchVisible = true))
                         }
                     }
                 }
                 is LibraryAction.UpdateSearchQuery -> {
-                    _uiState.update { it.copy(searchQuery = action.query) }
+                    _uiState.update { it.copy(filter = it.filter.copy(searchQuery = action.query)) }
                 }
                 is LibraryAction.SelectGenre -> {
-                    _uiState.update { it.copy(selectedGenre = action.genre) }
+                    _uiState.update { it.copy(filter = it.filter.copy(selectedGenre = action.genre)) }
                     viewModelScope.launch { settingsRepository.saveLibraryGenre(action.genre) }
                 }
                 is LibraryAction.SelectServerFilter -> {
-                    _uiState.update { it.copy(selectedServerFilter = action.serverId) }
+                    _uiState.update { it.copy(filter = it.filter.copy(selectedServerFilter = action.serverId)) }
                     viewModelScope.launch { settingsRepository.saveLibraryServerFilter(action.serverId) }
                 }
                 is LibraryAction.OnItemFocused -> {
@@ -447,26 +449,26 @@ class LibraryViewModel
                         Timber.d("JumpToLetter: ${action.letter}")
 
                         // Calculate filter params similarly to pagedItems
-                        val serverFilterId = state.availableServersMap[state.selectedServerFilter]
+                        val serverFilterId = state.filter.availableServersMap[state.filter.selectedServerFilter]
                         val genreQuery =
-                            if (state.selectedGenre != null && state.selectedGenre != "All") {
-                                com.chakir.plexhubtv.core.model.GenreGrouping.GROUPS[state.selectedGenre] ?: listOf(state.selectedGenre)
+                            if (state.filter.selectedGenre != null && state.filter.selectedGenre != "All") {
+                                com.chakir.plexhubtv.core.model.GenreGrouping.GROUPS[state.filter.selectedGenre] ?: listOf(state.filter.selectedGenre)
                             } else {
                                 null
                             }
 
                         val idx =
                             getLibraryIndexUseCase(
-                                type = state.mediaType,
+                                type = state.display.mediaType,
                                 letter = action.letter,
-                                filter = state.currentFilter,
-                                sort = state.currentSort,
+                                filter = state.filter.currentFilter,
+                                sort = state.filter.currentSort,
                                 genre = genreQuery,
-                                serverId = state.selectedServerId,
+                                serverId = state.selection.selectedServerId,
                                 selectedServerId = serverFilterId,
-                                excludedServerIds = state.excludedServerIds.toList(),
-                                libraryKey = state.selectedLibraryId,
-                                query = state.searchQuery.ifBlank { null },
+                                excludedServerIds = state.filter.excludedServerIds.toList(),
+                                libraryKey = state.selection.selectedLibraryId,
+                                query = state.filter.searchQuery.ifBlank { null },
                             )
 
                         Timber.d("Calculated index for ${action.letter}: $idx")
@@ -474,7 +476,7 @@ class LibraryViewModel
                         if (idx >= 0) {
                             // Force reload with new initial Key
                             savedStateHandle["initialScrollIndex"] = idx
-                            _uiState.update { it.copy(initialScrollIndex = idx) }
+                            _uiState.update { it.copy(scroll = it.scroll.copy(initialScrollIndex = idx)) }
                             Timber.d("Updated initialScrollIndex to $idx. Triggering reload and scroll.")
                             _navigationEvents.send(LibraryNavigationEvent.ScrollToItem(idx))
                         } else {

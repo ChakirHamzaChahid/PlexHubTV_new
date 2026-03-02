@@ -2,24 +2,35 @@ package com.chakir.plexhubtv.feature.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
+
+private val DialogBackground = Color(0xFF1A1A1A)
 
 /**
  * Section container with a title.
@@ -157,6 +168,7 @@ fun SettingsSwitch(
 
 /**
  * Dialog for selecting a single option from a list.
+ * Netflix dark style with D-pad focus on the first item.
  */
 @Composable
 fun SettingsDialog(
@@ -166,57 +178,104 @@ fun SettingsDialog(
     onDismissRequest: () -> Unit,
     onOptionSelected: (String) -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismissRequest) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-        ) {
-            Column(modifier = Modifier.padding(vertical = 16.dp)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                )
-                HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
+    val firstItemFocusRequester = remember { FocusRequester() }
 
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp),
-                ) {
-                    items(options) { option ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = (option == currentValue),
-                                    onClick = { onOptionSelected(option) },
-                                    role = Role.RadioButton,
-                                )
-                                .padding(horizontal = 24.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = (option == currentValue),
-                                onClick = null, // Handled by Row
-                            )
-                            Spacer(Modifier.width(16.dp))
-                            Text(
-                                text = option,
-                                style = MaterialTheme.typography.bodyLarge,
+    LaunchedEffect(Unit) {
+        try { firstItemFocusRequester.requestFocus() } catch (_: Exception) { }
+    }
+
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.4f),
+                shape = RoundedCornerShape(16.dp),
+                color = DialogBackground,
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                        )
+                        IconButton(onClick = onDismissRequest) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = "Close",
+                                tint = NetflixLightGray,
                             )
                         }
                     }
-                }
 
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(end = 16.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onDismissRequest) {
-                        Text("Cancel")
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Options list
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 450.dp),
+                    ) {
+                        itemsIndexed(options) { index, option ->
+                            val isSelected = option == currentValue
+                            val interactionSource = remember { MutableInteractionSource() }
+                            val isFocused by interactionSource.collectIsFocusedAsState()
+
+                            val baseModifier = if (index == 0) {
+                                Modifier.focusRequester(firstItemFocusRequester)
+                            } else {
+                                Modifier
+                            }
+
+                            Row(
+                                baseModifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        when {
+                                            isFocused -> Color.White
+                                            isSelected -> Color.White.copy(alpha = 0.08f)
+                                            else -> Color.Transparent
+                                        },
+                                        RoundedCornerShape(8.dp),
+                                    )
+                                    .clickable(
+                                        interactionSource = interactionSource,
+                                        indication = null,
+                                        onClick = { onOptionSelected(option) },
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = null,
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = if (isFocused) Color.Black else Color.White,
+                                        unselectedColor = if (isFocused) Color.Black.copy(alpha = 0.6f) else NetflixLightGray,
+                                    ),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = option,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (isFocused) Color.Black else Color.White,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                )
+                            }
+                        }
                     }
                 }
             }

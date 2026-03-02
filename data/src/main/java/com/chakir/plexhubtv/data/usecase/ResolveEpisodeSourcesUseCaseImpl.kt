@@ -53,6 +53,7 @@ class ResolveEpisodeSourcesUseCaseImpl
                         serverId = episode.serverId,
                         ratingKey = episode.ratingKey,
                         serverName = serverMap[episode.serverId] ?: "Unknown",
+                        viewOffset = episode.viewOffset,
                     )
 
                 // Find matches on other servers
@@ -101,6 +102,7 @@ class ResolveEpisodeSourcesUseCaseImpl
                                                 ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
                                         thumbUrl = directMatch.thumbUrl,
                                         artUrl = directMatch.artUrl,
+                                        viewOffset = directMatch.viewOffset,
                                     )
                                 }
 
@@ -167,6 +169,7 @@ class ResolveEpisodeSourcesUseCaseImpl
                                                 ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
                                         thumbUrl = episodeItem.thumbUrl,
                                         artUrl = episodeItem.artUrl,
+                                        viewOffset = episodeItem.viewOffset,
                                     )
                                 } else {
                                     null

@@ -7,6 +7,7 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
@@ -45,7 +46,8 @@ class PrefetchNextEpisodeUseCaseTest {
         episodeNavigationUseCase = mockk()
         prefetchNextEpisodeUseCase = PrefetchNextEpisodeUseCase(
             mediaDetailRepository = mediaDetailRepository,
-            episodeNavigationUseCase = episodeNavigationUseCase
+            episodeNavigationUseCase = episodeNavigationUseCase,
+            ioDispatcher = Dispatchers.Unconfined
         )
     }
 

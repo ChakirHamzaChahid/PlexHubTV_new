@@ -192,6 +192,7 @@ class EnrichMediaItemUseCase
                     ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
                 thumbUrl = item.thumbUrl,
                 artUrl = item.artUrl,
+                viewOffset = item.viewOffset,
             )
         }
 

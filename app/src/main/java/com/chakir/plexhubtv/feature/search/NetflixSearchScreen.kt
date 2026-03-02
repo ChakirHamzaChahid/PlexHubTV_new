@@ -12,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -23,10 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chakir.plexhubtv.R
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.nativeKeyCode
-import androidx.compose.ui.input.key.type
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -73,33 +68,12 @@ fun NetflixSearchScreen(
             horizontalArrangement = Arrangement.spacedBy(32.dp)
         ) {
         // Left: On-Screen Keyboard
-        // UX18: Handle D-Pad DOWN to navigate from keyboard to results
+        // Focus navigation: Compose handles keyboard → results naturally via edge exit.
+        // NetflixContentRow's leftExitFocusRequester handles results → keyboard return.
         Column(
             modifier = Modifier
                 .weight(0.35f)
                 .fillMaxHeight()
-                .onPreviewKeyEvent { event ->
-                    if (event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
-                        when (event.key.nativeKeyCode) {
-                            android.view.KeyEvent.KEYCODE_DPAD_DOWN,
-                            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                                if (state.searchState == SearchState.Results && groupedResults.isNotEmpty()) {
-                                    try {
-                                        resultsFocusRequester.requestFocus()
-                                        true
-                                    } catch (e: Exception) {
-                                        false
-                                    }
-                                } else {
-                                    false
-                                }
-                            }
-                            else -> false
-                        }
-                    } else {
-                        false
-                    }
-                }
         ) {
             val queryDesc = stringResource(R.string.search_query_description, state.query.ifEmpty { searchEmpty })
             Text(

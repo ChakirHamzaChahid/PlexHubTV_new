@@ -64,7 +64,19 @@ fun AppProfileSelectionRoute(
         AppProfileSelectionScreen(
             profiles = uiState.profiles,
             onProfileSelected = { viewModel.onAction(AppProfileAction.SelectProfile(it)) },
+            onAddProfile = { viewModel.onAction(AppProfileAction.CreateProfile) },
             onManageProfiles = { viewModel.onAction(AppProfileAction.ManageProfiles) }
+        )
+    }
+
+    // Create profile dialog
+    if (uiState.showCreateDialog) {
+        ProfileFormDialog(
+            isEdit = false,
+            onSubmit = { name, emoji, isKids ->
+                viewModel.onAction(AppProfileAction.SubmitCreateProfile(name, emoji, isKids))
+            },
+            onDismiss = { viewModel.onAction(AppProfileAction.DismissDialog) },
         )
     }
 
@@ -84,6 +96,7 @@ fun AppProfileSelectionRoute(
 fun AppProfileSelectionScreen(
     profiles: List<Profile>,
     onProfileSelected: (Profile) -> Unit,
+    onAddProfile: () -> Unit,
     onManageProfiles: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -125,7 +138,7 @@ fun AppProfileSelectionScreen(
 
                 // Add Profile Button
                 if (profiles.size < 5) {
-                    AddAppProfileCard(onClick = onManageProfiles)
+                    AddAppProfileCard(onClick = onAddProfile)
                 }
             }
 

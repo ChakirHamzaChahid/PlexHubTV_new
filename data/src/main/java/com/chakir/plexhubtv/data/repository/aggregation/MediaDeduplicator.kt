@@ -119,6 +119,7 @@ class DefaultMediaDeduplicator
                                 languages = languages,
                                 thumbUrl = fullThumb,
                                 artUrl = fullArt,
+                                viewOffset = item.viewOffset,
                             )
                         }
 

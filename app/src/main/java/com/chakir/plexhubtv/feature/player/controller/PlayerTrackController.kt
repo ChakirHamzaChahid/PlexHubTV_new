@@ -53,16 +53,20 @@ class PlayerTrackController
                     finalSubtitleStreamId = dbPref?.subtitleStreamId
                 }
 
-                // Level 3 & 4: Metadata / Profile
+                // Level 3 & 4: Settings preferences / smart defaults
+                val audioStreams = part?.streams?.filterIsInstance<AudioStream>() ?: emptyList()
+                val subtitleStreams = part?.streams?.filterIsInstance<SubtitleStream>() ?: emptyList()
+
                 if (finalAudioStreamId == null) {
                     val preferredAudioLang = settingsRepository.preferredAudioLanguage.first()
                     val bestAudio =
                         if (preferredAudioLang != null) {
-                            part?.streams?.filterIsInstance<AudioStream>()?.find {
-                                areLanguagesEqual(it.language, preferredAudioLang)
-                            } ?: part?.streams?.filterIsInstance<AudioStream>()?.find { it.selected } // Fallback
+                            // Explicit language preference: match by language, fallback to Plex selected
+                            audioStreams.find { areLanguagesEqual(it.language, preferredAudioLang) }
+                                ?: audioStreams.find { it.selected }
                         } else {
-                            part?.streams?.filterIsInstance<AudioStream>()?.find { it.selected }
+                            // "Original" (null) = first audio stream, which is always the original language in Plex
+                            audioStreams.firstOrNull()
                         }
                     finalAudioStreamId = bestAudio?.id
                 }
@@ -71,11 +75,24 @@ class PlayerTrackController
                     val preferredSubLang = settingsRepository.preferredSubtitleLanguage.first()
                     val bestSub =
                         if (preferredSubLang != null) {
-                            part?.streams?.filterIsInstance<SubtitleStream>()?.find {
-                                areLanguagesEqual(it.language, preferredSubLang)
-                            } ?: part?.streams?.filterIsInstance<SubtitleStream>()?.find { it.selected } // Fallback
+                            // Explicit subtitle preference: match by language, fallback to Plex selected
+                            subtitleStreams.find { areLanguagesEqual(it.language, preferredSubLang) }
+                                ?: subtitleStreams.find { it.selected }
                         } else {
-                            part?.streams?.filterIsInstance<SubtitleStream>()?.find { it.selected }
+                            // No subtitle preference: auto-enable device-locale subtitles
+                            // when the selected audio is in a different language
+                            val chosenAudio = audioStreams.find { it.id == finalAudioStreamId }
+                            val deviceLang = java.util.Locale.getDefault().language // e.g. "fr"
+                            val audioMatchesDevice = chosenAudio?.language != null &&
+                                areLanguagesEqual(chosenAudio.language, deviceLang)
+
+                            if (!audioMatchesDevice) {
+                                // Audio is foreign → auto-enable subtitles in device language
+                                subtitleStreams.find { areLanguagesEqual(it.language, deviceLang) }
+                            } else {
+                                // Audio matches device locale → no subtitles needed
+                                null
+                            }
                         }
                     finalSubtitleStreamId = bestSub?.id
                 }

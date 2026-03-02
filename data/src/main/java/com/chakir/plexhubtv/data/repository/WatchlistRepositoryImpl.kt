@@ -123,20 +123,37 @@ class WatchlistRepositoryImpl
                     ?: return@withContext Result.failure(AppError.Auth.InvalidToken("No client ID"))
 
                 safeApiCall("syncWatchlist") {
-                    val response = api.getWatchlist(token, clientId)
+                    // Paginate to fetch ALL watchlist items (not just first 100)
+                    val allMetadata = mutableListOf<com.chakir.plexhubtv.core.network.model.MetadataDTO>()
+                    var offset = 0
+                    val pageSize = 100
 
-                    if (!response.isSuccessful) {
-                        throw AppError.Network.ServerError("Failed to fetch watchlist: ${response.code()}")
-                    }
+                    do {
+                        val response = api.getWatchlist(token, clientId, start = offset, size = pageSize)
 
-                    val metadata = response.body()?.mediaContainer?.metadata ?: emptyList()
+                        if (!response.isSuccessful) {
+                            throw AppError.Network.ServerError("Failed to fetch watchlist: ${response.code()}")
+                        }
+
+                        val container = response.body()?.mediaContainer
+                        val metadata = container?.metadata ?: emptyList()
+                        allMetadata.addAll(metadata)
+
+                        val totalSize = container?.totalSize ?: 0
+                        offset += pageSize
+                    } while (offset < totalSize)
 
                     // For each item in watchlist, check if we have it locally matching by GUID
-                    metadata.forEach { item ->
+                    allMetadata.forEachIndexed { index, item ->
                         val guid = item.guid // This is the Plex GUID e.g. plex://movie/5d77682...
                         if (guid != null) {
                             // Find local item(s) that match this GUID
                             val localItems = mediaDao.getAllMediaByGuid(guid) // Returns List<MediaEntity>
+
+                            // Use Plex API's addedAt (seconds → ms) to preserve watchlist order.
+                            // Fallback: descending index so first API item (newest) has highest value.
+                            val plexAddedAt = item.addedAt?.times(1000)
+                                ?: (System.currentTimeMillis() - index)
 
                             // Mark all matching local instances as Favorites
                             localItems.forEach { local ->
@@ -149,7 +166,7 @@ class WatchlistRepositoryImpl
                                         thumbUrl = local.thumbUrl,
                                         artUrl = local.artUrl,
                                         year = local.year,
-                                        addedAt = System.currentTimeMillis(),
+                                        addedAt = plexAddedAt,
                                     ),
                                 )
                             }

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.HorizontalDivider
@@ -61,6 +62,7 @@ private val AudioColor = Color(0xFFCE93D8) // Light purple
 private val ContainerColor = Color(0xFF90A4AE) // Blue-gray
 private val FileSizeColor = Color(0xFF81C784) // Light green
 private val HdrGold = Color(0xFFFFD700)
+private val ResumeColor = Color(0xFFFFA726) // Orange for resume indicator
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -72,7 +74,10 @@ fun SourceSelectionDialog(
     val focusRequester = remember { FocusRequester() }
 
     val sortedSources = remember(sources) {
-        sources.sortedByDescending { it.fileSize ?: 0L }
+        sources.sortedWith(
+            compareByDescending<MediaSource> { it.viewOffset > 0 }
+                .thenByDescending { it.fileSize ?: 0L }
+        )
     }
 
     LaunchedEffect(Unit) {
@@ -176,13 +181,25 @@ fun SourceSelectionDialog(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Text(
-                                            source.serverName,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.weight(1f),
-                                        )
+                                        ) {
+                                            Text(
+                                                source.serverName,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White,
+                                            )
+                                            if (source.viewOffset > 0) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                TechBadge(
+                                                    text = "\u25B6 Resume",
+                                                    color = ResumeColor,
+                                                    filled = true,
+                                                )
+                                            }
+                                        }
 
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),

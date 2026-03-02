@@ -26,6 +26,7 @@ fun LoadingRoute(
     onNavigateToMain: () -> Unit,
     onNavigateToAuth: () -> Unit,
     onNavigateToLibrarySelection: () -> Unit = {},
+    onNavigateToProfileSelection: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -35,6 +36,7 @@ fun LoadingRoute(
                 LoadingNavigationEvent.NavigateToMain -> onNavigateToMain()
                 LoadingNavigationEvent.NavigateToAuth -> onNavigateToAuth()
                 LoadingNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
+                LoadingNavigationEvent.NavigateToProfileSelection -> onNavigateToProfileSelection()
             }
         }
     }

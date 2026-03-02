@@ -174,6 +174,11 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                         popUpTo(Screen.Loading.route) { inclusive = true }
                     }
                 },
+                onNavigateToProfileSelection = {
+                    navController.navigate(Screen.AppProfileSelection.route) {
+                        popUpTo(Screen.Loading.route) { inclusive = true }
+                    }
+                },
             )
         }
 

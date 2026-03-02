@@ -1,33 +1,63 @@
 package com.chakir.plexhubtv.feature.player.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.R
+import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.AudioTrack
 import com.chakir.plexhubtv.core.model.SubtitleTrack
 import com.chakir.plexhubtv.feature.player.PlayerUiState
 import com.chakir.plexhubtv.feature.player.VideoQuality
+
+private val DialogBackground = Color(0xFF1A1A1A)
 
 @Composable
 fun PlayerSettingsDialog(
@@ -36,65 +66,62 @@ fun PlayerSettingsDialog(
     onToggleStats: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Only Quality for now in the main settings, or we could add more generic settings later.
-    // Audio and Subtitles are now separate.
-    
-    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    val focusRequester = remember { FocusRequester() }
     val qualityDescription = stringResource(R.string.player_settings_quality_description)
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = DialogBackground,
+                modifier = Modifier
+                    .fillMaxWidth(0.35f)
                     .heightIn(max = 500.dp)
                     .testTag("dialog_player_settings")
                     .semantics { contentDescription = qualityDescription },
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(R.string.player_settings_quality),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    DialogHeader(
+                        title = stringResource(R.string.player_settings_quality),
+                        onDismiss = onDismiss,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                LazyColumn {
-                    uiState.availableQualities.forEachIndexed { index, quality ->
-                        item {
-                            val fr = remember { androidx.compose.ui.focus.FocusRequester() }
-                            if (index == 0) {
-                                LaunchedEffect(Unit) { fr.requestFocus() }
+                    LazyColumn {
+                        uiState.availableQualities.forEachIndexed { index, quality ->
+                            item {
+                                val fr = remember { FocusRequester() }
+                                if (index == 0) {
+                                    LaunchedEffect(Unit) { fr.requestFocus() }
+                                }
+                                SettingItem(
+                                    text = quality.name,
+                                    isSelected = quality.bitrate == uiState.selectedQuality.bitrate,
+                                    onClick = { onSelectQuality(quality) },
+                                    modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
+                                )
                             }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                            Spacer(modifier = Modifier.height(4.dp))
                             SettingItem(
-                                text = quality.name,
-                                isSelected = quality.bitrate == uiState.selectedQuality.bitrate,
-                                onClick = { onSelectQuality(quality) },
-                                modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
+                                text = stringResource(R.string.player_settings_show_stats),
+                                isSelected = uiState.showPerformanceOverlay,
+                                onClick = onToggleStats,
                             )
                         }
                     }
-
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SettingItem(
-                            text = stringResource(R.string.player_settings_show_stats),
-                            isSelected = uiState.showPerformanceOverlay,
-                            onClick = onToggleStats,
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End),
-                ) {
-                    Text(stringResource(R.string.action_close))
                 }
             }
         }
@@ -127,7 +154,6 @@ fun SubtitleSelectionDialog(
     onSelect: (SubtitleTrack) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // tracks already contains SubtitleTrack.OFF (added by populateTracks)
     val offLabel = stringResource(R.string.player_settings_off)
 
     SelectionDialog(
@@ -172,48 +198,48 @@ fun <T> SelectionDialog(
     onDismiss: () -> Unit,
     dialogTestTag: String = "dialog_selection"
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = DialogBackground,
+                modifier = Modifier
+                    .fillMaxWidth(0.35f)
                     .heightIn(max = 500.dp)
                     .testTag(dialogTestTag)
                     .semantics { contentDescription = title },
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    DialogHeader(
+                        title = title,
+                        onDismiss = onDismiss,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                LazyColumn {
-                    items.forEachIndexed { index, settingItem ->
-                        item {
-                            val fr = remember { androidx.compose.ui.focus.FocusRequester() }
-                            if (index == 0) {
-                                LaunchedEffect(Unit) { fr.requestFocus() }
+                    LazyColumn {
+                        items.forEachIndexed { index, settingItem ->
+                            item {
+                                val fr = remember { FocusRequester() }
+                                if (index == 0) {
+                                    LaunchedEffect(Unit) { fr.requestFocus() }
+                                }
+                                SettingItem(
+                                    text = itemLabel(settingItem),
+                                    isSelected = selectedItem?.let { itemKey(it) == itemKey(settingItem) } ?: false,
+                                    onClick = { onSelect(settingItem) },
+                                    modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
+                                )
                             }
-                            SettingItem(
-                                text = itemLabel(settingItem),
-                                isSelected = selectedItem?.let { itemKey(it) == itemKey(settingItem) } ?: false,
-                                onClick = { onSelect(settingItem) },
-                                modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
-                            )
                         }
                     }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End),
-                ) {
-                    Text(stringResource(R.string.action_close))
                 }
             }
         }
@@ -227,56 +253,65 @@ fun SyncSettingsDialog(
     onDelayChanged: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surface,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = DialogBackground,
+                modifier = Modifier
+                    .fillMaxWidth(0.35f)
                     .heightIn(max = 400.dp)
                     .testTag("dialog_sync_settings")
                     .semantics { contentDescription = title },
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Custom Focusable Adjuster for Android TV
-                FocusableDelayAdjuster(
-                    currentDelayMs = currentDelayMs,
-                    onDelayChanged = onDelayChanged,
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // Reset Button
-                    Button(
-                        onClick = { onDelayChanged(0L) },
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            ),
-                    ) {
-                        Text(stringResource(R.string.player_settings_reset))
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    DialogHeader(
+                        title = title,
+                        onDismiss = onDismiss,
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                    // Close Button
-                    Button(onClick = onDismiss) {
-                        Text(stringResource(R.string.action_close))
+                    FocusableDelayAdjuster(
+                        currentDelayMs = currentDelayMs,
+                        onDelayChanged = onDelayChanged,
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        Button(
+                            onClick = { onDelayChanged(0L) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White.copy(alpha = 0.15f),
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            Text(stringResource(R.string.player_settings_reset))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color.Black,
+                            ),
+                        ) {
+                            Text(stringResource(R.string.action_close))
+                        }
                     }
                 }
             }
@@ -290,10 +325,9 @@ fun FocusableDelayAdjuster(
     onDelayChanged: (Long) -> Unit,
 ) {
     var isEditing by remember { mutableStateOf(false) }
-    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    // Handle D-Pad events when focused
     fun handleKeyEvent(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
         if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return false
 
@@ -305,28 +339,13 @@ fun FocusableDelayAdjuster(
                 true
             }
             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (isEditing) {
-                    onDelayChanged(currentDelayMs - 50)
-                    true
-                } else {
-                    false
-                }
+                if (isEditing) { onDelayChanged(currentDelayMs - 50); true } else false
             }
             android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (isEditing) {
-                    onDelayChanged(currentDelayMs + 50)
-                    true
-                } else {
-                    false
-                }
+                if (isEditing) { onDelayChanged(currentDelayMs + 50); true } else false
             }
             android.view.KeyEvent.KEYCODE_BACK -> {
-                if (isEditing) {
-                    isEditing = false
-                    true
-                } else {
-                    false
-                }
+                if (isEditing) { isEditing = false; true } else false
             }
             else -> false
         }
@@ -336,25 +355,17 @@ fun FocusableDelayAdjuster(
     val editHint = stringResource(R.string.player_settings_edit_hint)
 
     Surface(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(80.dp)
-                .onKeyEvent { handleKeyEvent(it) }
-                .focusable(interactionSource = interactionSource),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(80.dp)
+            .onKeyEvent { handleKeyEvent(it) }
+            .focusable(interactionSource = interactionSource),
         shape = RoundedCornerShape(12.dp),
-        color =
-            when {
-                isEditing -> MaterialTheme.colorScheme.primaryContainer
-                isFocused -> MaterialTheme.colorScheme.surfaceVariant
-                else -> MaterialTheme.colorScheme.surface
-            },
-        border =
-            if (isFocused || isEditing) {
-                androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-            } else {
-                androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            },
+        color = when {
+            isEditing -> Color.White
+            isFocused -> Color.White.copy(alpha = 0.15f)
+            else -> Color.White.copy(alpha = 0.05f)
+        },
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -364,20 +375,41 @@ fun FocusableDelayAdjuster(
                 text = "${if (currentDelayMs > 0) "+" else ""}$currentDelayMs ms",
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (isEditing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                color = if (isEditing) Color.Black else Color.White,
             )
-
             Text(
                 text = if (isEditing) adjustHint else editHint,
                 style = MaterialTheme.typography.labelMedium,
-                color =
-                    if (isEditing) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(
-                            alpha = 0.7f,
-                        )
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    },
+                color = if (isEditing) Color.Black.copy(alpha = 0.6f)
+                else Color.White.copy(alpha = 0.6f),
+            )
+        }
+    }
+}
+
+// ── Shared components ──────────────────────────────────────────────
+
+@Composable
+private fun DialogHeader(
+    title: String,
+    onDismiss: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+        )
+        IconButton(onClick = onDismiss) {
+            Icon(
+                imageVector = Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.action_close),
+                tint = NetflixLightGray,
             )
         }
     }
@@ -390,34 +422,36 @@ fun SettingItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
-        color = if (isFocused) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        color = when {
+            isFocused -> Color.White
+            isSelected -> Color.White.copy(alpha = 0.08f)
+            else -> Color.Transparent
+        },
         interactionSource = interactionSource,
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier =
-                Modifier
-                    .padding(vertical = 12.dp, horizontal = 12.dp),
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (isFocused) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                color = if (isFocused) Color.Black else Color.White,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             )
             if (isSelected) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
-                    tint = if (isFocused) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                    tint = if (isFocused) Color.Black else Color.White,
                 )
             }
         }

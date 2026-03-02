@@ -97,6 +97,7 @@ data class MediaSource(
     val languages: List<String> = emptyList(),
     val thumbUrl: String? = null,
     val artUrl: String? = null,
+    val viewOffset: Long = 0,
 )
 
 data class CastMember(

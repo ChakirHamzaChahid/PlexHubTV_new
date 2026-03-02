@@ -225,6 +225,35 @@ class PlayerController @Inject constructor(
         private val ALLOWED_DIRECT_SCHEMES = setOf("http", "https", "rtsp", "rtp")
         /** PLY-19: Only show resume indicator for positions > 30s to avoid false positives */
         private const val RESUME_THRESHOLD_MS = 30_000L
+
+        /** Audio codecs known to crash ExoPlayer on most Android TV devices */
+        private val ALWAYS_PROBLEMATIC_CODECS = setOf("truehd", "dts-hd ma", "dts-hd", "dtshd")
+
+        private fun audioCodecToMime(codec: String): String? = when (codec) {
+            "truehd" -> "audio/true-hd"
+            "dts-hd ma", "dts-hd", "dtshd" -> "audio/vnd.dts.hd"
+            "dts" -> "audio/vnd.dts"
+            "eac3" -> "audio/eac3"
+            "ac3" -> "audio/ac3"
+            else -> null
+        }
+
+        fun isProblematicAudioCodec(codec: String): Boolean {
+            if (codec in ALWAYS_PROBLEMATIC_CODECS) return true
+            val mimeType = audioCodecToMime(codec) ?: return false
+            return !hasHardwareAudioDecoder(mimeType)
+        }
+
+        private fun hasHardwareAudioDecoder(mimeType: String): Boolean {
+            return try {
+                val codecList = android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS)
+                codecList.codecInfos.any { info ->
+                    !info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
+                }
+            } catch (e: Exception) {
+                false
+            }
+        }
     }
 
     /** PLY-19: Dismiss the resume playback indicator */
@@ -587,6 +616,18 @@ class PlayerController @Inject constructor(
 
             // Extras (Clip) are CDN-hosted — must go through server transcode/proxy, not direct play
             isDirectPlay = bitrate >= 200000 && part?.key != null && media.type != com.chakir.plexhubtv.core.model.MediaType.Clip
+
+            // Audio codec pre-flight: proactively switch to MPV for codecs ExoPlayer can't handle
+            if (isDirectPlay && !isMpvMode) {
+                val audioStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.firstOrNull()
+                val audioCodec = audioStream?.codec?.lowercase()
+                if (audioCodec != null && isProblematicAudioCodec(audioCodec)) {
+                    Timber.d("PlayerController: Audio codec '$audioCodec' not supported by ExoPlayer, switching to MPV")
+                    performanceTracker.addCheckpoint(opId, "Audio Codec Preflight → MPV", mapOf("codec" to audioCodec))
+                    switchToMpv()
+                    return@launch
+                }
+            }
 
             val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
                  rKey, sId, part, audioStreamId, subtitleStreamId

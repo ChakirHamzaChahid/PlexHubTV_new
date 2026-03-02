@@ -59,8 +59,7 @@ class PlayerControlViewModelTest {
             savedStateHandle = savedStateHandle,
             chapterMarkerManager = chapterMarkerManager,
             playbackManager = playbackManager,
-            xtreamUrlBuilder = mockk(relaxed = true),
-            backendUrlBuilder = mockk(relaxed = true)
+            directStreamUrlBuilder = mockk(relaxed = true),
         )
     }
 

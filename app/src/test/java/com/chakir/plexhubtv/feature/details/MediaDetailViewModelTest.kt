@@ -94,10 +94,12 @@ class MediaDetailViewModelTest {
             toggleFavoriteUseCase = toggleFavoriteUseCase,
             isFavoriteUseCase = isFavoriteUseCase,
             enrichMediaItemUseCase = enrichMediaItemUseCase,
+            preparePlaybackUseCase = mockk(relaxed = true),
             getSimilarMediaUseCase = getSimilarMediaUseCase,
             getMediaCollectionsUseCase = getMediaCollectionsUseCase,
             getUnifiedSeasonsUseCase = getUnifiedSeasonsUseCase,
             performanceTracker = performanceTracker,
+            mediaSourceResolver = mockk(relaxed = true),
             savedStateHandle = savedStateHandle
         )
     }

@@ -13,53 +13,67 @@ enum class LibraryTab(val title: String) {
 
 enum class LibraryViewMode {
     Grid,
+    Compact,
     List,
 }
 
-/**
- * État UI de la bibliothèque.
- * Contient tout l'état nécessaire : filtres, tri, mode d'affichage, search query, etc.
- * Note: La liste des médias est gérée séparément via PagingData.
- * Les erreurs sont maintenant émises via errorEvents channel pour une gestion centralisée.
- */
-data class LibraryUiState(
+data class LibraryDisplayState(
     val isLoading: Boolean = false,
     val isLoadingMore: Boolean = false,
     val items: List<MediaItem> = emptyList(),
     val hubs: List<com.chakir.plexhubtv.core.model.Hub> = emptyList(),
     val totalItems: Int = 0,
-    val filteredItems: Int? = null, // null = not yet computed; differs from totalItems when filters are active
+    val filteredItems: Int? = null,
     val mediaType: MediaType = MediaType.Movie,
-    val offset: Int = 0,
-    val endOfReached: Boolean = false,
-    // Selection State
-    val selectedServerId: String? = null,
-    val availableLibraries: List<LibrarySection> = emptyList(),
-    val selectedLibraryId: String? = null,
-    val selectedTab: LibraryTab = LibraryTab.Browse,
     val viewMode: LibraryViewMode = LibraryViewMode.Grid,
-    // Sort & Filter
-    val isSortDialogOpen: Boolean = false,
-    val currentSort: String = "Title", // Date Added, Title, Year
-    val isSortDescending: Boolean = false, // Default for Title (ascending A-Z)
-    val isServerFilterOpen: Boolean = false,
-    val isGenreFilterOpen: Boolean = false,
-    val currentFilter: String = "All", // Deprecated? Or just "Unwatched" etc.
-    // New Filters
-    val availableGenres: List<String> = emptyList(),
-    val availableServers: List<String> = emptyList(), // Names
-    val availableServersMap: Map<String, String> = emptyMap(), // Name -> ID
+    val selectedTab: LibraryTab = LibraryTab.Browse,
+)
+
+data class LibraryFilterState(
+    val currentSort: String = "Title",
+    val isSortDescending: Boolean = false,
+    val currentFilter: String = "All",
     val selectedGenre: String? = null,
     val selectedServerFilter: String? = null,
-    // Search
-    val isSearchVisible: Boolean = false,
     val searchQuery: String = "",
-    // Internal Pagination State
-    val rawOffset: Int = 0,
-    val initialScrollIndex: Int? = null,
-    // Focus Restoration
-    val lastFocusedId: String? = null,
+    val isSearchVisible: Boolean = false,
     val excludedServerIds: Set<String> = emptySet(),
+    val availableGenres: List<String> = emptyList(),
+    val availableServers: List<String> = emptyList(),
+    val availableServersMap: Map<String, String> = emptyMap(),
+)
+
+data class LibrarySelectionState(
+    val selectedServerId: String? = null,
+    val selectedLibraryId: String? = null,
+    val availableLibraries: List<LibrarySection> = emptyList(),
+)
+
+data class LibraryDialogState(
+    val isSortDialogOpen: Boolean = false,
+    val isServerFilterOpen: Boolean = false,
+    val isGenreFilterOpen: Boolean = false,
+)
+
+data class LibraryScrollState(
+    val rawOffset: Int = 0,
+    val offset: Int = 0,
+    val endOfReached: Boolean = false,
+    val initialScrollIndex: Int? = null,
+    val lastFocusedId: String? = null,
+)
+
+/**
+ * État UI de la bibliothèque, décomposé en sous-états sémantiques.
+ * Note: La liste des médias est gérée séparément via PagingData.
+ * Les erreurs sont émises via errorEvents channel pour une gestion centralisée.
+ */
+data class LibraryUiState(
+    val display: LibraryDisplayState = LibraryDisplayState(),
+    val filter: LibraryFilterState = LibraryFilterState(),
+    val selection: LibrarySelectionState = LibrarySelectionState(),
+    val dialog: LibraryDialogState = LibraryDialogState(),
+    val scroll: LibraryScrollState = LibraryScrollState(),
 )
 
 sealed interface LibraryAction {

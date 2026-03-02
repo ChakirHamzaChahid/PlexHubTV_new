@@ -78,6 +78,7 @@ fun NetflixMediaCard(
     onPlay: () -> Unit,
     modifier: Modifier = Modifier,
     cardType: CardType = CardType.POSTER,
+    compact: Boolean = false,
     onLongPress: (() -> Unit)? = null,
     onFocus: (Boolean) -> Unit = {}
 ) {
@@ -113,7 +114,7 @@ fun NetflixMediaCard(
 
     Column(
         modifier = modifier
-            .width(cardWidth)
+            .then(if (compact) Modifier.fillMaxWidth() else Modifier.width(cardWidth))
             .testTag("media_card_${media.ratingKey}")
             .semantics {
                 contentDescription = when (media.type) {
@@ -342,42 +343,44 @@ fun NetflixMediaCard(
             }
         }
 
-        // Title and Metadata — always fully visible regardless of focus state
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-        ) {
-            Text(
-                text = media.title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        // Title and Metadata — hidden in compact mode to save space
+        if (!compact) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                Text(
+                    text = media.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val rating = media.rating
-                if (rating != null && rating > 0) {
-                    Text(
-                        text = "${(rating * 10).toInt()}% Match",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF46D369),
-                        fontSize = 14.sp, // Increased from 10sp for TV readability
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val rating = media.rating
+                    if (rating != null && rating > 0) {
+                        Text(
+                            text = "${(rating * 10).toInt()}% Match",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF46D369),
+                            fontSize = 14.sp, // Increased from 10sp for TV readability
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
 
-                val metaText = media.contentRating ?: media.year?.toString()
-                if (metaText != null) {
-                    Text(
-                        text = metaText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp // Increased from 10sp for TV readability
-                    )
+                    val metaText = media.contentRating ?: media.year?.toString()
+                    if (metaText != null) {
+                        Text(
+                            text = metaText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp // Increased from 10sp for TV readability
+                        )
+                    }
                 }
             }
         }

@@ -166,7 +166,10 @@ fun VideoPlayerScreen(
     val isDialogVisible = uiState.showSettings || uiState.showAudioSelection || uiState.showSubtitleSelection || uiState.showSpeedSelection || uiState.showAudioSyncDialog || uiState.showSubtitleSyncDialog || uiState.showAutoNextPopup
 
     BackHandler(enabled = true) {
-        if (isDialogVisible) {
+        if (uiState.error != null) {
+            // Error overlay showing — back always closes the player
+            onAction(PlayerAction.Close)
+        } else if (isDialogVisible) {
             // Close any open dialog without stopping playback
             onAction(PlayerAction.DismissDialog)
         } else if (controlsVisible) {
@@ -185,6 +188,10 @@ fun VideoPlayerScreen(
                 .semantics { contentDescription = "Écran de lecture" }
                 .background(Color.Black)
                 .onKeyEvent { event ->
+                    // Don't intercept keys when error overlay is showing —
+                    // let the overlay's buttons handle D-pad focus normally.
+                    if (uiState.error != null) return@onKeyEvent false
+
                     if (event.type == KeyEventType.KeyDown) {
                         lastInteractionTime = System.currentTimeMillis() // Reset timer on input
                         when (event.nativeKeyEvent.keyCode) {
