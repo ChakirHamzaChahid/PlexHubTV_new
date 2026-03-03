@@ -140,8 +140,12 @@ object MediaLibraryQueryBuilder {
     }
 
     private const val UNIFIED_SELECT =
-        """SELECT media.ratingKey, media.serverId, media.librarySectionId, media.title,
-                        media.titleSortable, media.filter, media.sortOrder, media.pageOffset,
+        """SELECT
+                        SUBSTR(MAX(PRINTF('%020d', media.metadata_score) || '|' || media.ratingKey), 22) as ratingKey,
+                        SUBSTR(MAX(PRINTF('%020d', media.metadata_score) || '|' || media.serverId), 22) as serverId,
+                        media.librarySectionId, media.title,
+                        media.titleSortable, media.filter, media.sortOrder,
+                        MIN(media.pageOffset) as pageOffset,
                         media.type, media.thumbUrl, media.artUrl, media.year, media.duration,
                         media.summary, media.viewOffset, media.lastViewedAt, media.parentTitle,
                         media.parentRatingKey, media.parentIndex, media.grandparentTitle,
@@ -171,12 +175,11 @@ object MediaLibraryQueryBuilder {
                             + (CASE WHEN m.tmdbId IS NOT NULL THEN 1 ELSE 0 END)
                             + (CASE WHEN m.year IS NOT NULL AND m.year > 0 THEN 1 ELSE 0 END)
                             + (CASE WHEN m.genres IS NOT NULL AND m.genres != '' THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.serverId NOT LIKE 'xtream_%' AND m.serverId NOT LIKE 'backend_%' THEN 4 ELSE 0 END)
+                            + (CASE WHEN m.serverId NOT LIKE 'xtream_%' AND m.serverId NOT LIKE 'backend_%' THEN 100 ELSE 0 END)
                             AS metadata_score
                         FROM media m
                         LEFT JOIN id_bridge ON m.tmdbId = id_bridge.tmdbId AND m.imdbId IS NULL
                         WHERE m.type = ?
-                        ORDER BY metadata_score DESC
                     ) media """
 
     private const val UNIFIED_GROUP_BY =
