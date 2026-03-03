@@ -1,11 +1,14 @@
 package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.di.IoDispatcher
+import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.VideoStream
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -83,7 +86,16 @@ class GetMediaDetailUseCase
 
                         // 2. Use speculative children only for Show/Season types
                         val children = when (item.type) {
-                            MediaType.Show, MediaType.Season -> childrenDeferred.await().getOrDefault(emptyList())
+                            MediaType.Show -> childrenDeferred.await().getOrDefault(emptyList())
+                            MediaType.Season -> {
+                                val primaryEpisodes = childrenDeferred.await().getOrDefault(emptyList())
+                                // For seasons with multi-source, merge episodes from all sources
+                                if (item.remoteSources.size > 1) {
+                                    mergeEpisodesFromAllSources(item, primaryEpisodes)
+                                } else {
+                                    primaryEpisodes
+                                }
+                            }
                             else -> {
                                 childrenDeferred.cancel()
                                 emptyList()
@@ -97,4 +109,85 @@ class GetMediaDetailUseCase
                     }
                 }
             }.flowOn(ioDispatcher)
+
+    /**
+     * Merges episodes from all available sources for a multi-source season.
+     * Returns the MAXIMUM set of episodes across all sources (union, not intersection).
+     *
+     * Example: Plex has 6 episodes, Xtream has 4 episodes
+     * Result: 6 episodes total (4 with multi-source, 2 with Plex-only)
+     */
+    private suspend fun mergeEpisodesFromAllSources(
+        season: MediaItem,
+        primaryEpisodes: List<MediaItem>
+    ): List<MediaItem> = coroutineScope {
+        try {
+            // Load episodes from all remote sources in parallel
+            val allSourceEpisodes = season.remoteSources.map { source ->
+                async {
+                    try {
+                        val result = mediaDetailRepository.getSeasonEpisodes(source.ratingKey, source.serverId)
+                        result.getOrNull()?.map { episode ->
+                            episode to source
+                        } ?: emptyList()
+                    } catch (e: Exception) {
+                        timber.log.Timber.w(e, "Failed to load episodes from ${source.serverName}")
+                        emptyList()
+                    }
+                }
+            }.awaitAll().flatten()
+
+            // Group episodes by index (S01E01, S01E02, etc.)
+            val episodesByIndex = allSourceEpisodes.groupBy { (episode, _) ->
+                episode.episodeIndex ?: -1
+            }
+
+            // Merge: for each episode index, create a MediaItem with all available sources
+            val mergedEpisodes = episodesByIndex.mapNotNull { (episodeIndex, episodesWithSources) ->
+                if (episodeIndex == -1) return@mapNotNull null // Skip episodes without index
+
+                // Pick the "best" episode (from Plex if available) as the base
+                val (baseEpisode, baseSources) = episodesWithSources
+                    .find { (ep, src) -> !src.serverId.startsWith("xtream_") && !src.serverId.startsWith("backend_") }
+                    ?: episodesWithSources.firstOrNull()
+                    ?: return@mapNotNull null
+
+                // Build remoteSources list from all available sources for this episode
+                val episodeSources = episodesWithSources.map { (episode, source) ->
+                    // Extract technical details from episode's mediaParts/streams
+                    val bestMedia = episode.mediaParts.firstOrNull()
+                    val videoStream = bestMedia?.streams?.filterIsInstance<VideoStream>()?.firstOrNull()
+                    val audioStream = bestMedia?.streams?.filterIsInstance<AudioStream>()?.firstOrNull()
+
+                    com.chakir.plexhubtv.core.model.MediaSource(
+                        serverId = source.serverId,
+                        ratingKey = episode.ratingKey,
+                        serverName = source.serverName,
+                        resolution = videoStream?.let { "${it.height}p" },
+                        container = bestMedia?.container,
+                        videoCodec = videoStream?.codec,
+                        audioCodec = audioStream?.codec,
+                        audioChannels = audioStream?.channels,
+                        fileSize = bestMedia?.size,
+                        bitrate = videoStream?.bitrate,
+                        hasHDR = videoStream?.hasHDR ?: false,
+                        languages = bestMedia?.streams?.filterIsInstance<AudioStream>()
+                            ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
+                        thumbUrl = episode.thumbUrl,
+                        artUrl = episode.artUrl,
+                        viewOffset = episode.viewOffset,
+                    )
+                }
+
+                // Return merged episode with all sources
+                baseEpisode.copy(remoteSources = episodeSources)
+            }.sortedBy { it.episodeIndex }
+
+            timber.log.Timber.d("Episode merge: ${primaryEpisodes.size} primary → ${mergedEpisodes.size} merged (${season.remoteSources.size} sources)")
+            mergedEpisodes
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Failed to merge episodes from all sources, falling back to primary")
+            primaryEpisodes
+        }
     }
+}
