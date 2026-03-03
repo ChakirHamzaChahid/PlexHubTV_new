@@ -141,9 +141,18 @@ class ResolveEpisodeSourcesUseCaseImpl
                                 if (episodeMatch != null) {
                                     Timber.d("Tree Match found: ${episodeMatch.title}")
 
+                                    // 4. Fetch full details to ensure mediaParts/streams are present
+                                    // (getChildren may return simplified metadata without streams)
+                                    val detailResponse = client.getMetadata(episodeMatch.ratingKey)
+                                    val fullDto = if (detailResponse.isSuccessful) {
+                                        detailResponse.body()?.mediaContainer?.metadata?.firstOrNull() ?: episodeMatch
+                                    } else {
+                                        episodeMatch
+                                    }
+
                                     val episodeItem =
                                         mapper.mapDtoToDomain(
-                                            episodeMatch,
+                                            fullDto,
                                             server.clientIdentifier,
                                             baseUrl,
                                             server.accessToken,

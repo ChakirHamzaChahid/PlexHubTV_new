@@ -327,8 +327,17 @@ class EnrichMediaItemUseCase
                 .getOrNull() ?: return null
             val episodeMatch = episodes.find { it.episodeIndex == episodeIndex } ?: return null
 
-            performanceTracker.addCheckpoint(opId, "Tree Traversal Match: ${server.name}", mapOf("episode" to episodeMatch.title))
-            return buildMediaSource(episodeMatch, server.name)
+            // 4. Fetch full episode details to get mediaParts/streams (needed for audio/subtitle tracks)
+            val fullDetail = try {
+                val detailResult = mediaDetailRepository.getMediaDetail(episodeMatch.ratingKey, server.clientIdentifier)
+                detailResult.getOrNull() ?: episodeMatch
+            } catch (e: Exception) {
+                Timber.w(e, "Enrich: Failed to fetch episode details for ${episodeMatch.ratingKey}")
+                episodeMatch
+            }
+
+            performanceTracker.addCheckpoint(opId, "Tree Traversal Match: ${server.name}", mapOf("episode" to fullDetail.title))
+            return buildMediaSource(fullDetail, server.name)
         }
 
         /**
