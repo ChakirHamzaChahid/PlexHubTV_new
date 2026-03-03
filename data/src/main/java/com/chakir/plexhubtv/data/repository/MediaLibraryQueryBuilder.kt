@@ -41,7 +41,9 @@ object MediaLibraryQueryBuilder {
             sql.append("WHERE 1=1 ")
             args.add(config.mediaTypeStr)
         } else {
-            sql.append("SELECT * FROM media ")
+            // Non-unified: Use same SELECT with GROUP_CONCAT to support multi-source aggregation
+            sql.append(UNIFIED_SELECT)
+            sql.append("FROM media ")
             sql.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
             args.add(config.libraryKey)
             args.add(config.filter)
@@ -50,9 +52,8 @@ object MediaLibraryQueryBuilder {
 
         appendSharedWhereFilters(sql, args, config)
 
-        if (config.isUnified) {
-            sql.append(UNIFIED_GROUP_BY)
-        }
+        // Always use GROUP BY to aggregate multi-source media
+        sql.append(UNIFIED_GROUP_BY)
 
         val safeDirection = if (config.isDescending) "DESC" else "ASC"
         val orderBy = if (config.isUnified) {
@@ -64,7 +65,8 @@ object MediaLibraryQueryBuilder {
                 else -> "MAX(media.addedAt) $safeDirection"
             }
         } else {
-            "pageOffset ASC"
+            // Non-unified: Use MIN(pageOffset) to respect Plex API order while supporting GROUP BY
+            "MIN(media.pageOffset) ASC"
         }
         sql.append("ORDER BY $orderBy")
 

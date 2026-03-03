@@ -42,9 +42,9 @@ class MediaLibraryQueryBuilderTest {
     }
 
     @Test
-    fun `non-unified paged query contains ORDER BY pageOffset ASC`() {
+    fun `non-unified paged query contains ORDER BY MIN pageOffset ASC`() {
         val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
-        assertThat(result.sql).contains("ORDER BY pageOffset ASC")
+        assertThat(result.sql).contains("ORDER BY MIN(media.pageOffset) ASC")
     }
 
     @Test
@@ -55,6 +55,19 @@ class MediaLibraryQueryBuilderTest {
         assertThat(result.args[0]).isEqualTo("5")
         assertThat(result.args[1]).isEqualTo("all")
         assertThat(result.args[2]).isEqualTo("addedAt:desc")
+    }
+
+    @Test
+    fun `non-unified paged query contains GROUP BY for multi-source aggregation`() {
+        val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
+        assertThat(result.sql).contains("GROUP BY COALESCE(")
+    }
+
+    @Test
+    fun `non-unified paged query contains GROUP_CONCAT for multi-source tracking`() {
+        val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
+        assertThat(result.sql).contains("GROUP_CONCAT(media.ratingKey) as ratingKeys")
+        assertThat(result.sql).contains("GROUP_CONCAT(media.serverId) as serverIds")
     }
 
     // ── Genre filter ──
@@ -184,11 +197,11 @@ class MediaLibraryQueryBuilderTest {
     }
 
     @Test
-    fun `non-unified ignores sort config and uses pageOffset`() {
+    fun `non-unified ignores sort config and uses MIN pageOffset`() {
         val result = MediaLibraryQueryBuilder.buildPagedQuery(
             nonUnifiedConfig(baseSort = "title", isDescending = true),
         )
-        assertThat(result.sql).contains("ORDER BY pageOffset ASC")
+        assertThat(result.sql).contains("ORDER BY MIN(media.pageOffset) ASC")
         assertThat(result.sql).doesNotContain("title DESC")
     }
 
