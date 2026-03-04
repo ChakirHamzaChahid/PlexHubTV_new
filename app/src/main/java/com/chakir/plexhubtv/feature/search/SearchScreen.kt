@@ -30,7 +30,7 @@ import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
-import com.chakir.plexhubtv.core.ui.showError
+import com.chakir.plexhubtv.core.ui.HandleErrors
 
 /**
  * Écran de recherche global.
@@ -61,12 +61,7 @@ fun SearchRoute(
         }
     }
 
-    // Handle error events with centralized error display
-    LaunchedEffect(errorEvents) {
-        errorEvents.collect { error ->
-            snackbarHostState.showError(error)
-        }
-    }
+    HandleErrors(errorEvents, snackbarHostState)
 
     NetflixSearchScreen(
         state = uiState,

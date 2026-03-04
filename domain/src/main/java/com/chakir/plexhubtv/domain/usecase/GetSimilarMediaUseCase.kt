@@ -1,7 +1,7 @@
 package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import javax.inject.Inject
 
 /**
@@ -10,12 +10,12 @@ import javax.inject.Inject
 class GetSimilarMediaUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val mediaDetailRepository: MediaDetailRepository,
     ) {
         suspend operator fun invoke(
             ratingKey: String,
             serverId: String,
         ): Result<List<MediaItem>> {
-            return mediaRepository.getSimilarMedia(ratingKey, serverId)
+            return mediaDetailRepository.getSimilarMedia(ratingKey, serverId)
         }
     }

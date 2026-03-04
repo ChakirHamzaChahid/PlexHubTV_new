@@ -56,6 +56,9 @@ interface LibraryRepository {
         query: String?,
     ): Int
 
+    /** Returns all distinct server IDs present in the local media database. */
+    suspend fun getDistinctServerIds(): List<String>
+
     /**
      * Calcule l'index du premier élément correspondant à une lettre (Fast Scroller).
      * Utilisé pour la navigation alphabétique rapide sur TV.

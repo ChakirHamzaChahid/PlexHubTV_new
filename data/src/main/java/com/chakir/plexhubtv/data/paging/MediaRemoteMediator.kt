@@ -5,10 +5,12 @@ import androidx.paging.LoadType
 import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import androidx.room.withTransaction
+import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.core.database.RemoteKey
 import com.chakir.plexhubtv.core.network.PlexApiService
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import retrofit2.HttpException
 import timber.log.Timber
@@ -36,6 +38,7 @@ class MediaRemoteMediator(
 ) : RemoteMediator<Int, MediaEntity>() {
     private val remoteKeysDao = database.remoteKeysDao()
     private val mediaDao = database.mediaDao()
+    private val idBridgeDao = database.idBridgeDao()
 
     override suspend fun initialize(): InitializeAction {
         // Check if we have cached data for this specific filter/sort combination
@@ -160,16 +163,32 @@ class MediaRemoteMediator(
 
                 val entities =
                     items.mapIndexed { index, dto ->
-                        mapper.mapDtoToEntity(dto, serverId, libraryKey)
-                            .copy(
-                                librarySectionId = libraryKey,
-                                filter = filter,
-                                sortOrder = sortOrder,
-                                pageOffset = offset + index,
-                            )
+                        val entity = mapper.mapDtoToEntity(dto, serverId, libraryKey)
+                        entity.copy(
+                            librarySectionId = libraryKey,
+                            filter = filter,
+                            sortOrder = sortOrder,
+                            pageOffset = offset + index,
+                            resolvedThumbUrl = entity.thumbUrl?.let { path ->
+                                getOptimizedImageUrl("$serverUrl$path?X-Plex-Token=$token", 300, 450)
+                                    ?: "$serverUrl$path?X-Plex-Token=$token"
+                            },
+                            resolvedArtUrl = entity.artUrl?.let { path ->
+                                getOptimizedImageUrl("$serverUrl$path?X-Plex-Token=$token", 1280, 720)
+                                    ?: "$serverUrl$path?X-Plex-Token=$token"
+                            },
+                            resolvedBaseUrl = serverUrl,
+                        )
                     }
 
                 mediaDao.upsertMedia(entities)
+
+                val bridgeEntries = entities.mapNotNull { entity ->
+                    val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+                    val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+                    if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                }
+                if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
             }
             val dbDuration = System.currentTimeMillis() - dbStartTime
             val totalLoadDuration = System.currentTimeMillis() - startTime

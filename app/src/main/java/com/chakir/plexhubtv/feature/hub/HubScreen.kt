@@ -13,7 +13,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
+import com.chakir.plexhubtv.core.ui.HandleErrors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,12 +33,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.core.model.isRetryable
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.HomeScreenSkeleton
 import com.chakir.plexhubtv.core.ui.NetflixContentRow
-import com.chakir.plexhubtv.core.ui.showError
+import com.chakir.plexhubtv.feature.hub.components.RemoveFromOnDeckDialog
 
 @Composable
 fun HubRoute(
@@ -71,13 +70,8 @@ fun HubRoute(
         }
     }
 
-    LaunchedEffect(errorEvents) {
-        errorEvents.collect { error ->
-            val result = snackbarHostState.showError(error)
-            if (result == SnackbarResult.ActionPerformed && error.isRetryable()) {
-                viewModel.onAction(HubAction.Refresh)
-            }
-        }
+    HandleErrors(errorEvents, snackbarHostState) {
+        viewModel.onAction(HubAction.Refresh)
     }
 
     HubScreen(
@@ -126,6 +120,14 @@ fun HubScreen(
                         onAction = onAction,
                         onScrollStateChanged = onScrollStateChanged,
                     )
+            }
+
+            state.pendingRemoval?.let { media ->
+                RemoveFromOnDeckDialog(
+                    media = media,
+                    onConfirm = { onAction(HubAction.ConfirmRemoveFromOnDeck) },
+                    onDismiss = { onAction(HubAction.DismissRemoveDialog) },
+                )
             }
         }
     }
@@ -182,6 +184,7 @@ fun HubContent(
                     cardType = CardType.WIDE,
                     onItemClick = { onAction(HubAction.OpenMedia(it)) },
                     onItemPlay = { onAction(HubAction.PlayMedia(it)) },
+                    onItemLongPress = { onAction(HubAction.ShowRemoveDialog(it)) },
                     rowId = "on_deck",
                     modifier = Modifier.focusRequester(firstRowFocusRequester)
                 )
@@ -207,10 +210,12 @@ fun HubContent(
         hubs.forEachIndexed { index, hub ->
             item(key = hub.hubIdentifier ?: hub.title ?: hub.key ?: "hub_$index") {
                 val isFirstItem = !hasContinueWatching && !hasMyList && index == 0
+                val isEpisodeHub = hub.type == "episode"
+                        || hub.items.firstOrNull()?.type == com.chakir.plexhubtv.core.model.MediaType.Episode
                 NetflixContentRow(
                     title = hub.title ?: "",
                     items = hub.items,
-                    cardType = CardType.POSTER,
+                    cardType = if (isEpisodeHub) CardType.WIDE else CardType.POSTER,
                     onItemClick = { onAction(HubAction.OpenMedia(it)) },
                     onItemPlay = { onAction(HubAction.PlayMedia(it)) },
                     rowId = hub.hubIdentifier ?: hub.title?.lowercase()?.replace(" ", "_") ?: "hub_$index",

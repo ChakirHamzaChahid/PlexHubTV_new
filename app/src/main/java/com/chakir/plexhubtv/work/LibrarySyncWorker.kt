@@ -8,9 +8,12 @@ import androidx.work.workDataOf
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.model.toAppError
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -40,6 +43,10 @@ class LibrarySyncWorker
         private val syncRepository: SyncRepository,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
+        private val syncXtreamLibraryUseCase: com.chakir.plexhubtv.domain.usecase.SyncXtreamLibraryUseCase,
+        private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
+        private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : CoroutineWorker(appContext, workerParams) {
         private val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         private val channelId = "library_sync"
@@ -58,7 +65,7 @@ class LibrarySyncWorker
          * Gestion des erreurs : Retourne toujours Success pour éviter de bloquer l'app.
          */
         override suspend fun doWork(): Result =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 Timber.d("→ doWork() STARTED")
 
                 try {
@@ -150,6 +157,50 @@ class LibrarySyncWorker
                         }
                     }
 
+                    // SYNC XTREAM ACCOUNTS (VOD + Series)
+                    try {
+                        val xtreamAccounts = xtreamAccountRepository.observeAccounts().first()
+                        if (xtreamAccounts.isNotEmpty()) {
+                            val selectedCatIds = settingsDataStore.selectedXtreamCategoryIds.first()
+                            Timber.d("→ Syncing ${xtreamAccounts.size} Xtream account(s), selectedCategories=${selectedCatIds.size}")
+                            xtreamAccounts.forEach { account ->
+                                try {
+                                    updateNotification("Syncing Xtream: ${account.label}...")
+                                    val result = syncXtreamLibraryUseCase(account.id, selectedCatIds)
+                                    if (result.isFailure) {
+                                        Timber.w("✗ [Xtream:${account.label}] Sync failed: ${result.exceptionOrNull()?.message}")
+                                    } else {
+                                        Timber.d("✓ [Xtream:${account.label}] Sync complete")
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e("✗ [Xtream:${account.label}] Exception: ${e.message}")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e("✗ Xtream sync failed: ${e.message}")
+                    }
+
+                    // SYNC FROM PLEXHUB BACKEND SERVERS (best effort — does not affect Result)
+                    try {
+                        val backends = backendRepository.observeServers().first()
+                        backends.filter { it.isActive }.forEach { backend ->
+                            try {
+                                updateNotification("Syncing Backend: ${backend.label}...")
+                                val result = backendRepository.syncMedia(backend.id)
+                                if (result.isFailure) {
+                                    Timber.w("✗ [Backend:${backend.label}] Sync failed: ${result.exceptionOrNull()?.message}")
+                                } else {
+                                    Timber.d("✓ [Backend:${backend.label}] Synced ${result.getOrDefault(0)} items")
+                                }
+                            } catch (e: Exception) {
+                                Timber.e("✗ [Backend:${backend.label}] Exception: ${e.message}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e("✗ Backend sync failed: ${e.message}")
+                    }
+
                     // AUTOMATE WATCHLIST SYNC
                     try {
                         updateNotification("Syncing Watchlist...")
@@ -162,9 +213,9 @@ class LibrarySyncWorker
                     syncRepository.onProgressUpdate = null
 
                     if (failureCount == servers.size && servers.isNotEmpty()) {
-                        Timber.w("✗ All ${servers.size} servers failed: [$serverNames]")
+                        Timber.w("✗ All ${servers.size} servers failed — scheduling retry: [$serverNames]")
                         settingsDataStore.saveFirstSyncComplete(true)
-                        Result.success()
+                        Result.retry()
                     } else {
                         // MARK SYNC AS COMPLETE
                         settingsDataStore.saveLastSyncTime(System.currentTimeMillis())
@@ -207,7 +258,9 @@ class LibrarySyncWorker
                         Timber.e("Failed to mark sync complete: ${ex.message}")
                     }
 
-                    Result.success() // Changed from failure to success to avoid blocking
+                    // S-10: Retry on transient errors, fail on permanent
+                    val appError = e.toAppError()
+                    if (appError.isRetryable()) Result.retry() else Result.failure()
                 }
             }
 

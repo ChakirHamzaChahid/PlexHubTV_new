@@ -5,10 +5,13 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.VideoStream
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.domain.repository.BackendRepository
+import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
-import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -32,10 +35,12 @@ class EnrichMediaItemUseCase
     constructor(
         private val authRepository: AuthRepository,
         private val searchRepository: SearchRepository,
-        private val mediaRepository: com.chakir.plexhubtv.domain.repository.MediaRepository,
         private val mediaDetailRepository: MediaDetailRepository,
+        private val backendRepository: BackendRepository,
+        private val xtreamAccountRepository: XtreamAccountRepository,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
-        private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
+        private val getEnabledServerIdsUseCase: GetEnabledServerIdsUseCase,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
         // In-memory cache: keyed by "ratingKey:serverId" → enriched MediaItem
         private val cache = ConcurrentHashMap<String, MediaItem>()
@@ -68,19 +73,21 @@ class EnrichMediaItemUseCase
         }
 
         private suspend fun enrich(item: MediaItem, opId: String): MediaItem {
-            val allServers = authRepository.getServers().getOrNull() ?: return item
+            // Only search servers that are synced in Room AND not excluded in settings
+            val enabledServerIds = getEnabledServerIdsUseCase().toSet()
 
-            // Filter out excluded/deselected servers from settings
-            val excludedIds = settingsRepository.excludedServerIds.first()
-            val enabledServers = allServers.filter { it.clientIdentifier !in excludedIds }
-
-            val serverMap = enabledServers.associate { it.clientIdentifier to it.name }
+            // Build server name map from ALL sources (Plex + Backend + Xtream)
+            val serverMap = buildServerNameMap(enabledServerIds)
             val currentSource = buildMediaSource(item, serverMap[item.serverId] ?: "Unknown")
 
-            performanceTracker.addCheckpoint(opId, "Server List Loaded", mapOf("total" to allServers.size, "enabled" to enabledServers.size, "excluded" to excludedIds.size))
+            // Plex servers for network fallback (search API only works with Plex)
+            val allPlexServers = authRepository.getServers().getOrNull() ?: emptyList()
+            val enabledPlexServers = allPlexServers.filter { it.clientIdentifier in enabledServerIds }
 
-            // Single server shortcut
-            if (enabledServers.size <= 1) {
+            performanceTracker.addCheckpoint(opId, "Server List Loaded", mapOf("total" to enabledServerIds.size, "plex" to enabledPlexServers.size))
+
+            // Single server shortcut — check ALL enabled servers, not just Plex
+            if (enabledServerIds.size <= 1) {
                 performanceTracker.addCheckpoint(opId, "Single Server - No Enrichment Needed")
                 return item.copy(remoteSources = listOf(currentSource))
             }
@@ -113,7 +120,7 @@ class EnrichMediaItemUseCase
                                 val enrichedMatch = if (needsFullDetails) {
                                     // Room cache doesn't have mediaParts/streams → fetch full details
                                     try {
-                                        val detailResult = mediaRepository.getMediaDetail(match.ratingKey, match.serverId)
+                                        val detailResult = mediaDetailRepository.getMediaDetail(match.ratingKey, match.serverId)
                                         val fullDetail = detailResult.getOrNull() ?: match
 
                                         // Persist mediaParts to Room for future sessions (progressive cache)
@@ -155,9 +162,10 @@ class EnrichMediaItemUseCase
             }
 
             // === NETWORK FALLBACK: for media not yet synced or without unificationId ===
+            // Only Plex servers support search API for network fallback
             performanceTracker.addCheckpoint(opId, "Network Fallback Started")
             Timber.d("Enrich: Network fallback for '${item.title}' (unificationId=${item.unificationId})")
-            return enrichViaNetwork(item, currentSource, enabledServers, serverMap, opId)
+            return enrichViaNetwork(item, currentSource, enabledPlexServers, serverMap, opId)
         }
 
         private fun buildMediaSource(
@@ -184,7 +192,48 @@ class EnrichMediaItemUseCase
                     ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
                 thumbUrl = item.thumbUrl,
                 artUrl = item.artUrl,
+                viewOffset = item.viewOffset,
             )
+        }
+
+        /**
+         * Build a server name map from ALL sources (Plex + Backend + Xtream).
+         */
+        private suspend fun buildServerNameMap(enabledServerIds: Set<String>): Map<String, String> {
+            val map = mutableMapOf<String, String>()
+
+            // Plex servers
+            authRepository.getServers().getOrNull()?.forEach { server ->
+                if (server.clientIdentifier in enabledServerIds) {
+                    map[server.clientIdentifier] = server.name
+                }
+            }
+
+            // Backend servers
+            try {
+                backendRepository.observeServers().first().forEach { backend ->
+                    val serverId = "backend_${backend.id}"
+                    if (serverId in enabledServerIds) {
+                        map[serverId] = backend.label
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Enrich: Failed to load backend server names")
+            }
+
+            // Xtream accounts
+            try {
+                xtreamAccountRepository.observeAccounts().first().forEach { account ->
+                    val serverId = "xtream_${account.id}"
+                    if (serverId in enabledServerIds) {
+                        map[serverId] = account.label
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Enrich: Failed to load xtream account names")
+            }
+
+            return map
         }
 
         private suspend fun enrichViaNetwork(
@@ -194,7 +243,7 @@ class EnrichMediaItemUseCase
             serverMap: Map<String, String>,
             opId: String,
         ): MediaItem =
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            kotlinx.coroutines.withContext(ioDispatcher) {
                 coroutineScope {
                     val networkStart = System.currentTimeMillis()
                     val matchesDeferred =
@@ -204,55 +253,11 @@ class EnrichMediaItemUseCase
                                 async {
                                     val serverSearchStart = System.currentTimeMillis()
                                     try {
-                                        // ⚡ TIMEOUT: Max 3s per server to prevent slow/offline servers from blocking everything
-                                        val searchRes = kotlinx.coroutines.withTimeoutOrNull(3000) {
-                                            searchRepository.searchOnServer(server, item.title)
-                                        }
-                                        val results = searchRes?.getOrNull() ?: emptyList()
-                                        val serverSearchDuration = System.currentTimeMillis() - serverSearchStart
-                                        performanceTracker.addCheckpoint(
-                                            opId,
-                                            if (searchRes == null) "Network Search TIMEOUT: ${server.name}" else "Network Search: ${server.name}",
-                                            mapOf("duration" to serverSearchDuration, "results" to results.size)
-                                        )
-
-                                        results.find { candidate ->
-                                            // 1. GUID Match (Best)
-                                            val idMatch =
-                                                (item.imdbId != null && item.imdbId == candidate.imdbId) ||
-                                                    (item.tmdbId != null && item.tmdbId == candidate.tmdbId)
-
-                                            // 2. Title + Year Match (Fallback)
-                                            val titleMatch = candidate.title.equals(item.title, ignoreCase = true)
-                                            val yearMatch = (item.year == null || candidate.year == null || item.year == candidate.year)
-
-                                            // 3. Hierarchy Match
-                                            val typeMatch = item.type == candidate.type
-                                            val episodeMatch =
-                                                if (item.type == MediaType.Episode && candidate.type == MediaType.Episode) {
-                                                    // parentIndex may be null when episode comes from Room cache
-                                                    val seasonMatch = item.parentIndex == null || candidate.parentIndex == null || item.parentIndex == candidate.parentIndex
-                                                    seasonMatch && (item.episodeIndex == candidate.episodeIndex)
-                                                } else {
-                                                    true
-                                                }
-
-                                            (idMatch) || (titleMatch && yearMatch && typeMatch && episodeMatch)
-                                        }?.let { match ->
-                                            try {
-                                                val detailRes = mediaRepository.getMediaDetail(match.ratingKey, server.clientIdentifier)
-                                                val fullDetail = detailRes.getOrNull()
-                                                val safeMatch = fullDetail ?: match
-                                                buildMediaSource(safeMatch, server.name)
-                                            } catch (e: Exception) {
-                                                Timber.w(e, "Enrich: detail fetch failed for ${match.ratingKey} on ${server.name}")
-                                                MediaSource(
-                                                    serverId = server.clientIdentifier,
-                                                    ratingKey = match.ratingKey,
-                                                    serverName = server.name,
-                                                    resolution = null,
-                                                )
-                                            }
+                                        if (item.type == MediaType.Episode) {
+                                            // Tree traversal: search show → find season → find episode by index
+                                            enrichEpisodeViaTreeTraversal(item, server, opId)
+                                        } else {
+                                            enrichMovieOrShowViaSearch(item, server, serverSearchStart, opId)
                                         }
                                     } catch (e: Exception) {
                                         val serverSearchDuration = System.currentTimeMillis() - serverSearchStart
@@ -286,4 +291,98 @@ class EnrichMediaItemUseCase
                     )
                 }
             }
+
+        /**
+         * Tree traversal strategy for episodes: search by show title → find season by index → find episode by index.
+         * More reliable than title search since episode titles differ across servers/languages.
+         */
+        private suspend fun enrichEpisodeViaTreeTraversal(
+            episode: MediaItem,
+            server: com.chakir.plexhubtv.core.model.Server,
+            opId: String,
+        ): MediaSource? {
+            val showTitle = episode.grandparentTitle ?: return null
+            val seasonIndex = episode.seasonIndex ?: episode.parentIndex ?: return null
+            val episodeIndex = episode.episodeIndex ?: return null
+
+            // 1. Search for the show on the remote server
+            val searchRes = kotlinx.coroutines.withTimeoutOrNull(3000) {
+                searchRepository.searchOnServer(server, showTitle)
+            }
+            val showMatch = searchRes?.getOrNull()?.find {
+                it.title.equals(showTitle, ignoreCase = true) && it.type == MediaType.Show
+            }
+            if (showMatch == null) {
+                performanceTracker.addCheckpoint(opId, "Tree Traversal: Show not found on ${server.name}")
+                return null
+            }
+
+            // 2. Get seasons → find matching season by index
+            val seasons = mediaDetailRepository.getShowSeasons(showMatch.ratingKey, server.clientIdentifier)
+                .getOrNull() ?: return null
+            val seasonMatch = seasons.find { it.seasonIndex == seasonIndex } ?: return null
+
+            // 3. Get episodes → find matching episode by index
+            val episodes = mediaDetailRepository.getSeasonEpisodes(seasonMatch.ratingKey, server.clientIdentifier)
+                .getOrNull() ?: return null
+            val episodeMatch = episodes.find { it.episodeIndex == episodeIndex } ?: return null
+
+            // 4. Fetch full episode details to get mediaParts/streams (needed for audio/subtitle tracks)
+            val fullDetail = try {
+                val detailResult = mediaDetailRepository.getMediaDetail(episodeMatch.ratingKey, server.clientIdentifier)
+                detailResult.getOrNull() ?: episodeMatch
+            } catch (e: Exception) {
+                Timber.w(e, "Enrich: Failed to fetch episode details for ${episodeMatch.ratingKey}")
+                episodeMatch
+            }
+
+            performanceTracker.addCheckpoint(opId, "Tree Traversal Match: ${server.name}", mapOf("episode" to fullDetail.title))
+            return buildMediaSource(fullDetail, server.name)
+        }
+
+        /**
+         * Standard search strategy for movies/shows: search by title, match by GUID or title+year.
+         */
+        private suspend fun enrichMovieOrShowViaSearch(
+            item: MediaItem,
+            server: com.chakir.plexhubtv.core.model.Server,
+            serverSearchStart: Long,
+            opId: String,
+        ): MediaSource? {
+            val searchRes = kotlinx.coroutines.withTimeoutOrNull(3000) {
+                searchRepository.searchOnServer(server, item.title)
+            }
+            val results = searchRes?.getOrNull() ?: emptyList()
+            val serverSearchDuration = System.currentTimeMillis() - serverSearchStart
+            performanceTracker.addCheckpoint(
+                opId,
+                if (searchRes == null) "Network Search TIMEOUT: ${server.name}" else "Network Search: ${server.name}",
+                mapOf("duration" to serverSearchDuration, "results" to results.size)
+            )
+
+            return results.find { candidate ->
+                val idMatch =
+                    (item.imdbId != null && item.imdbId == candidate.imdbId) ||
+                        (item.tmdbId != null && item.tmdbId == candidate.tmdbId)
+                val titleMatch = candidate.title.equals(item.title, ignoreCase = true)
+                val yearMatch = (item.year == null || candidate.year == null || item.year == candidate.year)
+                val typeMatch = item.type == candidate.type
+                (idMatch) || (titleMatch && yearMatch && typeMatch)
+            }?.let { match ->
+                try {
+                    val detailRes = mediaDetailRepository.getMediaDetail(match.ratingKey, server.clientIdentifier)
+                    val fullDetail = detailRes.getOrNull()
+                    val safeMatch = fullDetail ?: match
+                    buildMediaSource(safeMatch, server.name)
+                } catch (e: Exception) {
+                    Timber.w(e, "Enrich: detail fetch failed for ${match.ratingKey} on ${server.name}")
+                    MediaSource(
+                        serverId = server.clientIdentifier,
+                        ratingKey = match.ratingKey,
+                        serverName = server.name,
+                        resolution = null,
+                    )
+                }
+            }
+        }
     }

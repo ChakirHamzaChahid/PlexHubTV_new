@@ -1,12 +1,17 @@
 package com.chakir.plexhubtv.data.iptv
 
+import android.net.Uri
 import com.chakir.plexhubtv.core.model.IptvChannel
+import timber.log.Timber
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.UUID
 
 object M3uParser {
+
+    private val ALLOWED_STREAM_SCHEMES = setOf("http", "https", "rtsp", "rtp")
+
     fun parse(inputStream: InputStream): List<IptvChannel> {
         val channels = mutableListOf<IptvChannel>()
         val reader = BufferedReader(InputStreamReader(inputStream))
@@ -32,8 +37,8 @@ object M3uParser {
                     currentName = "Unknown Channel"
                 }
             } else if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
-                // Assume URL line
-                if (currentName != null) {
+                // Assume URL line — validate scheme before accepting
+                if (currentName != null && isAllowedStreamUrl(trimmed)) {
                     val channel =
                         IptvChannel(
                             id = currentTvgId ?: UUID.randomUUID().toString(),
@@ -53,6 +58,15 @@ object M3uParser {
         }
 
         return channels
+    }
+
+    private fun isAllowedStreamUrl(url: String): Boolean {
+        val scheme = Uri.parse(url).scheme?.lowercase()
+        if (scheme == null || scheme !in ALLOWED_STREAM_SCHEMES) {
+            Timber.w("M3uParser: Rejected URL with disallowed scheme '$scheme': ${url.take(80)}")
+            return false
+        }
+        return true
     }
 
     private fun extractAttribute(

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -42,6 +43,9 @@ class AppProfileViewModel @Inject constructor(
             is AppProfileAction.CreateProfile -> showCreateDialog()
             is AppProfileAction.EditProfile -> showEditDialog(action.profile)
             is AppProfileAction.DeleteProfile -> deleteProfile(action.profileId)
+            is AppProfileAction.SubmitCreateProfile -> submitCreateProfile(action)
+            is AppProfileAction.SubmitEditProfile -> submitEditProfile(action)
+            is AppProfileAction.ConfirmDeleteProfile -> showDeleteConfirmation(action.profile)
             is AppProfileAction.DismissDialog -> dismissDialog()
             is AppProfileAction.Back -> navigateBack()
         }
@@ -52,10 +56,8 @@ class AppProfileViewModel @Inject constructor(
             try {
                 _uiState.update { it.copy(isLoading = true, error = null) }
 
-                // Ensure default profile exists
                 profileRepository.ensureDefaultProfile()
 
-                // Observe all profiles
                 profileRepository.getAllProfiles().safeCollectIn(
                     scope = viewModelScope,
                     onError = { e ->
@@ -137,6 +139,42 @@ class AppProfileViewModel @Inject constructor(
         }
     }
 
+    private fun submitCreateProfile(action: AppProfileAction.SubmitCreateProfile) {
+        viewModelScope.launch {
+            val profile = Profile(
+                id = UUID.randomUUID().toString(),
+                name = action.name.trim(),
+                avatarEmoji = action.avatarEmoji,
+                isKidsProfile = action.isKidsProfile,
+            )
+            val result = profileRepository.createProfile(profile)
+            if (result.isFailure) {
+                _uiState.update { it.copy(error = result.exceptionOrNull()?.message) }
+            }
+            dismissDialog()
+        }
+    }
+
+    private fun submitEditProfile(action: AppProfileAction.SubmitEditProfile) {
+        viewModelScope.launch {
+            val existing = profileRepository.getProfileById(action.id) ?: return@launch
+            val updated = existing.copy(
+                name = action.name.trim(),
+                avatarEmoji = action.avatarEmoji,
+                isKidsProfile = action.isKidsProfile,
+            )
+            val result = profileRepository.updateProfile(updated)
+            if (result.isFailure) {
+                _uiState.update { it.copy(error = result.exceptionOrNull()?.message) }
+            }
+            dismissDialog()
+        }
+    }
+
+    private fun showDeleteConfirmation(profile: Profile) {
+        _uiState.update { it.copy(showDeleteConfirmation = true, profileToDelete = profile) }
+    }
+
     private fun deleteProfile(profileId: String) {
         viewModelScope.launch {
             try {
@@ -150,6 +188,7 @@ class AppProfileViewModel @Inject constructor(
                 Timber.e(e, "Error deleting profile")
                 _uiState.update { it.copy(error = e.message) }
             }
+            dismissDialog()
         }
     }
 
@@ -158,7 +197,9 @@ class AppProfileViewModel @Inject constructor(
             it.copy(
                 showCreateDialog = false,
                 showEditDialog = false,
-                profileToEdit = null
+                profileToEdit = null,
+                showDeleteConfirmation = false,
+                profileToDelete = null,
             )
         }
     }

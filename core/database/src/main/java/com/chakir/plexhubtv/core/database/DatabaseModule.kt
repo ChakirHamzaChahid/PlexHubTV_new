@@ -227,6 +227,122 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_29_30 =
+        object : androidx.room.migration.Migration(29, 30) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add historyGroupKey: materialized GROUP BY key for watch history
+                database.execSQL("ALTER TABLE media ADD COLUMN historyGroupKey TEXT NOT NULL DEFAULT ''")
+
+                // Backfill: compute historyGroupKey for all existing rows
+                database.execSQL(
+                    "UPDATE media SET historyGroupKey = CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END"
+                )
+
+                // Add index on lastViewedAt for WHERE lastViewedAt > 0 ORDER BY lastViewedAt DESC
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_lastViewedAt ON media (lastViewedAt)"
+                )
+
+                // Add index on historyGroupKey for GROUP BY
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_historyGroupKey ON media (historyGroupKey)"
+                )
+            }
+        }
+
+    private val MIGRATION_30_31 =
+        object : androidx.room.migration.Migration(30, 31) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Create FTS4 virtual table linked to media (external content)
+                database.execSQL(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS `media_fts` USING FTS4(`title`, `summary`, `genres`, content=`media`)"
+                )
+
+                // Populate FTS index from existing media rows
+                database.execSQL("INSERT INTO media_fts(media_fts) VALUES('rebuild')")
+
+                // Content-sync triggers (Room generates these on fresh install; migration needs them explicitly)
+                database.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_media_fts_BEFORE_UPDATE BEFORE UPDATE ON `media` BEGIN DELETE FROM `media_fts` WHERE `docid`=OLD.`rowid`; END"
+                )
+                database.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_media_fts_AFTER_UPDATE AFTER UPDATE ON `media` BEGIN INSERT INTO `media_fts`(`docid`, `title`, `summary`, `genres`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`summary`, NEW.`genres`); END"
+                )
+                database.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_media_fts_BEFORE_DELETE BEFORE DELETE ON `media` BEGIN DELETE FROM `media_fts` WHERE `docid`=OLD.`rowid`; END"
+                )
+                database.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_media_fts_AFTER_INSERT AFTER INSERT ON `media` BEGIN INSERT INTO `media_fts`(`docid`, `title`, `summary`, `genres`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`summary`, NEW.`genres`); END"
+                )
+            }
+        }
+
+    private val MIGRATION_31_32 =
+        object : androidx.room.migration.Migration(31, 32) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE media ADD COLUMN viewCount INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+    private val MIGRATION_32_33 =
+        object : androidx.room.migration.Migration(32, 33) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `xtream_accounts` (
+                        `id` TEXT NOT NULL,
+                        `label` TEXT NOT NULL,
+                        `baseUrl` TEXT NOT NULL,
+                        `port` INTEGER NOT NULL,
+                        `username` TEXT NOT NULL,
+                        `passwordKey` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `expirationDate` INTEGER,
+                        `maxConnections` INTEGER NOT NULL,
+                        `allowedFormatsJson` TEXT NOT NULL,
+                        `serverUrl` TEXT,
+                        `httpsPort` INTEGER,
+                        `lastSyncedAt` INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY(`id`)
+                    )
+                    """
+                )
+            }
+        }
+
+    private val MIGRATION_33_34 =
+        object : androidx.room.migration.Migration(33, 34) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `backend_servers` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `label` TEXT NOT NULL,
+                        `baseUrl` TEXT NOT NULL,
+                        `isActive` INTEGER NOT NULL DEFAULT 1,
+                        `lastSyncedAt` INTEGER NOT NULL DEFAULT 0
+                    )
+                    """
+                )
+                database.execSQL("ALTER TABLE media ADD COLUMN sourceServerId TEXT DEFAULT NULL")
+            }
+        }
+
+    private val MIGRATION_34_35 =
+        object : androidx.room.migration.Migration(34, 35) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `id_bridge` (
+                        `imdbId` TEXT NOT NULL PRIMARY KEY,
+                        `tmdbId` TEXT NOT NULL
+                    )
+                    """
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_id_bridge_tmdbId` ON `id_bridge` (`tmdbId`)")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -264,7 +380,13 @@ object DatabaseModule {
                 MIGRATION_25_26,
                 MIGRATION_26_27,
                 MIGRATION_27_28,
-                MIGRATION_28_29
+                MIGRATION_28_29,
+                MIGRATION_29_30,
+                MIGRATION_30_31,
+                MIGRATION_31_32,
+                MIGRATION_32_33,
+                MIGRATION_33_34,
+                MIGRATION_34_35,
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -324,5 +446,20 @@ object DatabaseModule {
     @Provides
     fun provideSearchCacheDao(database: PlexDatabase): SearchCacheDao {
         return database.searchCacheDao()
+    }
+
+    @Provides
+    fun provideXtreamAccountDao(database: PlexDatabase): XtreamAccountDao {
+        return database.xtreamAccountDao()
+    }
+
+    @Provides
+    fun provideBackendServerDao(database: PlexDatabase): BackendServerDao {
+        return database.backendServerDao()
+    }
+
+    @Provides
+    fun provideIdBridgeDao(database: PlexDatabase): IdBridgeDao {
+        return database.idBridgeDao()
     }
 }

@@ -190,6 +190,15 @@
     <string name="detail_tab_episodes">ÉPISODES</string>
     <string name="detail_tab_more_like_this">SIMILAIRES</string>
     <string name="detail_tab_collections">COLLECTIONS</string>
+    <string name="detail_tab_trailers">BANDES-ANNONCES</string>
+    <string name="detail_no_trailers">Aucune bande-annonce disponible</string>
+    <string name="detail_extra_trailer">Bande-annonce</string>
+    <string name="detail_extra_behind_the_scenes">Making-of</string>
+    <string name="detail_extra_scene">Extrait</string>
+    <string name="detail_extra_deleted_scene">Scène coupée</string>
+    <string name="detail_extra_interview">Interview</string>
+    <string name="detail_extra_featurette">Featurette</string>
+    <string name="detail_extra_unknown">Extra</string>
     <string name="detail_screen_description">Écran de détails</string>
     <string name="detail_collection_fallback">Collection</string>
     <string name="collection_title">Collection</string>
@@ -260,6 +269,7 @@
     <string name="player_play_now">Lire maintenant</string>
     <string name="player_unknown_title">Titre inconnu</string>
     <string name="player_playing_from">Lecture depuis %1$s</string>
+    <string name="player_resuming_from">Reprise à %1$s</string>
     <string name="player_server">Serveur</string>
     <string name="player_server_fallback">Serveur</string>
     <string name="player_back">Retour</string>
@@ -436,11 +446,41 @@
     <string name="settings_limit_2500">2500 req/jour</string>
     <string name="settings_daily_request_limit">Limite de requêtes quotidiennes</string>
 
+    <!-- Backend PlexHub (Paramètres) -->
+    <string name="settings_backend_section">Backend PlexHub</string>
+    <string name="settings_add_backend">Ajouter un serveur backend</string>
+    <string name="settings_backend_label">Nom du serveur</string>
+    <string name="settings_backend_url">URL du serveur</string>
+    <string name="settings_backend_url_hint">http://192.168.0.81:8000</string>
+    <string name="settings_backend_sync">Synchroniser depuis le backend</string>
+    <string name="settings_backend_sync_subtitle">Récupérer les médias enrichis depuis le backend</string>
+    <string name="settings_backend_remove_confirm">Supprimer ce serveur backend ?</string>
+
     <!-- IPTV (Paramètres) -->
     <string name="settings_section_iptv">IPTV</string>
     <string name="settings_iptv_description">Configurer l\'URL de votre playlist IPTV</string>
     <string name="settings_iptv_url_label">URL de la playlist IPTV</string>
     <string name="settings_iptv_url_placeholder">http://example.com/playlist.m3u</string>
+    <string name="settings_xtream_accounts">Comptes Xtream</string>
+    <string name="settings_xtream_accounts_subtitle">Gérer les comptes IPTV Xtream Codes</string>
+    <string name="settings_sync_xtream">Synchroniser Xtream</string>
+    <string name="settings_sync_xtream_subtitle">Mettre à jour les films et séries Xtream VOD</string>
+    <string name="settings_xtream_categories">Catégories Xtream</string>
+    <string name="settings_xtream_categories_subtitle">Choisir les catégories à synchroniser</string>
+    <string name="xtream_category_header">Choisissez vos catégories Xtream</string>
+    <string name="xtream_category_subtitle">Sélectionnez les catégories que vous souhaitez synchroniser</string>
+    <string name="xtream_category_vod">Films (VOD)</string>
+    <string name="xtream_category_series">Séries</string>
+    <string name="xtream_category_loading">Chargement des catégories…</string>
+    <string name="xtream_category_confirm">Confirmer (%1$d/%2$d)</string>
+    <string name="xtream_category_select_one">Sélectionnez au moins une catégorie</string>
+    <string name="xtream_category_mode_whitelist">Mode liste blanche</string>
+    <string name="xtream_category_mode_blacklist">Mode liste noire</string>
+    <string name="xtream_category_mode_all">Toutes les categories</string>
+    <string name="xtream_category_syncing">Synchronisation…</string>
+    <string name="xtream_filter_unified">Toutes les catégories</string>
+    <string name="xtream_filter_non_unified">Catégories sélectionnées</string>
+    <string name="retry">Réessayer</string>
 
     <!-- Mentions légales -->
     <string name="settings_section_legal">Mentions légales</string>
@@ -514,12 +554,14 @@
          ══════════════════════════════════════════════ -->
     <string name="downloads_title">Téléchargements</string>
     <string name="downloads_empty">Aucun contenu téléchargé.</string>
+    <string name="downloads_empty_hint">Le contenu téléchargé apparaîtra ici pour la lecture hors-ligne.</string>
 
     <!-- ══════════════════════════════════════════════
          Écran des favoris
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">Ma liste</string>
     <string name="favorites_empty">Aucun favori pour le moment.</string>
+    <string name="favorites_empty_hint">Ajoutez des films et séries à votre liste depuis l\'écran de détails.</string>
     <string name="favorites_screen_description">Écran des favoris</string>
     <string name="favorites_loading_description">Chargement des favoris</string>
     <string name="favorites_empty_description">Aucun favori</string>
@@ -529,6 +571,7 @@
          ══════════════════════════════════════════════ -->
     <string name="history_title">Historique de visionnage</string>
     <string name="history_empty">Aucun historique disponible.</string>
+    <string name="history_empty_hint">Votre contenu récemment regardé apparaîtra ici.</string>
     <string name="history_screen_description">Écran d\'historique</string>
     <string name="history_empty_description">Aucun historique</string>
 
@@ -569,4 +612,12 @@
     <string name="session_expired_title">Session expirée</string>
     <string name="session_expired_message">Votre session Plex a expiré. Veuillez vous reconnecter.</string>
     <string name="reconnect">Se reconnecter</string>
+
+    <!-- ══════════════════════════════════════════════
+         Reprendre la lecture / On Deck
+         ══════════════════════════════════════════════ -->
+    <string name="remove_from_continue_watching_title">Retirer de Reprendre la lecture ?</string>
+    <string name="remove_from_continue_watching_subtitle">Cela marquera « %1$s » comme vu</string>
+    <string name="remove_button">Retirer</string>
+    <string name="cancel_button">Annuler</string>
 </resources>

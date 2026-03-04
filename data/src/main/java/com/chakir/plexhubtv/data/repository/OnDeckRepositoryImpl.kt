@@ -6,21 +6,18 @@ import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
-import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.data.repository.aggregation.MediaDeduplicator
-import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.OnDeckRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -33,9 +30,7 @@ class OnDeckRepositoryImpl
         private val mediaDao: MediaDao,
         private val homeContentDao: com.chakir.plexhubtv.core.database.HomeContentDao,
         private val serverClientResolver: ServerClientResolver,
-        private val authRepository: AuthRepository,
         private val connectionManager: ConnectionManager,
-        private val api: PlexApiService,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
         private val mediaDeduplicator: MediaDeduplicator,
@@ -99,7 +94,7 @@ class OnDeckRepositoryImpl
             val selectedLibraryIds = settingsDataStore.selectedLibraryIds.first()
             val selectedServerIds = selectedLibraryIds.map { it.substringBefore(":") }.toSet()
 
-            val clients = getActiveClients(selectedServerIds)
+            val clients = serverClientResolver.getActiveClients(selectedServerIds)
             if (clients.isEmpty()) return
 
             // Use Race to get fastest response? No, we need all OnDecks.
@@ -149,12 +144,20 @@ class OnDeckRepositoryImpl
                     allEntities
                 }
 
+                // Sort merged results: items with lastViewedAt first (most recent),
+                // then items without (preserving Plex API order via stable sort).
+                val sorted = filteredEntities.sortedByDescending { it.lastViewedAt }
+
                 // Update DB transactionally
-                mediaDao.upsertMedia(filteredEntities)
+                mediaDao.upsertMedia(sorted)
+
+                // Clear stale On Deck entries before inserting fresh ones —
+                // without this, items removed from On Deck months ago persist forever.
+                homeContentDao.clearHomeContent("onDeck", "onDeck")
 
                 // Update HomeContent for ordering
                 val homeContent =
-                    filteredEntities.mapIndexed { index, entity ->
+                    sorted.mapIndexed { index, entity ->
                         com.chakir.plexhubtv.core.database.HomeContentEntity(
                             type = "onDeck",
                             hubIdentifier = "onDeck",
@@ -170,25 +173,4 @@ class OnDeckRepositoryImpl
             }
         }
 
-        // Helper duplicated from MediaRepositoryImpl logic (or extracted later)
-        private suspend fun getActiveClients(selectedServerIds: Set<String> = emptySet()): List<PlexClient> =
-            coroutineScope {
-                val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
-                val filteredServers = if (selectedServerIds.isNotEmpty()) {
-                    servers.filter { it.clientIdentifier in selectedServerIds }
-                } else {
-                    servers
-                }
-
-                filteredServers.map { server ->
-                    async {
-                        val baseUrl = connectionManager.findBestConnection(server)
-                        if (baseUrl != null) {
-                            PlexClient(server, api, baseUrl)
-                        } else {
-                            null
-                        }
-                    }
-                }.awaitAll().filterNotNull()
-            }
     }

@@ -22,6 +22,7 @@ fun NetflixHomeContent(
     heroItems: List<MediaItem>,
     onAction: (HomeAction) -> Unit,
     modifier: Modifier = Modifier,
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     val billboardButtonsFocusRequester = remember { FocusRequester() }
 
@@ -44,6 +45,7 @@ fun NetflixHomeContent(
             onPlay = { onAction(HomeAction.PlayMedia(it)) },
             onInfo = { onAction(HomeAction.OpenMedia(it)) },
             onNavigateDown = { /* Stay on Accueil - no navigation */ },
+            onNavigateUp = onNavigateUp,
             buttonsFocusRequester = billboardButtonsFocusRequester
         )
     }

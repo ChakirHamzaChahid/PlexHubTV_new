@@ -9,6 +9,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -21,6 +22,7 @@ class LoadingViewModel
     constructor(
         private val settingsDataStore: SettingsDataStore,
         private val workManager: WorkManager,
+        private val profileRepository: ProfileRepository,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow<LoadingUiState>(LoadingUiState.Loading("Initialisation..."))
         val uiState: StateFlow<LoadingUiState> = _uiState.asStateFlow()
@@ -42,7 +44,7 @@ class LoadingViewModel
 
                 // 1. Check if sync is already complete
                 if (settingsDataStore.isFirstSyncComplete.first()) {
-                    _navigationEvent.emit(LoadingNavigationEvent.NavigateToMain)
+                    navigateAfterSync()
                     return@launch
                 }
 
@@ -73,7 +75,7 @@ class LoadingViewModel
                         when (syncWork.state) {
                             androidx.work.WorkInfo.State.SUCCEEDED -> {
                                 _uiState.value = LoadingUiState.Completed
-                                _navigationEvent.emit(LoadingNavigationEvent.NavigateToMain)
+                                navigateAfterSync()
                             }
                             androidx.work.WorkInfo.State.FAILED -> {
                                 _uiState.value = LoadingUiState.Error("La synchronisation a échoué.")
@@ -90,6 +92,16 @@ class LoadingViewModel
                         }
                     }
                 }
+            }
+        }
+
+        private suspend fun navigateAfterSync() {
+            profileRepository.ensureDefaultProfile()
+            val profileCount = profileRepository.getProfileCount()
+            if (profileCount > 1) {
+                _navigationEvent.emit(LoadingNavigationEvent.NavigateToProfileSelection)
+            } else {
+                _navigationEvent.emit(LoadingNavigationEvent.NavigateToMain)
             }
         }
 
@@ -117,4 +129,5 @@ sealed class LoadingNavigationEvent {
     data object NavigateToMain : LoadingNavigationEvent()
     data object NavigateToAuth : LoadingNavigationEvent()
     data object NavigateToLibrarySelection : LoadingNavigationEvent()
+    data object NavigateToProfileSelection : LoadingNavigationEvent()
 }

@@ -34,6 +34,7 @@ class MediaDetailViewModelTest {
     private lateinit var enrichMediaItemUseCase: EnrichMediaItemUseCase
     private lateinit var getSimilarMediaUseCase: GetSimilarMediaUseCase
     private lateinit var getMediaCollectionsUseCase: GetMediaCollectionsUseCase
+    private lateinit var getUnifiedSeasonsUseCase: GetUnifiedSeasonsUseCase
     private lateinit var performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker
 
     private val testDispatcher = StandardTestDispatcher()
@@ -60,6 +61,7 @@ class MediaDetailViewModelTest {
         enrichMediaItemUseCase = mockk(relaxed = true)
         getSimilarMediaUseCase = mockk(relaxed = true)
         getMediaCollectionsUseCase = mockk(relaxed = true)
+        getUnifiedSeasonsUseCase = mockk(relaxed = true)
         performanceTracker = mockk(relaxed = true)
 
         // Default mock behaviors
@@ -92,9 +94,12 @@ class MediaDetailViewModelTest {
             toggleFavoriteUseCase = toggleFavoriteUseCase,
             isFavoriteUseCase = isFavoriteUseCase,
             enrichMediaItemUseCase = enrichMediaItemUseCase,
+            preparePlaybackUseCase = mockk(relaxed = true),
             getSimilarMediaUseCase = getSimilarMediaUseCase,
             getMediaCollectionsUseCase = getMediaCollectionsUseCase,
+            getUnifiedSeasonsUseCase = getUnifiedSeasonsUseCase,
             performanceTracker = performanceTracker,
+            mediaSourceResolver = mockk(relaxed = true),
             savedStateHandle = savedStateHandle
         )
     }

@@ -1,6 +1,5 @@
 package com.chakir.plexhubtv.core.network
 
-import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,7 +12,7 @@ import javax.inject.Singleton
 class ApiKeyManager
     @Inject
     constructor(
-        private val settingsDataStore: SettingsDataStore,
+        private val apiKeyProvider: ApiKeyProvider,
     ) {
         /**
      * Get TMDb API key.
@@ -28,7 +27,7 @@ class ApiKeyManager
         }
         
         // Fallback to DataStore (Settings UI)
-        return settingsDataStore.tmdbApiKey.first()
+        return apiKeyProvider.tmdbApiKey.first()
     }
 
     /**
@@ -42,9 +41,9 @@ class ApiKeyManager
         if (!buildConfigKey.isNullOrBlank()) {
             return buildConfigKey
         }
-        
+
         // Fallback to DataStore (Settings UI)
-        return settingsDataStore.omdbApiKey.first()
+        return apiKeyProvider.omdbApiKey.first()
     }
 
     /**

@@ -1,6 +1,5 @@
 package com.chakir.plexhubtv.core.network
 
-import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.ConnectionCandidate
 import com.chakir.plexhubtv.core.model.ConnectionState
 import com.chakir.plexhubtv.core.model.Server
@@ -23,21 +22,21 @@ import org.junit.Test
 class ConnectionManagerTest {
 
     private lateinit var connectionTester: ServerConnectionTester
-    private lateinit var settingsDataStore: SettingsDataStore
+    private lateinit var connectionCacheStore: ConnectionCacheStore
     private lateinit var connectionManager: ConnectionManager
     private val testScope = CoroutineScope(SupervisorJob())
 
     @Before
     fun setUp() {
         connectionTester = mockk(relaxed = true)
-        settingsDataStore = mockk(relaxed = true)
+        connectionCacheStore = mockk(relaxed = true)
 
-        // Mock DataStore flow
-        every { settingsDataStore.cachedConnections } returns MutableStateFlow(emptyMap())
+        // Mock cache store flow
+        every { connectionCacheStore.cachedConnections } returns MutableStateFlow(emptyMap())
 
         connectionManager = ConnectionManager(
             connectionTester = connectionTester,
-            settingsDataStore = settingsDataStore,
+            connectionCacheStore = connectionCacheStore,
             scope = testScope
         )
     }

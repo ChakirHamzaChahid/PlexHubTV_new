@@ -2,7 +2,7 @@ package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.service.PlaybackManager
 import javax.inject.Inject
 
@@ -25,7 +25,7 @@ data class AdjacentEpisodes(
 class EpisodeNavigationUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val mediaDetailRepository: MediaDetailRepository,
         private val playbackManager: PlaybackManager,
     ) {
         /**
@@ -58,7 +58,7 @@ class EpisodeNavigationUseCase
                         ?: return Result.success(AdjacentEpisodes())
 
                 val seasonEpisodes =
-                    mediaRepository.getSeasonEpisodes(
+                    mediaDetailRepository.getSeasonEpisodes(
                         seasonKey,
                         currentEpisode.serverId,
                     ).getOrNull() ?: return Result.success(AdjacentEpisodes())

@@ -5,7 +5,6 @@ import com.chakir.plexhubtv.data.cache.RoomApiCache
 import com.chakir.plexhubtv.data.repository.AuthRepositoryImpl
 import com.chakir.plexhubtv.data.repository.DownloadsRepositoryImpl
 import com.chakir.plexhubtv.data.repository.LibraryRepositoryImpl
-import com.chakir.plexhubtv.data.repository.MediaRepositoryImpl
 import com.chakir.plexhubtv.data.repository.OfflineWatchSyncRepositoryImpl
 import com.chakir.plexhubtv.data.repository.ProfileRepositoryImpl
 import com.chakir.plexhubtv.data.repository.SearchRepositoryImpl
@@ -13,7 +12,6 @@ import com.chakir.plexhubtv.data.repository.SettingsRepositoryImpl
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.DownloadsRepository
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
-import com.chakir.plexhubtv.domain.repository.MediaRepository
 import com.chakir.plexhubtv.domain.repository.OfflineWatchSyncRepository
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
@@ -35,10 +33,6 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindMediaRepository(impl: MediaRepositoryImpl): MediaRepository
 
     @Binds
     @Singleton
@@ -151,4 +145,34 @@ abstract class RepositoryModule {
     abstract fun bindTvChannelManager(
         impl: com.chakir.plexhubtv.data.util.TvChannelManagerImpl,
     ): com.chakir.plexhubtv.domain.service.TvChannelManager
+
+    @Binds
+    @Singleton
+    abstract fun bindXtreamAccountRepository(
+        impl: com.chakir.plexhubtv.data.repository.XtreamAccountRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindXtreamVodRepository(
+        impl: com.chakir.plexhubtv.data.repository.XtreamVodRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.XtreamVodRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindXtreamSeriesRepository(
+        impl: com.chakir.plexhubtv.data.repository.XtreamSeriesRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.XtreamSeriesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBackendRepository(
+        impl: com.chakir.plexhubtv.data.repository.BackendRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.BackendRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCategoryRepository(
+        impl: com.chakir.plexhubtv.data.repository.HybridCategoryRepository,
+    ): com.chakir.plexhubtv.domain.repository.CategoryRepository
 }

@@ -4,8 +4,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
@@ -21,14 +22,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,19 +71,22 @@ enum class CardType {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun NetflixMediaCard(
     media: MediaItem,
     onClick: () -> Unit,
     onPlay: () -> Unit,
     modifier: Modifier = Modifier,
     cardType: CardType = CardType.POSTER,
+    compact: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
     onFocus: (Boolean) -> Unit = {}
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    // Notify parent of focus changes — SideEffect avoids coroutine creation per focus change
-    SideEffect { onFocus(isFocused) }
+    // Notify parent of focus changes only when focus state actually changes
+    LaunchedEffect(isFocused) { onFocus(isFocused) }
 
     // Animations
     val scale by animateFloatAsState(
@@ -108,7 +114,7 @@ fun NetflixMediaCard(
 
     Column(
         modifier = modifier
-            .width(cardWidth)
+            .then(if (compact) Modifier.fillMaxWidth() else Modifier.width(cardWidth))
             .testTag("media_card_${media.ratingKey}")
             .semantics {
                 contentDescription = when (media.type) {
@@ -124,10 +130,11 @@ fun NetflixMediaCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .clickable(
+            .combinedClickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick
+                onClick = onClick,
+                onLongClick = onLongPress,
             )
     ) {
         Box(
@@ -265,8 +272,17 @@ fun NetflixMediaCard(
                 }
             }
 
-            // Debug IDs Badge — Visible when focused (bottom-left corner)
-            if (isFocused && (media.imdbId != null || media.tmdbId != null || media.unificationId != null)) {
+            // Watched Badge — top-start, shifts down if multi-server badge is also present
+            if (media.isWatched) {
+                WatchedBadge(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = if (serverCount > 1) 30.dp else 6.dp, start = 6.dp)
+                )
+            }
+
+            // Debug IDs Badge — Visible when focused (bottom-left corner), debug builds only
+            if (BuildConfig.DEBUG && isFocused && (media.imdbId != null || media.tmdbId != null || media.unificationId != null)) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -309,67 +325,62 @@ fun NetflixMediaCard(
 
             // Progress Bar with Remaining Time
             val durationMs = media.durationMs
-            val playbackPositionMs = media.playbackPositionMs ?: 0L
-            if (playbackPositionMs > 0 && durationMs != null && durationMs > 0) {
-                val progress by remember(playbackPositionMs, durationMs) {
+            val viewOffset = media.viewOffset
+            if (viewOffset > 0 && durationMs != null && durationMs > 0) {
+                val progress by remember(viewOffset, durationMs) {
                     mutableFloatStateOf(
-                        (playbackPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                        (viewOffset.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
                     )
                 }
-                val remainingMs = (durationMs - playbackPositionMs).coerceAtLeast(0)
+                val remainingMs = (durationMs - viewOffset).coerceAtLeast(0)
                 NetflixProgressBar(
                     progress = progress,
                     remainingMs = remainingMs,
-                    showRemainingTime = isFocused && cardType == CardType.WIDE,
+                    showRemainingTime = isFocused,
                     ratingKey = media.ratingKey,
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
         }
 
-        // Title and Metadata — always fully visible regardless of focus state
-        // Title remains at full opacity to ensure readability at all times
-        val metadataAlpha by animateFloatAsState(
-            targetValue = 1f, // Always fully visible
-            animationSpec = tween(durationMillis = 200),
-            label = "metadataAlpha"
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .graphicsLayer { alpha = metadataAlpha }
-        ) {
-            Text(
-                text = media.title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        // Title and Metadata — hidden in compact mode to save space
+        if (!compact) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            ) {
+                Text(
+                    text = media.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val rating = media.rating
-                if (rating != null && rating > 0) {
-                    Text(
-                        text = "${(rating * 10).toInt()}% Match",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF46D369),
-                        fontSize = 14.sp, // Increased from 10sp for TV readability
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val rating = media.rating
+                    if (rating != null && rating > 0) {
+                        Text(
+                            text = "${(rating * 10).toInt()}% Match",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF46D369),
+                            fontSize = 14.sp, // Increased from 10sp for TV readability
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
 
-                val metaText = media.contentRating ?: media.year?.toString()
-                if (metaText != null) {
-                    Text(
-                        text = metaText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp // Increased from 10sp for TV readability
-                    )
+                    val metaText = media.contentRating ?: media.year?.toString()
+                    if (metaText != null) {
+                        Text(
+                            text = metaText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp // Increased from 10sp for TV readability
+                        )
+                    }
                 }
             }
         }
@@ -400,9 +411,9 @@ fun NetflixProgressBar(
             ) {
                 val remainingMinutes = (remainingMs / 60000).toInt()
                 val remainingText = when {
-                    remainingMinutes < 1 -> "< 1 min left"
-                    remainingMinutes == 1 -> "1 min left"
-                    else -> "$remainingMinutes min left"
+                    remainingMinutes < 1 -> stringResource(R.string.remaining_time_less_than_one)
+                    remainingMinutes == 1 -> stringResource(R.string.remaining_time_one_min)
+                    else -> stringResource(R.string.remaining_time_minutes, remainingMinutes)
                 }
                 Text(
                     text = remainingText,
@@ -427,6 +438,35 @@ fun NetflixProgressBar(
                     .fillMaxWidth(progress)
                     .height(4.dp)
                     .background(NetflixRed)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WatchedBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .background(
+                color = Color.Black.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(4.dp),
+            )
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = Color(0xFF66BB6A),
+                modifier = Modifier.size(12.dp),
+            )
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = stringResource(R.string.watched_badge),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
             )
         }
     }

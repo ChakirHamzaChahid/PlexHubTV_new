@@ -1,7 +1,7 @@
 package com.chakir.plexhubtv.feature.player.controller
 
 import androidx.media3.exoplayer.ExoPlayer
-import com.chakir.plexhubtv.core.util.WatchNextHelper
+import com.chakir.plexhubtv.util.WatchNextHelper
 import com.chakir.plexhubtv.domain.service.PlaybackManager
 import com.chakir.plexhubtv.feature.player.PlayerAction
 import com.chakir.plexhubtv.feature.player.PlayerUiState

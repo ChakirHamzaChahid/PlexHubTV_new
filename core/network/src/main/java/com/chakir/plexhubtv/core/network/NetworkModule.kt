@@ -1,19 +1,21 @@
 package com.chakir.plexhubtv.core.network
 
-import com.chakir.plexhubtv.core.di.ApplicationScope
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import timber.log.Timber
 import java.net.InetAddress
 import java.net.Socket
+import java.security.cert.CertPathValidatorException
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
@@ -56,6 +58,38 @@ object NetworkModule {
         }
     }
 
+    /**
+     * Checks if a [CertificateException] is caused by a stale OCSP response,
+     * NOT by an actually invalid/expired certificate. Stale OCSP responses are
+     * transient server-side issues that don't indicate a compromised certificate.
+     */
+    internal fun isOcspFailure(e: CertificateException): Boolean {
+        var cause: Throwable? = e
+        while (cause != null) {
+            if (cause is CertPathValidatorException) {
+                val msg = cause.message.orEmpty()
+                if (msg.contains("validity interval is out-of-date", ignoreCase = true) ||
+                    msg.contains("Could not determine revocation status", ignoreCase = true)
+                ) {
+                    return true
+                }
+            }
+            // Also check suppressed exceptions (OCSP errors are often suppressed)
+            cause.suppressed.forEach { suppressed ->
+                if (suppressed is CertPathValidatorException) {
+                    val msg = suppressed.message.orEmpty()
+                    if (msg.contains("validity interval is out-of-date", ignoreCase = true) ||
+                        msg.contains("Could not determine revocation status", ignoreCase = true)
+                    ) {
+                        return true
+                    }
+                }
+            }
+            cause = cause.cause
+        }
+        return false
+    }
+
     @Provides
     @Singleton
     fun provideGson(): Gson =
@@ -73,16 +107,6 @@ object NetworkModule {
                 HttpLoggingInterceptor.Level.NONE
             }
         }
-    }
-
-    @Provides
-    @Singleton
-    fun provideAuthInterceptor(
-        settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
-        @ApplicationScope scope: CoroutineScope,
-        authEventBus: com.chakir.plexhubtv.core.common.auth.AuthEventBus,
-    ): AuthInterceptor {
-        return AuthInterceptor(settingsDataStore, scope, authEventBus)
     }
 
     /**
@@ -175,9 +199,14 @@ object NetworkModule {
                             defaultTrustManager.checkServerTrusted(chain, authType)
                         }
                     } catch (e: CertificateException) {
-                        // Accept self-signed ONLY for private/local IPs
                         val hostname = (socket as? SSLSocket)?.handshakeSession?.peerHost
+                        // Accept self-signed ONLY for private/local IPs
                         if (hostname != null && isPrivateAddress(hostname)) return
+                        // Allow stale OCSP responses (transient server issue, cert itself is valid)
+                        if (isOcspFailure(e)) {
+                            Timber.w("SSL: Ignoring stale OCSP response for %s", hostname)
+                            return
+                        }
                         throw e
                     }
                 }
@@ -195,9 +224,14 @@ object NetworkModule {
                             defaultTrustManager.checkServerTrusted(chain, authType)
                         }
                     } catch (e: CertificateException) {
-                        // Accept self-signed ONLY for private/local IPs
                         val hostname = engine.handshakeSession?.peerHost
+                        // Accept self-signed ONLY for private/local IPs
                         if (hostname != null && isPrivateAddress(hostname)) return
+                        // Allow stale OCSP responses (transient server issue, cert itself is valid)
+                        if (isOcspFailure(e)) {
+                            Timber.w("SSL: Ignoring stale OCSP response for %s", hostname)
+                            return
+                        }
                         throw e
                     }
                 }
@@ -246,8 +280,8 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideServerConnectionTester(okHttpClient: OkHttpClient): ServerConnectionTester {
-        return OkHttpConnectionTester(okHttpClient)
+    fun provideServerConnectionTester(okHttpClient: OkHttpClient, @IoDispatcher ioDispatcher: CoroutineDispatcher): ServerConnectionTester {
+        return OkHttpConnectionTester(okHttpClient, ioDispatcher)
     }
 
     // ========================================

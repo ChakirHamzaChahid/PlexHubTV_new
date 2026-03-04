@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.core.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -28,6 +29,7 @@ sealed class MediaStream {
 }
 
 @Serializable
+@SerialName("AudioStream")
 data class AudioStream(
     override val id: String,
     override val index: Int?,
@@ -41,6 +43,7 @@ data class AudioStream(
 ) : MediaStream()
 
 @Serializable
+@SerialName("SubtitleStream")
 data class SubtitleStream(
     override val id: String,
     override val index: Int?,
@@ -57,6 +60,7 @@ data class SubtitleStream(
 }
 
 @Serializable
+@SerialName("VideoStream")
 data class VideoStream(
     override val id: String,
     override val index: Int?,
@@ -73,6 +77,7 @@ data class VideoStream(
 ) : MediaStream()
 
 @Serializable
+@SerialName("UnknownStream")
 data class UnknownStream(
     override val id: String,
     override val index: Int?,

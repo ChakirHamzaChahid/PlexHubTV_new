@@ -17,6 +17,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -35,7 +37,7 @@ import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.navigation.NavigationItem
 import com.chakir.plexhubtv.core.ui.NetflixTopBar
-import com.chakir.plexhubtv.di.navigation.Screen
+import com.chakir.plexhubtv.core.navigation.Screen
 import com.chakir.plexhubtv.feature.downloads.DownloadsRoute
 import com.chakir.plexhubtv.feature.home.HomeRoute
 import com.chakir.plexhubtv.feature.hub.HubRoute
@@ -57,6 +59,8 @@ fun MainScreen(
     onNavigateToPlexHomeSwitch: () -> Unit,
     onLogout: () -> Unit,
     onNavigateToLibrarySelection: () -> Unit = {},
+    onNavigateToXtreamSetup: () -> Unit = {},
+    onNavigateToXtreamCategorySelection: (String) -> Unit = {},
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
@@ -68,6 +72,9 @@ fun MainScreen(
     // TopBar focus management for Back button handling
     var requestTopBarFocus by remember { mutableStateOf(false) }
     var isTopBarFocused by remember { mutableStateOf(false) }
+
+    // NAV-14: Focus requester so TopBar DPAD_DOWN can route focus into content area
+    val contentFocusRequester = remember { FocusRequester() }
 
     // Determines the current selected item based on the route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -125,12 +132,14 @@ fun MainScreen(
             startDestination = Screen.Home.route,
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background)
+                .focusRequester(contentFocusRequester),
         ) {
             composable(Screen.Home.route) {
                 HomeRoute(
                     onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
                     onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
+                    onNavigateUp = { requestTopBarFocus = true },
                 )
             }
             composable(Screen.Hub.route) {
@@ -183,6 +192,8 @@ fun MainScreen(
                     onNavigateToPlexHomeSwitch = { onNavigateToPlexHomeSwitch() },
                     onNavigateToAppProfiles = { onNavigateToProfiles() },
                     onNavigateToLibrarySelection = { onNavigateToLibrarySelection() },
+                    onNavigateToXtreamSetup = { onNavigateToXtreamSetup() },
+                    onNavigateToXtreamCategorySelection = { accountId -> onNavigateToXtreamCategorySelection(accountId) },
                 )
             }
             composable(Screen.ServerStatus.route) {
@@ -243,6 +254,7 @@ fun MainScreen(
                 appLogoPainter = painterResource(id = R.drawable.ic_launcher_tv),
                 requestFocusOnSelectedItem = requestTopBarFocus,
                 onFocusChanged = { hasFocus -> isTopBarFocused = hasFocus },
+                contentFocusRequester = contentFocusRequester,
             )
         }
     }

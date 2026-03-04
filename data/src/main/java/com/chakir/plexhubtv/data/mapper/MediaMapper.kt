@@ -4,10 +4,11 @@ import com.chakir.plexhubtv.core.common.StringNormalizer
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.UnificationId
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.core.network.model.StreamDTO
 import com.chakir.plexhubtv.core.util.ContentRatingHelper
-import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import javax.inject.Inject
 
 /**
@@ -36,7 +37,7 @@ class MediaMapper
                 id = "${serverId}_${dto.ratingKey}",
                 ratingKey = dto.ratingKey,
                 serverId = serverId,
-                unificationId = calculateUnificationId(dto),
+                unificationId = UnificationId.calculate(extractImdbId(dto), extractTmdbId(dto), dto.title, dto.year),
                 title = dto.title,
                 type = mapType(dto.type),
                 thumbUrl = getOptimizedImageUrl(rawThumb, width = 300, height = 450) ?: rawThumb,
@@ -120,6 +121,35 @@ class MediaMapper
                             endTime = it.endTimeOffset ?: 0L,
                         )
                     } ?: emptyList(),
+                extras =
+                    dto.extras?.metadata?.map { extraDto ->
+                        com.chakir.plexhubtv.core.model.Extra(
+                            ratingKey = extraDto.ratingKey,
+                            title = extraDto.title,
+                            subtype = com.chakir.plexhubtv.core.model.ExtraType.fromPlex(extraDto.subtype),
+                            thumbUrl = extraDto.thumb?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
+                            durationMs = extraDto.duration,
+                            year = extraDto.year,
+                            playbackKey = extraDto.key,
+                            mediaParts = extraDto.media?.flatMap { mediaDto ->
+                                mediaDto.parts?.map { partDto ->
+                                    com.chakir.plexhubtv.core.model.MediaPart(
+                                        id = partDto.id,
+                                        key = partDto.key,
+                                        duration = partDto.duration,
+                                        file = partDto.file,
+                                        size = partDto.size,
+                                        container = partDto.container,
+                                        streams = partDto.streams?.map { streamDto ->
+                                            mapStream(streamDto)
+                                        } ?: emptyList(),
+                                    )
+                                } ?: emptyList()
+                            } ?: emptyList(),
+                            baseUrl = baseUrl,
+                            accessToken = accessToken,
+                        )
+                    } ?: emptyList(),
             )
         }
 
@@ -170,14 +200,15 @@ class MediaMapper
             serverId: String,
             libraryKey: String,
         ): MediaEntity {
+            val unificationId = UnificationId.calculate(extractImdbId(dto), extractTmdbId(dto), dto.title, dto.year)
             return MediaEntity(
                 ratingKey = dto.ratingKey,
                 serverId = serverId,
                 librarySectionId = libraryKey,
                 title = dto.title,
                 titleSortable = StringNormalizer.normalizeForSorting(dto.title),
-                // PHASE 2: Pre-calculate unificationId
-                unificationId = calculateUnificationId(dto),
+                unificationId = unificationId,
+                historyGroupKey = unificationId.ifEmpty { dto.ratingKey + serverId },
                 guid = dto.guid,
                 imdbId = extractImdbId(dto),
                 tmdbId = extractTmdbId(dto),
@@ -188,6 +219,7 @@ class MediaMapper
                 year = dto.year,
                 duration = dto.duration,
                 viewOffset = dto.viewOffset ?: 0,
+                viewCount = dto.viewCount?.toLong() ?: 0,
                 lastViewedAt = dto.lastViewedAt ?: 0,
                 parentTitle = dto.parentTitle,
                 parentRatingKey = dto.parentRatingKey,
@@ -253,11 +285,13 @@ class MediaMapper
             item: MediaItem,
             libraryKey: String,
         ): MediaEntity {
+            val unificationId = item.unificationId ?: "${item.serverId}_${item.ratingKey}"
             return MediaEntity(
                 ratingKey = item.ratingKey,
                 serverId = item.serverId,
                 librarySectionId = libraryKey,
-                unificationId = item.unificationId ?: "${item.serverId}_${item.ratingKey}",
+                unificationId = unificationId,
+                historyGroupKey = unificationId.ifEmpty { item.ratingKey + item.serverId },
                 title = item.title,
                 titleSortable = StringNormalizer.normalizeForSorting(item.title),
                 guid = item.guid,
@@ -270,6 +304,7 @@ class MediaMapper
                 year = item.year,
                 duration = item.durationMs,
                 viewOffset = item.viewOffset,
+                viewCount = item.viewCount,
                 lastViewedAt = item.lastViewedAt ?: 0,
                 parentTitle = item.parentTitle,
                 parentRatingKey = item.parentRatingKey,
@@ -304,13 +339,20 @@ class MediaMapper
                 type = mapType(entity.type),
                 imdbId = entity.imdbId,
                 tmdbId = entity.tmdbId,
-                thumbUrl = entity.resolvedThumbUrl ?: entity.thumbUrl,
-                artUrl = entity.resolvedArtUrl ?: entity.artUrl,
+                // Always use raw relative paths — callers resolve against current baseUrl
+                // (resolvedThumbUrl may embed a stale server address from sync time)
+                thumbUrl = entity.thumbUrl,
+                artUrl = entity.artUrl,
                 alternativeThumbUrls = entity.alternativeThumbUrls?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
                 summary = entity.summary,
                 year = entity.year,
                 durationMs = entity.duration,
                 viewOffset = entity.viewOffset,
+                viewCount = entity.viewCount,
+                isWatched = entity.viewCount > 0 || run {
+                    val dur = entity.duration ?: 0L
+                    entity.viewOffset > 0 && dur > 0 && entity.viewOffset.toFloat() / dur.toFloat() >= 0.9f
+                },
                 lastViewedAt = entity.lastViewedAt,
                 parentTitle = entity.parentTitle,
                 parentRatingKey = entity.parentRatingKey,
@@ -375,19 +417,6 @@ class MediaMapper
                 MediaType.Episode -> "episode"
                 MediaType.Season -> "season"
                 else -> "unknown"
-            }
-        }
-
-        private fun calculateUnificationId(dto: MetadataDTO): String {
-            val imdbId = extractImdbId(dto)
-            val tmdbId = extractTmdbId(dto)
-            return when {
-                !imdbId.isNullOrBlank() -> "imdb://$imdbId"
-                !tmdbId.isNullOrBlank() -> "tmdb://$tmdbId"
-                else -> {
-                    val safeTitle = dto.title?.lowercase()?.trim()?.replace(Regex("[^a-z0-9 ]"), "") ?: "unknown"
-                    "${safeTitle}_${dto.year ?: 0}"
-                }
             }
         }
     }

@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.core.network
 
 import android.os.Build
-import com.chakir.plexhubtv.core.common.auth.AuthEventBus
-import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.network.auth.AuthEventBus
+import com.chakir.plexhubtv.core.network.auth.AuthTokenProvider
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineScope
@@ -40,10 +40,10 @@ class AuthInterceptorTest {
     @Test
     fun `intercept emits TokenInvalid event on 401 response`() = runTest {
         val mockEventBus = mockk<AuthEventBus>(relaxed = true)
-        val mockDataStore = mockk<SettingsDataStore>(relaxed = true)
+        val mockTokenProvider = mockk<AuthTokenProvider>(relaxed = true)
         val scope = CoroutineScope(SupervisorJob())
 
-        val interceptor = AuthInterceptor(mockDataStore, scope, mockEventBus)
+        val interceptor = AuthInterceptor(mockTokenProvider, scope, mockEventBus)
 
         val mockChain = object : Interceptor.Chain {
             override fun request(): Request = Request.Builder().url("http://test").build()
@@ -71,10 +71,10 @@ class AuthInterceptorTest {
     @Test
     fun `intercept does not emit event on 200 response`() = runTest {
         val mockEventBus = mockk<AuthEventBus>(relaxed = true)
-        val mockDataStore = mockk<SettingsDataStore>(relaxed = true)
+        val mockTokenProvider = mockk<AuthTokenProvider>(relaxed = true)
         val scope = CoroutineScope(SupervisorJob())
 
-        val interceptor = AuthInterceptor(mockDataStore, scope, mockEventBus)
+        val interceptor = AuthInterceptor(mockTokenProvider, scope, mockEventBus)
 
         val mockChain = object : Interceptor.Chain {
             override fun request(): Request = Request.Builder().url("http://test").build()

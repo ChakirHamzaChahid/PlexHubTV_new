@@ -1,12 +1,15 @@
 package com.chakir.plexhubtv.data.repository
 
-import com.chakir.plexhubtv.core.common.safeApiCall
 import com.chakir.plexhubtv.core.database.MediaDao
-import com.chakir.plexhubtv.core.model.AppError
+import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.Collection
+import com.chakir.plexhubtv.core.model.EpisodeSource
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.UnifiedEpisode
+import com.chakir.plexhubtv.core.model.UnifiedSeason
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
+import com.chakir.plexhubtv.data.source.MediaSourceResolver
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -14,7 +17,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,104 +29,44 @@ class MediaDetailRepositoryImpl
         private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
+        private val mediaSourceResolver: MediaSourceResolver,
+        private val serverNameResolver: ServerNameResolver,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MediaDetailRepository {
-        // In-memory cache for similar items: "ratingKey:serverId" → (timestampMs, items)
-        private val similarCache = ConcurrentHashMap<String, Pair<Long, List<MediaItem>>>()
-        private val similarCacheTtlMs = 10 * 60 * 1000L // 10 minutes
         override suspend fun getMediaDetail(
             ratingKey: String,
             serverId: String,
-        ): Result<MediaItem> {
-            // 1. BDD first — synced every 6h, instant access
-            val localEntity = mediaDao.getMedia(ratingKey, serverId)
-            if (localEntity != null) {
-                // CRITICAL FIX: Check if mediaParts have streams (audio/subtitle tracks)
-                // LibrarySyncWorker doesn't sync streams (endpoint /library/sections/{id}/all doesn't return them)
-                // So we must fetch from network if streams are missing, otherwise audio/subtitle selection will be empty
-                val hasStreams = localEntity.mediaParts.isNotEmpty() &&
-                                localEntity.mediaParts.first().streams.isNotEmpty()
-
-                if (hasStreams) {
-                    val client = serverClientResolver.getClient(serverId)
-                    val baseUrl = client?.baseUrl
-                    val token = client?.server?.accessToken
-                    val domain = mapper.mapEntityToDomain(localEntity)
-                    val resolved = if (baseUrl != null && token != null) {
-                        mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
-                            baseUrl = baseUrl, accessToken = token
-                        )
-                    } else domain
-                    return Result.success(resolved)
-                }
-                // If no streams, fallthrough to network fetch
-                Timber.d("MediaDetail: Room cache missing streams for $ratingKey, fetching from network")
-            }
-
-            // 2. API fallback — if not in BDD (new media, not yet synced)
-            val client = serverClientResolver.getClient(serverId)
-                ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
-
-            return safeApiCall("getMediaDetail") {
-                val response = client.getMetadata(ratingKey)
-                if (response.isSuccessful) {
-                    val metadata = response.body()?.mediaContainer?.metadata?.firstOrNull()
-                    if (metadata != null) {
-                        return@safeApiCall mapper.mapDtoToDomain(metadata, serverId, client.baseUrl, client.server.accessToken)
-                    }
-                }
-                throw AppError.Media.NotFound("Media $ratingKey not found on server $serverId")
-            }
-        }
+        ): Result<MediaItem> =
+            mediaSourceResolver.resolve(serverId).getDetail(ratingKey, serverId)
 
         override suspend fun getSeasonEpisodes(
             ratingKey: String,
             serverId: String,
-        ): Result<List<MediaItem>> {
-            // 1. Cache-first: Return Room data immediately when available (~5ms)
-            val localEntities = mediaDao.getChildren(ratingKey, serverId)
-            if (localEntities.isNotEmpty()) {
-                val client = serverClientResolver.getClient(serverId)
-                val baseUrl = client?.baseUrl
-                val token = client?.server?.accessToken
-                val cachedItems = localEntities.map {
-                    mapper.mapEntityToDomain(it).let { domain ->
-                        if (baseUrl != null && token != null) {
-                            mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
-                                baseUrl = baseUrl, accessToken = token
-                            )
-                        } else domain
-                    }
-                }
-                return Result.success(cachedItems)
-            }
-
-            // 2. API fallback: Only if not in cache (new season, not yet synced)
-            return safeApiCall("getSeasonEpisodes") {
-                val client = serverClientResolver.getClient(serverId)
-                if (client != null) {
-                    val response = client.getChildren(ratingKey)
-                    if (response.isSuccessful) {
-                        val metadata = response.body()?.mediaContainer?.metadata
-                        if (metadata != null) {
-                            return@safeApiCall metadata.map {
-                                mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
-                            }
-                        }
-                    }
-                }
-                throw AppError.Media.NotFound("Episodes for $ratingKey not found")
-            }
-        }
+        ): Result<List<MediaItem>> =
+            mediaSourceResolver.resolve(serverId).getEpisodes(ratingKey, serverId)
 
         override suspend fun findRemoteSources(item: MediaItem): List<MediaItem> {
-            // For episodes: match by show title + season index + episode index (unificationId unreliable across servers)
             val entities = if (item.type == com.chakir.plexhubtv.core.model.MediaType.Episode) {
-                val showTitle = item.grandparentTitle
                 val seasonIndex = item.parentIndex
                 val episodeIndex = item.episodeIndex
-                if (showTitle != null && seasonIndex != null && episodeIndex != null) {
-                    mediaDao.findRemoteEpisodeSources(showTitle, seasonIndex, episodeIndex, item.serverId)
+                if (seasonIndex != null && episodeIndex != null) {
+                    // Primary: match via parent show's unificationId (handles title variations across servers)
+                    val grandparentRatingKey = item.grandparentRatingKey
+                    val showUnificationId = if (grandparentRatingKey != null) {
+                        mediaDao.getMedia(grandparentRatingKey, item.serverId)?.unificationId
+                    } else null
+
+                    if (!showUnificationId.isNullOrBlank()) {
+                        mediaDao.findRemoteEpisodesByShowUnificationId(
+                            showUnificationId, seasonIndex, episodeIndex, item.serverId
+                        )
+                    } else {
+                        // Fallback: exact grandparentTitle match
+                        val showTitle = item.grandparentTitle
+                        if (showTitle != null) {
+                            mediaDao.findRemoteEpisodeSources(showTitle, seasonIndex, episodeIndex, item.serverId)
+                        } else emptyList()
+                    }
                 } else {
                     emptyList()
                 }
@@ -147,6 +89,69 @@ class MediaDetailRepositoryImpl
             }
         }
 
+        override suspend fun getUnifiedSeasons(
+            showUnificationId: String,
+            enabledServerIds: List<String>,
+        ): List<UnifiedSeason> {
+            val allEpisodes = mediaDao.getUnifiedEpisodesByShowId(showUnificationId, enabledServerIds)
+            if (allEpisodes.isEmpty()) return emptyList()
+
+            val serverNames = serverNameResolver.getServerNameMap()
+
+            return allEpisodes
+                .filter { it.parentIndex != null && it.index != null }
+                .groupBy { it.parentIndex!! }
+                .toSortedMap()
+                .map { (seasonIdx, seasonEpisodes) ->
+                    val byEpIndex = seasonEpisodes.groupBy { it.index!! }
+                    val unifiedEps = byEpIndex.toSortedMap().map { (epIdx, entities) ->
+                        val best = pickBestEntity(entities)
+                        UnifiedEpisode(
+                            episodeIndex = epIdx,
+                            title = best.title,
+                            duration = best.duration,
+                            thumbUrl = best.thumbUrl ?: best.parentThumb,
+                            summary = best.summary,
+                            bestRatingKey = best.ratingKey,
+                            bestServerId = best.serverId,
+                            sources = entities.map { entity ->
+                                EpisodeSource(
+                                    serverId = entity.serverId,
+                                    serverName = serverNames[entity.serverId] ?: entity.serverId,
+                                    ratingKey = entity.ratingKey,
+                                )
+                            },
+                        )
+                    }
+                    val allServerIds = unifiedEps.flatMap { ep -> ep.sources.map { it.serverId } }.toSet()
+                    val bestSeasonEntity = seasonEpisodes.maxByOrNull { metadataScore(it) }
+                    UnifiedSeason(
+                        seasonIndex = seasonIdx,
+                        title = bestSeasonEntity?.parentTitle ?: "Season $seasonIdx",
+                        thumbUrl = bestSeasonEntity?.parentThumb,
+                        episodes = unifiedEps,
+                        availableServerIds = allServerIds,
+                    )
+                }
+        }
+
+        private fun pickBestEntity(entities: List<MediaEntity>): MediaEntity =
+            entities.maxByOrNull { metadataScore(it) } ?: entities.first()
+
+        private fun metadataScore(entity: MediaEntity): Int {
+            var score = 0
+            if (!entity.summary.isNullOrBlank()) score += 2
+            if (!entity.thumbUrl.isNullOrBlank()) score += 2
+            if (!entity.imdbId.isNullOrBlank()) score += 1
+            if (!entity.tmdbId.isNullOrBlank()) score += 1
+            val year = entity.year
+            if (year != null && year > 0) score += 1
+            if (!entity.genres.isNullOrBlank()) score += 1
+            score += mediaSourceResolver.resolve(entity.serverId).metadataScoreBonus()
+            return score
+        }
+
+
         override suspend fun updateMediaParts(item: MediaItem) {
             // Persist mediaParts to Room for future sessions (lazy progressive cache)
             try {
@@ -165,51 +170,14 @@ class MediaDetailRepositoryImpl
         override suspend fun getShowSeasons(
             ratingKey: String,
             serverId: String,
-        ): Result<List<MediaItem>> {
-            return getSeasonEpisodes(ratingKey, serverId) // Plex uses getChildren for both seasons of show and episodes of season
-        }
+        ): Result<List<MediaItem>> =
+            mediaSourceResolver.resolve(serverId).getSeasons(ratingKey, serverId)
 
         override suspend fun getSimilarMedia(
             ratingKey: String,
             serverId: String,
-        ): Result<List<MediaItem>> {
-            // Cache-first: return cached similar items if fresh (avoids 300-1000ms API call)
-            val cacheKey = "$ratingKey:$serverId"
-            val cached = similarCache[cacheKey]
-            if (cached != null && System.currentTimeMillis() - cached.first < similarCacheTtlMs) {
-                Timber.d("Similar: Cache hit for $ratingKey (${cached.second.size} items)")
-                return Result.success(cached.second)
-            }
-
-            val client = serverClientResolver.getClient(serverId)
-                ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
-
-            return safeApiCall("getSimilarMedia") {
-                val response = client.getRelated(ratingKey)
-                if (!response.isSuccessful) {
-                    throw AppError.Network.ServerError("Similar: API returned ${response.code()} for $ratingKey")
-                }
-
-                val body = response.body()
-                if (body == null) {
-                    Timber.w("Similar: Response body is null for $ratingKey")
-                    return@safeApiCall emptyList<MediaItem>()
-                }
-
-                val hubs = body.mediaContainer?.hubs ?: emptyList()
-                Timber.d("Similar: Received ${hubs.size} hubs for $ratingKey")
-
-                val similarHub = hubs.find { it.hubIdentifier == "similar" } ?: hubs.firstOrNull()
-                val metadata = similarHub?.metadata ?: emptyList()
-                Timber.d("Similar: Found ${metadata.size} items in similar hub")
-
-                val items = metadata.map {
-                    mapper.mapDtoToDomain(it, serverId, client.baseUrl, client.server.accessToken)
-                }
-                similarCache[cacheKey] = System.currentTimeMillis() to items
-                items
-            }
-        }
+        ): Result<List<MediaItem>> =
+            mediaSourceResolver.resolve(serverId).getSimilarMedia(ratingKey, serverId)
 
         override fun getMediaCollections(
             ratingKey: String,
@@ -305,4 +273,5 @@ class MediaDetailRepositoryImpl
                 }
                 .flowOn(ioDispatcher)
         }
+
     }

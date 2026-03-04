@@ -35,11 +35,10 @@ import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
-import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.ui.HandleErrors
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.HomeScreenSkeleton
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
-import com.chakir.plexhubtv.core.ui.showError
 
 // Backward compatibility wrapper
 @Composable
@@ -74,6 +73,7 @@ fun HomeRoute(
     onNavigateToDetails: (String, String) -> Unit,
     onNavigateToPlayer: (String, String) -> Unit,
     onScrollStateChanged: (Boolean) -> Unit = {},
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -94,14 +94,8 @@ fun HomeRoute(
         }
     }
 
-    // Handle error events with centralized error display
-    LaunchedEffect(errorEvents) {
-        errorEvents.collect { error ->
-            val result = snackbarHostState.showError(error)
-            if (result == SnackbarResult.ActionPerformed && error.isRetryable()) {
-                viewModel.onAction(HomeAction.Refresh)
-            }
-        }
+    HandleErrors(errorEvents, snackbarHostState) {
+        viewModel.onAction(HomeAction.Refresh)
     }
 
     DiscoverScreen(
@@ -109,6 +103,7 @@ fun HomeRoute(
         heroItems = heroItems,
         onAction = viewModel::onAction,
         snackbarHostState = snackbarHostState,
+        onNavigateUp = onNavigateUp,
     )
 }
 
@@ -118,6 +113,7 @@ fun DiscoverScreen(
     heroItems: List<MediaItem>,
     onAction: (HomeAction) -> Unit,
     snackbarHostState: SnackbarHostState,
+    onNavigateUp: (() -> Unit)? = null,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -140,6 +136,7 @@ fun DiscoverScreen(
                     NetflixHomeContent(
                         heroItems = heroItems,
                         onAction = onAction,
+                        onNavigateUp = onNavigateUp,
                     )
             }
         }

@@ -1,21 +1,18 @@
 package com.chakir.plexhubtv.feature.search
 
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.usecase.SearchAcrossServersUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -35,40 +32,27 @@ class SearchViewModel
     @Inject
     constructor(
         private val searchAcrossServersUseCase: SearchAcrossServersUseCase,
-    ) : ViewModel() {
-        private val _uiState = MutableStateFlow(SearchUiState())
+        private val savedStateHandle: SavedStateHandle,
+    ) : BaseViewModel() {
+        private val _uiState = MutableStateFlow(
+            SearchUiState(query = savedStateHandle.get<String>("search_query") ?: "")
+        )
         val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<SearchNavigationEvent>()
+        private val _navigationEvents = Channel<SearchNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
-
-        private val _errorEvents = Channel<AppError>()
-        val errorEvents = _errorEvents.receiveAsFlow()
 
         private var searchJob: Job? = null
 
         init {
             Timber.d("SCREEN [Search]: Opened")
-
-            // UX17: Debounced auto-search on query changes
-            viewModelScope.launch {
-                _uiState
-                    .map { it.query }
-                    .distinctUntilChanged()
-                    .debounce(300) // Wait 300ms after last keystroke
-                    .collect { query ->
-                        if (query.isNotBlank() && query.length >= 2) {
-                            performSearch(query)
-                        }
-                    }
-            }
         }
 
         fun onAction(action: SearchAction) {
             when (action) {
                 is SearchAction.QueryChange -> {
-                    // Only update the query text, don't trigger search automatically
                     _uiState.update { it.copy(query = action.query) }
+                    savedStateHandle["search_query"] = action.query
                     if (action.query.isBlank()) {
                         _uiState.update { it.copy(searchState = SearchState.Idle, results = emptyList()) }
                         searchJob?.cancel()
@@ -76,6 +60,7 @@ class SearchViewModel
                 }
                 is SearchAction.ClearQuery -> {
                     _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = emptyList()) }
+                    savedStateHandle["search_query"] = ""
                     searchJob?.cancel()
                 }
                 is SearchAction.ExecuteSearch -> {
@@ -115,7 +100,7 @@ class SearchViewModel
                                 AppError.Search.SearchFailed(error.message, error)
                             }
                             viewModelScope.launch {
-                                _errorEvents.send(appError)
+                                emitError(appError)
                             }
                             _uiState.update {
                                 it.copy(searchState = SearchState.Error)
@@ -141,7 +126,7 @@ class SearchViewModel
                                     AppError.Search.SearchFailed(error.message, error)
                                 }
                                 viewModelScope.launch {
-                                    _errorEvents.send(appError)
+                                    emitError(appError)
                                 }
                                 _uiState.update {
                                     it.copy(searchState = SearchState.Error)

@@ -190,6 +190,15 @@
     <string name="detail_tab_episodes">EPISODES</string>
     <string name="detail_tab_more_like_this">MORE LIKE THIS</string>
     <string name="detail_tab_collections">COLLECTIONS</string>
+    <string name="detail_tab_trailers">TRAILERS &amp; MORE</string>
+    <string name="detail_no_trailers">No trailers available</string>
+    <string name="detail_extra_trailer">Trailer</string>
+    <string name="detail_extra_behind_the_scenes">Behind the Scenes</string>
+    <string name="detail_extra_scene">Scene</string>
+    <string name="detail_extra_deleted_scene">Deleted Scene</string>
+    <string name="detail_extra_interview">Interview</string>
+    <string name="detail_extra_featurette">Featurette</string>
+    <string name="detail_extra_unknown">Extra</string>
     <string name="detail_screen_description">Details screen</string>
     <string name="detail_collection_fallback">Collection</string>
     <string name="collection_title">Collection</string>
@@ -260,6 +269,7 @@
     <string name="player_play_now">Play Now</string>
     <string name="player_unknown_title">Unknown Title</string>
     <string name="player_playing_from">Playing from %1$s</string>
+    <string name="player_resuming_from">Resuming from %1$s</string>
     <string name="player_server">Server</string>
     <string name="player_server_fallback">Server</string>
     <string name="player_back">Back</string>
@@ -443,11 +453,41 @@
     <string name="settings_limit_2500">2500 req/day</string>
     <string name="settings_daily_request_limit">Daily Request Limit</string>
 
+    <!-- PlexHub Backend (Settings) -->
+    <string name="settings_backend_section">PlexHub Backend</string>
+    <string name="settings_add_backend">Add Backend Server</string>
+    <string name="settings_backend_label">Server Name</string>
+    <string name="settings_backend_url">Server URL</string>
+    <string name="settings_backend_url_hint">http://192.168.1.50:8000</string>
+    <string name="settings_backend_sync">Sync from Backend</string>
+    <string name="settings_backend_sync_subtitle">Fetch enriched media from backend</string>
+    <string name="settings_backend_remove_confirm">Remove this backend server?</string>
+
     <!-- IPTV (Settings) -->
     <string name="settings_section_iptv">IPTV</string>
     <string name="settings_iptv_description">Configure your IPTV playlist URL</string>
     <string name="settings_iptv_url_label">IPTV Playlist URL</string>
     <string name="settings_iptv_url_placeholder">http://example.com/playlist.m3u</string>
+    <string name="settings_xtream_accounts">Xtream Accounts</string>
+    <string name="settings_xtream_accounts_subtitle">Manage Xtream Codes IPTV accounts</string>
+    <string name="settings_sync_xtream">Sync Xtream Library</string>
+    <string name="settings_sync_xtream_subtitle">Update Xtream VOD movies and series</string>
+    <string name="settings_xtream_categories">Xtream Categories</string>
+    <string name="settings_xtream_categories_subtitle">Choose which categories to sync</string>
+    <string name="xtream_category_header">Choose Xtream Categories</string>
+    <string name="xtream_category_subtitle">Select the categories you want to sync</string>
+    <string name="xtream_category_vod">Films (VOD)</string>
+    <string name="xtream_category_series">Series</string>
+    <string name="xtream_category_loading">Loading categories…</string>
+    <string name="xtream_category_confirm">Confirm (%1$d/%2$d)</string>
+    <string name="xtream_category_select_one">Select at least one category</string>
+    <string name="xtream_category_mode_whitelist">Whitelist mode</string>
+    <string name="xtream_category_mode_blacklist">Blacklist mode</string>
+    <string name="xtream_category_mode_all">All categories</string>
+    <string name="xtream_category_syncing">Syncing…</string>
+    <string name="xtream_filter_unified">All Categories</string>
+    <string name="xtream_filter_non_unified">Selected Categories</string>
+    <string name="retry">Retry</string>
 
     <!-- Legal -->
     <string name="settings_section_legal">Legal</string>
@@ -521,12 +561,14 @@
          ══════════════════════════════════════════════ -->
     <string name="downloads_title">Downloads</string>
     <string name="downloads_empty">No downloaded content.</string>
+    <string name="downloads_empty_hint">Downloaded content will appear here for offline viewing.</string>
 
     <!-- ══════════════════════════════════════════════
          Favorites Screen
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">My List</string>
     <string name="favorites_empty">No favorites yet.</string>
+    <string name="favorites_empty_hint">Add movies and shows to your list from the detail screen.</string>
     <string name="favorites_screen_description">Favorites screen</string>
     <string name="favorites_loading_description">Loading favorites</string>
     <string name="favorites_empty_description">No favorites</string>
@@ -536,6 +578,7 @@
          ══════════════════════════════════════════════ -->
     <string name="history_title">Watch History</string>
     <string name="history_empty">No history available.</string>
+    <string name="history_empty_hint">Your recently watched content will appear here.</string>
     <string name="history_screen_description">Watch history screen</string>
     <string name="history_empty_description">No history</string>
 
@@ -576,4 +619,12 @@
     <string name="session_expired_title">Session Expired</string>
     <string name="session_expired_message">Your Plex session has expired. Please sign in again.</string>
     <string name="reconnect">Reconnect</string>
+
+    <!-- ══════════════════════════════════════════════
+         Continue Watching / On Deck
+         ══════════════════════════════════════════════ -->
+    <string name="remove_from_continue_watching_title">Remove from Continue Watching?</string>
+    <string name="remove_from_continue_watching_subtitle">This will mark \"%1$s\" as watched</string>
+    <string name="remove_button">Remove</string>
+    <string name="cancel_button">Cancel</string>
 </resources>

@@ -6,22 +6,31 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chakir.plexhubtv.R
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import com.chakir.plexhubtv.feature.home.MediaCard
 
 /**
@@ -56,7 +65,7 @@ fun HistoryScreen(
                 .testTag("screen_history")
                 .semantics { contentDescription = screenDescription }
                 .background(MaterialTheme.colorScheme.background)
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 80.dp),
+                .padding(start = 48.dp, end = 48.dp, bottom = 48.dp, top = 80.dp),
     ) {
         Text(
             text = stringResource(R.string.history_title),
@@ -67,15 +76,12 @@ fun HistoryScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (uiState.isLoading) {
-            Box(
+            LibraryGridSkeleton(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("history_loading")
                     .semantics { contentDescription = loadingDescription },
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
+            )
         } else if (uiState.historyItems.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -84,21 +90,45 @@ fun HistoryScreen(
                     .semantics { contentDescription = emptyDescription },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = stringResource(R.string.history_empty),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = Color.White.copy(alpha = 0.4f),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = stringResource(R.string.history_empty),
+                        style = typography.titleLarge,
+                        color = Color.White.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.history_empty_hint),
+                        style = typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.4f),
+                    )
+                }
             }
         } else {
             val gridState = rememberLazyGridState()
+            val gridFocusRequester = remember { FocusRequester() }
+
+            // NAV-07: Request focus on first grid item when content loads
+            LaunchedEffect(uiState.historyItems) {
+                if (uiState.historyItems.isNotEmpty()) {
+                    try { gridFocusRequester.requestFocus() } catch (_: Exception) { }
+                }
+            }
+
             LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(minSize = 100.dp),
                 contentPadding = PaddingValues(top = 56.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().focusRequester(gridFocusRequester),
             ) {
                 items(
                     count = uiState.historyItems.size,

@@ -1,11 +1,12 @@
 package com.chakir.plexhubtv.di
 
 import com.chakir.plexhubtv.BuildConfig
-import com.chakir.plexhubtv.core.common.handler.IsDebugBuild
+import com.chakir.plexhubtv.handler.IsDebugBuild
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -28,5 +29,11 @@ object AppModule {
     @IsDebugBuild
     fun provideIsDebugBuild(): Boolean {
         return BuildConfig.DEBUG
+    }
+
+    @Provides
+    @Named("iptvPlaylistUrl")
+    fun provideIptvPlaylistUrl(): String {
+        return BuildConfig.IPTV_PLAYLIST_URL
     }
 }

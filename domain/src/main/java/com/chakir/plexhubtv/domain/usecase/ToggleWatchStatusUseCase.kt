@@ -1,7 +1,7 @@
 package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import javax.inject.Inject
 
 /**
@@ -10,12 +10,12 @@ import javax.inject.Inject
 class ToggleWatchStatusUseCase
     @Inject
     constructor(
-        private val mediaRepository: MediaRepository,
+        private val playbackRepository: PlaybackRepository,
     ) {
         suspend operator fun invoke(
             media: MediaItem,
             isWatched: Boolean = !media.isWatched,
         ): Result<Unit> {
-            return mediaRepository.toggleWatchStatus(media, isWatched)
+            return playbackRepository.toggleWatchStatus(media, isWatched)
         }
     }

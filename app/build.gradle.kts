@@ -169,6 +169,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.collections.immutable)
     implementation(libs.timber)
 
     // --- Player Vidéo ---
@@ -177,6 +178,7 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.common)
     implementation(libs.media3.session)
+    implementation(libs.media3.datasource.okhttp)
 
     // Hybrid Engine - MPV Fallback
     implementation("dev.jdtech.mpv:libmpv:0.5.1")

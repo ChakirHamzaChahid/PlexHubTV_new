@@ -14,10 +14,15 @@ import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwitchAccount
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -31,8 +36,7 @@ import com.chakir.plexhubtv.BuildConfig
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 
-// TODO: Replace with your hosted privacy policy URL (e.g. GitHub Pages)
-private const val PRIVACY_POLICY_URL = "https://github.com/chakir-elarram/PlexHubTV/blob/main/docs/privacy-policy-en.md"
+private const val PRIVACY_POLICY_URL = "https://chakir-elarram.github.io/PlexHubTV/privacy-policy-en.html"
 
 /**
  * Écran principal des paramètres.
@@ -48,6 +52,8 @@ fun SettingsRoute(
     onNavigateToPlexHomeSwitch: () -> Unit = {},
     onNavigateToAppProfiles: () -> Unit = {},
     onNavigateToLibrarySelection: () -> Unit = {},
+    onNavigateToXtreamSetup: () -> Unit = {},
+    onNavigateToXtreamCategorySelection: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -62,6 +68,8 @@ fun SettingsRoute(
                 is SettingsNavigationEvent.NavigateToPlexHomeSwitch -> onNavigateToPlexHomeSwitch()
                 is SettingsNavigationEvent.NavigateToAppProfiles -> onNavigateToAppProfiles()
                 is SettingsNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
+                is SettingsNavigationEvent.NavigateToXtreamSetup -> onNavigateToXtreamSetup()
+                is SettingsNavigationEvent.NavigateToXtreamCategorySelection -> onNavigateToXtreamCategorySelection(event.accountId)
             }
         }
     }
@@ -118,6 +126,13 @@ fun SettingsScreen(
     ) { padding ->
         val screenDescription = stringResource(R.string.settings_screen_description)
         val listState = rememberLazyListState()
+        val listFocusRequester = remember { FocusRequester() }
+
+        // NAV-09: Request focus on settings list on arrival
+        LaunchedEffect(Unit) {
+            try { listFocusRequester.requestFocus() } catch (_: Exception) { }
+        }
+
         LazyColumn(
             state = listState,
             modifier =
@@ -125,7 +140,8 @@ fun SettingsScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .testTag("screen_settings")
-                    .semantics { contentDescription = screenDescription },
+                    .semantics { contentDescription = screenDescription }
+                    .focusRequester(listFocusRequester),
             contentPadding = PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
@@ -402,9 +418,167 @@ fun SettingsScreen(
                 )
             }
 
-            // --- IPTV ---
+            // --- PlexHub Backend ---
+            item {
+                var showAddBackendDialog by remember { mutableStateOf(false) }
+                var showRemoveBackendDialog by remember { mutableStateOf<String?>(null) }
+
+                SettingsSection(stringResource(R.string.settings_backend_section)) {
+                    // List existing backend servers
+                    state.backendServers.forEach { server ->
+                        SettingsTile(
+                            title = server.label,
+                            subtitle = server.baseUrl,
+                            icon = Icons.Filled.Cloud,
+                            onClick = { showRemoveBackendDialog = server.id },
+                        )
+                    }
+
+                    // Add backend button
+                    SettingsTile(
+                        title = stringResource(R.string.settings_add_backend),
+                        icon = Icons.Filled.AddCircle,
+                        onClick = { showAddBackendDialog = true },
+                    )
+
+                    // Sync button (only visible if backends configured)
+                    if (state.backendServers.isNotEmpty()) {
+                        SettingsTile(
+                            title = stringResource(R.string.settings_backend_sync),
+                            subtitle = if (state.isSyncingBackend) {
+                                stringResource(R.string.settings_syncing_message)
+                            } else {
+                                state.backendSyncMessage ?: stringResource(R.string.settings_backend_sync_subtitle)
+                            },
+                            icon = Icons.Filled.Cached,
+                            onClick = { if (!state.isSyncingBackend) onAction(SettingsAction.SyncBackend) },
+                            trailingContent = if (state.isSyncingBackend) {
+                                { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+
+                    // Config message
+                    state.backendConfigMessage?.let { msg ->
+                        Text(
+                            text = msg,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+
+                // Add backend dialog
+                if (showAddBackendDialog) {
+                    var label by remember { mutableStateOf("") }
+                    var url by remember { mutableStateOf("") }
+                    AlertDialog(
+                        onDismissRequest = { showAddBackendDialog = false },
+                        title = { Text(stringResource(R.string.settings_add_backend)) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = label,
+                                    onValueChange = { label = it },
+                                    label = { Text(stringResource(R.string.settings_backend_label)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                OutlinedTextField(
+                                    value = url,
+                                    onValueChange = { url = it },
+                                    label = { Text(stringResource(R.string.settings_backend_url)) },
+                                    placeholder = { Text(stringResource(R.string.settings_backend_url_hint)) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    if (label.isNotBlank() && url.isNotBlank()) {
+                                        onAction(SettingsAction.AddBackendServer(label, url))
+                                        showAddBackendDialog = false
+                                    }
+                                },
+                                enabled = !state.isTestingBackend,
+                            ) {
+                                if (state.isTestingBackend) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Text(stringResource(android.R.string.ok))
+                                }
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showAddBackendDialog = false }) {
+                                Text(stringResource(android.R.string.cancel))
+                            }
+                        },
+                    )
+                }
+
+                // Remove backend confirmation dialog
+                showRemoveBackendDialog?.let { serverId ->
+                    AlertDialog(
+                        onDismissRequest = { showRemoveBackendDialog = null },
+                        title = { Text(stringResource(R.string.settings_backend_remove_confirm)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                onAction(SettingsAction.RemoveBackendServer(serverId))
+                                showRemoveBackendDialog = null
+                            }) {
+                                Text(stringResource(android.R.string.ok), color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showRemoveBackendDialog = null }) {
+                                Text(stringResource(android.R.string.cancel))
+                            }
+                        },
+                    )
+                }
+            }
+
+            // --- IPTV & Xtream ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_iptv)) {
+                    SettingsTile(
+                        title = stringResource(R.string.settings_xtream_accounts),
+                        subtitle = stringResource(R.string.settings_xtream_accounts_subtitle),
+                        icon = Icons.Filled.LiveTv,
+                        onClick = { onAction(SettingsAction.ManageXtreamAccounts) },
+                    )
+
+                    // Show Xtream accounts for category selection
+                    state.xtreamAccounts.forEach { account ->
+                        SettingsTile(
+                            title = "${account.label} - Categories",
+                            subtitle = stringResource(R.string.settings_xtream_categories_subtitle),
+                            icon = Icons.Filled.LiveTv,
+                            onClick = { onAction(SettingsAction.ManageXtreamCategories(account.id)) },
+                        )
+                    }
+                    SettingsTile(
+                        title = stringResource(R.string.settings_sync_xtream),
+                        subtitle = if (state.isSyncingXtream) {
+                            stringResource(R.string.settings_syncing_message)
+                        } else {
+                            state.xtreamSyncMessage ?: stringResource(R.string.settings_sync_xtream_subtitle)
+                        },
+                        icon = Icons.Filled.Cached,
+                        onClick = { if (!state.isSyncingXtream) onAction(SettingsAction.SyncXtream) },
+                        trailingContent = if (state.isSyncingXtream) {
+                            { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                        } else {
+                            null
+                        },
+                    )
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()

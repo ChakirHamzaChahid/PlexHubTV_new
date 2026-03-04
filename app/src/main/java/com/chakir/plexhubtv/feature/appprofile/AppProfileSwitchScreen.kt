@@ -12,21 +12,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.core.model.Profile
 
 /**
- * Profile Switch Screen - Allows switching between local app profiles
- */
-
-/**
- * Écran de changement de profil utilisateur (Profils locaux de l'app).
- * Permet de basculer entre les profils locaux de l'application.
+ * Ecran de gestion des profils utilisateur (Profils locaux de l'app).
+ * Permet de basculer entre les profils, en creer, modifier ou supprimer.
  */
 @Composable
 fun AppProfileSwitchRoute(
@@ -53,10 +47,17 @@ fun AppProfileSwitchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Switch Profile") },
+                title = { Text("Manage Profiles") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (state.profiles.size < 5) {
+                        IconButton(onClick = { onAction(AppProfileAction.CreateProfile) }) {
+                            Icon(Icons.Filled.Add, contentDescription = "Add profile")
+                        }
                     }
                 },
             )
@@ -121,16 +122,55 @@ fun AppProfileSwitchScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(state.profiles, key = { it.id }) { profile ->
+                            val isCurrentProfile = profile.id == state.activeProfile?.id
                             AppProfileListItem(
                                 profile = profile,
-                                isCurrentProfile = profile.id == state.activeProfile?.id,
+                                isCurrentProfile = isCurrentProfile,
                                 onClick = { onAction(AppProfileAction.SelectProfile(profile)) },
+                                onEdit = { onAction(AppProfileAction.EditProfile(profile)) },
+                                onDelete = { onAction(AppProfileAction.ConfirmDeleteProfile(profile)) },
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    // Dialogs
+    if (state.showCreateDialog) {
+        ProfileFormDialog(
+            isEdit = false,
+            onSubmit = { name, emoji, isKids ->
+                onAction(AppProfileAction.SubmitCreateProfile(name, emoji, isKids))
+            },
+            onDismiss = { onAction(AppProfileAction.DismissDialog) },
+        )
+    }
+
+    if (state.showEditDialog && state.profileToEdit != null) {
+        ProfileFormDialog(
+            isEdit = true,
+            initialName = state.profileToEdit.name,
+            initialEmoji = state.profileToEdit.avatarEmoji ?: "\uD83D\uDE0A",
+            initialIsKids = state.profileToEdit.isKidsProfile,
+            onSubmit = { name, emoji, isKids ->
+                onAction(
+                    AppProfileAction.SubmitEditProfile(
+                        state.profileToEdit.id, name, emoji, isKids
+                    )
+                )
+            },
+            onDismiss = { onAction(AppProfileAction.DismissDialog) },
+        )
+    }
+
+    if (state.showDeleteConfirmation && state.profileToDelete != null) {
+        DeleteProfileConfirmDialog(
+            profileName = state.profileToDelete.name,
+            onConfirm = { onAction(AppProfileAction.DeleteProfile(state.profileToDelete.id)) },
+            onDismiss = { onAction(AppProfileAction.DismissDialog) },
+        )
     }
 }
 
@@ -139,16 +179,17 @@ fun AppProfileListItem(
     profile: Profile,
     isCurrentProfile: Boolean,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onClick)
-                    .padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Avatar
@@ -180,11 +221,17 @@ fun AppProfileListItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     profile.name,
-                    style =
-                        MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                        ),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                    ),
                 )
+                if (profile.isKidsProfile) {
+                    Text(
+                        "Kids",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
 
             // Current profile indicator
@@ -194,6 +241,27 @@ fun AppProfileListItem(
                     contentDescription = "Current profile",
                     tint = MaterialTheme.colorScheme.primary,
                 )
+                Spacer(Modifier.width(8.dp))
+            }
+
+            // Edit button
+            IconButton(onClick = onEdit) {
+                Icon(
+                    Icons.Filled.Edit,
+                    contentDescription = "Edit profile",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // Delete button (hidden for current profile)
+            if (!isCurrentProfile) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = "Delete profile",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }
@@ -202,11 +270,10 @@ fun AppProfileListItem(
 @Preview(showBackground = true)
 @Composable
 fun PreviewAppProfileSwitchScreen() {
-    val profiles =
-        listOf(
-            Profile(id = "1", name = "Chakir", avatarEmoji = "👤"),
-            Profile(id = "2", name = "Guest", avatarEmoji = "👥"),
-        )
+    val profiles = listOf(
+        Profile(id = "1", name = "Chakir", avatarEmoji = "\uD83D\uDC64"),
+        Profile(id = "2", name = "Guest", avatarEmoji = "\uD83D\uDC65"),
+    )
     AppProfileSwitchScreen(
         state = AppProfileUiState(profiles = profiles, activeProfile = profiles[0], isLoading = false),
         onAction = {},

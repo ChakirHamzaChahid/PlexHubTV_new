@@ -143,7 +143,7 @@ fun IptvScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(32.dp)
+                        modifier = Modifier.padding(48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Tv,
@@ -196,7 +196,7 @@ fun IptvScreen(
 
                 LazyColumn(
                     state = listState,
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(horizontal = 48.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxSize()

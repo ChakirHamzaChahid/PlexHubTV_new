@@ -14,7 +14,6 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
 import com.chakir.plexhubtv.domain.usecase.GetLibraryIndexUseCase
-import com.chakir.plexhubtv.domain.usecase.GetRecommendedContentUseCase
 import com.google.common.truth.Truth.assertThat
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +32,6 @@ import org.junit.Test
 class LibraryViewModelTest {
     private lateinit var viewModel: LibraryViewModel
     private lateinit var getLibraryContentUseCase: GetLibraryContentUseCase
-    private lateinit var getRecommendedContentUseCase: GetRecommendedContentUseCase
     private lateinit var authRepository: AuthRepository
     private lateinit var libraryRepository: LibraryRepository
     private lateinit var mediaDao: MediaDao
@@ -73,7 +71,6 @@ class LibraryViewModelTest {
 
         // Mock all dependencies
         getLibraryContentUseCase = mockk(relaxed = true)
-        getRecommendedContentUseCase = mockk(relaxed = true)
         authRepository = mockk(relaxed = true)
         libraryRepository = mockk(relaxed = true)
         mediaDao = mockk(relaxed = true)
@@ -102,7 +99,6 @@ class LibraryViewModelTest {
         savedStateHandle = SavedStateHandle(mapOf("mediaType" to mediaType))
         return LibraryViewModel(
             getLibraryContentUseCase = getLibraryContentUseCase,
-            getRecommendedContentUseCase = getRecommendedContentUseCase,
             authRepository = authRepository,
             libraryRepository = libraryRepository,
             mediaDao = mediaDao,
@@ -111,6 +107,8 @@ class LibraryViewModelTest {
             connectionManager = connectionManager,
             workManager = workManager,
             getLibraryIndexUseCase = getLibraryIndexUseCase,
+            xtreamAccountRepository = mockk(relaxed = true),
+            backendRepository = mockk(relaxed = true),
             savedStateHandle = savedStateHandle
         )
     }
@@ -121,11 +119,11 @@ class LibraryViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertThat(state.isLoading).isFalse()
-        assertThat(state.availableServers).hasSize(2)
-        assertThat(state.availableServers).contains("Server 1")
-        assertThat(state.availableServers).contains("Server 2")
-        assertThat(state.totalItems).isEqualTo(500)
+        assertThat(state.display.isLoading).isFalse()
+        assertThat(state.filter.availableServers).hasSize(2)
+        assertThat(state.filter.availableServers).contains("Server 1")
+        assertThat(state.filter.availableServers).contains("Server 2")
+        assertThat(state.display.totalItems).isEqualTo(500)
     }
 
     @Test
@@ -134,8 +132,8 @@ class LibraryViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertThat(state.availableServersMap).containsEntry("Server 1", "server1")
-        assertThat(state.availableServersMap).containsEntry("Server 2", "server2")
+        assertThat(state.filter.availableServersMap).containsEntry("Server 1", "server1")
+        assertThat(state.filter.availableServersMap).containsEntry("Server 2", "server2")
     }
 
     @Test
@@ -147,7 +145,7 @@ class LibraryViewModelTest {
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertThat(state.isLoading).isFalse()
+        assertThat(state.display.isLoading).isFalse()
         // Error is sent via errorEvents channel
     }
 
@@ -158,7 +156,7 @@ class LibraryViewModelTest {
 
         viewModel.onAction(LibraryAction.SelectTab(LibraryTab.Browse))
 
-        assertThat(viewModel.uiState.value.selectedTab).isEqualTo(LibraryTab.Browse)
+        assertThat(viewModel.uiState.value.display.selectedTab).isEqualTo(LibraryTab.Browse)
     }
 
     @Test
@@ -168,7 +166,7 @@ class LibraryViewModelTest {
 
         viewModel.onAction(LibraryAction.ChangeViewMode(LibraryViewMode.Grid))
 
-        assertThat(viewModel.uiState.value.viewMode).isEqualTo(LibraryViewMode.Grid)
+        assertThat(viewModel.uiState.value.display.viewMode).isEqualTo(LibraryViewMode.Grid)
     }
 
     @Test
@@ -178,7 +176,7 @@ class LibraryViewModelTest {
 
         viewModel.onAction(LibraryAction.SelectGenre("Action"))
 
-        assertThat(viewModel.uiState.value.selectedGenre).isEqualTo("Action")
+        assertThat(viewModel.uiState.value.filter.selectedGenre).isEqualTo("Action")
     }
 
     @Test
@@ -188,7 +186,7 @@ class LibraryViewModelTest {
 
         viewModel.onAction(LibraryAction.SelectServerFilter("server1"))
 
-        assertThat(viewModel.uiState.value.selectedServerFilter).isEqualTo("server1")
+        assertThat(viewModel.uiState.value.filter.selectedServerFilter).isEqualTo("server1")
     }
 
     @Test
@@ -198,7 +196,7 @@ class LibraryViewModelTest {
 
         viewModel.onAction(LibraryAction.ApplyFilter("unwatched"))
 
-        assertThat(viewModel.uiState.value.currentFilter).isEqualTo("unwatched")
+        assertThat(viewModel.uiState.value.filter.currentFilter).isEqualTo("unwatched")
     }
 
     @Test
@@ -208,9 +206,9 @@ class LibraryViewModelTest {
 
         viewModel.onAction(LibraryAction.ApplySort("titleSort", isDescending = true))
 
-        assertThat(viewModel.uiState.value.currentSort).isEqualTo("titleSort")
-        assertThat(viewModel.uiState.value.isSortDescending).isTrue()
-        assertThat(viewModel.uiState.value.isSortDialogOpen).isFalse()
+        assertThat(viewModel.uiState.value.filter.currentSort).isEqualTo("titleSort")
+        assertThat(viewModel.uiState.value.filter.isSortDescending).isTrue()
+        assertThat(viewModel.uiState.value.dialog.isSortDialogOpen).isFalse()
     }
 
     @Test
@@ -219,11 +217,11 @@ class LibraryViewModelTest {
         advanceUntilIdle()
 
         viewModel.onAction(LibraryAction.ToggleSearch)
-        assertThat(viewModel.uiState.value.isSearchVisible).isTrue()
+        assertThat(viewModel.uiState.value.filter.isSearchVisible).isTrue()
 
         viewModel.onAction(LibraryAction.ToggleSearch)
-        assertThat(viewModel.uiState.value.isSearchVisible).isFalse()
-        assertThat(viewModel.uiState.value.searchQuery).isEmpty()
+        assertThat(viewModel.uiState.value.filter.isSearchVisible).isFalse()
+        assertThat(viewModel.uiState.value.filter.searchQuery).isEmpty()
     }
 
     @Test
@@ -233,7 +231,7 @@ class LibraryViewModelTest {
 
         viewModel.onAction(LibraryAction.UpdateSearchQuery("matrix"))
 
-        assertThat(viewModel.uiState.value.searchQuery).isEqualTo("matrix")
+        assertThat(viewModel.uiState.value.filter.searchQuery).isEqualTo("matrix")
     }
 
     @Test
@@ -241,7 +239,7 @@ class LibraryViewModelTest {
         viewModel = createViewModel(mediaType = "show")
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.mediaType).isEqualTo(MediaType.Show)
+        assertThat(viewModel.uiState.value.display.mediaType).isEqualTo(MediaType.Show)
     }
 
     @Test
@@ -249,7 +247,7 @@ class LibraryViewModelTest {
         viewModel = createViewModel(mediaType = "invalid")
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.mediaType).isEqualTo(MediaType.Movie)
+        assertThat(viewModel.uiState.value.display.mediaType).isEqualTo(MediaType.Movie)
     }
 
     @Test

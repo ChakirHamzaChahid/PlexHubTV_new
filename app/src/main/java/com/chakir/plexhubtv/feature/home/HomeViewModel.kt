@@ -1,22 +1,23 @@
 package com.chakir.plexhubtv.feature.home
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
-import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -31,18 +32,15 @@ class HomeViewModel
         private val getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase,
         private val workManager: androidx.work.WorkManager,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
         val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<HomeNavigationEvent>()
+        private val _navigationEvents = Channel<HomeNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
-        private val _errorEvents = Channel<AppError>()
-        val errorEvents = _errorEvents.receiveAsFlow()
-
         init {
-            loadContent()
+            collectSharedContent()
             checkInitialSync()
         }
 
@@ -87,7 +85,10 @@ class HomeViewModel
 
         fun onAction(action: HomeAction) {
             when (action) {
-                is HomeAction.Refresh -> loadContent()
+                is HomeAction.Refresh -> {
+                    _uiState.update { it.copy(isLoading = it.onDeck.isEmpty()) }
+                    getUnifiedHomeContentUseCase.refresh()
+                }
                 is HomeAction.OpenMedia -> {
                     viewModelScope.launch {
                         _navigationEvents.send(HomeNavigationEvent.NavigateToDetails(action.media.ratingKey, action.media.serverId))
@@ -101,38 +102,27 @@ class HomeViewModel
             }
         }
 
-        private var contentJob: Job? = null
-
-        private fun loadContent() {
-            contentJob?.cancel()
-            contentJob = viewModelScope.launch {
-                Timber.d("SCREEN [Home]: Loading start")
-                _uiState.update { it.copy(isLoading = it.onDeck.isEmpty()) }
-
-                getUnifiedHomeContentUseCase()
-                    .catch { error ->
-                        Timber.e(error, "HomeViewModel: getUnifiedHomeContentUseCase failed")
-                        viewModelScope.launch { _errorEvents.send(error.toAppError()) }
-                        _uiState.update { it.copy(isLoading = false) }
-                    }
-                    .collect { result ->
-                        result.fold(
-                            onSuccess = { content ->
-                                _uiState.update {
-                                    it.copy(
-                                        isLoading = false,
-                                        onDeck = content.onDeck,
-                                    )
-                                }
-                            },
-                            onFailure = { error ->
-                                Timber.e("SCREEN [Home] FAILED: error=${error.message}")
-                                viewModelScope.launch { _errorEvents.send(error.toAppError()) }
-                                _uiState.update { it.copy(isLoading = false) }
-                            },
-                        )
-                    }
-            }
+        private fun collectSharedContent() {
+            getUnifiedHomeContentUseCase.sharedContent
+                .filterNotNull()
+                .onEach { result ->
+                    result.fold(
+                        onSuccess = { content ->
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    onDeck = content.onDeck.toImmutableList(),
+                                )
+                            }
+                        },
+                        onFailure = { error ->
+                            Timber.e("SCREEN [Home] FAILED: error=${error.message}")
+                            _errorEvents.trySend(error.toAppError())
+                            _uiState.update { it.copy(isLoading = false) }
+                        },
+                    )
+                }
+                .launchIn(viewModelScope)
         }
     }
 

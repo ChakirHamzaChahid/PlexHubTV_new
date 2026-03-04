@@ -1,7 +1,5 @@
 package com.chakir.plexhubtv.core.model
 
-import androidx.compose.runtime.Immutable
-
 /**
  * Un "Hub" représente une section horizontale ou carrousel sur l'écran d'accueil.
  *
@@ -15,7 +13,6 @@ import androidx.compose.runtime.Immutable
  * @property serverId ID du serveur source (si le hub est spécifique à un serveur).
  */
 
-@Immutable
 data class Hub(
     val key: String,
     val title: String,

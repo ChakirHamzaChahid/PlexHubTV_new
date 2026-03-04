@@ -64,7 +64,7 @@ Analyser :
 7. **APK size** — ABI splits configurés, mais les libs natives (FFmpeg, MPV) sont-elles optimisées ?
 8. **Player** — buffer configuration ExoPlayer, transition entre épisodes, seek performance
 
-Livrable : top 10 bottlenecks classés par impact utilisateur + solutions.
+Livrable : top 20 bottlenecks classés par impact utilisateur + solutions.
 
 ---
 

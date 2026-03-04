@@ -11,12 +11,14 @@ import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
+import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -32,11 +34,13 @@ class LibraryRepositoryImpl
         private val mediaDao: MediaDao,
         private val database: com.chakir.plexhubtv.core.database.PlexDatabase,
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
+        private val serverNameResolver: ServerNameResolver,
+        private val mediaUrlResolver: MediaUrlResolver,
     ) : LibraryRepository {
         override suspend fun getLibraries(serverId: String): Result<List<LibrarySection>> {
             try {
                 val client =
-                    getClient(serverId) ?: run {
+                    serverClientResolver.getClient(serverId) ?: run {
                         // Offline: Try DB
                         val cached = database.librarySectionDao().getLibrarySections(serverId).first()
                         if (cached.isNotEmpty()) {
@@ -81,6 +85,9 @@ class LibraryRepositoryImpl
                 return Result.failure(e.toAppError())
             }
         }
+
+        override suspend fun getDistinctServerIds(): List<String> =
+            mediaDao.getDistinctServerIds()
 
         @OptIn(ExperimentalPagingApi::class)
         override fun getLibraryContent(
@@ -128,7 +135,7 @@ class LibraryRepositoryImpl
                     }
                 }
 
-                val client = getClient(resolvedServerId)
+                val client = serverClientResolver.getClient(resolvedServerId)
                 val normalizedFilter = filter?.lowercase() ?: "all"
                 val baseSort =
                     when (sort) {
@@ -145,105 +152,29 @@ class LibraryRepositoryImpl
                 val dbServerId = if (selectedServerId == null || selectedServerId == "All") null else selectedServerId
                 val dbQuery = if (query.isNullOrBlank()) null else query
 
-                // Build Dynamic SQL for RawQuery with parameterized queries
+                // Build Dynamic SQL via QueryBuilder
                 val isUnified = serverId == "all"
                 val plexTypeStr = if (mediaType == com.chakir.plexhubtv.core.model.MediaType.Movie) "movie" else "show"
 
-                val sqlBuilder = StringBuilder()
-                val bindArgs = mutableListOf<Any>()
-
-                if (isUnified) {
-                    // CRITICAL: Explicit column list to avoid name collision between
-                    // table columns (serverIds, ratingKeys, alternativeThumbUrls) and
-                    // GROUP_CONCAT aliases. SELECT media.* would include the stored NULL
-                    // values AND the computed aliases, causing Room to pick the NULL ones.
-                    sqlBuilder.append(
-                        """SELECT media.ratingKey, media.serverId, media.librarySectionId, media.title,
-                        media.titleSortable, media.filter, media.sortOrder, media.pageOffset,
-                        media.type, media.thumbUrl, media.artUrl, media.year, media.duration,
-                        media.summary, media.viewOffset, media.lastViewedAt, media.parentTitle,
-                        media.parentRatingKey, media.parentIndex, media.grandparentTitle,
-                        media.grandparentRatingKey, media.`index`, media.mediaParts, media.guid,
-                        media.imdbId, media.tmdbId, media.rating, media.audienceRating,
-                        media.contentRating, media.genres, media.unificationId,
-                        MAX(media.addedAt) as addedAt, media.updatedAt,
-                        media.parentThumb, media.grandparentThumb,
-                        media.displayRating,
-                        media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
-                        media.scrapedRating,
-                        GROUP_CONCAT(media.ratingKey) as ratingKeys,
-                        GROUP_CONCAT(media.serverId) as serverIds,
-                        GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """,
-                    )
-                    sqlBuilder.append("FROM media ")
-                    sqlBuilder.append("WHERE type = ? ")
-                    bindArgs.add(plexTypeStr)
-                } else {
-                    sqlBuilder.append("SELECT * FROM media ")
-                    sqlBuilder.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
-                    bindArgs.add(resolvedLibraryKey)
-                    bindArgs.add(normalizedFilter)
-                    bindArgs.add(normalizedSort)
-                }
-
-                // Add Genre Filter (Multiple Keywords support)
-                if (!genre.isNullOrEmpty()) {
-                    sqlBuilder.append("AND (")
-                    genre.forEachIndexed { index, keyword ->
-                        if (index > 0) sqlBuilder.append(" OR ")
-                        sqlBuilder.append("genres LIKE ?")
-                        bindArgs.add("%$keyword%")
-                    }
-                    sqlBuilder.append(") ")
-                }
-
-                // Exclude Servers (Unified Only)
-                if (isUnified && excludedServerIds.isNotEmpty()) {
-                    val placeholders = excludedServerIds.joinToString(",") { "?" }
-                    sqlBuilder.append("AND serverId NOT IN ($placeholders) ")
-                    bindArgs.addAll(excludedServerIds)
-                }
-
-                // Add Server Filter (Unified Only)
-                if (isUnified && dbServerId != null) {
-                    sqlBuilder.append("AND serverId = ? ")
-                    bindArgs.add(dbServerId)
-                }
-
-                // Add Search Query
-                if (dbQuery != null) {
-                    sqlBuilder.append("AND title LIKE ? ")
-                    bindArgs.add("%$dbQuery%")
-                }
-
-                // Grouping for Unified
-                if (isUnified) {
-                    sqlBuilder.append("GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END ")
-                }
-
-                // Add Sorting (whitelist-validated, not parameterizable in SQL)
-                val safeDirection = if (isDescending) "DESC" else "ASC"
-                val orderBy =
-                    if (isUnified) {
-                        // Use aggregate functions directly in ORDER BY to avoid alias collisions
-                        when (baseSort) {
-                            "title" -> "title $safeDirection"
-                            "year" -> "year $safeDirection, title ASC"
-                            "rating" -> "AVG(media.displayRating) $safeDirection, title ASC"
-                            "addedAt" -> "MAX(media.addedAt) $safeDirection"
-                            else -> "MAX(media.addedAt) $safeDirection"
-                        }
-                    } else {
-                        "pageOffset ASC"
-                    }
-                sqlBuilder.append("ORDER BY $orderBy")
-
-                val rawQuery = SimpleSQLiteQuery(sqlBuilder.toString(), bindArgs.toTypedArray())
+                val queryConfig = MediaLibraryQueryBuilder.QueryConfig(
+                    isUnified = isUnified,
+                    mediaTypeStr = plexTypeStr,
+                    libraryKey = resolvedLibraryKey,
+                    filter = normalizedFilter,
+                    sortOrder = normalizedSort,
+                    genre = genre,
+                    selectedServerId = dbServerId,
+                    excludedServerIds = excludedServerIds,
+                    query = dbQuery,
+                    baseSort = baseSort,
+                    isDescending = isDescending,
+                )
+                val builtQuery = MediaLibraryQueryBuilder.buildPagedQuery(queryConfig)
+                val rawQuery = builtQuery.toSimpleSQLiteQuery()
 
                 // DEBUG: Log SQL query and sort parameters
-                timber.log.Timber.d("LIBRARY_SORT [baseSort=$baseSort, isDesc=$isDescending] SQL Query: ${sqlBuilder.toString().take(500)}")
-                timber.log.Timber.d("LIBRARY_SORT ORDER BY: $orderBy")
-                timber.log.Timber.d("LIBRARY_SORT Bind Args: ${bindArgs.take(5)}")
+                timber.log.Timber.d("LIBRARY_SORT [baseSort=$baseSort, isDesc=$isDescending] SQL Query: ${builtQuery.sql.take(500)}")
+                timber.log.Timber.d("LIBRARY_SORT Bind Args: ${builtQuery.args.take(5)}")
 
                 val factory = { mediaDao.getMediaPagedRaw(rawQuery) }
 
@@ -290,6 +221,8 @@ class LibraryRepositoryImpl
                     }
                 val tokenMap = allServers.associate { it.clientIdentifier to it.accessToken }
 
+                val serverNameMap = serverNameResolver.getServerNameMap()
+
                 // Get preferred server for prioritization in multi-server results
                 val defaultServerName = settingsRepository.defaultServer.first()
                 val preferredServerIdForMapping = if (defaultServerName != "all") {
@@ -324,20 +257,25 @@ class LibraryRepositoryImpl
 
                                     if (sIds.size == rKeys.size && sIds.size > 1) {
                                         val sources =
-                                            sIds.zip(rKeys).mapNotNull { (sId, rKey) ->
-                                                val srv = allServers.find { it.clientIdentifier == sId } ?: return@mapNotNull null
-                                                val connection = clientMap[sId] ?: return@mapNotNull null
+                                            sIds.zip(rKeys)
+                                                .distinctBy { it.first } // Deduplicate by serverId
+                                                .mapNotNull { (sId, rKey) ->
+                                                    val serverName = serverNameMap[sId] ?: return@mapNotNull null
 
-                                                com.chakir.plexhubtv.core.model.MediaSource(
-                                                    serverId = sId,
-                                                    ratingKey = rKey,
-                                                    serverName = srv.name,
-                                                    resolution = null,
-                                                    thumbUrl = null,
-                                                    artUrl = null,
-                                                )
-                                            }
-                                        domain.copy(remoteSources = sources)
+                                                    com.chakir.plexhubtv.core.model.MediaSource(
+                                                        serverId = sId,
+                                                        ratingKey = rKey,
+                                                        serverName = serverName,
+                                                        resolution = null,
+                                                        thumbUrl = null,
+                                                        artUrl = null,
+                                                    )
+                                                }
+                                        if (sources.size > 1) {
+                                            domain.copy(remoteSources = sources)
+                                        } else {
+                                            domain
+                                        }
                                     } else {
                                         domain
                                     }
@@ -345,20 +283,10 @@ class LibraryRepositoryImpl
                                     domain
                                 }
 
-                            if (baseUrl != null && finalDomain.thumbUrl?.startsWith("http") == false) {
-                                finalDomain.copy(
-                                    thumbUrl = "${baseUrl}${finalDomain.thumbUrl}?X-Plex-Token=$token",
-                                    artUrl =
-                                        finalDomain.artUrl?.let {
-                                            if (!it.startsWith(
-                                                    "http",
-                                                )
-                                            ) {
-                                                "${baseUrl}$it?X-Plex-Token=$token"
-                                            } else {
-                                                it
-                                            }
-                                        },
+                            // Always resolve URLs against CURRENT baseUrl (resolvedThumbUrl may
+                            // contain a stale server address if the connection changed since sync)
+                            if (baseUrl != null) {
+                                mediaUrlResolver.resolveUrls(finalDomain, baseUrl, token).copy(
                                     baseUrl = baseUrl,
                                     accessToken = token,
                                 )
@@ -408,58 +336,29 @@ class LibraryRepositoryImpl
             val isUnified = serverId == "all" || serverId == null
             val typeStr = if (type == com.chakir.plexhubtv.core.model.MediaType.Movie) "movie" else "show"
 
-            val sqlBuilder = StringBuilder()
-            val bindArgs = mutableListOf<Any>()
-
-            if (isUnified) {
-                sqlBuilder.append("SELECT COUNT(DISTINCT CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END) ")
-                sqlBuilder.append("FROM media WHERE type = ? ")
-                bindArgs.add(typeStr)
-            } else {
-                if (resolvedLibraryKey == "default") {
-                    val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
-                    if (cachedSection != null) {
-                        resolvedLibraryKey = cachedSection.libraryKey
-                    } else {
-                        val result = getLibraries(resolvedServerId)
-                        val section = result.getOrNull()?.find { it.type == typeStr }
-                        if (section != null) resolvedLibraryKey = section.key
-                    }
+            if (!isUnified && resolvedLibraryKey == "default") {
+                val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
+                if (cachedSection != null) {
+                    resolvedLibraryKey = cachedSection.libraryKey
+                } else {
+                    val result = getLibraries(resolvedServerId)
+                    val section = result.getOrNull()?.find { it.type == typeStr }
+                    if (section != null) resolvedLibraryKey = section.key
                 }
-                sqlBuilder.append("SELECT COUNT(*) FROM media ")
-                sqlBuilder.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
-                bindArgs.add(resolvedLibraryKey)
-                bindArgs.add(normalizedFilter)
-                bindArgs.add(normalizedSort)
             }
 
-            if (!genre.isNullOrEmpty()) {
-                sqlBuilder.append("AND (")
-                genre.forEachIndexed { index, keyword ->
-                    if (index > 0) sqlBuilder.append(" OR ")
-                    sqlBuilder.append("genres LIKE ?")
-                    bindArgs.add("%$keyword%")
-                }
-                sqlBuilder.append(") ")
-            }
-
-            if (isUnified && excludedServerIds.isNotEmpty()) {
-                val placeholders = excludedServerIds.joinToString(",") { "?" }
-                sqlBuilder.append("AND serverId NOT IN ($placeholders) ")
-                bindArgs.addAll(excludedServerIds)
-            }
-
-            if (isUnified && dbServerId != null) {
-                sqlBuilder.append("AND serverId = ? ")
-                bindArgs.add(dbServerId)
-            }
-
-            if (dbQuery != null) {
-                sqlBuilder.append("AND title LIKE ? ")
-                bindArgs.add("%$dbQuery%")
-            }
-
-            val rawQuery = SimpleSQLiteQuery(sqlBuilder.toString(), bindArgs.toTypedArray())
+            val queryConfig = MediaLibraryQueryBuilder.QueryConfig(
+                isUnified = isUnified,
+                mediaTypeStr = typeStr,
+                libraryKey = resolvedLibraryKey,
+                filter = normalizedFilter,
+                sortOrder = normalizedSort,
+                genre = genre,
+                selectedServerId = dbServerId,
+                excludedServerIds = excludedServerIds,
+                query = dbQuery,
+            )
+            val rawQuery = MediaLibraryQueryBuilder.buildCountQuery(queryConfig).toSimpleSQLiteQuery()
             return mediaDao.getMediaCountRaw(rawQuery)
         }
 
@@ -500,89 +399,30 @@ class LibraryRepositoryImpl
             val isUnified = serverId == "all" || serverId == null
             val typeStr = if (type == com.chakir.plexhubtv.core.model.MediaType.Movie) "movie" else "show"
 
-            val sqlBuilder = StringBuilder()
-            val bindArgs = mutableListOf<Any>()
-
-            if (isUnified) {
-                sqlBuilder.append("SELECT COUNT(DISTINCT CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END) ")
-                sqlBuilder.append("FROM media WHERE type = ? ")
-                bindArgs.add(typeStr)
-            } else {
-                // Resolve library key if necessary
-                if (resolvedLibraryKey == "default") {
-                    val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
-                    if (cachedSection != null) {
-                        resolvedLibraryKey = cachedSection.libraryKey
-                    } else {
-                        val result = getLibraries(resolvedServerId)
-                        val section = result.getOrNull()?.find { it.type == typeStr }
-                        if (section != null) resolvedLibraryKey = section.key
-                    }
+            if (!isUnified && resolvedLibraryKey == "default") {
+                val cachedSection = database.librarySectionDao().getLibrarySectionByType(resolvedServerId, typeStr)
+                if (cachedSection != null) {
+                    resolvedLibraryKey = cachedSection.libraryKey
+                } else {
+                    val result = getLibraries(resolvedServerId)
+                    val section = result.getOrNull()?.find { it.type == typeStr }
+                    if (section != null) resolvedLibraryKey = section.key
                 }
-                sqlBuilder.append("SELECT COUNT(*) FROM media ")
-                sqlBuilder.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
-                bindArgs.add(resolvedLibraryKey)
-                bindArgs.add(normalizedFilter)
-                bindArgs.add(normalizedSort)
             }
 
-            // Add Genre Filter
-            if (!genre.isNullOrEmpty()) {
-                sqlBuilder.append("AND (")
-                genre.forEachIndexed { index, keyword ->
-                    if (index > 0) sqlBuilder.append(" OR ")
-                    sqlBuilder.append("genres LIKE ?")
-                    bindArgs.add("%$keyword%")
-                }
-                sqlBuilder.append(") ")
-            }
-
-            // Exclude Servers (Unified Only)
-            if (isUnified && excludedServerIds.isNotEmpty()) {
-                val placeholders = excludedServerIds.joinToString(",") { "?" }
-                sqlBuilder.append("AND serverId NOT IN ($placeholders) ")
-                bindArgs.addAll(excludedServerIds)
-            }
-
-            // Add Server Filter (Unified Only)
-            if (isUnified && dbServerId != null) {
-                sqlBuilder.append("AND serverId = ? ")
-                bindArgs.add(dbServerId)
-            }
-
-            // Add Search Query
-            if (dbQuery != null) {
-                sqlBuilder.append("AND title LIKE ? ")
-                bindArgs.add("%$dbQuery%")
-            }
-
-            // Alphabet constraint
-            sqlBuilder.append("AND UPPER(title) < UPPER(?)")
-            bindArgs.add(letter)
-
-            val rawQuery = SimpleSQLiteQuery(sqlBuilder.toString(), bindArgs.toTypedArray())
+            val queryConfig = MediaLibraryQueryBuilder.QueryConfig(
+                isUnified = isUnified,
+                mediaTypeStr = typeStr,
+                libraryKey = resolvedLibraryKey,
+                filter = normalizedFilter,
+                sortOrder = normalizedSort,
+                genre = genre,
+                selectedServerId = dbServerId,
+                excludedServerIds = excludedServerIds,
+                query = dbQuery,
+            )
+            val rawQuery = MediaLibraryQueryBuilder.buildIndexQuery(queryConfig, letter).toSimpleSQLiteQuery()
             return mediaDao.getMediaCountRaw(rawQuery)
         }
 
-        private suspend fun getClient(serverId: String): PlexClient? {
-            val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
-
-            val targetServer =
-                if (serverId == "default_server" || serverId == "all") {
-                    servers.firstOrNull()
-                } else {
-                    servers.find { it.clientIdentifier == serverId }
-                } ?: return null
-
-            // Use cached connection directly here too for consistency, or non-blocking logic
-            // But getLibraryContent handles connection itself for fetching.
-            // If we need a client, we need a URL. For now, use existing flow but prefer cache if exposed
-            val baseUrl =
-                connectionManager.getCachedUrl(targetServer.clientIdentifier)
-                    ?: connectionManager.findBestConnection(targetServer) // This might still block if not cached?
-            // Actually findBestConnection inside getClient IS blocking.
-            // Ideally we should use getCachedUrl and fallback.
-
-            return if (baseUrl != null) PlexClient(targetServer, api, baseUrl) else null
-        }
     }

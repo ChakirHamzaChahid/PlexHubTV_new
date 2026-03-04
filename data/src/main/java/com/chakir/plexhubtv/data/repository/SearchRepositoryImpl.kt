@@ -6,9 +6,6 @@ import com.chakir.plexhubtv.core.database.ServerDao
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.toAppError
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
-import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.data.mapper.ServerMapper
@@ -32,8 +29,7 @@ import javax.inject.Inject
 class SearchRepositoryImpl
     @Inject
     constructor(
-        private val api: PlexApiService,
-        private val connectionManager: ConnectionManager,
+        private val serverClientResolver: ServerClientResolver,
         private val serverDao: ServerDao,
         private val serverMapper: ServerMapper,
         private val mapper: MediaMapper,
@@ -120,7 +116,7 @@ class SearchRepositoryImpl
 
             // 2. Attempt network fetch
             return try {
-                val baseUrl = connectionManager.findBestConnection(server)
+                val client = serverClientResolver.resolveClient(server)
                     ?: return if (cached != null) {
                         // Offline but cache available (even if expired) → serve cache
                         Timber.d("No connection, serving stale cache for '$query' on ${server.name}")
@@ -130,7 +126,7 @@ class SearchRepositoryImpl
                         Result.failure(AppError.Network.NoConnection("No connection and no cache"))
                     }
 
-                val client = PlexClient(server, api, baseUrl)
+                val baseUrl = client.baseUrl
                 val response = client.search(query, year, type, unwatched)
 
                 if (response.isSuccessful) {

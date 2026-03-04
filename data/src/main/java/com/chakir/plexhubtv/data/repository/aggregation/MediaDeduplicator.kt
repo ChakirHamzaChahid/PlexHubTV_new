@@ -5,9 +5,10 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.model.VideoStream
+import com.chakir.plexhubtv.core.di.DefaultDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -24,13 +25,14 @@ class DefaultMediaDeduplicator
     constructor(
         private val connectionManager: ConnectionManager,
         private val mediaUrlResolver: MediaUrlResolver,
+        @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     ) : MediaDeduplicator {
         override suspend fun deduplicate(
             items: List<MediaItem>,
             ownedServerIds: Set<String>,
             servers: List<Server>,
         ): List<MediaItem> =
-            withContext(Dispatchers.Default) {
+            withContext(defaultDispatcher) {
                 // Advanced Grouping Logic
                 // Priority: IMDB ID -> TMDB ID -> Title+Year
                 items.groupBy { item ->
@@ -117,6 +119,7 @@ class DefaultMediaDeduplicator
                                 languages = languages,
                                 thumbUrl = fullThumb,
                                 artUrl = fullArt,
+                                viewOffset = item.viewOffset,
                             )
                         }
 

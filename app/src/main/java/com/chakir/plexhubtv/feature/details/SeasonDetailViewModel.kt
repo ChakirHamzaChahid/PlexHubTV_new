@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
+import com.chakir.plexhubtv.feature.common.launchLoading
 import com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,11 +58,13 @@ class SeasonDetailViewModel
         private val toggleWatchStatusUseCase: ToggleWatchStatusUseCase,
         private val resolveEpisodeSourcesUseCase: ResolveEpisodeSourcesUseCase,
         private val enrichMediaItemUseCase: com.chakir.plexhubtv.domain.usecase.EnrichMediaItemUseCase,
+        private val preparePlaybackUseCase: com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase,
         private val getPlayQueueUseCase: com.chakir.plexhubtv.domain.usecase.GetPlayQueueUseCase,
         private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
         private val toggleFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.ToggleFavoriteUseCase,
         private val isFavoriteUseCase: com.chakir.plexhubtv.domain.usecase.IsFavoriteUseCase,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
+        private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -141,29 +144,21 @@ class SeasonDetailViewModel
                         performanceTracker.addCheckpoint(opId, "UI Loading State Shown")
 
                         try {
-                            // 1. Enrich episode with remote sources (Room-first ~5ms, network fallback if needed)
+                            // 1. Prepare playback: enrichment + source determination
                             val enrichStart = System.currentTimeMillis()
-                            val enrichedEpisode = try {
-                                val enriched = enrichMediaItemUseCase(event.episode)
-                                val enrichDuration = System.currentTimeMillis() - enrichStart
-                                performanceTracker.addCheckpoint(
-                                    opId,
-                                    "Enrichment Success",
-                                    mapOf(
-                                        "duration" to enrichDuration,
-                                        "sources" to enriched.remoteSources.size,
-                                        "cacheHit" to (enrichDuration < 10).toString()
-                                    )
-                                )
-                                enriched
-                            } catch (e: Exception) {
-                                val enrichDuration = System.currentTimeMillis() - enrichStart
-                                performanceTracker.addCheckpoint(opId, "Enrichment Failed (Fallback)", mapOf("duration" to enrichDuration, "error" to (e.message ?: "unknown")))
-                                Timber.w(e, "Episode enrichment failed for ${event.episode.title}")
-                                event.episode
+                            val playbackResult = preparePlaybackUseCase(event.episode)
+                            val enrichDuration = System.currentTimeMillis() - enrichStart
+                            val enrichedEpisode = when (playbackResult) {
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.ReadyToPlay -> playbackResult.item
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.NeedsSourceSelection -> playbackResult.item
                             }
+                            performanceTracker.addCheckpoint(opId, "PreparePlayback", mapOf(
+                                "duration" to enrichDuration,
+                                "sources" to enrichedEpisode.remoteSources.size,
+                                "result" to playbackResult.javaClass.simpleName
+                            ))
 
-                            // 2. Populate Queue
+                            // 2. Build queue + init playback manager
                             val queueStart = System.currentTimeMillis()
                             val queue = getPlayQueueUseCase(enrichedEpisode).getOrElse { listOf(enrichedEpisode) }
                             val queueDuration = System.currentTimeMillis() - queueStart
@@ -173,35 +168,38 @@ class SeasonDetailViewModel
                             performanceTracker.addCheckpoint(opId, "PlaybackManager Initialized")
 
                             _uiState.update { it.copy(isResolvingSources = false) }
-                            performanceTracker.addCheckpoint(opId, "UI Loading State Hidden")
 
-                            // 3. Check sources and show dialog or play directly
-                            if (enrichedEpisode.remoteSources.size > 1) {
-                                performanceTracker.addCheckpoint(opId, "Source Selection Dialog Shown")
-                                _uiState.update {
-                                    it.copy(
-                                        showSourceSelection = true,
-                                        selectedEpisodeForSources = enrichedEpisode,
+                            // 3. Act on result
+                            when (playbackResult) {
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.NeedsSourceSelection -> {
+                                    performanceTracker.addCheckpoint(opId, "Source Selection Dialog Shown")
+                                    _uiState.update {
+                                        it.copy(
+                                            showSourceSelection = true,
+                                            selectedEpisodeForSources = enrichedEpisode,
+                                        )
+                                    }
+                                    lazyFetchSourceDetails(enrichedEpisode)
+                                    // Will end when user selects source
+                                }
+                                is com.chakir.plexhubtv.domain.usecase.PreparePlaybackUseCase.Result.ReadyToPlay -> {
+                                    performanceTracker.addCheckpoint(opId, "Single Source - Direct Navigation")
+                                    performanceTracker.endOperation(
+                                        opId,
+                                        success = true,
+                                        additionalMeta = mapOf(
+                                            "finalRatingKey" to enrichedEpisode.ratingKey,
+                                            "finalServerId" to enrichedEpisode.serverId
+                                        )
+                                    )
+                                    _navigationEvents.send(
+                                        SeasonDetailNavigationEvent.NavigateToPlayer(
+                                            enrichedEpisode.ratingKey,
+                                            enrichedEpisode.serverId,
+                                            enrichedEpisode.viewOffset,
+                                        ),
                                     )
                                 }
-                                // Will end when user selects source
-                            } else {
-                                performanceTracker.addCheckpoint(opId, "Single Source - Direct Navigation")
-                                performanceTracker.endOperation(
-                                    opId,
-                                    success = true,
-                                    additionalMeta = mapOf(
-                                        "finalRatingKey" to enrichedEpisode.ratingKey,
-                                        "finalServerId" to enrichedEpisode.serverId
-                                    )
-                                )
-                                _navigationEvents.send(
-                                    SeasonDetailNavigationEvent.NavigateToPlayer(
-                                        enrichedEpisode.ratingKey,
-                                        enrichedEpisode.serverId,
-                                        enrichedEpisode.viewOffset,
-                                    ),
-                                )
                             }
                         } catch (e: Exception) {
                             performanceTracker.endOperation(opId, success = false, errorMessage = e.message)
@@ -255,45 +253,85 @@ class SeasonDetailViewModel
             }
         }
 
+        private fun lazyFetchSourceDetails(episode: MediaItem) {
+            val sourcesNeedingDetails = episode.remoteSources.filter { source ->
+                // Only Plex sources (needing URL resolution) require lazy detail fetch
+                mediaSourceResolver.resolve(source.serverId).needsUrlResolution() &&
+                    source.resolution == null
+            }
+            if (sourcesNeedingDetails.isEmpty()) return
+
+            for (source in sourcesNeedingDetails) {
+                viewModelScope.launch {
+                    try {
+                        val detail = getMediaDetailUseCase(source.ratingKey, source.serverId).first()
+                        val detailItem = detail.getOrNull()?.item ?: return@launch
+                        val part = detailItem.mediaParts?.firstOrNull()
+                        val videoStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
+                        val audioStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.firstOrNull()
+                        val enrichedSource = source.copy(
+                            resolution = videoStream?.displayTitle,
+                            videoCodec = videoStream?.codec,
+                            audioCodec = audioStream?.codec,
+                            audioChannels = audioStream?.channels,
+                            hasHDR = videoStream?.hasHDR ?: false,
+                            container = part?.container,
+                            fileSize = part?.size,
+                        )
+                        // Update the source in UI state progressively
+                        _uiState.update { state ->
+                            val currentEp = state.selectedEpisodeForSources ?: return@update state
+                            val updatedSources = currentEp.remoteSources.map { s ->
+                                if (s.serverId == source.serverId && s.ratingKey == source.ratingKey) enrichedSource else s
+                            }
+                            state.copy(selectedEpisodeForSources = currentEp.copy(remoteSources = updatedSources))
+                        }
+                        Timber.d("Lazy-fetched stream details for source ${source.serverName}")
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to lazy-fetch source details for ${source.serverName}")
+                    }
+                }
+            }
+        }
+
         private fun loadSeason() {
             val rk = ratingKey ?: return
             val sid = serverId ?: return
-            viewModelScope.launch {
-                val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [SeasonDetail]: Loading start for $rk on $sid")
-                _uiState.update { it.copy(isLoading = true, error = null) }
-                val result = getMediaDetailUseCase(rk, sid).first()
-                val duration = System.currentTimeMillis() - startTime
-                result.fold(
-                    onSuccess = { detail ->
-                        Timber.i("SCREEN [SeasonDetail] SUCCESS: Load Duration=${duration}ms | Episodes=${detail.children.size}")
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                season = detail.item,
-                                episodes = detail.children,
-                            )
-                        }
-                        // P1.4: Prefetch enrichment for likely-to-play episodes (warms EnrichMediaItemUseCase cache)
-                        val unwatched = detail.children.filter { it.viewedStatus != "watched" }
-                        val toPrefetch = (unwatched.take(3).ifEmpty { detail.children.take(3) })
-                        if (toPrefetch.isNotEmpty()) {
-                            viewModelScope.launch {
-                                for (episode in toPrefetch) {
-                                    try {
-                                        enrichMediaItemUseCase(episode)
-                                    } catch (_: Exception) { }
-                                }
-                                Timber.d("SCREEN [SeasonDetail]: Prefetch enrichment done for ${toPrefetch.size} episodes")
+            val startTime = System.currentTimeMillis()
+            Timber.d("SCREEN [SeasonDetail]: Loading start for $rk on $sid")
+            launchLoading(
+                onStart = { _uiState.update { it.copy(isLoading = true, error = null) } },
+                block = { getMediaDetailUseCase(rk, sid).first() },
+                onSuccess = { detail ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.i("SCREEN [SeasonDetail] SUCCESS: Load Duration=${duration}ms | Episodes=${detail.children.size}")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            season = detail.item,
+                            episodes = detail.children,
+                        )
+                    }
+                    val unwatched = detail.children.filter { it.viewedStatus != "watched" }
+                    val toPrefetch = (unwatched.take(3).ifEmpty { detail.children.take(3) })
+                        .filter { it.remoteSources.size <= 1 }
+                    if (toPrefetch.isNotEmpty()) {
+                        viewModelScope.launch {
+                            for (episode in toPrefetch) {
+                                try {
+                                    enrichMediaItemUseCase(episode)
+                                } catch (_: Exception) { }
                             }
+                            Timber.d("SCREEN [SeasonDetail]: Prefetch enrichment done for ${toPrefetch.size} episodes")
                         }
-                    },
-                    onFailure = { error ->
-                        Timber.e("SCREEN [SeasonDetail] FAILED: duration=${duration}ms error=${error.message}")
-                        _uiState.update { it.copy(isLoading = false, error = error.message) }
-                    },
-                )
-            }
+                    }
+                },
+                onFailure = { error ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.e("SCREEN [SeasonDetail] FAILED: duration=${duration}ms error=${error.message}")
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
+                },
+            )
         }
     }
 

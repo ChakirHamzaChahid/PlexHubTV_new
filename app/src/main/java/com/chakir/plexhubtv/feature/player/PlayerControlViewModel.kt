@@ -3,13 +3,13 @@ package com.chakir.plexhubtv.feature.player
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
-import com.chakir.plexhubtv.domain.repository.PlaybackRepository
+import com.chakir.plexhubtv.feature.player.url.DirectStreamUrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -17,7 +17,8 @@ class PlayerControlViewModel @Inject constructor(
     private val playerController: PlayerController,
     private val savedStateHandle: SavedStateHandle,
     val chapterMarkerManager: ChapterMarkerManager,
-    private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager
+    private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
+    private val directStreamUrlBuilder: DirectStreamUrlBuilder,
 ) : ViewModel() {
 
     val uiState = playerController.uiState
@@ -27,8 +28,19 @@ class PlayerControlViewModel @Inject constructor(
         val serverId: String? = savedStateHandle["serverId"]
         val directUrl: String? = savedStateHandle["url"]
         val startOffset: Long = savedStateHandle.get<Long>("startOffset") ?: 0L
-        
-        playerController.initialize(ratingKey, serverId, directUrl, startOffset)
+
+        if (directUrl != null) {
+            // Already have direct URL (IPTV or pre-built Xtream URL)
+            playerController.initialize(ratingKey, serverId, directUrl, startOffset)
+        } else if (serverId != null && ratingKey != null && directStreamUrlBuilder.isDirectStream(serverId)) {
+            // Direct-stream source (Xtream/Backend): resolve URL then play
+            resolveAndPlayDirectStream(ratingKey, serverId, startOffset) {
+                directStreamUrlBuilder.buildUrl(ratingKey, serverId)
+            }
+        } else {
+            // Plex: normal flow
+            playerController.initialize(ratingKey, serverId, directUrl, startOffset)
+        }
     }
 
     fun onAction(action: PlayerAction) {
@@ -38,16 +50,11 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.SeekTo -> playerController.seekTo(action.position)
             is PlayerAction.Next -> {
                 playbackManager.next()
-                playbackManager.currentMedia.value?.let { 
-                     // Reload media via controller
-                     playerController.loadMedia(it.ratingKey, it.serverId) 
-                }
+                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
             }
             is PlayerAction.Previous -> {
                 playbackManager.previous()
-                playbackManager.currentMedia.value?.let { 
-                     playerController.loadMedia(it.ratingKey, it.serverId) 
-                }
+                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
             }
             is PlayerAction.SkipMarker -> {
                  val position = action.marker.endTime
@@ -56,7 +63,7 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.PlayNext -> {
                 playerController.updateState { it.copy(showAutoNextPopup = false) }
                 playbackManager.next()
-                playbackManager.currentMedia.value?.let { playerController.loadMedia(it.ratingKey, it.serverId) }
+                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
             }
             is PlayerAction.CancelAutoNext -> {
                 playerController.updateState { it.copy(showAutoNextPopup = false) }
@@ -68,6 +75,10 @@ class PlayerControlViewModel @Inject constructor(
                 playerController.updateState { it.copy(showSettings = false) }
                 val current = uiState.value.currentItem
                 if (current != null) {
+                    if (directStreamUrlBuilder.isDirectStream(current.serverId)) {
+                        // Quality selection not applicable for direct streams
+                        return
+                    }
                     playerController.loadMedia(current.ratingKey, current.serverId, action.quality.bitrate)
                 }
             }
@@ -90,14 +101,14 @@ class PlayerControlViewModel @Inject constructor(
                 if (nextChapter != null) {
                     playerController.seekTo(nextChapter.startTime)
                 } else {
-                    onAction(PlayerAction.Next) 
+                    onAction(PlayerAction.Next)
                 }
             }
             is PlayerAction.SeekToPreviousChapter -> {
                 val currentPos = uiState.value.currentPosition
                 val chapters = chapterMarkerManager.chapters.value
                 val currentChapter = chapters.find { currentPos >= it.startTime && currentPos < it.endTime }
-                
+
                 if (currentChapter != null) {
                     if (currentPos - currentChapter.startTime < 3000) {
                         val prevChapterIndex = chapters.indexOf(currentChapter) - 1
@@ -127,6 +138,9 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.SwitchToMpv -> {
                 playerController.switchToMpv()
             }
+            is PlayerAction.ClearResumeMessage -> {
+                playerController.clearResumeMessage()
+            }
             is PlayerAction.TogglePerformanceOverlay -> {
                 playerController.updateState { it.copy(showPerformanceOverlay = !it.showPerformanceOverlay) }
             }
@@ -141,11 +155,52 @@ class PlayerControlViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Load or play media, handling Plex (loadMedia), Xtream, and Backend (direct URL) paths.
+     */
+    private fun loadOrPlayMedia(media: MediaItem) {
+        if (directStreamUrlBuilder.isDirectStream(media.serverId)) {
+            resolveAndPlayDirectStream(
+                media.ratingKey, media.serverId, 0L, media,
+            ) { directStreamUrlBuilder.buildUrl(media.ratingKey, media.serverId) }
+        } else {
+            playerController.loadMedia(media.ratingKey, media.serverId)
+        }
+    }
+
+    /**
+     * Shared helper: resolves a stream URL via a suspend builder, then plays it as a direct stream.
+     * Used by both Xtream and Backend paths to avoid duplicating launch + error handling.
+     */
+    private fun resolveAndPlayDirectStream(
+        ratingKey: String,
+        serverId: String,
+        startOffset: Long,
+        cachedMedia: MediaItem? = null,
+        urlBuilder: suspend () -> String?,
+    ) {
+        playerController.initialize(ratingKey, serverId, null, startOffset)
+        viewModelScope.launch {
+            val url = urlBuilder()
+            if (url != null) {
+                val media = cachedMedia ?: playbackManager.currentMedia.value?.takeIf {
+                    it.ratingKey == ratingKey && it.serverId == serverId
+                }
+                playerController.playDirectStream(url, media)
+            } else {
+                Timber.e("[Player] Failed to resolve stream URL for $ratingKey on $serverId")
+                playerController.updateState {
+                    it.copy(error = "Failed to get stream URL", isBuffering = false)
+                }
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         playerController.release()
     }
-    
+
     // Helper accessors for UI
     val mpvPlayer get() = playerController.mpvPlayer
     val player get() = playerController.player

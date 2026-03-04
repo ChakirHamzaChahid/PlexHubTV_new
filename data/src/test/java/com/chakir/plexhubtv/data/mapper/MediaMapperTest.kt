@@ -158,6 +158,8 @@ class MediaMapperTest {
         assertThat(result.year).isEqualTo(2010)
         assertThat(result.durationMs).isEqualTo(8880000L)
         assertThat(result.viewOffset).isEqualTo(2000L)
+        assertThat(result.viewCount).isEqualTo(0L)
+        assertThat(result.isWatched).isFalse() // viewCount=0 and viewOffset < 90% of duration
         assertThat(result.imdbId).isEqualTo("tt1375666")
         assertThat(result.tmdbId).isEqualTo("27205")
         assertThat(result.rating).isEqualTo(9.0) // displayRating is used
@@ -199,6 +201,63 @@ class MediaMapperTest {
         assertThat(result.tmdbId).isEqualTo("157336")
         assertThat(result.genres).isEqualTo("Sci-Fi,Drama,Adventure")
         assertThat(result.unificationId).isEqualTo("imdb://tt0816692")
+    }
+
+    @Test
+    fun `mapEntityToDomain sets isWatched true when viewCount greater than 0`() {
+        val entity = MediaEntity(
+            ratingKey = "100",
+            serverId = testServerId,
+            librarySectionId = testLibraryKey,
+            title = "Watched Movie",
+            type = "movie",
+            duration = 7200000L,
+            viewOffset = 0L,
+            viewCount = 1,
+        )
+
+        val result = mapper.mapEntityToDomain(entity)
+
+        assertThat(result.isWatched).isTrue()
+        assertThat(result.viewCount).isEqualTo(1L)
+    }
+
+    @Test
+    fun `mapEntityToDomain sets isWatched true when progress at 90 percent`() {
+        val duration = 7200000L // 2h
+        val entity = MediaEntity(
+            ratingKey = "101",
+            serverId = testServerId,
+            librarySectionId = testLibraryKey,
+            title = "Almost Finished Movie",
+            type = "movie",
+            duration = duration,
+            viewOffset = (duration * 0.91).toLong(), // 91% watched
+            viewCount = 0,
+        )
+
+        val result = mapper.mapEntityToDomain(entity)
+
+        assertThat(result.isWatched).isTrue()
+    }
+
+    @Test
+    fun `mapEntityToDomain sets isWatched false when progress below 90 percent`() {
+        val duration = 7200000L
+        val entity = MediaEntity(
+            ratingKey = "102",
+            serverId = testServerId,
+            librarySectionId = testLibraryKey,
+            title = "Half Watched Movie",
+            type = "movie",
+            duration = duration,
+            viewOffset = (duration * 0.5).toLong(), // 50% watched
+            viewCount = 0,
+        )
+
+        val result = mapper.mapEntityToDomain(entity)
+
+        assertThat(result.isWatched).isFalse()
     }
 
     @Test

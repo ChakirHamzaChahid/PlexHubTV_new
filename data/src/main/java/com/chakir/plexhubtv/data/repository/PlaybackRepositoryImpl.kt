@@ -1,6 +1,6 @@
 package com.chakir.plexhubtv.data.repository
 
-import com.chakir.plexhubtv.core.common.safeApiCall
+import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -38,7 +38,7 @@ class PlaybackRepositoryImpl
             media: MediaItem,
             isWatched: Boolean,
         ): Result<Unit> {
-            val client = getClient(media.serverId)
+            val client = serverClientResolver.getClient(media.serverId)
                 ?: return Result.failure(AppError.Network.ServerError("Server ${media.serverId} unavailable"))
 
             return safeApiCall("toggleWatchStatus") {
@@ -58,7 +58,7 @@ class PlaybackRepositoryImpl
             media: MediaItem,
             positionMs: Long,
         ): Result<Unit> {
-            val client = getClient(media.serverId)
+            val client = serverClientResolver.getClient(media.serverId)
                 ?: return Result.failure(AppError.Network.ServerError("Server ${media.serverId} unavailable"))
 
             val result = safeApiCall("updatePlaybackProgress") {
@@ -132,14 +132,19 @@ class PlaybackRepositoryImpl
             offset: Int,
         ): Flow<List<MediaItem>> {
             return mediaDao.getHistory(limit, offset).map { entities ->
-                // Fetch servers to resolve base URLs
-                val servers = authRepository.getServers().getOrNull() ?: emptyList()
+                // Build server map once for O(1) lookups (memory-cached in AuthRepository)
+                val serverMap = authRepository.getServers().getOrNull()
+                    ?.associateBy { it.clientIdentifier }
+                    .orEmpty()
 
                 entities.map { entity ->
-                    val server = servers.find { it.clientIdentifier == entity.serverId }
-                    val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
-
                     val domain = mapper.mapEntityToDomain(entity)
+                    val server = serverMap[entity.serverId]
+                    // Always use current connection URL, not stale resolvedBaseUrl
+                    val baseUrl = server?.let {
+                        connectionManager.getCachedUrl(it.clientIdentifier) ?: it.address
+                    }
+
                     if (server != null && baseUrl != null) {
                         mediaUrlResolver.resolveUrls(domain, baseUrl, server.accessToken).copy(
                             baseUrl = baseUrl,
@@ -158,7 +163,7 @@ class PlaybackRepositoryImpl
             audioStreamId: String?,
             subtitleStreamId: String?,
         ): Result<Unit> {
-            val client = getClient(serverId)
+            val client = serverClientResolver.getClient(serverId)
                 ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
 
             return safeApiCall("updateStreamSelection") {
@@ -177,10 +182,4 @@ class PlaybackRepositoryImpl
             }
         }
 
-        private suspend fun getClient(serverId: String): PlexClient? {
-            val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return null
-            val server = servers.find { it.clientIdentifier == serverId } ?: return null
-            val baseUrl = connectionManager.findBestConnection(server) ?: return null
-            return PlexClient(server, api, baseUrl)
-        }
     }

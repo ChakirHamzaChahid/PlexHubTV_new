@@ -2,7 +2,6 @@ package com.chakir.plexhubtv.feature.player.controller
 
 import android.app.Application
 import android.net.Uri
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.PlaybackException
@@ -17,11 +16,14 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.feature.player.ExoStreamMetadata
 import com.chakir.plexhubtv.feature.player.PlayerFactory
-import com.chakir.plexhubtv.core.common.handler.GlobalCoroutineExceptionHandler
+import com.chakir.plexhubtv.handler.GlobalCoroutineExceptionHandler
+import com.chakir.plexhubtv.core.di.ApplicationScope
 import com.chakir.plexhubtv.core.di.DefaultDispatcher
+import com.chakir.plexhubtv.core.di.MainDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.feature.player.PlayerUiState
 import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
+import com.chakir.plexhubtv.core.common.util.FormatUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import timber.log.Timber
@@ -45,10 +47,16 @@ class PlayerController @Inject constructor(
     private val transcodeUrlBuilder: TranscodeUrlBuilder,
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
     private val connectionManager: ConnectionManager,
+    private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
+    @ApplicationScope private val applicationScope: CoroutineScope,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
+    @MainDispatcher private val mainDispatcher: CoroutineDispatcher,
     private val globalHandler: GlobalCoroutineExceptionHandler,
 ) {
-    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + globalHandler)
+    // S-04: Child of applicationScope for structured concurrency — cancelled/recreated per session
+    private var sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
+    private val scope: CoroutineScope
+        get() = CoroutineScope(sessionJob + mainDispatcher + globalHandler)
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -61,6 +69,8 @@ class PlayerController @Inject constructor(
     private var positionTrackerJob: Job? = null
     private var isMpvMode = false
     private var isDirectPlay = false
+    /** PLY-19: Prevents resume toast from re-appearing on quality/track changes */
+    private var hasShownResumeToast = false
 
     private var ratingKey: String? = null
     private var serverId: String? = null
@@ -116,7 +126,8 @@ class PlayerController @Inject constructor(
         val initSId = serverId
         if (initUrl != null) {
             playDirectUrl(initUrl)
-        } else if (initRKey != null && initSId != null) {
+        } else if (initRKey != null && initSId != null && mediaSourceResolver.resolve(initSId).needsUrlResolution()) {
+            // Direct-stream sources: URL is built asynchronously by PlayerControlViewModel → playDirectStream()
             loadMedia(initRKey, initSId)
         }
         startPositionTracking()
@@ -135,47 +146,143 @@ class PlayerController @Inject constructor(
         mpvPlayer = null
 
         // Cancel ALL coroutines (position tracker, scrobbler, stats, collectors)
-        scope.cancel()
-        // Recreate a fresh scope for the next initialize() cycle
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + globalHandler)
+        sessionJob.cancel()
+        // Recreate a fresh child Job for the next initialize() cycle
+        sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
 
         // Reset state so a fresh session doesn't inherit stale values
         _uiState.value = PlayerUiState()
         isMpvMode = false
         isDirectPlay = false
+        hasShownResumeToast = false
+    }
+
+    /**
+     * Play a direct stream URL with optional metadata from a real MediaItem.
+     * Used for Xtream IPTV content and plain URL streams.
+     *
+     * @param url The direct stream URL (http/https/rtsp/rtp)
+     * @param item Optional MediaItem for metadata (title, thumbnail, etc.).
+     *             If null, a placeholder item is created.
+     */
+    fun playDirectStream(url: String, item: MediaItem? = null) {
+        this.directUrl = url
+        if (item != null) {
+            this.ratingKey = item.ratingKey
+            this.serverId = item.serverId
+        }
+
+        playDirectUrlInternal(url, item)
     }
 
     private fun playDirectUrl(url: String) {
-         val dummyItem = MediaItem(
+        playDirectUrlInternal(url, null)
+    }
+
+    private fun playDirectUrlInternal(url: String, item: MediaItem?) {
+        // Defense-in-depth: only allow safe streaming schemes
+        val scheme = Uri.parse(url).scheme?.lowercase()
+        if (scheme == null || scheme !in ALLOWED_DIRECT_SCHEMES) {
+            Timber.e("Rejected direct URL with disallowed scheme '$scheme': ${url.take(80)}")
+            _uiState.update { it.copy(error = "Invalid stream URL") }
+            return
+        }
+
+        val mediaItem = item ?: MediaItem(
             id = "iptv-$url",
             ratingKey = "iptv",
             serverId = "iptv",
-            title = "Live Stream", // Title handling needs improvement if passed from VM
-            type = MediaType.Movie, 
+            title = "Live Stream",
+            type = MediaType.Movie,
             mediaParts = emptyList()
         )
 
+        // Populate tracks from mediaParts (Backend/Xtream sources have pre-loaded streams)
+        val (audios, subtitles) = if (mediaItem.mediaParts.isNotEmpty()) {
+            playerTrackController.populateTracks(mediaItem)
+        } else {
+            Pair(emptyList(), emptyList())
+        }
+
         _uiState.update {
             it.copy(
-                currentItem = dummyItem,
+                currentItem = mediaItem,
                 isPlaying = true,
-                isBuffering = true
+                isBuffering = true,
+                currentPosition = if (it.currentItem?.id != mediaItem.id) 0L else it.currentPosition,
+                audioTracks = audios,
+                subtitleTracks = subtitles,
+                selectedAudio = audios.find { t -> t.isSelected },
+                selectedSubtitle = subtitles.find { t -> t.isSelected } ?: SubtitleTrack.OFF,
             )
         }
-        
+
         scope.launch {
+            // Resolve initial track selection from preferences (VOSTFR defaults)
+            if (audios.isNotEmpty()) {
+                val part = mediaItem.mediaParts.firstOrNull()
+                val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
+                    mediaItem.ratingKey, mediaItem.serverId, part, null, null
+                )
+                val resolvedAudio = _uiState.value.audioTracks.find { it.streamId == finalAudioStreamId }
+                    ?: _uiState.value.audioTracks.firstOrNull()
+                val resolvedSubtitle = _uiState.value.subtitleTracks.find { it.streamId == finalSubtitleStreamId }
+                    ?: SubtitleTrack.OFF
+                _uiState.update { it.copy(selectedAudio = resolvedAudio, selectedSubtitle = resolvedSubtitle) }
+            }
+
             val streamUri = Uri.parse(url)
             player?.apply {
-                val mediaItem = ExoMediaItem.Builder()
+                val exoItem = ExoMediaItem.Builder()
                     .setUri(streamUri)
-                    .setMediaId("iptv")
+                    .setMediaId(mediaItem.ratingKey)
                     .build()
-                    
-                setMediaItem(mediaItem)
+
+                setMediaItem(exoItem)
                 prepare()
                 playWhenReady = true
             }
         }
+    }
+
+    companion object {
+        private val ALLOWED_DIRECT_SCHEMES = setOf("http", "https", "rtsp", "rtp")
+        /** PLY-19: Only show resume indicator for positions > 30s to avoid false positives */
+        private const val RESUME_THRESHOLD_MS = 30_000L
+
+        /** Audio codecs known to crash ExoPlayer on most Android TV devices */
+        private val ALWAYS_PROBLEMATIC_CODECS = setOf("truehd", "dts-hd ma", "dts-hd", "dtshd")
+
+        private fun audioCodecToMime(codec: String): String? = when (codec) {
+            "truehd" -> "audio/true-hd"
+            "dts-hd ma", "dts-hd", "dtshd" -> "audio/vnd.dts.hd"
+            "dts" -> "audio/vnd.dts"
+            "eac3" -> "audio/eac3"
+            "ac3" -> "audio/ac3"
+            else -> null
+        }
+
+        fun isProblematicAudioCodec(codec: String): Boolean {
+            if (codec in ALWAYS_PROBLEMATIC_CODECS) return true
+            val mimeType = audioCodecToMime(codec) ?: return false
+            return !hasHardwareAudioDecoder(mimeType)
+        }
+
+        private fun hasHardwareAudioDecoder(mimeType: String): Boolean {
+            return try {
+                val codecList = android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS)
+                codecList.codecInfos.any { info ->
+                    !info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
+                }
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+
+    /** PLY-19: Dismiss the resume playback indicator */
+    fun clearResumeMessage() {
+        _uiState.update { it.copy(resumeMessage = null) }
     }
 
     /**
@@ -297,7 +404,7 @@ class PlayerController @Inject constructor(
     }
     
     fun switchToMpv() {
-         Log.d("METRICS", "SCREEN [Player] switchToMpv() called")
+        Timber.d("SCREEN [Player] switchToMpv() called")
         if (isMpvMode) return
         isMpvMode = true
         FirebaseCrashlytics.getInstance().setCustomKey("player_engine", "MPV")
@@ -306,6 +413,21 @@ class PlayerController @Inject constructor(
         player = null
 
         mpvPlayer = playerFactory.createMpvPlayer(application, scope)
+
+        // S-05: Observe MPV init/runtime errors to avoid stuck screen
+        scope.launch {
+            mpvPlayer?.error?.filterNotNull()?.collect { errorMsg ->
+                Timber.e("PlayerController: MPV error: $errorMsg")
+                _uiState.update {
+                    it.copy(
+                        error = errorMsg,
+                        errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Generic,
+                        isBuffering = false
+                    )
+                }
+            }
+        }
+
         _uiState.update {
             it.copy(
                 isMpvMode = true,
@@ -459,13 +581,15 @@ class PlayerController @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             // P1.1: Try PlaybackManager cache first to avoid double fetch
+            // Cache is only valid if mediaParts contain streams (audio/subtitle track info)
             val cachedMedia = playbackManager.currentMedia.value
             val mediaFetchStart = System.currentTimeMillis()
-            val media: MediaItem? = if (cachedMedia != null
+            val cacheHasStreams = cachedMedia != null
                 && cachedMedia.ratingKey == rKey
                 && cachedMedia.serverId == sId
                 && cachedMedia.mediaParts.isNotEmpty()
-            ) {
+                && cachedMedia.mediaParts.first().streams.isNotEmpty()
+            val media: MediaItem? = if (cacheHasStreams) {
                 val cacheDuration = System.currentTimeMillis() - mediaFetchStart
                 performanceTracker.addCheckpoint(opId, "Media Detail (Cache Hit)", mapOf("duration" to cacheDuration))
                 Timber.d("PlayerController: Using cached media from PlaybackManager for $rKey")
@@ -516,7 +640,20 @@ class PlayerController @Inject constructor(
 
             val part = media.mediaParts.firstOrNull()
 
-            isDirectPlay = bitrate >= 200000 && part?.key != null
+            // Extras (Clip) are CDN-hosted — must go through server transcode/proxy, not direct play
+            isDirectPlay = bitrate >= 200000 && part?.key != null && media.type != com.chakir.plexhubtv.core.model.MediaType.Clip
+
+            // Audio codec pre-flight: proactively switch to MPV for codecs ExoPlayer can't handle
+            if (isDirectPlay && !isMpvMode) {
+                val audioStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.firstOrNull()
+                val audioCodec = audioStream?.codec?.lowercase()
+                if (audioCodec != null && isProblematicAudioCodec(audioCodec)) {
+                    Timber.d("PlayerController: Audio codec '$audioCodec' not supported by ExoPlayer, switching to MPV")
+                    performanceTracker.addCheckpoint(opId, "Audio Codec Preflight → MPV", mapOf("codec" to audioCodec))
+                    switchToMpv()
+                    return@launch
+                }
+            }
 
             val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
                  rKey, sId, part, audioStreamId, subtitleStreamId
@@ -568,6 +705,11 @@ class PlayerController @Inject constructor(
                 if (seekTarget > 0) {
                     mpvPlayer?.seekTo(seekTarget)
                     performanceTracker.addCheckpoint(opId, "MPV Seek Applied", mapOf("position" to seekTarget))
+                    // PLY-19: Show resume indicator for significant positions (once per session)
+                    if (seekTarget > RESUME_THRESHOLD_MS && !hasShownResumeToast) {
+                        hasShownResumeToast = true
+                        _uiState.update { it.copy(resumeMessage = FormatUtils.formatDurationTimestamp(seekTarget)) }
+                    }
                 }
 
                 // Track/Sub selection for MPV in Direct Play
@@ -603,7 +745,13 @@ class PlayerController @Inject constructor(
                     part.streams.filterIsInstance<com.chakir.plexhubtv.core.model.SubtitleStream>()
                         .filter { it.isExternal && !it.key.isNullOrEmpty() }
                         .mapNotNull { stream ->
+                            // S-12: Validate subtitle URI scheme before passing to ExoPlayer
                             val subtitleUri = android.net.Uri.parse("$baseUrl${stream.key}?X-Plex-Token=$token")
+                            val scheme = subtitleUri.scheme?.lowercase()
+                            if (scheme == null || scheme !in setOf("http", "https")) {
+                                Timber.w("PlayerController: Rejected subtitle URI with scheme '$scheme'")
+                                return@mapNotNull null
+                            }
                             val mimeType = when (stream.codec?.lowercase()) {
                                 "srt" -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
                                 "ass", "ssa" -> androidx.media3.common.MimeTypes.TEXT_SSA
@@ -662,6 +810,10 @@ class PlayerController @Inject constructor(
                     if (seekTarget > 0) {
                         seekTo(seekTarget)
                         performanceTracker.addCheckpoint(opId, "ExoPlayer Seek Applied", mapOf("position" to seekTarget))
+                        // PLY-19: Show resume indicator for significant positions
+                        if (seekTarget > RESUME_THRESHOLD_MS) {
+                            _uiState.update { it.copy(resumeMessage = FormatUtils.formatDurationTimestamp(seekTarget)) }
+                        }
                     }
 
                     playWhenReady = true

@@ -1,7 +1,7 @@
 package com.chakir.plexhubtv.domain.usecase
 
 import com.chakir.plexhubtv.core.model.MediaItem
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -10,8 +10,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class ToggleFavoriteUseCaseTest {
-    private val mediaRepository: MediaRepository = mockk()
-    private val useCase = ToggleFavoriteUseCase(mediaRepository)
+    private val favoritesRepository: FavoritesRepository = mockk()
+    private val useCase = ToggleFavoriteUseCase(favoritesRepository)
 
     @Test
     fun `invoke calls toggleFavorite on repository and returns result`() =
@@ -19,7 +19,7 @@ class ToggleFavoriteUseCaseTest {
             // Given
             val mediaItem = mockk<MediaItem>()
             val expectedResult = true
-            coEvery { mediaRepository.toggleFavorite(mediaItem) } returns Result.success(expectedResult)
+            coEvery { favoritesRepository.toggleFavorite(mediaItem) } returns Result.success(expectedResult)
 
             // When
             val result = useCase(mediaItem)
@@ -27,7 +27,7 @@ class ToggleFavoriteUseCaseTest {
             // Then
             assertThat(result.isSuccess).isTrue()
             assertThat(result.getOrThrow()).isEqualTo(expectedResult)
-            coVerify(exactly = 1) { mediaRepository.toggleFavorite(mediaItem) }
+            coVerify(exactly = 1) { favoritesRepository.toggleFavorite(mediaItem) }
         }
 
     @Test
@@ -36,7 +36,7 @@ class ToggleFavoriteUseCaseTest {
             // Given
             val mediaItem = mockk<MediaItem>()
             val exception = Exception("Database error")
-            coEvery { mediaRepository.toggleFavorite(mediaItem) } returns Result.failure(exception)
+            coEvery { favoritesRepository.toggleFavorite(mediaItem) } returns Result.failure(exception)
 
             // When
             val result = useCase(mediaItem)

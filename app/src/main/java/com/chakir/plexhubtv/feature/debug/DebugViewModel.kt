@@ -13,10 +13,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
 import com.chakir.plexhubtv.core.database.PlexDatabase
-import com.chakir.plexhubtv.domain.repository.MediaRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import com.chakir.plexhubtv.core.di.MainDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,10 +34,11 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 @HiltViewModel
 class DebugViewModel @Inject constructor(
     private val application: Application,
-    private val mediaRepository: MediaRepository,
     private val settingsRepository: SettingsRepository,
     private val database: PlexDatabase,
     private val imageLoader: ImageLoader,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @MainDispatcher private val mainDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DebugUiState())
@@ -100,7 +102,7 @@ class DebugViewModel @Inject constructor(
         }
     }
 
-    private suspend fun collectSystemInfo(): SystemInfo = withContext(Dispatchers.IO) {
+    private suspend fun collectSystemInfo(): SystemInfo = withContext(ioDispatcher) {
         val activityManager = application.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
             ?: return@withContext SystemInfo()
         val memoryInfo = ActivityManager.MemoryInfo()
@@ -123,7 +125,7 @@ class DebugViewModel @Inject constructor(
         )
     }
 
-    private suspend fun collectAppInfo(): AppInfo = withContext(Dispatchers.IO) {
+    private suspend fun collectAppInfo(): AppInfo = withContext(ioDispatcher) {
         try {
             val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 application.packageManager.getPackageInfo(
@@ -154,7 +156,7 @@ class DebugViewModel @Inject constructor(
         }
     }
 
-    private suspend fun collectServerInfo(): ServerInfo = withContext(Dispatchers.IO) {
+    private suspend fun collectServerInfo(): ServerInfo = withContext(ioDispatcher) {
         try {
             // This would need actual server connection logic
             // For now, return placeholder data
@@ -169,7 +171,7 @@ class DebugViewModel @Inject constructor(
         }
     }
 
-    private suspend fun collectCacheInfo(): CacheInfo = withContext(Dispatchers.IO) {
+    private suspend fun collectCacheInfo(): CacheInfo = withContext(ioDispatcher) {
         try {
             val cacheDir = application.cacheDir
             val imageCacheSize = getDirectorySize(File(cacheDir, "image_cache")) / (1024 * 1024)
@@ -187,7 +189,7 @@ class DebugViewModel @Inject constructor(
         }
     }
 
-    private suspend fun collectDatabaseInfo(): DatabaseInfo = withContext(Dispatchers.IO) {
+    private suspend fun collectDatabaseInfo(): DatabaseInfo = withContext(ioDispatcher) {
         try {
             val dbPath = application.getDatabasePath(database.openHelper.databaseName)
             val dbSize = if (dbPath.exists()) dbPath.length() / (1024 * 1024) else 0L
@@ -211,7 +213,7 @@ class DebugViewModel @Inject constructor(
         }
     }
 
-    private suspend fun collectNetworkInfo(): NetworkInfo = withContext(Dispatchers.IO) {
+    private suspend fun collectNetworkInfo(): NetworkInfo = withContext(ioDispatcher) {
         try {
             val connectivityManager = application.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
                 ?: return@withContext NetworkInfo()
@@ -241,7 +243,7 @@ class DebugViewModel @Inject constructor(
         }
     }
 
-    private suspend fun collectPlaybackInfo(): PlaybackInfo = withContext(Dispatchers.IO) {
+    private suspend fun collectPlaybackInfo(): PlaybackInfo = withContext(ioDispatcher) {
         try {
             val playerEngine = settingsRepository.playerEngine.first()
 
@@ -287,7 +289,7 @@ class DebugViewModel @Inject constructor(
     }
 
     private fun clearMetadataCache() {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             try {
                 val cacheDir = application.cacheDir
                 val metadataCache = File(cacheDir, "okhttp")
@@ -295,7 +297,7 @@ class DebugViewModel @Inject constructor(
                     metadataCache.deleteRecursively()
                 }
                 Timber.i("Metadata cache cleared")
-                withContext(Dispatchers.Main) {
+                withContext(mainDispatcher) {
                     loadDebugInfo()
                 }
             } catch (e: Exception) {
@@ -305,11 +307,11 @@ class DebugViewModel @Inject constructor(
     }
 
     private fun clearAllCache() {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             try {
                 application.cacheDir.deleteRecursively()
                 Timber.i("All cache cleared")
-                withContext(Dispatchers.Main) {
+                withContext(mainDispatcher) {
                     loadDebugInfo()
                 }
             } catch (e: Exception) {

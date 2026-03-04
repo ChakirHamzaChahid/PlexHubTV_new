@@ -61,6 +61,9 @@ class SettingsDataStore
         private val SELECTED_LIBRARY_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("selected_library_ids")
         private val LIBRARY_SELECTION_COMPLETE = stringPreferencesKey("library_selection_complete")
 
+        // Xtream Category Selection Configuration
+        private val SELECTED_XTREAM_CATEGORY_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("selected_xtream_category_ids")
+
         // Rating Sync Configuration
         private val RATING_SYNC_SOURCE = stringPreferencesKey("rating_sync_source") // "tmdb" or "omdb"
         private val RATING_SYNC_DELAY = stringPreferencesKey("rating_sync_delay") // delay in ms
@@ -183,6 +186,10 @@ class SettingsDataStore
         val selectedLibraryIds: Flow<Set<String>> =
             dataStore.data
                 .map { preferences -> preferences[SELECTED_LIBRARY_IDS] ?: emptySet() }
+
+        val selectedXtreamCategoryIds: Flow<Set<String>> =
+            dataStore.data
+                .map { preferences -> preferences[SELECTED_XTREAM_CATEGORY_IDS] ?: emptySet() }
 
         val isLibrarySelectionComplete: Flow<Boolean> =
             dataStore.data
@@ -364,6 +371,12 @@ class SettingsDataStore
         suspend fun saveSelectedLibraryIds(ids: Set<String>) {
             dataStore.edit { preferences ->
                 preferences[SELECTED_LIBRARY_IDS] = ids
+            }
+        }
+
+        suspend fun saveSelectedXtreamCategoryIds(ids: Set<String>) {
+            dataStore.edit { preferences ->
+                preferences[SELECTED_XTREAM_CATEGORY_IDS] = ids
             }
         }
 

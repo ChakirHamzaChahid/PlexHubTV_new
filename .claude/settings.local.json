@@ -14,7 +14,11 @@
       "Bash(dir:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:coil-kt.github.io)"
+      "WebFetch(domain:coil-kt.github.io)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(cmd.exe /c:*)",
+      "Bash(powershell.exe:*)"
     ]
   }
 }

@@ -52,6 +52,9 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE type = :type")
     fun getAllMediaByType(type: String): Flow<List<MediaEntity>>
 
+    @Query("SELECT * FROM media WHERE serverId = :serverId AND type = :type AND filter = :filter ORDER BY titleSortable ASC")
+    suspend fun getMediaByServerTypeFilter(serverId: String, type: String, filter: String): List<MediaEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMedia(media: MediaEntity)
 
@@ -67,9 +70,24 @@ interface MediaDao {
     @Query("DELETE FROM media WHERE serverId = :serverId AND librarySectionId = :libraryKey")
     suspend fun deleteMediaByLibrary(serverId: String, libraryKey: String)
 
+    @Query("DELETE FROM media WHERE serverId = :serverId")
+    suspend fun deleteAllMediaByServerId(serverId: String)
+
     @Query("SELECT * FROM media WHERE type = :type AND title LIKE '%' || :query || '%' ORDER BY title ASC")
     suspend fun searchMedia(
         query: String,
+        type: String,
+    ): List<MediaEntity>
+
+    @Query(
+        "SELECT media.* FROM media " +
+        "JOIN media_fts ON media.rowid = media_fts.rowid " +
+        "WHERE media_fts MATCH :ftsQuery " +
+        "AND media.type = :type " +
+        "ORDER BY media.title ASC"
+    )
+    suspend fun searchMediaFts(
+        ftsQuery: String,
         type: String,
     ): List<MediaEntity>
 
@@ -133,7 +151,7 @@ interface MediaDao {
 
     @Query(
         "SELECT *, MAX(lastViewedAt) as lastViewedAt FROM media WHERE lastViewedAt > 0 " +
-        "GROUP BY CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END " +
+        "GROUP BY historyGroupKey " +
         "ORDER BY lastViewedAt DESC LIMIT :limit OFFSET :offset"
     )
     fun getHistory(
@@ -198,6 +216,58 @@ interface MediaDao {
         seasonIndex: Int,
         episodeIndex: Int,
         excludeServerId: String,
+    ): List<MediaEntity>
+
+    // REMOTE SOURCES: Find same episode on other servers via parent show's unificationId
+    @Query("""
+        SELECT * FROM media
+        WHERE type = 'episode'
+        AND parentIndex = :seasonIndex
+        AND `index` = :episodeIndex
+        AND serverId != :excludeServerId
+        AND grandparentRatingKey IN (
+            SELECT ratingKey FROM media
+            WHERE type = 'show'
+            AND unificationId = :showUnificationId
+            AND unificationId != ''
+        )
+        GROUP BY serverId
+    """)
+    suspend fun findRemoteEpisodesByShowUnificationId(
+        showUnificationId: String,
+        seasonIndex: Int,
+        episodeIndex: Int,
+        excludeServerId: String,
+    ): List<MediaEntity>
+
+    @Query("SELECT DISTINCT serverId FROM media")
+    suspend fun getDistinctServerIds(): List<String>
+
+    @Query("""
+        SELECT * FROM media
+        WHERE type = 'episode'
+        AND grandparentTitle = :showTitle
+        AND serverId IN (:enabledServerIds)
+        ORDER BY parentIndex ASC, `index` ASC
+    """)
+    suspend fun getUnifiedEpisodes(showTitle: String, enabledServerIds: List<String>): List<MediaEntity>
+
+    @Query("""
+        SELECT * FROM media
+        WHERE type = 'episode'
+        AND serverId IN (:enabledServerIds)
+        AND grandparentRatingKey IN (
+            SELECT ratingKey FROM media
+            WHERE type = 'show'
+            AND unificationId = :showUnificationId
+            AND unificationId != ''
+            AND serverId IN (:enabledServerIds)
+        )
+        ORDER BY parentIndex ASC, `index` ASC
+    """)
+    suspend fun getUnifiedEpisodesByShowId(
+        showUnificationId: String,
+        enabledServerIds: List<String>,
     ): List<MediaEntity>
 
     // Persistence helper to survive library syncs

@@ -1,8 +1,9 @@
 package com.chakir.plexhubtv.data.repository
 
-import com.chakir.plexhubtv.core.common.safeApiCall
+import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.ApplicationScope
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.AuthPin
 import com.chakir.plexhubtv.core.model.Server
@@ -11,7 +12,7 @@ import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.ServerMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -38,6 +39,7 @@ class AuthRepositoryImpl
         private val userMapper: com.chakir.plexhubtv.data.mapper.UserMapper,
         private val database: com.chakir.plexhubtv.core.database.PlexDatabase,
         @ApplicationScope private val applicationScope: CoroutineScope,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : AuthRepository {
         override suspend fun checkAuthentication(): Boolean {
             val currentToken = settingsDataStore.plexToken.first()
@@ -203,7 +205,7 @@ class AuthRepositoryImpl
                         }
 
                     // Update Cache in background using ApplicationScope
-                    applicationScope.launch(Dispatchers.IO) {
+                    applicationScope.launch(ioDispatcher) {
                         try {
                             servers.forEach { domainServer ->
                                 database.serverDao().insertServer(serverMapper.mapDomainToEntity(domainServer))

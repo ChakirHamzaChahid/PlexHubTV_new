@@ -4,9 +4,6 @@ import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.core.model.VideoStream
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
-import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.AuthRepository
@@ -37,8 +34,7 @@ class ResolveEpisodeSourcesUseCaseImpl
     constructor(
         private val authRepository: AuthRepository,
         private val searchRepository: SearchRepository,
-        private val connectionManager: ConnectionManager,
-        private val api: PlexApiService,
+        private val serverClientResolver: com.chakir.plexhubtv.data.repository.ServerClientResolver,
         private val mapper: MediaMapper,
     ) : com.chakir.plexhubtv.domain.usecase.ResolveEpisodeSourcesUseCase {
         /**
@@ -57,6 +53,7 @@ class ResolveEpisodeSourcesUseCaseImpl
                         serverId = episode.serverId,
                         ratingKey = episode.ratingKey,
                         serverName = serverMap[episode.serverId] ?: "Unknown",
+                        viewOffset = episode.viewOffset,
                     )
 
                 // Find matches on other servers
@@ -105,6 +102,7 @@ class ResolveEpisodeSourcesUseCaseImpl
                                                 ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
                                         thumbUrl = directMatch.thumbUrl,
                                         artUrl = directMatch.artUrl,
+                                        viewOffset = directMatch.viewOffset,
                                     )
                                 }
 
@@ -119,8 +117,8 @@ class ResolveEpisodeSourcesUseCaseImpl
                                         it.title.equals(showTitle, ignoreCase = true) && it.type == com.chakir.plexhubtv.core.model.MediaType.Show
                                     } ?: return@async null
 
-                                val baseUrl = connectionManager.findBestConnection(server) ?: return@async null
-                                val client = PlexClient(server, api, baseUrl)
+                                val client = serverClientResolver.resolveClient(server) ?: return@async null
+                                val baseUrl = client.baseUrl
 
                                 // 2. Find Season (by Index)
                                 val seasonsResponse = client.getChildren(showMatch.ratingKey)
@@ -143,9 +141,18 @@ class ResolveEpisodeSourcesUseCaseImpl
                                 if (episodeMatch != null) {
                                     Timber.d("Tree Match found: ${episodeMatch.title}")
 
+                                    // 4. Fetch full details to ensure mediaParts/streams are present
+                                    // (getChildren may return simplified metadata without streams)
+                                    val detailResponse = client.getMetadata(episodeMatch.ratingKey)
+                                    val fullDto = if (detailResponse.isSuccessful) {
+                                        detailResponse.body()?.mediaContainer?.metadata?.firstOrNull() ?: episodeMatch
+                                    } else {
+                                        episodeMatch
+                                    }
+
                                     val episodeItem =
                                         mapper.mapDtoToDomain(
-                                            episodeMatch,
+                                            fullDto,
                                             server.clientIdentifier,
                                             baseUrl,
                                             server.accessToken,
@@ -171,6 +178,7 @@ class ResolveEpisodeSourcesUseCaseImpl
                                                 ?.mapNotNull { it.language }?.distinct() ?: emptyList(),
                                         thumbUrl = episodeItem.thumbUrl,
                                         artUrl = episodeItem.artUrl,
+                                        viewOffset = episodeItem.viewOffset,
                                     )
                                 } else {
                                     null

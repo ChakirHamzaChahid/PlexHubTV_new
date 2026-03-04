@@ -1,14 +1,13 @@
 package com.chakir.plexhubtv.feature.plexhome
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.feature.common.launchLoading
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -64,43 +63,43 @@ class PlexHomeSwitcherViewModel
         }
 
         private fun loadUsers() {
-            viewModelScope.launch {
-                val startTime = System.currentTimeMillis()
-                Timber.d("SCREEN [PlexHomeSwitch]: Loading users start")
-                _uiState.update { it.copy(isLoading = true, error = null) }
-                authRepository.getHomeUsers()
-                    .onSuccess { users ->
-                        val duration = System.currentTimeMillis() - startTime
-                        Timber.i("SCREEN [PlexHomeSwitch] SUCCESS: duration=${duration}ms | users=${users.size}")
-                        _uiState.update { it.copy(isLoading = false, users = users) }
-                    }
-                    .onFailure { error ->
-                        val duration = System.currentTimeMillis() - startTime
-                        Timber.e("SCREEN [PlexHomeSwitch] FAILED: duration=${duration}ms error=${error.message}")
-                        _uiState.update { it.copy(isLoading = false, error = error.message) }
-                    }
-            }
+            val startTime = System.currentTimeMillis()
+            Timber.d("SCREEN [PlexHomeSwitch]: Loading users start")
+            launchLoading(
+                onStart = { _uiState.update { it.copy(isLoading = true, error = null) } },
+                block = { authRepository.getHomeUsers() },
+                onSuccess = { users ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.i("SCREEN [PlexHomeSwitch] SUCCESS: duration=${duration}ms | users=${users.size}")
+                    _uiState.update { it.copy(isLoading = false, users = users) }
+                },
+                onFailure = { error ->
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.e("SCREEN [PlexHomeSwitch] FAILED: duration=${duration}ms error=${error.message}")
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
+                },
+            )
         }
 
         private fun switchUser(
             user: com.chakir.plexhubtv.core.model.PlexHomeUser,
             pin: String? = null,
         ) {
-            viewModelScope.launch {
-                _uiState.update { it.copy(isSwitching = true, error = null) }
-                authRepository.switchUser(user, pin)
-                    .onSuccess {
-                        _uiState.update { it.copy(isSwitching = false, switchSuccess = true, showPinDialog = false) }
+            launchLoading(
+                onStart = { _uiState.update { it.copy(isSwitching = true, error = null) } },
+                block = { authRepository.switchUser(user, pin) },
+                onSuccess = {
+                    _uiState.update { it.copy(isSwitching = false, switchSuccess = true, showPinDialog = false) }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isSwitching = false,
+                            error = "Échec du changement d'utilisateur: ${error.message}",
+                            pinValue = "",
+                        )
                     }
-                    .onFailure { error ->
-                        _uiState.update {
-                            it.copy(
-                                isSwitching = false,
-                                error = "Échec du changement d'utilisateur: ${error.message}",
-                                pinValue = "",
-                            )
-                        }
-                    }
-            }
+                },
+            )
         }
     }

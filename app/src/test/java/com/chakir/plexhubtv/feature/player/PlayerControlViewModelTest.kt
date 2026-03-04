@@ -58,7 +58,8 @@ class PlayerControlViewModelTest {
             playerController = playerController,
             savedStateHandle = savedStateHandle,
             chapterMarkerManager = chapterMarkerManager,
-            playbackManager = playbackManager
+            playbackManager = playbackManager,
+            directStreamUrlBuilder = mockk(relaxed = true),
         )
     }
 

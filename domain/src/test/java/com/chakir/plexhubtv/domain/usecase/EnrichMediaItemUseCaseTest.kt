@@ -8,14 +8,14 @@ import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.model.VideoStream
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.domain.repository.BackendRepository
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
-import com.chakir.plexhubtv.domain.repository.MediaRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
-import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -26,10 +26,11 @@ class EnrichMediaItemUseCaseTest {
     private lateinit var useCase: EnrichMediaItemUseCase
     private lateinit var authRepository: AuthRepository
     private lateinit var searchRepository: SearchRepository
-    private lateinit var mediaRepository: MediaRepository
     private lateinit var mediaDetailRepository: MediaDetailRepository
     private lateinit var performanceTracker: PerformanceTracker
-    private lateinit var settingsRepository: SettingsRepository
+    private lateinit var backendRepository: BackendRepository
+    private lateinit var xtreamAccountRepository: XtreamAccountRepository
+    private lateinit var getEnabledServerIdsUseCase: GetEnabledServerIdsUseCase
 
     private val testServers = listOf(
         Server(
@@ -105,14 +106,15 @@ class EnrichMediaItemUseCaseTest {
     fun setup() {
         authRepository = mockk(relaxed = true)
         searchRepository = mockk(relaxed = true)
-        mediaRepository = mockk(relaxed = true)
         mediaDetailRepository = mockk(relaxed = true)
         performanceTracker = mockk(relaxed = true)
-        settingsRepository = mockk(relaxed = true)
+        backendRepository = mockk(relaxed = true)
+        xtreamAccountRepository = mockk(relaxed = true)
+        getEnabledServerIdsUseCase = mockk(relaxed = true)
 
         // Default mock behaviors
         coEvery { authRepository.getServers() } returns Result.success(testServers)
-        coEvery { settingsRepository.excludedServerIds } returns flowOf(emptySet())
+        coEvery { getEnabledServerIdsUseCase.invoke() } returns testServers.map { it.clientIdentifier }
         coEvery { mediaDetailRepository.findRemoteSources(any()) } returns emptyList()
         coEvery { performanceTracker.startOperation(any(), any(), any(), any()) } just Runs
         coEvery { performanceTracker.endOperation(any(), any(), any()) } just Runs
@@ -121,10 +123,12 @@ class EnrichMediaItemUseCaseTest {
         useCase = EnrichMediaItemUseCase(
             authRepository = authRepository,
             searchRepository = searchRepository,
-            mediaRepository = mediaRepository,
             mediaDetailRepository = mediaDetailRepository,
+            backendRepository = backendRepository,
+            xtreamAccountRepository = xtreamAccountRepository,
             performanceTracker = performanceTracker,
-            settingsRepository = settingsRepository
+            getEnabledServerIdsUseCase = getEnabledServerIdsUseCase,
+            ioDispatcher = Dispatchers.Unconfined
         )
     }
 
@@ -218,7 +222,7 @@ class EnrichMediaItemUseCaseTest {
 
     @Test
     fun `invoke excludes servers from settings`() = runTest {
-        coEvery { settingsRepository.excludedServerIds } returns flowOf(setOf("server2"))
+        coEvery { getEnabledServerIdsUseCase.invoke() } returns listOf("server1")
 
         val result = useCase(testMediaItem)
 
@@ -235,13 +239,13 @@ class EnrichMediaItemUseCaseTest {
             mediaParts = emptyList()
         )
         coEvery { mediaDetailRepository.findRemoteSources(any()) } returns listOf(matchWithoutParts)
-        coEvery { mediaRepository.getMediaDetail("456", "server2") } returns Result.success(
+        coEvery { mediaDetailRepository.getMediaDetail("456", "server2") } returns Result.success(
             testMediaItem.copy(serverId = "server2", ratingKey = "456")
         )
 
         val result = useCase(testMediaItem)
 
-        coVerify { mediaRepository.getMediaDetail("456", "server2") }
+        coVerify { mediaDetailRepository.getMediaDetail("456", "server2") }
         coVerify { mediaDetailRepository.updateMediaParts(any()) }
     }
 
@@ -284,7 +288,7 @@ class EnrichMediaItemUseCaseTest {
         coEvery { searchRepository.searchOnServer(testServers[1], "The Matrix") } returns Result.success(
             listOf(testMediaItem.copy(serverId = "server2", ratingKey = "789"))
         )
-        coEvery { mediaRepository.getMediaDetail("789", "server2") } returns Result.success(
+        coEvery { mediaDetailRepository.getMediaDetail("789", "server2") } returns Result.success(
             testMediaItem.copy(serverId = "server2", ratingKey = "789")
         )
 
@@ -303,7 +307,7 @@ class EnrichMediaItemUseCaseTest {
         )
         coEvery { mediaDetailRepository.findRemoteSources(any()) } returns emptyList()
         coEvery { searchRepository.searchOnServer(testServers[1], "The Matrix") } returns Result.success(listOf(candidate))
-        coEvery { mediaRepository.getMediaDetail("999", "server2") } returns Result.success(candidate)
+        coEvery { mediaDetailRepository.getMediaDetail("999", "server2") } returns Result.success(candidate)
 
         val result = useCase(testMediaItem)
 

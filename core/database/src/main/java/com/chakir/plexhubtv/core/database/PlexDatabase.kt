@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 29 : Ajout de displayRating (note canonique pré-calculée) + index pour tri par note performant.
+ * Version 31 : Ajout de FTS4 sur media pour recherche plein texte performante.
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -26,8 +26,12 @@ import androidx.room.TypeConverters
         MediaCollectionCrossRef::class,
         ProfileEntity::class,
         SearchCacheEntity::class,
+        MediaFts::class,
+        XtreamAccountEntity::class,
+        BackendServerEntity::class,
+        IdBridgeEntity::class,
     ],
-    version = 29,
+    version = 35,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -58,4 +62,10 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun profileDao(): ProfileDao
 
     abstract fun searchCacheDao(): SearchCacheDao
+
+    abstract fun xtreamAccountDao(): XtreamAccountDao
+
+    abstract fun backendServerDao(): BackendServerDao
+
+    abstract fun idBridgeDao(): IdBridgeDao
 }

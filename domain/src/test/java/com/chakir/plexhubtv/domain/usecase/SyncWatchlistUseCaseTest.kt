@@ -1,6 +1,6 @@
 package com.chakir.plexhubtv.domain.usecase
 
-import com.chakir.plexhubtv.domain.repository.MediaRepository
+import com.chakir.plexhubtv.domain.repository.WatchlistRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -9,22 +9,22 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class SyncWatchlistUseCaseTest {
-    private val mediaRepository: MediaRepository = mockk()
-    private val useCase = SyncWatchlistUseCase(mediaRepository)
+    private val watchlistRepository: WatchlistRepository = mockk()
+    private val useCase = SyncWatchlistUseCase(watchlistRepository)
 
     @Test
     fun `invoke calls syncWatchlist on repository and returns result`() =
         runTest {
             // Given
             val expectedResult = Result.success(Unit)
-            coEvery { mediaRepository.syncWatchlist() } returns expectedResult
+            coEvery { watchlistRepository.syncWatchlist() } returns expectedResult
 
             // When
             val result = useCase()
 
             // Then
             assertThat(result.isSuccess).isTrue()
-            coVerify(exactly = 1) { mediaRepository.syncWatchlist() }
+            coVerify(exactly = 1) { watchlistRepository.syncWatchlist() }
         }
 
     @Test
@@ -32,7 +32,7 @@ class SyncWatchlistUseCaseTest {
         runTest {
             // Given
             val exception = Exception("Sync error")
-            coEvery { mediaRepository.syncWatchlist() } returns Result.failure(exception)
+            coEvery { watchlistRepository.syncWatchlist() } returns Result.failure(exception)
 
             // When
             val result = useCase()

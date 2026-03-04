@@ -1,17 +1,18 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.database.IdBridgeDao
+import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.model.toAppError
-import com.chakir.plexhubtv.core.network.ConnectionManager
-import com.chakir.plexhubtv.core.network.PlexApiService
-import com.chakir.plexhubtv.core.network.PlexClient
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
-import kotlinx.coroutines.Dispatchers
+import com.chakir.plexhubtv.core.di.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -31,18 +32,19 @@ import javax.inject.Inject
 class SyncRepositoryImpl
     @Inject
     constructor(
-        private val api: PlexApiService,
-        private val connectionManager: ConnectionManager,
+        private val serverClientResolver: ServerClientResolver,
         private val mediaDao: MediaDao,
+        private val idBridgeDao: IdBridgeDao,
         private val mediaMapper: MediaMapper,
         private val libraryRepository: LibraryRepository,
         private val settingsDataStore: SettingsDataStore,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : SyncRepository {
         // Callback for progress updates (set by LibrarySyncWorker)
         override var onProgressUpdate: ((current: Int, total: Int, libraryName: String) -> Unit)? = null
 
         override suspend fun syncServer(server: Server): Result<Unit> =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     Timber.d("Starting sync for server: ${server.name}")
                     // 1. Get Libraries
@@ -107,11 +109,11 @@ class SyncRepositoryImpl
             libraryKey: String,
             libraryName: String,
         ): Result<Unit> =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
-                    val baseUrl = connectionManager.findBestConnection(server)
+                    val client = serverClientResolver.resolveClient(server)
                         ?: return@withContext Result.failure(AppError.Network.NoConnection("No connection to ${server.name}"))
-                    val client = PlexClient(server, api, baseUrl)
+                    val baseUrl = client.baseUrl
 
                     var start = 0
                     val size = 500 // Batch size
@@ -144,6 +146,7 @@ class SyncRepositoryImpl
                                 val ratingKeys = validMetadata.map { it.ratingKey }
                                 val existingRatingsMap = mediaDao.getScrapedRatings(ratingKeys, server.clientIdentifier)
 
+                                val accessToken = server.accessToken ?: ""
                                 val entities =
                                     validMetadata.mapIndexed { index, dto ->
                                         val dtoWithLib = dto.copy(librarySectionID = libraryKey)
@@ -158,11 +161,26 @@ class SyncRepositoryImpl
                                             scrapedRating = restoredScrapedRating,
                                             displayRating = restoredScrapedRating
                                                 ?: entity.displayRating,
+                                            resolvedThumbUrl = entity.thumbUrl?.let { path ->
+                                                getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 300, 450)
+                                                    ?: "$baseUrl$path?X-Plex-Token=$accessToken"
+                                            },
+                                            resolvedArtUrl = entity.artUrl?.let { path ->
+                                                getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 1280, 720)
+                                                    ?: "$baseUrl$path?X-Plex-Token=$accessToken"
+                                            },
+                                            resolvedBaseUrl = baseUrl,
                                         )
                                     }
 
                                 if (entities.isNotEmpty()) {
                                     mediaDao.upsertMedia(entities)
+                                    val bridgeEntries = entities.mapNotNull { entity ->
+                                        val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+                                        val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+                                        if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                                    }
+                                    if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
                                 }
                                 val dbDuration = System.currentTimeMillis() - dbStartTime
                                 val skippedCount = metadata.size - entities.size

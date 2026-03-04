@@ -6,11 +6,10 @@ import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.ApiCache
-import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.core.network.PlexClient
 import com.chakir.plexhubtv.core.network.model.GenericPlexResponse
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
-import com.chakir.plexhubtv.core.util.getOptimizedImageUrl
+import com.chakir.plexhubtv.core.network.util.getOptimizedImageUrl
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.data.repository.aggregation.MediaDeduplicator
@@ -31,7 +30,6 @@ import javax.inject.Inject
 class HubsRepositoryImpl
     @Inject
     constructor(
-        private val api: PlexApiService,
         private val mediaDao: MediaDao,
         private val homeContentDao: HomeContentDao,
         private val apiCache: ApiCache,
@@ -55,7 +53,7 @@ class HubsRepositoryImpl
                 val selectedLibraryIds = settingsDataStore.selectedLibraryIds.first()
                 val selectedServerIds = selectedLibraryIds.map { it.substringBefore(":") }.toSet()
 
-                val clients = getActiveClients(selectedServerIds)
+                val clients = serverClientResolver.getActiveClients(selectedServerIds)
                 Timber.i("REPO [Hubs] Active clients: ${clients.size} (servers: ${clients.map { it.server.name }}, filtered by ${selectedServerIds.size} selected servers)")
                 if (clients.isNotEmpty()) {
                     coroutineScope {
@@ -334,24 +332,4 @@ class HubsRepositoryImpl
             }
         }
 
-        private suspend fun getActiveClients(selectedServerIds: Set<String> = emptySet()): List<PlexClient> =
-            coroutineScope {
-                val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: return@coroutineScope emptyList()
-                val filteredServers = if (selectedServerIds.isNotEmpty()) {
-                    servers.filter { it.clientIdentifier in selectedServerIds }
-                } else {
-                    servers
-                }
-
-                filteredServers.map { server ->
-                    async {
-                        val baseUrl = connectionManager.findBestConnection(server)
-                        if (baseUrl != null) {
-                            PlexClient(server, api, baseUrl)
-                        } else {
-                            null
-                        }
-                    }
-                }.awaitAll().filterNotNull()
-            }
     }

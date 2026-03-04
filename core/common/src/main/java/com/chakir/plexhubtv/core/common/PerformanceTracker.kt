@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.core.common
 
 import timber.log.Timber
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -8,12 +9,20 @@ import javax.inject.Singleton
 /**
  * Performance tracker for monitoring latencies across the app.
  * Tracks operations with start/end timestamps and logs detailed metrics.
+ *
+ * Thread-safety:
+ * - [activeOperations] uses ConcurrentHashMap for lock-free reads/writes.
+ * - [completedMetrics] uses Collections.synchronizedList; iterations are
+ *   guarded by synchronized(completedMetrics).
+ * - Individual [OperationMetric] mutations (addCheckpoint / endOperation)
+ *   are synchronized on the metric instance to prevent data races.
  */
 @Singleton
 class PerformanceTracker @Inject constructor() {
 
     private val activeOperations = ConcurrentHashMap<String, OperationMetric>()
-    private val completedMetrics = mutableListOf<OperationMetric>()
+    private val completedMetrics: MutableList<OperationMetric> =
+        Collections.synchronizedList(mutableListOf())
 
     /**
      * Start tracking an operation
@@ -52,11 +61,13 @@ class PerformanceTracker @Inject constructor() {
             return
         }
 
-        val elapsed = System.currentTimeMillis() - metric.startTime
-        val checkpoint = Checkpoint(checkpointName, elapsed, additionalMeta)
-        metric.checkpoints.add(checkpoint)
+        synchronized(metric) {
+            val elapsed = System.currentTimeMillis() - metric.startTime
+            val checkpoint = Checkpoint(checkpointName, elapsed, additionalMeta)
+            metric.checkpoints.add(checkpoint)
+        }
 
-        Timber.d("🔹 [PERF][CHECKPOINT][${metric.category}] $checkpointName (+${elapsed}ms) | ID=$operationId | meta=$additionalMeta")
+        Timber.d("🔹 [PERF][CHECKPOINT][${metric.category}] $checkpointName | ID=$operationId | meta=$additionalMeta")
     }
 
     /**
@@ -73,35 +84,44 @@ class PerformanceTracker @Inject constructor() {
             return
         }
 
-        metric.endTime = System.currentTimeMillis()
-        metric.duration = metric.endTime - metric.startTime
-        metric.success = success
-        metric.errorMessage = errorMessage
-        metric.metadata.putAll(additionalMeta)
+        // Snapshot checkpoint data under lock, then log outside lock
+        val duration: Long
+        val checkpointSnapshot: List<Checkpoint>
+        synchronized(metric) {
+            metric.endTime = System.currentTimeMillis()
+            metric.duration = metric.endTime - metric.startTime
+            metric.success = success
+            metric.errorMessage = errorMessage
+            metric.metadata.putAll(additionalMeta)
+            duration = metric.duration
+            checkpointSnapshot = metric.checkpoints.toList()
+        }
 
-        completedMetrics.add(metric)
+        synchronized(completedMetrics) {
+            completedMetrics.add(metric)
+        }
 
         // Log summary
         val status = if (success) "✅ SUCCESS" else "❌ FAILED"
         val error = if (errorMessage != null) " | error=$errorMessage" else ""
 
-        Timber.i("⏱️ [PERF][END][${metric.category}] ${metric.description} | TOTAL=${metric.duration}ms | $status$error")
+        Timber.i("⏱️ [PERF][END][${metric.category}] ${metric.description} | TOTAL=${duration}ms | $status$error")
 
         // Log detailed breakdown if checkpoints exist
-        if (metric.checkpoints.isNotEmpty()) {
+        if (checkpointSnapshot.isNotEmpty()) {
             Timber.d("📊 [PERF][BREAKDOWN][${metric.category}] ID=$operationId:")
-            metric.checkpoints.forEachIndexed { index, checkpoint ->
+            checkpointSnapshot.forEachIndexed { index, checkpoint ->
                 val delta = if (index == 0) {
                     checkpoint.elapsedMs
                 } else {
-                    checkpoint.elapsedMs - metric.checkpoints[index - 1].elapsedMs
+                    checkpoint.elapsedMs - checkpointSnapshot[index - 1].elapsedMs
                 }
                 Timber.d("   ${index + 1}. ${checkpoint.name} @ ${checkpoint.elapsedMs}ms (+${delta}ms) ${checkpoint.metadata}")
             }
         }
 
         // Log full metadata if present
-        if (metric.metadata.isNotEmpty()) {
+        if (additionalMeta.isNotEmpty()) {
             Timber.d("📋 [PERF][META][${metric.category}] ID=$operationId: ${metric.metadata}")
         }
     }
@@ -131,18 +151,23 @@ class PerformanceTracker @Inject constructor() {
      * Get summary of recent operations (for debugging)
      */
     fun getSummary(category: String? = null, limit: Int = 20): List<OperationMetric> {
-        return completedMetrics
-            .asReversed()
-            .let { if (category != null) it.filter { m -> m.category == category } else it }
-            .take(limit)
+        synchronized(completedMetrics) {
+            return completedMetrics
+                .asReversed()
+                .let { if (category != null) it.filter { m -> m.category == category } else it }
+                .take(limit)
+        }
     }
 
     /**
      * Clear old metrics (keep last 100)
      */
     fun cleanup() {
-        if (completedMetrics.size > 100) {
-            completedMetrics.removeAll(completedMetrics.take(completedMetrics.size - 100))
+        synchronized(completedMetrics) {
+            if (completedMetrics.size > 100) {
+                val excess = completedMetrics.size - 100
+                completedMetrics.subList(0, excess).clear()
+            }
         }
     }
 }

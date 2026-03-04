@@ -38,6 +38,7 @@ fun NetflixContentRow(
     cardType: CardType = CardType.POSTER,
     onItemClick: (MediaItem) -> Unit,
     onItemPlay: (MediaItem) -> Unit,
+    onItemLongPress: ((MediaItem) -> Unit)? = null,
     rowId: String = title.lowercase().replace(" ", "_"),
     leftExitFocusRequester: FocusRequester? = null,
 ) {
@@ -86,11 +87,15 @@ fun NetflixContentRow(
             ) { item ->
                 val onClick = remember(item.ratingKey, item.serverId) { { onItemClick(item) } }
                 val onPlay = remember(item.ratingKey, item.serverId) { { onItemPlay(item) } }
+                val longPress = onItemLongPress?.let {
+                    remember(item.ratingKey, item.serverId) { { it(item) } }
+                }
                 NetflixMediaCard(
                     media = item,
                     cardType = cardType,
                     onClick = onClick,
-                    onPlay = onPlay
+                    onPlay = onPlay,
+                    onLongPress = longPress,
                 )
             }
         }

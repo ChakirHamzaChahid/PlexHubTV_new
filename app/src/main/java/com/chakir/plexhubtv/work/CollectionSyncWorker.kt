@@ -11,9 +11,10 @@ import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.core.di.IoDispatcher
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -31,12 +32,13 @@ class CollectionSyncWorker
         private val api: PlexApiService,
         private val connectionManager: ConnectionManager,
         private val settingsDataStore: SettingsDataStore,
+        @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : CoroutineWorker(appContext, workerParams) {
         private val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         private val channelId = "collection_sync"
 
         override suspend fun doWork(): androidx.work.ListenableWorker.Result =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 Timber.d("Starting Collection Sync (Worker)...")
 
                 try {

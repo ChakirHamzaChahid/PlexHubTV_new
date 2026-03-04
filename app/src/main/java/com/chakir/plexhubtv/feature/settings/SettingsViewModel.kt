@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -43,9 +44,12 @@ class SettingsViewModel
         private val authRepository: AuthRepository,
         private val workManager: WorkManager,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
+        private val tvChannelManager: com.chakir.plexhubtv.domain.service.TvChannelManager,
+        private val syncXtreamLibraryUseCase: com.chakir.plexhubtv.domain.usecase.SyncXtreamLibraryUseCase,
+        private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
+        private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
+        private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
     ) : ViewModel() {
-        @Inject
-        lateinit var tvChannelManager: com.chakir.plexhubtv.domain.service.TvChannelManager
         private val _uiState = MutableStateFlow(SettingsUiState())
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -65,6 +69,8 @@ class SettingsViewModel
             Timber.d("SCREEN [Settings]: Opened")
             loadOneTimeData()
             observeSettings()
+            observeBackendServers()
+            observeXtreamAccounts()
         }
 
         fun onAction(action: SettingsAction) {
@@ -291,6 +297,118 @@ class SettingsViewModel
                         _navigationEvents.send(SettingsNavigationEvent.NavigateToLibrarySelection)
                     }
                 }
+                is SettingsAction.ManageXtreamAccounts -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToXtreamSetup)
+                    }
+                }
+                is SettingsAction.SyncXtream -> {
+                    _uiState.update { it.copy(isSyncingXtream = true, xtreamSyncMessage = null) }
+
+                    viewModelScope.launch {
+                        try {
+                            val accounts = xtreamAccountRepository.observeAccounts().first()
+                            if (accounts.isEmpty()) {
+                                _uiState.update {
+                                    it.copy(isSyncingXtream = false, xtreamSyncMessage = "No Xtream accounts configured")
+                                }
+                            } else {
+                                val selectedCatIds = settingsDataStore.selectedXtreamCategoryIds.first()
+                                var errors = 0
+                                accounts.forEach { account ->
+                                    val result = syncXtreamLibraryUseCase(account.id, selectedCatIds)
+                                    if (result.isFailure) {
+                                        errors++
+                                        Timber.w("Xtream sync failed for ${account.label}: ${result.exceptionOrNull()?.message}")
+                                    }
+                                }
+                                val msg = if (errors == 0) {
+                                    "Xtream sync completed (${accounts.size} account(s))"
+                                } else {
+                                    "Xtream sync: ${accounts.size - errors}/${accounts.size} accounts OK"
+                                }
+                                _uiState.update { it.copy(isSyncingXtream = false, xtreamSyncMessage = msg) }
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Xtream sync failed")
+                            _uiState.update {
+                                it.copy(isSyncingXtream = false, xtreamSyncMessage = "Sync failed: ${e.message}")
+                            }
+                        }
+                        kotlinx.coroutines.delay(5000)
+                        _uiState.update { it.copy(xtreamSyncMessage = null) }
+                    }
+                }
+                is SettingsAction.ManageXtreamCategories -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToXtreamCategorySelection(action.accountId))
+                    }
+                }
+                is SettingsAction.AddBackendServer -> {
+                    _uiState.update { it.copy(isTestingBackend = true, backendConfigMessage = null) }
+                    viewModelScope.launch {
+                        val result = backendRepository.addServer(action.label, action.url)
+                        if (result.isSuccess) {
+                            _uiState.update { it.copy(isTestingBackend = false, backendConfigMessage = "Server added") }
+                        } else {
+                            _uiState.update {
+                                it.copy(isTestingBackend = false, backendConfigMessage = "Failed: ${result.exceptionOrNull()?.message}")
+                            }
+                        }
+                        kotlinx.coroutines.delay(3000)
+                        _uiState.update { it.copy(backendConfigMessage = null) }
+                    }
+                }
+                is SettingsAction.RemoveBackendServer -> {
+                    viewModelScope.launch {
+                        backendRepository.removeServer(action.id)
+                    }
+                }
+                is SettingsAction.TestBackendConnection -> {
+                    _uiState.update { it.copy(isTestingBackend = true, backendConfigMessage = null) }
+                    viewModelScope.launch {
+                        val result = backendRepository.testConnection(action.url)
+                        if (result.isSuccess) {
+                            val info = result.getOrThrow()
+                            _uiState.update {
+                                it.copy(isTestingBackend = false, backendConfigMessage = "Connected (${info.totalMedia} media, ${info.enrichedMedia} enriched)")
+                            }
+                        } else {
+                            _uiState.update {
+                                it.copy(isTestingBackend = false, backendConfigMessage = "Unreachable")
+                            }
+                        }
+                        kotlinx.coroutines.delay(5000)
+                        _uiState.update { it.copy(backendConfigMessage = null) }
+                    }
+                }
+                is SettingsAction.SyncBackend -> {
+                    _uiState.update { it.copy(isSyncingBackend = true, backendSyncMessage = null) }
+                    viewModelScope.launch {
+                        try {
+                            val servers = backendRepository.observeServers().first()
+                            if (servers.isEmpty()) {
+                                _uiState.update { it.copy(isSyncingBackend = false, backendSyncMessage = "No backend servers configured") }
+                            } else {
+                                var totalSynced = 0
+                                servers.filter { it.isActive }.forEach { server ->
+                                    val result = backendRepository.syncMedia(server.id)
+                                    totalSynced += result.getOrDefault(0)
+                                }
+                                _uiState.update {
+                                    it.copy(isSyncingBackend = false, backendSyncMessage = "Synced $totalSynced items from backend")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Backend sync failed")
+                            _uiState.update {
+                                it.copy(isSyncingBackend = false, backendSyncMessage = "Sync failed: ${e.message}")
+                            }
+                        }
+                        kotlinx.coroutines.delay(5000)
+                        _uiState.update { it.copy(backendSyncMessage = null) }
+                    }
+                }
             }
         }
 
@@ -306,6 +424,20 @@ class SettingsViewModel
                     tvChannelManager.updateContinueWatching()
                 }
             }
+        }
+
+        private fun observeBackendServers() {
+            backendRepository.observeServers()
+                .onEach { servers -> _uiState.update { it.copy(backendServers = servers) } }
+                .catch { e -> Timber.e(e, "Failed to observe backend servers") }
+                .launchIn(viewModelScope)
+        }
+
+        private fun observeXtreamAccounts() {
+            xtreamAccountRepository.observeAccounts()
+                .onEach { accounts -> _uiState.update { it.copy(xtreamAccounts = accounts) } }
+                .catch { e -> Timber.e(e, "Failed to observe Xtream accounts") }
+                .launchIn(viewModelScope)
         }
 
         private fun loadOneTimeData() {
@@ -437,4 +569,8 @@ sealed interface SettingsNavigationEvent {
     data object NavigateToAppProfiles : SettingsNavigationEvent
 
     data object NavigateToLibrarySelection : SettingsNavigationEvent
+
+    data object NavigateToXtreamSetup : SettingsNavigationEvent
+
+    data class NavigateToXtreamCategorySelection(val accountId: String) : SettingsNavigationEvent
 }

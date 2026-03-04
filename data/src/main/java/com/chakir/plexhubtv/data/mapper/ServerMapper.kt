@@ -5,8 +5,8 @@ import com.chakir.plexhubtv.core.database.ServerEntity
 import com.chakir.plexhubtv.core.model.ConnectionCandidate
 import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.network.model.PlexResource
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 /**
@@ -16,15 +16,14 @@ import javax.inject.Inject
 class ServerMapper
     @Inject
     constructor() {
-        private val gson = Gson()
-        private val candidateListType = object : TypeToken<List<ConnectionCandidateEntity>>() {}.type
+        private val json = Json { ignoreUnknownKeys = true }
 
         fun mapEntityToDomain(entity: ServerEntity): Server {
             val uri = entity.protocol + "://" + entity.address + ":" + entity.port
 
             // Parse stored connection candidates from JSON
             val candidates = try {
-                val parsed: List<ConnectionCandidateEntity> = gson.fromJson(entity.connectionCandidatesJson, candidateListType)
+                val parsed: List<ConnectionCandidateEntity> = json.decodeFromString(entity.connectionCandidatesJson)
                 parsed.map {
                     ConnectionCandidate(
                         protocol = it.protocol,
@@ -152,7 +151,7 @@ class ServerMapper
                 relay = server.relay,
                 publicAddress = server.publicAddress,
                 httpsRequired = server.httpsRequired,
-                connectionCandidatesJson = gson.toJson(candidateEntities),
+                connectionCandidatesJson = json.encodeToString(candidateEntities),
             )
         }
     }

@@ -140,7 +140,9 @@ class SplashViewModel
 
                 Timber.d("SPLASH: Both video and auth complete, navigating...")
                 transitionState.update { it.copy(hasNavigated = true) }
-                _navigationEvent.send(state.authenticationResult!!)
+                state.authenticationResult?.let { result ->
+                    _navigationEvent.send(result)
+                } ?: Timber.e("SPLASH: authenticationResult was null despite readyToNavigate=true")
             }
         }
     }

@@ -26,6 +26,16 @@ data class SettingsUiState(
     val isSyncingRatings: Boolean = false,
     val ratingSyncMessage: String? = null,
     val iptvPlaylistUrl: String = "",
+    // Xtream sync
+    val isSyncingXtream: Boolean = false,
+    val xtreamSyncMessage: String? = null,
+    val xtreamAccounts: List<com.chakir.plexhubtv.core.model.XtreamAccount> = emptyList(),
+    // Backend
+    val backendServers: List<com.chakir.plexhubtv.core.model.BackendServer> = emptyList(),
+    val isTestingBackend: Boolean = false,
+    val backendConfigMessage: String? = null,
+    val isSyncingBackend: Boolean = false,
+    val backendSyncMessage: String? = null,
     // Rating Sync Configuration
     val ratingSyncSource: String = "tmdb", // "tmdb" or "omdb"
     val ratingSyncDelay: Long = 250L, // delay in ms
@@ -93,4 +103,18 @@ sealed interface SettingsAction {
     data object ManageAppProfiles : SettingsAction
 
     data object ManageLibrarySelection : SettingsAction
+
+    data object ManageXtreamAccounts : SettingsAction
+
+    data class ManageXtreamCategories(val accountId: String) : SettingsAction
+
+    data object SyncXtream : SettingsAction
+
+    data class AddBackendServer(val label: String, val url: String) : SettingsAction
+
+    data class RemoveBackendServer(val id: String) : SettingsAction
+
+    data class TestBackendConnection(val url: String) : SettingsAction
+
+    data object SyncBackend : SettingsAction
 }

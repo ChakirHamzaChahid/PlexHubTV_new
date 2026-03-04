@@ -7,13 +7,14 @@ import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class GetMediaDetailUseCaseTest {
     private val mediaDetailRepository: MediaDetailRepository = mockk()
-    private val useCase = GetMediaDetailUseCase(mediaDetailRepository)
+    private val useCase = GetMediaDetailUseCase(mediaDetailRepository, Dispatchers.Unconfined)
 
     @Test
     fun `invoke returns failure when getMediaDetail fails`() =
