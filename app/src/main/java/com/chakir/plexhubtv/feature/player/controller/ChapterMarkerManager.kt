@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -78,6 +79,19 @@ class ChapterMarkerManager
                 markersList.filter { marker ->
                     currentPositionMs >= marker.startTime && currentPositionMs < marker.endTime
                 }
+
+            // Log marker visibility changes
+            val previousVisible = _visibleMarkers.value
+            if (visibleMarkersList != previousVisible) {
+                if (visibleMarkersList.isNotEmpty()) {
+                    visibleMarkersList.forEach { marker ->
+                        Timber.d("ChapterMarkerManager: Marker '${marker.type}' now visible at position ${currentPositionMs}ms")
+                    }
+                } else if (previousVisible.isNotEmpty()) {
+                    Timber.d("ChapterMarkerManager: No markers visible at position ${currentPositionMs}ms")
+                }
+            }
+
             _visibleMarkers.update { visibleMarkersList }
         }
 

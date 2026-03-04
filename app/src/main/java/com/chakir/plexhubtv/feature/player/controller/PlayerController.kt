@@ -946,7 +946,7 @@ class PlayerController @Inject constructor(
                     if (mpv != null) {
                         val pos = mpv.position.value
                         val dur = mpv.duration.value
-                        _uiState.update { 
+                        _uiState.update {
                             it.copy(
                                 currentPosition = pos,
                                 duration = dur,
@@ -954,8 +954,9 @@ class PlayerController @Inject constructor(
                                 isBuffering = mpv.isBuffering.value
                             )
                         }
+                        chapterMarkerManager.updatePlaybackPosition(pos)
                         playerScrobbler.checkAutoNext(
-                            position = pos, 
+                            position = pos,
                             duration = dur,
                             hasNextItem = _uiState.value.nextItem != null,
                             isPopupAlreadyShown = _uiState.value.showAutoNextPopup
