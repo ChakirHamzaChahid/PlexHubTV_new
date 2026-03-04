@@ -360,6 +360,10 @@
     <!-- Apparence -->
     <string name="settings_section_appearance">Apparence</string>
     <string name="settings_app_theme">Thème de l\'application</string>
+    <string name="settings_show_year_on_cards">Afficher l\'année sur les vignettes</string>
+    <string name="settings_show_year_on_cards_subtitle">Afficher l\'année de sortie sous le titre des films et séries</string>
+    <string name="settings_grid_columns">Colonnes de la grille</string>
+    <string name="settings_grid_columns_subtitle">%d colonnes par ligne</string>
 
     <!-- Lecture -->
     <string name="settings_section_playback">Lecture</string>

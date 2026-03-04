@@ -11,6 +11,7 @@ interface SettingsRepository {
     val episodePosterMode: Flow<String> // "poster" vs "thumb"
     val appTheme: Flow<String> // "dark", "oled", "light"
     val showYearOnCards: Flow<Boolean> // Show release year under card titles
+    val gridColumnsCount: Flow<Int> // Number of columns in grid view (6 or 7)
 
     suspend fun setShowHeroSection(show: Boolean)
 
@@ -19,6 +20,8 @@ interface SettingsRepository {
     suspend fun setAppTheme(theme: String)
 
     suspend fun setShowYearOnCards(show: Boolean)
+
+    suspend fun setGridColumnsCount(count: Int)
 
     // --- Player Preferences ---
     fun getVideoQuality(): Flow<String>

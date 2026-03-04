@@ -166,6 +166,7 @@ fun LibraryRoute(
         genreLabel = genreLabel,
         isGenreFiltered = isGenreFiltered,
         showYear = state.display.showYearOnCards,
+        gridColumnsCount = state.display.gridColumnsCount,
     )
 }
 
@@ -186,6 +187,7 @@ fun LibrariesScreen(
     genreLabel: String = "Genre: All",
     isGenreFiltered: Boolean = false,
     showYear: Boolean = false,
+    gridColumnsCount: Int = 6,
 ) {
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
@@ -435,6 +437,7 @@ fun LibrariesScreen(
                             onScrollConsumed = onScrollConsumed,
                             lastFocusedId = state.scroll.lastFocusedId,
                             showYear = showYear,
+                            gridColumnsCount = gridColumnsCount,
                         )
                     }
                 }
@@ -493,6 +496,7 @@ fun LibraryContent(
     onScrollConsumed: () -> Unit = {},
     lastFocusedId: String? = null,
     showYear: Boolean = false,
+    gridColumnsCount: Int = 6,
 ) {
     // Focus restoration: request focus on the item that was previously focused
     val focusRestorationRequester = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -504,7 +508,7 @@ fun LibraryContent(
                 LibraryViewMode.Grid, LibraryViewMode.Compact -> {
                     val isCompact = viewMode == LibraryViewMode.Compact
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = if (isCompact) 90.dp else 140.dp),
+                        columns = if (isCompact) GridCells.Adaptive(minSize = 90.dp) else GridCells.Fixed(gridColumnsCount),
                         state = gridState,
                         contentPadding = PaddingValues(
                             start = if (isCompact) 40.dp else 58.dp,

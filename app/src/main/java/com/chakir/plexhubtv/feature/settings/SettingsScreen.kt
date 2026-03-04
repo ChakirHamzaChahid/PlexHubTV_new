@@ -177,6 +177,14 @@ fun SettingsScreen(
                         isChecked = state.showYearOnCards,
                         onCheckedChange = { onAction(SettingsAction.ToggleShowYearOnCards(it)) },
                     )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_grid_columns),
+                        subtitle = stringResource(R.string.settings_grid_columns_subtitle, state.gridColumnsCount),
+                        onClick = {
+                            val newCount = if (state.gridColumnsCount == 6) 7 else 6
+                            onAction(SettingsAction.ChangeGridColumnsCount(newCount))
+                        },
+                    )
                 }
             }
 

@@ -70,6 +70,7 @@ fun FavoritesRoute(
         onMediaClick = { media -> onNavigateToMedia(media.ratingKey, media.serverId) },
         onSortChanged = { option -> viewModel.setSortOption(option) },
         showYear = false, // TODO: Get from ViewModel/UiState
+        gridColumnsCount = 6, // Fixed for now, can be made configurable later
     )
 }
 
@@ -79,6 +80,7 @@ fun FavoritesScreen(
     onMediaClick: (com.chakir.plexhubtv.core.model.MediaItem) -> Unit,
     onSortChanged: (FavoritesSortOption) -> Unit = {},
     showYear: Boolean = false,
+    gridColumnsCount: Int = 6,
 ) {
     val screenDescription = stringResource(R.string.favorites_screen_description)
     val loadingDescription = stringResource(R.string.favorites_loading_description)
@@ -158,7 +160,7 @@ fun FavoritesScreen(
 
             LazyVerticalGrid(
                 state = gridState,
-                columns = GridCells.Adaptive(minSize = 140.dp),
+                columns = GridCells.Fixed(gridColumnsCount),
                 contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),

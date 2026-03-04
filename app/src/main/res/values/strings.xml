@@ -369,6 +369,8 @@
     <string name="settings_app_theme">App Theme</string>
     <string name="settings_show_year_on_cards">Show Year on Cards</string>
     <string name="settings_show_year_on_cards_subtitle">Display release year under movie and TV show titles</string>
+    <string name="settings_grid_columns">Grid Columns</string>
+    <string name="settings_grid_columns_subtitle">%d columns per row</string>
 
     <!-- Playback -->
     <string name="settings_section_playback">Playback</string>

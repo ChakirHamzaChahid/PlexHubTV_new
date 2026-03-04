@@ -27,6 +27,7 @@ data class SettingsUiState(
     val ratingSyncMessage: String? = null,
     val iptvPlaylistUrl: String = "",
     val showYearOnCards: Boolean = false,
+    val gridColumnsCount: Int = 6,
     // Xtream sync
     val isSyncingXtream: Boolean = false,
     val xtreamSyncMessage: String? = null,
@@ -81,6 +82,8 @@ sealed interface SettingsAction {
     data class ToggleServerExclusion(val serverId: String) : SettingsAction
 
     data class ToggleShowYearOnCards(val enabled: Boolean) : SettingsAction
+
+    data class ChangeGridColumnsCount(val count: Int) : SettingsAction
 
     data class SaveTmdbApiKey(val key: String) : SettingsAction
 

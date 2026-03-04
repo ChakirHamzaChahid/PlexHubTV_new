@@ -109,6 +109,10 @@ class SettingsViewModel
                     _uiState.update { it.copy(showYearOnCards = action.enabled) }
                     viewModelScope.launch { settingsRepository.setShowYearOnCards(action.enabled) }
                 }
+                is SettingsAction.ChangeGridColumnsCount -> {
+                    _uiState.update { it.copy(gridColumnsCount = action.count) }
+                    viewModelScope.launch { settingsRepository.setGridColumnsCount(action.count) }
+                }
                 is SettingsAction.Logout -> {
                     viewModelScope.launch {
                         settingsRepository.clearSession()
@@ -546,6 +550,13 @@ class SettingsViewModel
             viewModelScope.launch {
                 settingsRepository.showYearOnCards.collect { showYear ->
                     _uiState.update { it.copy(showYearOnCards = showYear) }
+                }
+            }
+
+            // Collect gridColumnsCount separately
+            viewModelScope.launch {
+                settingsRepository.gridColumnsCount.collect { columnsCount ->
+                    _uiState.update { it.copy(gridColumnsCount = columnsCount) }
                 }
             }
 

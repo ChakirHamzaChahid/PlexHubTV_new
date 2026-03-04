@@ -28,6 +28,7 @@ data class LibraryDisplayState(
     val viewMode: LibraryViewMode = LibraryViewMode.Grid,
     val selectedTab: LibraryTab = LibraryTab.Browse,
     val showYearOnCards: Boolean = false,
+    val gridColumnsCount: Int = 6,
 )
 
 data class LibraryFilterState(
