@@ -194,6 +194,7 @@ class LibraryViewModel
                 val savedSortDesc = settingsRepository.librarySortDescending.firstOrNull() ?: false
                 val savedGenre = settingsRepository.libraryGenre.firstOrNull()
                 val savedServerFilter = settingsRepository.libraryServerFilter.firstOrNull()
+                val showYear = settingsRepository.showYearOnCards.firstOrNull() ?: false
 
                 // Use saved server filter, fallback to default server preference
                 val serverFilter = savedServerFilter
@@ -207,6 +208,7 @@ class LibraryViewModel
                             selectedGenre = savedGenre,
                             selectedServerFilter = serverFilter,
                         ),
+                        display = it.display.copy(showYearOnCards = showYear),
                     )
                 }
             }

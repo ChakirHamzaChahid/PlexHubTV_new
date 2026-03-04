@@ -69,6 +69,7 @@ fun FavoritesRoute(
         uiState = uiState,
         onMediaClick = { media -> onNavigateToMedia(media.ratingKey, media.serverId) },
         onSortChanged = { option -> viewModel.setSortOption(option) },
+        showYear = false, // TODO: Get from ViewModel/UiState
     )
 }
 
@@ -77,6 +78,7 @@ fun FavoritesScreen(
     uiState: FavoritesUiState,
     onMediaClick: (com.chakir.plexhubtv.core.model.MediaItem) -> Unit,
     onSortChanged: (FavoritesSortOption) -> Unit = {},
+    showYear: Boolean = false,
 ) {
     val screenDescription = stringResource(R.string.favorites_screen_description)
     val loadingDescription = stringResource(R.string.favorites_loading_description)
@@ -173,6 +175,7 @@ fun FavoritesScreen(
                             onClick = { onMediaClick(media) },
                             onPlay = { /* Optional direct play */ },
                             onFocus = { focused -> isFocused = focused },
+                            showYear = showYear,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(2f / 3f)

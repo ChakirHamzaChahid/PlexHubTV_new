@@ -27,6 +27,7 @@ data class LibraryDisplayState(
     val mediaType: MediaType = MediaType.Movie,
     val viewMode: LibraryViewMode = LibraryViewMode.Grid,
     val selectedTab: LibraryTab = LibraryTab.Browse,
+    val showYearOnCards: Boolean = false,
 )
 
 data class LibraryFilterState(

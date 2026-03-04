@@ -26,6 +26,7 @@ data class SettingsUiState(
     val isSyncingRatings: Boolean = false,
     val ratingSyncMessage: String? = null,
     val iptvPlaylistUrl: String = "",
+    val showYearOnCards: Boolean = false,
     // Xtream sync
     val isSyncingXtream: Boolean = false,
     val xtreamSyncMessage: String? = null,
@@ -78,6 +79,8 @@ sealed interface SettingsAction {
     data class ChangePreferredSubtitleLanguage(val language: String?) : SettingsAction
 
     data class ToggleServerExclusion(val serverId: String) : SettingsAction
+
+    data class ToggleShowYearOnCards(val enabled: Boolean) : SettingsAction
 
     data class SaveTmdbApiKey(val key: String) : SettingsAction
 

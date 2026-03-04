@@ -80,7 +80,8 @@ fun NetflixMediaCard(
     cardType: CardType = CardType.POSTER,
     compact: Boolean = false,
     onLongPress: (() -> Unit)? = null,
-    onFocus: (Boolean) -> Unit = {}
+    onFocus: (Boolean) -> Unit = {},
+    showYear: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -358,6 +359,16 @@ fun NetflixMediaCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                // Year display (when enabled via settings)
+                if (showYear && media.year != null) {
+                    Text(
+                        text = media.year.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp
+                    )
+                }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val rating = media.rating

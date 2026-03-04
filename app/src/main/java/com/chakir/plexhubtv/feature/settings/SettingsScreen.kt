@@ -171,6 +171,12 @@ fun SettingsScreen(
                         subtitle = state.theme.name,
                         onClick = { showThemeDialog = true },
                     )
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_show_year_on_cards),
+                        subtitle = stringResource(R.string.settings_show_year_on_cards_subtitle),
+                        isChecked = state.showYearOnCards,
+                        onCheckedChange = { onAction(SettingsAction.ToggleShowYearOnCards(it)) },
+                    )
                 }
             }
 

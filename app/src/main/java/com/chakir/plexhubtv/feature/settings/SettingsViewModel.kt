@@ -105,6 +105,10 @@ class SettingsViewModel
                     _uiState.update { it.copy(playerEngine = action.engine) }
                     viewModelScope.launch { settingsRepository.setPlayerEngine(action.engine) }
                 }
+                is SettingsAction.ToggleShowYearOnCards -> {
+                    _uiState.update { it.copy(showYearOnCards = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setShowYearOnCards(action.enabled) }
+                }
                 is SettingsAction.Logout -> {
                     viewModelScope.launch {
                         settingsRepository.clearSession()
@@ -535,6 +539,13 @@ class SettingsViewModel
             ) { series, movies ->
                 { s: SettingsUiState ->
                     s.copy(ratingSyncProgressSeries = series, ratingSyncProgressMovies = movies)
+                }
+            }
+
+            // Collect showYearOnCards separately (single flow, simpler than creating a group)
+            viewModelScope.launch {
+                settingsRepository.showYearOnCards.collect { showYear ->
+                    _uiState.update { it.copy(showYearOnCards = showYear) }
                 }
             }
 

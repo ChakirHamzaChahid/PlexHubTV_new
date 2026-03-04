@@ -19,6 +19,7 @@ class SettingsRepositoryImpl
         override val showHeroSection: Flow<Boolean> = settingsDataStore.showHeroSection
         override val episodePosterMode: Flow<String> = settingsDataStore.episodePosterMode
         override val appTheme: Flow<String> = settingsDataStore.appTheme
+        override val showYearOnCards: Flow<Boolean> = settingsDataStore.showYearOnCards
         override val isCacheEnabled: Flow<Boolean> = settingsDataStore.isCacheEnabled
         override val defaultServer: Flow<String> = settingsDataStore.defaultServer
         override val playerEngine: Flow<String> = settingsDataStore.playerEngine
@@ -37,6 +38,10 @@ class SettingsRepositoryImpl
 
         override suspend fun setAppTheme(theme: String) {
             settingsDataStore.saveAppTheme(theme)
+        }
+
+        override suspend fun setShowYearOnCards(show: Boolean) {
+            settingsDataStore.saveShowYearOnCards(show)
         }
 
         override fun getVideoQuality(): Flow<String> = settingsDataStore.videoQuality

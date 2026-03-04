@@ -165,6 +165,7 @@ fun LibraryRoute(
         isServerFiltered = isServerFiltered,
         genreLabel = genreLabel,
         isGenreFiltered = isGenreFiltered,
+        showYear = state.display.showYearOnCards,
     )
 }
 
@@ -184,6 +185,7 @@ fun LibrariesScreen(
     isServerFiltered: Boolean = false,
     genreLabel: String = "Genre: All",
     isGenreFiltered: Boolean = false,
+    showYear: Boolean = false,
 ) {
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
@@ -432,6 +434,7 @@ fun LibrariesScreen(
                             scrollRequest = scrollRequest,
                             onScrollConsumed = onScrollConsumed,
                             lastFocusedId = state.scroll.lastFocusedId,
+                            showYear = showYear,
                         )
                     }
                 }
@@ -489,6 +492,7 @@ fun LibraryContent(
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
     lastFocusedId: String? = null,
+    showYear: Boolean = false,
 ) {
     // Focus restoration: request focus on the item that was previously focused
     val focusRestorationRequester = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -546,6 +550,7 @@ fun LibraryContent(
                                             }
                                         },
                                         compact = isCompact,
+                                        showYear = showYear,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .then(

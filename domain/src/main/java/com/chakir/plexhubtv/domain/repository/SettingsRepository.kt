@@ -10,12 +10,15 @@ interface SettingsRepository {
     val showHeroSection: Flow<Boolean>
     val episodePosterMode: Flow<String> // "poster" vs "thumb"
     val appTheme: Flow<String> // "dark", "oled", "light"
+    val showYearOnCards: Flow<Boolean> // Show release year under card titles
 
     suspend fun setShowHeroSection(show: Boolean)
 
     suspend fun setEpisodePosterMode(mode: String)
 
     suspend fun setAppTheme(theme: String)
+
+    suspend fun setShowYearOnCards(show: Boolean)
 
     // --- Player Preferences ---
     fun getVideoQuality(): Flow<String>

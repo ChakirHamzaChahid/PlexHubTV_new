@@ -367,6 +367,8 @@
     <!-- Appearance -->
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_app_theme">App Theme</string>
+    <string name="settings_show_year_on_cards">Show Year on Cards</string>
+    <string name="settings_show_year_on_cards_subtitle">Display release year under movie and TV show titles</string>
 
     <!-- Playback -->
     <string name="settings_section_playback">Playback</string>

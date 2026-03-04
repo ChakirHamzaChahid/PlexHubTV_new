@@ -79,6 +79,7 @@ fun NetflixDetailScreen(
     state: MediaDetailUiState,
     onAction: (MediaDetailEvent) -> Unit,
     onCollectionClicked: (String, String) -> Unit,
+    showYear: Boolean = false,
 ) {
     var selectedTab by remember { mutableStateOf(if (media.type == MediaType.Show) DetailTab.Episodes else DetailTab.MoreLikeThis) }
     val listState = rememberLazyListState()
@@ -285,6 +286,7 @@ fun NetflixDetailScreen(
                                         media = season,
                                         onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
                                         onPlay = {},
+                                        showYear = showYear,
                                     )
                                 }
                             }
@@ -311,6 +313,7 @@ fun NetflixDetailScreen(
                                         media = item,
                                         onClick = { onAction(MediaDetailEvent.OpenMediaDetail(item)) },
                                         onPlay = {},
+                                        showYear = showYear,
                                     )
                                 }
                             }
