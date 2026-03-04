@@ -197,16 +197,40 @@ class PlayerController @Inject constructor(
             mediaParts = emptyList()
         )
 
+        // Populate tracks from mediaParts (Backend/Xtream sources have pre-loaded streams)
+        val (audios, subtitles) = if (mediaItem.mediaParts.isNotEmpty()) {
+            playerTrackController.populateTracks(mediaItem)
+        } else {
+            Pair(emptyList(), emptyList())
+        }
+
         _uiState.update {
             it.copy(
                 currentItem = mediaItem,
                 isPlaying = true,
                 isBuffering = true,
                 currentPosition = if (it.currentItem?.id != mediaItem.id) 0L else it.currentPosition,
+                audioTracks = audios,
+                subtitleTracks = subtitles,
+                selectedAudio = audios.find { t -> t.isSelected },
+                selectedSubtitle = subtitles.find { t -> t.isSelected } ?: SubtitleTrack.OFF,
             )
         }
 
         scope.launch {
+            // Resolve initial track selection from preferences (VOSTFR defaults)
+            if (audios.isNotEmpty()) {
+                val part = mediaItem.mediaParts.firstOrNull()
+                val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
+                    mediaItem.ratingKey, mediaItem.serverId, part, null, null
+                )
+                val resolvedAudio = _uiState.value.audioTracks.find { it.streamId == finalAudioStreamId }
+                    ?: _uiState.value.audioTracks.firstOrNull()
+                val resolvedSubtitle = _uiState.value.subtitleTracks.find { it.streamId == finalSubtitleStreamId }
+                    ?: SubtitleTrack.OFF
+                _uiState.update { it.copy(selectedAudio = resolvedAudio, selectedSubtitle = resolvedSubtitle) }
+            }
+
             val streamUri = Uri.parse(url)
             player?.apply {
                 val exoItem = ExoMediaItem.Builder()
@@ -557,13 +581,15 @@ class PlayerController @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             // P1.1: Try PlaybackManager cache first to avoid double fetch
+            // Cache is only valid if mediaParts contain streams (audio/subtitle track info)
             val cachedMedia = playbackManager.currentMedia.value
             val mediaFetchStart = System.currentTimeMillis()
-            val media: MediaItem? = if (cachedMedia != null
+            val cacheHasStreams = cachedMedia != null
                 && cachedMedia.ratingKey == rKey
                 && cachedMedia.serverId == sId
                 && cachedMedia.mediaParts.isNotEmpty()
-            ) {
+                && cachedMedia.mediaParts.first().streams.isNotEmpty()
+            val media: MediaItem? = if (cacheHasStreams) {
                 val cacheDuration = System.currentTimeMillis() - mediaFetchStart
                 performanceTracker.addCheckpoint(opId, "Media Detail (Cache Hit)", mapOf("duration" to cacheDuration))
                 Timber.d("PlayerController: Using cached media from PlaybackManager for $rKey")

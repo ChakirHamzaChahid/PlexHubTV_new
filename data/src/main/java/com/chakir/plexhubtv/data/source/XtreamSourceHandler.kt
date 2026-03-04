@@ -108,7 +108,7 @@ class XtreamSourceHandler @Inject constructor(
     override suspend fun getSimilarMedia(ratingKey: String, serverId: String): Result<List<MediaItem>> =
         Result.success(emptyList())
 
-    override fun needsEnrichment(): Boolean = false
+    override fun needsEnrichment(): Boolean = true
     override fun needsUrlResolution(): Boolean = false
     override fun metadataScoreBonus(): Int = 0
 
