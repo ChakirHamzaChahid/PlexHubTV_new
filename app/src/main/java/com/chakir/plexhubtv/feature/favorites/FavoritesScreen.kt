@@ -94,7 +94,7 @@ fun FavoritesScreen(
                 .padding(start = 58.dp, end = 58.dp, top = 80.dp),
     ) {
         Text(
-            text = stringResource(R.string.favorites_title),
+            text = stringResource(R.string.favorites_title_with_count, uiState.favorites.size),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = Color.White,

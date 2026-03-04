@@ -560,6 +560,7 @@
          Écran des favoris
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">Ma liste</string>
+    <string name="favorites_title_with_count">Ma liste (%d)</string>
     <string name="favorites_empty">Aucun favori pour le moment.</string>
     <string name="favorites_empty_hint">Ajoutez des films et séries à votre liste depuis l\'écran de détails.</string>
     <string name="favorites_screen_description">Écran des favoris</string>
