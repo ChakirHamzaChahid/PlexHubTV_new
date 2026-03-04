@@ -40,6 +40,7 @@ data class AudioStream(
     override val codec: String?,
     override val selected: Boolean,
     val channels: Int?,
+    val isOriginal: Boolean = false, // Plex metadata indicates "(Original Audio)" in displayTitle
 ) : MediaStream()
 
 @Serializable

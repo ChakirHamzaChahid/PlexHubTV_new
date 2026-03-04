@@ -253,6 +253,15 @@ class PlayerController @Inject constructor(
         /** Audio codecs known to crash ExoPlayer on most Android TV devices */
         private val ALWAYS_PROBLEMATIC_CODECS = setOf("truehd", "dts-hd ma", "dts-hd", "dtshd")
 
+        /** Video codecs/profiles known to crash ExoPlayer on most Android TV devices */
+        private val PROBLEMATIC_VIDEO_CODECS = setOf(
+            "hevc dolbyvision",
+            "hevc dv",
+            "dolby vision",
+            "hdr10+",
+            "av1 hdr",
+        )
+
         private fun audioCodecToMime(codec: String): String? = when (codec) {
             "truehd" -> "audio/true-hd"
             "dts-hd ma", "dts-hd", "dtshd" -> "audio/vnd.dts.hd"
@@ -275,6 +284,37 @@ class PlayerController @Inject constructor(
                     !info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
                 }
             } catch (e: Exception) {
+                false
+            }
+        }
+
+        fun isProblematicVideoCodec(codec: String, profile: String? = null): Boolean {
+            val fullCodec = if (profile != null) "$codec $profile".trim().lowercase() else codec.lowercase()
+
+            // Check exact match in problematic list
+            if (PROBLEMATIC_VIDEO_CODECS.any { fullCodec.contains(it) }) {
+                return true
+            }
+
+            // Check if device supports HDR/DolbyVision via MediaCodec
+            val mimeType = when {
+                fullCodec.contains("dolby") || fullCodec.contains("dv") -> "video/dolby-vision"
+                fullCodec.contains("hdr10+") -> "video/hevc"  // HDR10+ is HEVC variant
+                fullCodec.contains("av1") -> "video/av01"
+                else -> return false
+            }
+
+            return !hasHardwareVideoDecoder(mimeType)
+        }
+
+        private fun hasHardwareVideoDecoder(mimeType: String): Boolean {
+            return try {
+                val codecList = android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS)
+                codecList.codecInfos.any { codecInfo ->
+                    !codecInfo.isEncoder && codecInfo.supportedTypes.contains(mimeType)
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Error checking video decoder support for $mimeType")
                 false
             }
         }
@@ -418,9 +458,19 @@ class PlayerController @Inject constructor(
         scope.launch {
             mpvPlayer?.error?.filterNotNull()?.collect { errorMsg ->
                 Timber.e("PlayerController: MPV error: $errorMsg")
+
+                // Detect codec-related errors and provide user-friendly message
+                val userMessage = when {
+                    errorMsg.contains("codec", ignoreCase = true) ||
+                    errorMsg.contains("format not supported", ignoreCase = true) ||
+                    errorMsg.contains("decoder", ignoreCase = true) ->
+                        "Format vidéo non supporté par votre appareil. Essayez un autre fichier ou serveur."
+                    else -> errorMsg
+                }
+
                 _uiState.update {
                     it.copy(
-                        error = errorMsg,
+                        error = userMessage,
                         errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Generic,
                         isBuffering = false
                     )
@@ -653,6 +703,18 @@ class PlayerController @Inject constructor(
                     switchToMpv()
                     return@launch
                 }
+
+                // Video codec pre-flight: proactively switch to MPV for codecs ExoPlayer can't handle (HDR/DV/AV1)
+                val videoStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
+                val videoCodec = videoStream?.codec?.lowercase()
+                val videoProfile = videoStream?.displayTitle?.lowercase() ?: ""
+                if (videoCodec != null && isProblematicVideoCodec(videoCodec, videoProfile)) {
+                    val fullCodec = "$videoCodec $videoProfile".trim()
+                    Timber.d("PlayerController: Video codec '$fullCodec' not supported by ExoPlayer, switching to MPV")
+                    performanceTracker.addCheckpoint(opId, "Video Codec Preflight → MPV", mapOf("codec" to fullCodec))
+                    switchToMpv()
+                    return@launch
+                }
             }
 
             val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
@@ -697,14 +759,40 @@ class PlayerController @Inject constructor(
 
                 val currentPos = _uiState.value.currentPosition
                 val seekTarget = when {
-                    currentPos > 0 -> currentPos
-                    startOffset > 0 -> startOffset
-                    media.viewOffset > 0 -> media.viewOffset
-                    else -> 0L
+                    currentPos > 0 -> {
+                        Timber.d("PlayerController: Resume via currentPos=$currentPos (MPV)")
+                        currentPos
+                    }
+                    startOffset > 0 -> {
+                        Timber.d("PlayerController: Resume via startOffset=$startOffset (MPV)")
+                        startOffset
+                    }
+                    media.viewOffset > 0 -> {
+                        Timber.d("PlayerController: Resume via Plex viewOffset=${media.viewOffset} (MPV)")
+                        media.viewOffset
+                    }
+                    else -> {
+                        Timber.d("PlayerController: No resume position available, starting at 0 (MPV)")
+                        0L
+                    }
                 }
+
                 if (seekTarget > 0) {
+                    Timber.d("PlayerController: Seeking to $seekTarget ms (MPV)")
                     mpvPlayer?.seekTo(seekTarget)
                     performanceTracker.addCheckpoint(opId, "MPV Seek Applied", mapOf("position" to seekTarget))
+
+                    // Verify seek success after a delay
+                    scope.launch {
+                        kotlinx.coroutines.delay(500)
+                        val actualPos = mpvPlayer?.position?.value ?: 0
+                        if (actualPos < seekTarget - 2000) {  // Tolerance 2s
+                            Timber.e("PlayerController: MPV Seek FAILED - target=$seekTarget, actual=$actualPos")
+                        } else {
+                            Timber.d("PlayerController: MPV Seek SUCCESS - target=$seekTarget, actual=$actualPos")
+                        }
+                    }
+
                     // PLY-19: Show resume indicator for significant positions (once per session)
                     if (seekTarget > RESUME_THRESHOLD_MS && !hasShownResumeToast) {
                         hasShownResumeToast = true
@@ -802,14 +890,40 @@ class PlayerController @Inject constructor(
 
                     val currentPos = _uiState.value.currentPosition
                     val seekTarget = when {
-                        currentPos > 0 -> currentPos
-                        startOffset > 0 -> startOffset
-                        media.viewOffset > 0 -> media.viewOffset
-                        else -> 0L
+                        currentPos > 0 -> {
+                            Timber.d("PlayerController: Resume via currentPos=$currentPos (ExoPlayer)")
+                            currentPos
+                        }
+                        startOffset > 0 -> {
+                            Timber.d("PlayerController: Resume via startOffset=$startOffset (ExoPlayer)")
+                            startOffset
+                        }
+                        media.viewOffset > 0 -> {
+                            Timber.d("PlayerController: Resume via Plex viewOffset=${media.viewOffset} (ExoPlayer)")
+                            media.viewOffset
+                        }
+                        else -> {
+                            Timber.d("PlayerController: No resume position available, starting at 0 (ExoPlayer)")
+                            0L
+                        }
                     }
+
                     if (seekTarget > 0) {
+                        Timber.d("PlayerController: Seeking to $seekTarget ms (ExoPlayer)")
                         seekTo(seekTarget)
                         performanceTracker.addCheckpoint(opId, "ExoPlayer Seek Applied", mapOf("position" to seekTarget))
+
+                        // Verify seek success after a delay (ExoPlayer needs time to prepare)
+                        scope.launch {
+                            kotlinx.coroutines.delay(500)
+                            val actualPos = player?.currentPosition ?: 0
+                            if (actualPos < seekTarget - 2000) {  // Tolerance 2s
+                                Timber.e("PlayerController: ExoPlayer Seek FAILED - target=$seekTarget, actual=$actualPos")
+                            } else {
+                                Timber.d("PlayerController: ExoPlayer Seek SUCCESS - target=$seekTarget, actual=$actualPos")
+                            }
+                        }
+
                         // PLY-19: Show resume indicator for significant positions
                         if (seekTarget > RESUME_THRESHOLD_MS) {
                             _uiState.update { it.copy(resumeMessage = FormatUtils.formatDurationTimestamp(seekTarget)) }

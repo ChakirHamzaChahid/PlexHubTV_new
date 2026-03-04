@@ -339,7 +339,7 @@ fun VideoPlayerScreen(
         val resumeMsg = uiState.resumeMessage
         if (resumeMsg != null) {
             LaunchedEffect(resumeMsg) {
-                delay(3000)
+                delay(5000)  // 5 seconds to avoid user confusion with delete dialog
                 onAction(PlayerAction.ClearResumeMessage)
             }
             ResumeToast(

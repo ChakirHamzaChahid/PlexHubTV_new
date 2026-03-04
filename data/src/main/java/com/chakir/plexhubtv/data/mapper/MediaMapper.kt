@@ -168,12 +168,17 @@ class MediaMapper
                         width = dto.width, height = dto.height, bitrate = dto.bitrate, hasHDR = isHdr,
                     )
                 }
-                2 ->
+                2 -> {
+                    val isOriginal = dto.displayTitle?.contains("(Original Audio)", ignoreCase = true) == true ||
+                        dto.title?.contains("original", ignoreCase = true) == true
+
                     com.chakir.plexhubtv.core.model.AudioStream(
                         id = dto.id, index = dto.index, language = dto.language, languageCode = dto.languageCode,
                         title = dto.title, displayTitle = dto.displayTitle, codec = dto.codec, selected = dto.selected,
                         channels = dto.channels,
+                        isOriginal = isOriginal,
                     )
+                }
                 3 ->
                     com.chakir.plexhubtv.core.model.SubtitleStream(
                         id = dto.id, index = dto.index, language = dto.language, languageCode = dto.languageCode,

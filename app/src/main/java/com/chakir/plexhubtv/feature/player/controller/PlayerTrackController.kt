@@ -65,10 +65,24 @@ class PlayerTrackController
                             audioStreams.find { areLanguagesEqual(it.language, preferredAudioLang) }
                                 ?: audioStreams.find { it.selected }
                         } else {
-                            // "Original" (null) = first audio stream, which is always the original language in Plex
-                            audioStreams.firstOrNull()
+                            // User wants "Original" → detect via metadata
+                            val originalStream = audioStreams.find { it.isOriginal }  // NEW: Explicit original flag
+                                ?: audioStreams.find { it.selected }                   // Heuristic: Plex pre-selected
+                                ?: audioStreams.firstOrNull()                          // Last resort fallback
+
+                            Timber.d("PlayerTrackController: Original audio detection → found=${originalStream?.language}, isOriginal=${originalStream?.isOriginal}")
+                            originalStream
                         }
                     finalAudioStreamId = bestAudio?.id
+
+                    // Anti-inversion validation: detect when user preference doesn't match selected track
+                    if (preferredAudioLang != null && bestAudio != null) {
+                        if (!areLanguagesEqual(bestAudio.language, preferredAudioLang)) {
+                            Timber.w("PlayerTrackController: INVERSION DETECTED - User wants '$preferredAudioLang' but got '${bestAudio.language}' (available streams: ${audioStreams.map { it.language }})")
+                        } else {
+                            Timber.d("PlayerTrackController: Audio preference matched successfully - selected '${bestAudio.language}'")
+                        }
+                    }
                 }
 
                 if (finalSubtitleStreamId == null) {
@@ -368,6 +382,20 @@ class PlayerTrackController
                         }
                     }
 
+                    // Strategy 5: Force select first available text track (last resort)
+                    if (selectedGroupIndex == -1) {
+                        Timber.w("PlayerTrackController: All subtitle matching strategies failed for track '${track.title}', forcing first text track")
+
+                        for (i in 0 until groups.size) {
+                            if (groups[i].type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
+                                selectedGroupIndex = i
+                                selectedTrackIndex = 0
+                                Timber.d("PlayerTrackController: Forced subtitle selection → group=$selectedGroupIndex")
+                                break
+                            }
+                        }
+                    }
+
                     Timber.d("PlayerTrackController: Subtitle selection (Direct Play) → track='${track.title}' lang=${track.language} streamId=${track.streamId} isExternal=${track.isExternal} matchedGroup=$selectedGroupIndex matchedTrack=$selectedTrackIndex")
 
                     if (selectedGroupIndex != -1) {
@@ -375,10 +403,25 @@ class PlayerTrackController
                             androidx.media3.common.TrackSelectionOverride(groups[selectedGroupIndex].mediaTrackGroup, selectedTrackIndex),
                         )
                     } else {
-                        Timber.w("PlayerTrackController: No matching ExoPlayer track group found for subtitle '${track.title}'")
+                        Timber.e("PlayerTrackController: CRITICAL - All subtitle selection strategies failed for '${track.title}'")
                     }
                 }
                 p.trackSelectionParameters = builder.build()
+
+                // Post-selection validation: verify subtitle track is actually selected
+                if (track.id != "no") {
+                    scope.launch {
+                        kotlinx.coroutines.delay(500) // Wait for track selection to apply
+                        val actualSelectedTrack = p.currentTracks.groups
+                            .find { it.type == androidx.media3.common.C.TRACK_TYPE_TEXT && it.isSelected }
+
+                        if (actualSelectedTrack == null) {
+                            Timber.e("PlayerTrackController: Subtitle selection verification FAILED - track not active after selection")
+                        } else {
+                            Timber.d("PlayerTrackController: Subtitle selection verification SUCCESS")
+                        }
+                    }
+                }
             } else {
                 // Transcoding: Reload
                 exoPlayer?.let { p ->
