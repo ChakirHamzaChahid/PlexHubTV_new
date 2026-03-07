@@ -105,6 +105,10 @@ class SettingsViewModel
                     _uiState.update { it.copy(playerEngine = action.engine) }
                     viewModelScope.launch { settingsRepository.setPlayerEngine(action.engine) }
                 }
+                is SettingsAction.ChangeDeinterlaceMode -> {
+                    _uiState.update { it.copy(deinterlaceMode = action.mode) }
+                    viewModelScope.launch { settingsRepository.setDeinterlaceMode(action.mode) }
+                }
                 is SettingsAction.ToggleShowYearOnCards -> {
                     _uiState.update { it.copy(showYearOnCards = action.enabled) }
                     viewModelScope.launch { settingsRepository.setShowYearOnCards(action.enabled) }
@@ -557,6 +561,13 @@ class SettingsViewModel
             viewModelScope.launch {
                 settingsRepository.gridColumnsCount.collect { columnsCount ->
                     _uiState.update { it.copy(gridColumnsCount = columnsCount) }
+                }
+            }
+
+            // Collect deinterlaceMode separately
+            viewModelScope.launch {
+                settingsRepository.deinterlaceMode.collect { mode ->
+                    _uiState.update { it.copy(deinterlaceMode = mode) }
                 }
             }
 

@@ -376,6 +376,9 @@
     <string name="settings_section_playback">Playback</string>
     <string name="settings_video_quality">Video Quality</string>
     <string name="settings_player_engine">Player Engine</string>
+    <string name="settings_deinterlace_mode">Deinterlacing</string>
+    <string name="settings_deinterlace_auto">Auto (recommended)</string>
+    <string name="settings_deinterlace_off">Off</string>
 
     <!-- Languages -->
     <string name="settings_section_languages">Languages</string>

@@ -13,6 +13,7 @@ data class SettingsUiState(
     val availableServers: List<String> = listOf("MyServer"),
     val availableServersMap: Map<String, String> = emptyMap(),
     val playerEngine: String = "ExoPlayer",
+    val deinterlaceMode: String = "auto",
     val appVersion: String = "1.0.0",
     val isSyncing: Boolean = false,
     val isSyncingWatchlist: Boolean = false,
@@ -64,6 +65,8 @@ sealed interface SettingsAction {
     data class SelectDefaultServer(val serverName: String) : SettingsAction
 
     data class ChangePlayerEngine(val engine: String) : SettingsAction
+
+    data class ChangeDeinterlaceMode(val mode: String) : SettingsAction
 
     data object Back : SettingsAction
 

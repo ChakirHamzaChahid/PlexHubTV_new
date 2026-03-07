@@ -95,6 +95,7 @@ fun SettingsScreen(
     // Dialog States
     var showQualityDialog by remember { mutableStateOf(false) }
     var showPlayerEngineDialog by remember { mutableStateOf(false) }
+    var showDeinterlaceDialog by remember { mutableStateOf(false) }
     var showAudioLangDialog by remember { mutableStateOf(false) }
     var showSubtitleLangDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -200,6 +201,15 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_player_engine),
                         subtitle = state.playerEngine,
                         onClick = { showPlayerEngineDialog = true },
+                    )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_deinterlace_mode),
+                        subtitle = when (state.deinterlaceMode) {
+                            "auto" -> stringResource(R.string.settings_deinterlace_auto)
+                            "off" -> stringResource(R.string.settings_deinterlace_off)
+                            else -> state.deinterlaceMode
+                        },
+                        onClick = { showDeinterlaceDialog = true },
                     )
                 }
             }
@@ -703,6 +713,31 @@ fun SettingsScreen(
             onOptionSelected = {
                 onAction(SettingsAction.ChangePlayerEngine(it))
                 showPlayerEngineDialog = false
+            },
+        )
+    }
+
+    if (showDeinterlaceDialog) {
+        val options = listOf(
+            stringResource(R.string.settings_deinterlace_auto),
+            stringResource(R.string.settings_deinterlace_off),
+        )
+        SettingsDialog(
+            title = stringResource(R.string.settings_deinterlace_mode),
+            options = options,
+            currentValue = when (state.deinterlaceMode) {
+                "auto" -> stringResource(R.string.settings_deinterlace_auto)
+                "off" -> stringResource(R.string.settings_deinterlace_off)
+                else -> state.deinterlaceMode
+            },
+            onDismissRequest = { showDeinterlaceDialog = false },
+            onOptionSelected = { selected ->
+                val mode = when (selected) {
+                    options[0] -> "auto"
+                    else -> "off"
+                }
+                onAction(SettingsAction.ChangeDeinterlaceMode(mode))
+                showDeinterlaceDialog = false
             },
         )
     }
