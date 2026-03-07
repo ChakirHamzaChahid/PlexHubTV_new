@@ -26,6 +26,7 @@ import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
 import com.chakir.plexhubtv.core.common.util.FormatUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import com.chakir.plexhubtv.feature.player.mpv.MpvConfig
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -250,6 +251,9 @@ class PlayerController @Inject constructor(
         /** PLY-19: Only show resume indicator for positions > 30s to avoid false positives */
         private const val RESUME_THRESHOLD_MS = 30_000L
 
+        /** Bitrate threshold (kbps) above which MPV is preferred for its FFmpeg demuxer */
+        private const val HIGH_BITRATE_THRESHOLD_KBPS = 60_000
+
         /** Audio codecs known to crash ExoPlayer on most Android TV devices */
         private val ALWAYS_PROBLEMATIC_CODECS = setOf("truehd", "dts-hd ma", "dts-hd", "dtshd")
 
@@ -443,8 +447,8 @@ class PlayerController @Inject constructor(
         }
     }
     
-    fun switchToMpv() {
-        Timber.d("SCREEN [Player] switchToMpv() called")
+    fun switchToMpv(config: MpvConfig = MpvConfig()) {
+        Timber.d("SCREEN [Player] switchToMpv() called (deinterlace=${config.deinterlace})")
         if (isMpvMode) return
         isMpvMode = true
         FirebaseCrashlytics.getInstance().setCustomKey("player_engine", "MPV")
@@ -452,7 +456,7 @@ class PlayerController @Inject constructor(
         player?.release()
         player = null
 
-        mpvPlayer = playerFactory.createMpvPlayer(application, scope)
+        mpvPlayer = playerFactory.createMpvPlayer(application, scope, config)
 
         // S-05: Observe MPV init/runtime errors to avoid stuck screen
         scope.launch {
@@ -713,6 +717,28 @@ class PlayerController @Inject constructor(
                     Timber.d("PlayerController: Video codec '$fullCodec' not supported by ExoPlayer, switching to MPV")
                     performanceTracker.addCheckpoint(opId, "Video Codec Preflight → MPV", mapOf("codec" to fullCodec))
                     switchToMpv()
+                    return@launch
+                }
+            }
+
+            // High-bitrate / interlace pre-flight: route to MPV for FFmpeg demuxer or deinterlace
+            if (isDirectPlay && !isMpvMode) {
+                val videoStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
+                val videoBitrateKbps = videoStream?.bitrate ?: 0
+                val deinterlaceMode = settingsRepository.deinterlaceMode.first()
+                val isInterlaced = videoStream?.scanType?.equals("interlaced", ignoreCase = true) == true
+                val needsDeinterlace = isInterlaced && deinterlaceMode == "auto"
+
+                if (videoBitrateKbps > HIGH_BITRATE_THRESHOLD_KBPS || needsDeinterlace) {
+                    val reason = when {
+                        needsDeinterlace && videoBitrateKbps > HIGH_BITRATE_THRESHOLD_KBPS ->
+                            "interlaced + high-bitrate (${videoBitrateKbps}kbps)"
+                        needsDeinterlace -> "interlaced content (scanType=${videoStream?.scanType})"
+                        else -> "high-bitrate (${videoBitrateKbps}kbps > ${HIGH_BITRATE_THRESHOLD_KBPS}kbps)"
+                    }
+                    Timber.d("PlayerController: $reason → switching to MPV")
+                    performanceTracker.addCheckpoint(opId, "Auto-route → MPV", mapOf("reason" to reason))
+                    switchToMpv(MpvConfig(deinterlace = needsDeinterlace))
                     return@launch
                 }
             }
