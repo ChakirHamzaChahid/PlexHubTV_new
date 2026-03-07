@@ -126,7 +126,7 @@ fun NetflixMediaCard(
                     else -> media.title
                 }
             }
-            .zIndex(if (isFocused) 10f else 0f)
+            .zIndex(if (isFocused) 1f else 0f)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale

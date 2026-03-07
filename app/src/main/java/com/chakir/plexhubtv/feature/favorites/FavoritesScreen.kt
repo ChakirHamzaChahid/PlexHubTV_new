@@ -47,7 +47,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
@@ -170,19 +169,15 @@ fun FavoritesScreen(
                     items = uiState.favorites,
                     key = { media -> "${media.serverId}_${media.ratingKey}" },
                 ) { media ->
-                    var isFocused by remember { mutableStateOf(false) }
-                    Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                        NetflixMediaCard(
-                            media = media,
-                            onClick = { onMediaClick(media) },
-                            onPlay = { /* Optional direct play */ },
-                            onFocus = { focused -> isFocused = focused },
-                            showYear = showYear,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(2f / 3f)
-                        )
-                    }
+                    NetflixMediaCard(
+                        media = media,
+                        onClick = { onMediaClick(media) },
+                        onPlay = { /* Optional direct play */ },
+                        showYear = showYear,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(2f / 3f)
+                    )
                 }
             }
         }

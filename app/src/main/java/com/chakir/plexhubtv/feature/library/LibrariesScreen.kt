@@ -94,7 +94,6 @@ import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.zIndex
 
 // ... (Rest of imports likely preserved by smart apply, but I should be careful)
 
@@ -543,7 +542,6 @@ fun LibraryContent(
                             val item = pagedItems[index]
                             if (item != null) {
                                 val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
-                                var isFocused by remember { mutableStateOf(false) }
 
                                 if (shouldRestoreFocus) {
                                     LaunchedEffect(Unit) {
@@ -554,26 +552,23 @@ fun LibraryContent(
                                     }
                                 }
 
-                                Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                                    NetflixMediaCard(
-                                        media = item,
-                                        onClick = { onItemClick(item) },
-                                        onPlay = { },
-                                        onFocus = { focused ->
-                                            isFocused = focused
-                                            if (focused) {
-                                                onAction(LibraryAction.OnItemFocused(item))
-                                            }
-                                        },
-                                        compact = isCompact,
-                                        showYear = showYear,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .then(
-                                                if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
-                                            )
-                                    )
-                                }
+                                NetflixMediaCard(
+                                    media = item,
+                                    onClick = { onItemClick(item) },
+                                    onPlay = { },
+                                    onFocus = { focused ->
+                                        if (focused) {
+                                            onAction(LibraryAction.OnItemFocused(item))
+                                        }
+                                    },
+                                    compact = isCompact,
+                                    showYear = showYear,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .then(
+                                            if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
+                                        )
+                                )
                             } else {
                                 // Placeholder
                                 Box(
