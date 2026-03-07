@@ -73,7 +73,7 @@ class FavoritesRepositoryImpl
                                 )
                             }
 
-                        if (server != null && baseUrl != null) {
+                        val resolved = if (server != null && baseUrl != null) {
                             mediaUrlResolver.resolveUrls(domain, baseUrl, token ?: "").copy(
                                 baseUrl = baseUrl,
                                 accessToken = token,
@@ -81,6 +81,8 @@ class FavoritesRepositoryImpl
                         } else {
                             domain
                         }
+                        // Override addedAt with the favorite-specific timestamp (not the Plex library date)
+                        resolved.copy(addedAt = entity.addedAt)
                     }
 
                 mediaDeduplicator.deduplicate(items, ownedServerIds, servers)
