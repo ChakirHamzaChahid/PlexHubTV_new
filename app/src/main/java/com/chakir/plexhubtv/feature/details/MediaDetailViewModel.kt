@@ -392,6 +392,8 @@ class MediaDetailViewModel
                     if (enriched.remoteSources.isNotEmpty()) {
                         val allKeys = enriched.remoteSources.map { it.ratingKey }
                         checkFavoriteStatus(allKeys)
+                        // Check remote servers for collections the primary server may not have
+                        loadCollectionsFromRemoteSources(enriched)
                     }
 
                     // For shows with remote sources: proactively fetch episodes from remote servers
@@ -483,6 +485,37 @@ class MediaDetailViewModel
                 } catch (e: Exception) {
                     Timber.e(e, "VM: Exception loading collections")
                     _uiState.update { it.copy(isLoadingCollections = false) }
+                }
+            }
+        }
+
+        /**
+         * After enrichment, check remote servers for collections that the primary server may lack.
+         * Merges with existing collections, deduplicating by title.
+         */
+        private fun loadCollectionsFromRemoteSources(enriched: MediaItem) {
+            viewModelScope.launch {
+                val existingTitles = _uiState.value.collections.map { it.title }.toSet()
+                val newCollections = mutableListOf<com.chakir.plexhubtv.core.model.Collection>()
+
+                for (source in enriched.remoteSources) {
+                    // Skip primary server (already queried in loadCollection)
+                    if (source.serverId == enriched.serverId && source.ratingKey == enriched.ratingKey) continue
+                    try {
+                        val collections = getMediaCollectionsUseCase(source.ratingKey, source.serverId).first()
+                        for (col in collections) {
+                            if (col.title !in existingTitles && newCollections.none { it.title == col.title }) {
+                                newCollections.add(col)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "VM: Failed to load collections from ${source.serverName}")
+                    }
+                }
+
+                if (newCollections.isNotEmpty()) {
+                    Timber.d("VM: Found ${newCollections.size} additional collection(s) from remote servers")
+                    _uiState.update { it.copy(collections = it.collections + newCollections) }
                 }
             }
         }
