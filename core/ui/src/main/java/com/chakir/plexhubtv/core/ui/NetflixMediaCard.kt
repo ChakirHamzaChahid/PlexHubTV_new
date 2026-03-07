@@ -371,27 +371,15 @@ fun NetflixMediaCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val rating = media.rating
-                    if (rating != null && rating > 0) {
-                        Text(
-                            text = "${(rating * 10).toInt()}% Match",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF46D369),
-                            fontSize = 14.sp, // Increased from 10sp for TV readability
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-
-                    val metaText = media.contentRating ?: media.year?.toString()
-                    if (metaText != null) {
-                        Text(
-                            text = metaText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 14.sp // Increased from 10sp for TV readability
-                        )
-                    }
+                //  val metaText = media.contentRating ?: media.year?.toString()
+                //   if (metaText != null) {
+                //       Text(
+                //           text = metaText,
+                //          style = MaterialTheme.typography.labelSmall,
+                //          color = Color.White.copy(alpha = 0.7f),
+                //          fontSize = 14.sp // Increased from 10sp for TV readability
+                //      )
+                //  }
                 }
             }
         }
