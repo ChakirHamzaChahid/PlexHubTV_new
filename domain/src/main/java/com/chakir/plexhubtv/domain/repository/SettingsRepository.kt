@@ -32,6 +32,10 @@ interface SettingsRepository {
 
     suspend fun setPlayerEngine(engine: String)
 
+    val deinterlaceMode: Flow<String>
+
+    suspend fun setDeinterlaceMode(mode: String)
+
     // --- Audio/Subtitle Preferences ---
     val preferredAudioLanguage: Flow<String?> // "fr", "en", etc.
 

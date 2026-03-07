@@ -67,6 +67,12 @@ class SettingsRepositoryImpl
             settingsDataStore.savePlayerEngine(engine)
         }
 
+        override val deinterlaceMode: Flow<String> = settingsDataStore.deinterlaceMode
+
+        override suspend fun setDeinterlaceMode(mode: String) {
+            settingsDataStore.saveDeinterlaceMode(mode)
+        }
+
         override suspend fun setPreferredAudioLanguage(lang: String?) {
             settingsDataStore.savePreferredAudioLanguage(lang)
         }

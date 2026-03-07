@@ -52,6 +52,7 @@ class SettingsDataStore
         private val CACHE_ENABLED = stringPreferencesKey("cache_enabled")
         private val DEFAULT_SERVER = stringPreferencesKey("default_server")
         private val PLAYER_ENGINE = stringPreferencesKey("player_engine")
+        private val DEINTERLACE_MODE = stringPreferencesKey("deinterlace_mode")
         private val LAST_SYNC_TIME = stringPreferencesKey("last_sync_time")
         private val FIRST_SYNC_COMPLETE = stringPreferencesKey("first_sync_complete")
         private val EXCLUDED_SERVER_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("excluded_server_ids")
@@ -179,6 +180,10 @@ class SettingsDataStore
         val playerEngine: Flow<String> =
             dataStore.data
                 .map { preferences -> preferences[PLAYER_ENGINE] ?: "ExoPlayer" }
+
+        val deinterlaceMode: Flow<String> =
+            dataStore.data
+                .map { preferences -> preferences[DEINTERLACE_MODE] ?: "auto" }
 
         val lastSyncTime: Flow<Long> =
             dataStore.data
@@ -331,6 +336,12 @@ class SettingsDataStore
         suspend fun savePlayerEngine(engine: String) {
             dataStore.edit { preferences ->
                 preferences[PLAYER_ENGINE] = engine
+            }
+        }
+
+        suspend fun saveDeinterlaceMode(mode: String) {
+            dataStore.edit { preferences ->
+                preferences[DEINTERLACE_MODE] = mode
             }
         }
 
