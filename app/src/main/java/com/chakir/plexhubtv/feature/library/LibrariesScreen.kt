@@ -209,6 +209,18 @@ fun LibrariesScreen(
             onScrollConsumed()
         }
     }
+
+    // Scroll to top when sort, genre, or server filter changes
+    var isFirstComposition by rememberSaveable { mutableStateOf(true) }
+    val sortKey = "${state.filter.currentSort}_${state.filter.isSortDescending}_${state.filter.selectedGenre}_${state.filter.selectedServerFilter}"
+    LaunchedEffect(sortKey) {
+        if (isFirstComposition) {
+            isFirstComposition = false
+            return@LaunchedEffect
+        }
+        gridState.scrollToItem(0)
+        listState.scrollToItem(0)
+    }
     Scaffold(
         containerColor = NetflixBlack, // Set Scaffold background
         snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
