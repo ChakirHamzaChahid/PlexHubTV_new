@@ -20,3 +20,9 @@
 # Keep MediaUrlResolver (in core.util, injected by Dagger)
 -keep interface com.chakir.plexhubtv.core.util.MediaUrlResolver { *; }
 -keep class com.chakir.plexhubtv.core.util.DefaultMediaUrlResolver { *; }
+
+# Keep all source handlers (injected by Dagger with @IntoSet multibinding)
+-keep class com.chakir.plexhubtv.data.source.** { *; }
+
+# Keep all network providers (injected by Dagger)
+-keep class com.chakir.plexhubtv.data.network.** { *; }
