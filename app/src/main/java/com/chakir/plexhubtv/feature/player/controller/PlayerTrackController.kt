@@ -89,8 +89,9 @@ class PlayerTrackController
                     val preferredSubLang = settingsRepository.preferredSubtitleLanguage.first()
                     val bestSub =
                         if (preferredSubLang != null) {
-                            // Explicit subtitle preference: match by language, fallback to Plex selected
-                            subtitleStreams.find { areLanguagesEqual(it.language, preferredSubLang) }
+                            // Explicit subtitle preference: prefer non-forced, then forced, then Plex selected
+                            subtitleStreams.find { areLanguagesEqual(it.language, preferredSubLang) && !it.forced }
+                                ?: subtitleStreams.find { areLanguagesEqual(it.language, preferredSubLang) }
                                 ?: subtitleStreams.find { it.selected }
                         } else {
                             // No subtitle preference: auto-enable device-locale subtitles
@@ -101,8 +102,9 @@ class PlayerTrackController
                                 areLanguagesEqual(chosenAudio.language, deviceLang)
 
                             if (!audioMatchesDevice) {
-                                // Audio is foreign → auto-enable subtitles in device language
-                                subtitleStreams.find { areLanguagesEqual(it.language, deviceLang) }
+                                // Audio is foreign → auto-enable subtitles in device language (prefer non-forced)
+                                subtitleStreams.find { areLanguagesEqual(it.language, deviceLang) && !it.forced }
+                                    ?: subtitleStreams.find { areLanguagesEqual(it.language, deviceLang) }
                             } else {
                                 // Audio matches device locale → no subtitles needed
                                 null
@@ -288,10 +290,15 @@ class PlayerTrackController
                 if (track.id == "no") {
                     mpvPlayer?.setSubtitleId("no")
                 } else {
-                    val validTracks = subtitleTracksInUi.filter { it.id != "no" }
-                    val index = validTracks.indexOf(track) + 1
+                    // MPV only sees embedded (non-external) subtitle tracks.
+                    // External subs are loaded via URL and not in the container,
+                    // so they must be excluded from the index calculation.
+                    val embeddedTracks = subtitleTracksInUi.filter { it.id != "no" && !it.isExternal }
+                    val index = embeddedTracks.indexOf(track) + 1
                     if (index > 0) {
                         mpvPlayer?.setSubtitleId(index.toString())
+                    } else {
+                        Timber.w("PlayerTrackController: MPV subtitle track '${track.title}' not found in embedded tracks (external=%s)", track.isExternal)
                     }
                 }
                 return
@@ -466,6 +473,7 @@ class PlayerTrackController
                         language = stream.language,
                         codec = stream.codec,
                         index = stream.index,
+                        isForced = stream.forced,
                         isSelected = stream.selected,
                         isExternal = stream.isExternal,
                         streamId = stream.id,

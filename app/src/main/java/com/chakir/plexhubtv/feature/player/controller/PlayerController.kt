@@ -810,11 +810,12 @@ class PlayerController @Inject constructor(
                         }
                     }
                     if (resolvedSubtitle != null && resolvedSubtitle.id != "no") {
-                        val validTracks = _uiState.value.subtitleTracks.filter { it.id != "no" }
-                        val subIndex = validTracks.indexOf(resolvedSubtitle) + 1
+                        // MPV only sees embedded (non-external) subtitle tracks in the container.
+                        val embeddedTracks = _uiState.value.subtitleTracks.filter { it.id != "no" && !it.isExternal }
+                        val subIndex = embeddedTracks.indexOf(resolvedSubtitle) + 1
                         if (subIndex > 0) {
                             mpvPlayer?.setSubtitleId(subIndex.toString())
-                            Timber.d("PlayerController: MPV subtitle track set to index $subIndex (${resolvedSubtitle.language})")
+                            Timber.d("PlayerController: MPV subtitle track set to index $subIndex (${resolvedSubtitle.title})")
                         }
                     } else {
                         mpvPlayer?.setSubtitleId("no")
