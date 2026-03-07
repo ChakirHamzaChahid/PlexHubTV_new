@@ -75,6 +75,7 @@ data class VideoStream(
     val height: Int?,
     val bitrate: Int?,
     val hasHDR: Boolean = false,
+    val scanType: String? = null,
 ) : MediaStream()
 
 @Serializable

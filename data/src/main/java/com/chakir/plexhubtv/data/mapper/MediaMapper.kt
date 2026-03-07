@@ -166,6 +166,7 @@ class MediaMapper
                         id = dto.id, index = dto.index, language = dto.language, languageCode = dto.languageCode,
                         title = dto.title, displayTitle = dto.displayTitle, codec = dto.codec, selected = dto.selected,
                         width = dto.width, height = dto.height, bitrate = dto.bitrate, hasHDR = isHdr,
+                        scanType = dto.scanType,
                     )
                 }
                 2 -> {
