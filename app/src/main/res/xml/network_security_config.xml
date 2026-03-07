@@ -1,50 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!--
-        SÉCURITÉ PRODUCTION (SEC-01 RÉSOLU)
+        SÉCURITÉ PRODUCTION (SEC-01)
 
-        RÈGLE PAR DÉFAUT : HTTP BLOQUÉ
-        - Cleartext (HTTP) traffic is BLOCKED by default for all domains
-        - Protège les tokens Plex.tv/Plex.app contre interception MITM
-        - Public APIs (TMDB, OMDB, Plex.tv) forcés en HTTPS
+        RÈGLE PAR DÉFAUT : HTTP AUTORISÉ
+        - IPTV providers use arbitrary domains with HTTP (can't whitelist all)
+        - Local/VPN backends use private IPs with HTTP
+        - Plex Media Server local may use HTTP on LAN
 
-        EXCEPTIONS HTTP (whitelisting explicite) :
-        1. IPTV providers (smartvpluseu.com, etc.)
-        2. Backend local/VPN (IPs privées)
-        3. Plex Media Server local (plex.direct + IPs privées)
-        4. Localhost (dev/testing)
+        EXCEPTIONS HTTPS (strictes) :
+        - plex.tv / plex.app : auth tokens, HTTPS obligatoire
     -->
 
-    <!-- RÈGLE PAR DÉFAUT : HTTP BLOQUÉ -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- RÈGLE PAR DÉFAUT : HTTP AUTORISÉ (nécessaire pour IPTV + backends locaux) -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
 
-    <!-- EXCEPTION 1 : IPTV Providers (HTTP autorisé) -->
-    <domain-config cleartextTrafficPermitted="true">
-        <!-- SmartVPlus IPTV -->
-        <domain includeSubdomains="true">smartvpluseu.com</domain>
-
-        <!-- Ajoute d'autres providers IPTV ici si nécessaire -->
-        <!-- <domain includeSubdomains="true">autre-iptv.com</domain> -->
-    </domain-config>
-
-    <!-- EXCEPTION 2 : Plex Media Server Local (HTTP autorisé sur LAN) -->
-    <domain-config cleartextTrafficPermitted="true">
-        <!-- Format Plex : xxx-xxx-xxx-xxx.hash.plex.direct -->
-        <domain includeSubdomains="true">plex.direct</domain>
-    </domain-config>
-
-    <!-- EXCEPTION 3 : Localhost + Emulator (HTTP autorisé) -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">127.0.0.1</domain>
-        <domain includeSubdomains="false">10.0.2.2</domain> <!-- Android emulator host -->
-    </domain-config>
-
-    <!-- SÉCURITÉ MAXIMALE : Plex.tv Cloud (HTTPS STRICT) -->
+    <!-- SÉCURITÉ STRICTE : Plex Cloud (HTTPS OBLIGATOIRE - protège les tokens) -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">plex.tv</domain>
         <domain includeSubdomains="true">plex.app</domain>
