@@ -41,10 +41,10 @@ object MediaLibraryQueryBuilder {
             sql.append("WHERE 1=1 ")
             args.add(config.mediaTypeStr)
         } else {
-            // Non-unified: Use same SELECT with GROUP_CONCAT to support multi-source aggregation
-            sql.append(UNIFIED_SELECT)
+            sql.append(NON_UNIFIED_SELECT)
             sql.append("FROM media ")
-            sql.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+            args.add(config.mediaTypeStr)
             args.add(config.libraryKey)
             args.add(config.filter)
             args.add(config.sortOrder)
@@ -52,8 +52,11 @@ object MediaLibraryQueryBuilder {
 
         appendSharedWhereFilters(sql, args, config)
 
-        // Always use GROUP BY to aggregate multi-source media
-        sql.append(UNIFIED_GROUP_BY)
+        if (config.isUnified) {
+            sql.append(UNIFIED_GROUP_BY)
+        } else {
+            sql.append(NON_UNIFIED_GROUP_BY)
+        }
 
         val safeDirection = if (config.isDescending) "DESC" else "ASC"
         val orderBy = if (config.isUnified) {
@@ -96,7 +99,8 @@ object MediaLibraryQueryBuilder {
             args.add(config.mediaTypeStr)
         } else {
             sql.append("SELECT COUNT(*) FROM media ")
-            sql.append("WHERE librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+            args.add(config.mediaTypeStr)
             args.add(config.libraryKey)
             args.add(config.filter)
             args.add(config.sortOrder)
@@ -139,10 +143,67 @@ object MediaLibraryQueryBuilder {
         }
     }
 
-    private const val UNIFIED_SELECT =
+    // ── Correlated MAX row selection ──
+    // Ensures all non-aggregated columns (ratingKey, serverId, thumbUrl, etc.)
+    // come from the SAME winning row within each GROUP BY group.
+    // Without this, GROUP BY picks arbitrary values for each column independently,
+    // causing mismatches (e.g., ratingKey from server A + thumbUrl from server B
+    // → resolving thumbUrl against server B loads a completely different movie's poster).
+
+    // Sort key for unified: metadata quality score + deterministic tiebreaker
+    private const val UNIFIED_SORT_KEY =
+        "PRINTF('%020d', media.metadata_score) || '|' || media.ratingKey || '|' || media.serverId"
+
+    private const val BEST_PICK =
+        "MAX(PRINTF('%020d', media.metadata_score) || '|' || media.ratingKey || '|' || media.serverId)"
+
+    private val BEST_PICK_TAIL = "SUBSTR($BEST_PICK, 22)"
+
+    // Extracts a field from the same winning row as BEST_PICK.
+    // Uses CHAR(31) (unit separator) as delimiter — never appears in URLs or text.
+    private fun bestRowField(field: String, alias: String): String {
+        val expr = "MAX($UNIFIED_SORT_KEY || CHAR(31) || COALESCE($field, ''))"
+        return "NULLIF(SUBSTR($expr, INSTR($expr, CHAR(31)) + 1), '') as $alias"
+    }
+
+    // ── Unified SELECT (with subquery providing metadata_score) ──
+    // Image URL fields use bestRowField() to ensure they come from the same
+    // winning row as ratingKey/serverId, preventing poster mismatches.
+    private val UNIFIED_SELECT =
         """SELECT
-                        SUBSTR(MAX(PRINTF('%020d', media.metadata_score) || '|' || media.ratingKey), 22) as ratingKey,
-                        SUBSTR(MAX(PRINTF('%020d', media.metadata_score) || '|' || media.serverId), 22) as serverId,
+                        SUBSTR($BEST_PICK, 22, INSTR($BEST_PICK_TAIL, '|') - 1) as ratingKey,
+                        SUBSTR($BEST_PICK_TAIL, INSTR($BEST_PICK_TAIL, '|') + 1) as serverId,
+                        media.librarySectionId, media.title,
+                        media.titleSortable, media.filter, media.sortOrder,
+                        MIN(media.pageOffset) as pageOffset,
+                        media.type, media.year, media.duration,
+                        media.summary, media.viewOffset, media.lastViewedAt, media.parentTitle,
+                        media.parentRatingKey, media.parentIndex, media.grandparentTitle,
+                        media.grandparentRatingKey, media.`index`, media.mediaParts, media.guid,
+                        media.imdbId, media.tmdbId, media.rating, media.audienceRating,
+                        media.contentRating, media.genres, media.unificationId,
+                        media.addedAt, media.updatedAt,
+                        media.parentThumb, media.grandparentThumb,
+                        media.displayRating,
+                        media.scrapedRating,
+                        media.historyGroupKey,
+                        media.viewCount,
+                        media.sourceServerId,
+                        ${bestRowField("media.thumbUrl", "thumbUrl")},
+                        ${bestRowField("media.artUrl", "artUrl")},
+                        ${bestRowField("media.resolvedThumbUrl", "resolvedThumbUrl")},
+                        ${bestRowField("media.resolvedArtUrl", "resolvedArtUrl")},
+                        ${bestRowField("media.resolvedBaseUrl", "resolvedBaseUrl")},
+                        MAX(media.metadata_score) as _bestScore,
+                        GROUP_CONCAT(media.ratingKey) as ratingKeys,
+                        GROUP_CONCAT(media.serverId) as serverIds,
+                        GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """
+
+    // ── Non-unified SELECT (direct from media table, no metadata_score available) ──
+    // Uses plain column references. Groups are typically single-row per media item
+    // since the WHERE clause filters by server-specific librarySectionId.
+    private const val NON_UNIFIED_SELECT =
+        """SELECT media.ratingKey, media.serverId,
                         media.librarySectionId, media.title,
                         media.titleSortable, media.filter, media.sortOrder,
                         MIN(media.pageOffset) as pageOffset,
@@ -160,7 +221,7 @@ object MediaLibraryQueryBuilder {
                         media.historyGroupKey,
                         media.viewCount,
                         media.sourceServerId,
-                        MAX(media.metadata_score) as _bestScore,
+                        NULL as _bestScore,
                         GROUP_CONCAT(media.ratingKey) as ratingKeys,
                         GROUP_CONCAT(media.serverId) as serverIds,
                         GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """
@@ -182,10 +243,19 @@ object MediaLibraryQueryBuilder {
                         WHERE m.type = ?
                     ) media """
 
+    // Unified GROUP BY: includes bridgedImdbId from the subquery's LEFT JOIN
     private const val UNIFIED_GROUP_BY =
-        """GROUP BY COALESCE(
+        """GROUP BY media.type, COALESCE(
                         media.imdbId,
                         media.bridgedImdbId,
+                        CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
+                        CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
+                    ) """
+
+    // Non-unified GROUP BY: no id_bridge JOIN available, so no bridgedImdbId
+    private const val NON_UNIFIED_GROUP_BY =
+        """GROUP BY media.type, COALESCE(
+                        media.imdbId,
                         CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
                         CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
                     ) """
