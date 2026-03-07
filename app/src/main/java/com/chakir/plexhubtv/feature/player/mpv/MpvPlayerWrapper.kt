@@ -77,19 +77,19 @@ class MpvPlayerWrapper(
 
         try {
             MPVLib.create(context)
-            MPVLib.setOptionString("vo", "gpu")
-            MPVLib.setOptionString("gpu-context", "android")
-            MPVLib.setOptionString("opengl-es", "yes")
-
-            // Hardware decode mode:
-            // - mediacodec-copy for deinterlace (copies frames to RAM, enables GPU post-processing)
-            // - mediacodec for normal (direct Surface output, zero-copy)
             if (config.deinterlace) {
+                // Deinterlace path: GPU rendering required for post-processing
+                MPVLib.setOptionString("vo", "gpu")
+                MPVLib.setOptionString("gpu-context", "android")
+                MPVLib.setOptionString("opengl-es", "yes")
                 MPVLib.setOptionString("hwdec", "mediacodec-copy")
                 MPVLib.setOptionString("deinterlace", "yes")
-                Timber.d("MPV: deinterlace ON (hwdec=mediacodec-copy)")
+                Timber.d("MPV: deinterlace ON (vo=gpu, hwdec=mediacodec-copy)")
             } else {
+                // Zero-copy path: MediaCodec renders directly to Surface
+                MPVLib.setOptionString("vo", "mediacodec_embed")
                 MPVLib.setOptionString("hwdec", "mediacodec")
+                Timber.d("MPV: zero-copy mode (vo=mediacodec_embed, hwdec=mediacodec)")
             }
 
             // VLC-like demuxer cache for high-bitrate content

@@ -8,6 +8,7 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import com.chakir.plexhubtv.feature.player.mpv.MpvConfig
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayer
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayerWrapper
@@ -53,7 +54,14 @@ class ExoPlayerFactory
             val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
             val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
+            val trackSelector = DefaultTrackSelector(context).apply {
+                parameters = buildUponParameters()
+                    .setTunnelingEnabled(true)
+                    .build()
+            }
+
             return ExoPlayer.Builder(context)
+                .setTrackSelector(trackSelector)
                 .setMediaSourceFactory(mediaSourceFactory)
                 .setLoadControl(loadControl)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
