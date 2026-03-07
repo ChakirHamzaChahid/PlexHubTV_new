@@ -19,6 +19,7 @@ import timber.log.Timber
 class MpvPlayerWrapper(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val config: MpvConfig = MpvConfig(),
 ) : MpvPlayer, SurfaceHolder.Callback, MPVLib.EventObserver, MPVLib.LogObserver, DefaultLifecycleObserver {
     companion object {
     }
@@ -79,7 +80,23 @@ class MpvPlayerWrapper(
             MPVLib.setOptionString("vo", "gpu")
             MPVLib.setOptionString("gpu-context", "android")
             MPVLib.setOptionString("opengl-es", "yes")
-            MPVLib.setOptionString("hwdec", "mediacodec")
+
+            // Hardware decode mode:
+            // - mediacodec-copy for deinterlace (copies frames to RAM, enables GPU post-processing)
+            // - mediacodec for normal (direct Surface output, zero-copy)
+            if (config.deinterlace) {
+                MPVLib.setOptionString("hwdec", "mediacodec-copy")
+                MPVLib.setOptionString("deinterlace", "yes")
+                Timber.d("MPV: deinterlace ON (hwdec=mediacodec-copy)")
+            } else {
+                MPVLib.setOptionString("hwdec", "mediacodec")
+            }
+
+            // VLC-like demuxer cache for high-bitrate content
+            MPVLib.setOptionString("cache", "yes")
+            MPVLib.setOptionString("demuxer-max-bytes", "800MiB")
+            MPVLib.setOptionString("demuxer-readahead-secs", "30")
+            MPVLib.setOptionString("demuxer-max-back-bytes", "200MiB")
 
             // Subtitles: use Android system fonts (fontconfig unavailable on Android)
             MPVLib.setOptionString("sub-ass", "yes")

@@ -8,6 +8,7 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.chakir.plexhubtv.feature.player.mpv.MpvConfig
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayer
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayerWrapper
 import com.chakir.plexhubtv.feature.player.net.CrlfFixSocketFactory
@@ -29,6 +30,7 @@ interface PlayerFactory {
     fun createMpvPlayer(
         context: Context,
         scope: CoroutineScope,
+        config: MpvConfig = MpvConfig(),
     ): MpvPlayer
 }
 
@@ -113,7 +115,8 @@ class ExoPlayerFactory
         override fun createMpvPlayer(
             context: Context,
             scope: CoroutineScope,
+            config: MpvConfig,
         ): MpvPlayer {
-            return MpvPlayerWrapper(context, scope)
+            return MpvPlayerWrapper(context, scope, config)
         }
     }

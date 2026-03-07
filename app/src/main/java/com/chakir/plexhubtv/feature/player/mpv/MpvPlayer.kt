@@ -5,6 +5,10 @@ import androidx.lifecycle.LifecycleOwner
 import com.chakir.plexhubtv.feature.player.PlayerStats
 import kotlinx.coroutines.flow.StateFlow
 
+data class MpvConfig(
+    val deinterlace: Boolean = false,
+)
+
 interface MpvPlayer {
     val isPlaying: StateFlow<Boolean>
     val isBuffering: StateFlow<Boolean>
