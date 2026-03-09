@@ -239,11 +239,11 @@ class LibraryRepositoryImpl
                             val token = tokenMap[entity.serverId]
 
                             val serverIdsStr = entity.serverIds
-                            val ratingKeysStr = entity.ratingKeys
                             val finalDomain =
-                                if (serverIdsStr != null && ratingKeysStr != null) {
-                                    var sIds = serverIdsStr.split(",")
-                                    var rKeys = ratingKeysStr.split(",")
+                                if (serverIdsStr != null && serverIdsStr.contains("=")) {
+                                    val pairs = serverIdsStr.split(",").map { it.split("=") }.filter { it.size == 2 }
+                                    var sIds = pairs.map { it[0] }
+                                    var rKeys = pairs.map { it[1] }
 
                                     // Prioritize default server in multi-server results (Kotlin-side, SQLite version independent)
                                     if (sIds.size == rKeys.size && sIds.size > 1 && preferredServerIdForMapping != null) {
@@ -255,12 +255,12 @@ class LibraryRepositoryImpl
                                         }
                                     }
 
-                                    if (sIds.size == rKeys.size && sIds.size > 1) {
+                                    if (sIds.size == rKeys.size) {
                                         val sources =
                                             sIds.zip(rKeys)
                                                 .distinctBy { it.first } // Deduplicate by serverId
                                                 .mapNotNull { (sId, rKey) ->
-                                                    val serverName = serverNameMap[sId] ?: return@mapNotNull null
+                                                    val serverName = serverNameMap[sId] ?: sId.take(12)
 
                                                     com.chakir.plexhubtv.core.model.MediaSource(
                                                         serverId = sId,
@@ -271,11 +271,7 @@ class LibraryRepositoryImpl
                                                         artUrl = null,
                                                     )
                                                 }
-                                        if (sources.size > 1) {
-                                            domain.copy(remoteSources = sources)
-                                        } else {
-                                            domain
-                                        }
+                                        domain.copy(remoteSources = sources)
                                     } else {
                                         domain
                                     }

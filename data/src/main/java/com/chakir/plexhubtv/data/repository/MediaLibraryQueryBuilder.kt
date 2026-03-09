@@ -64,8 +64,8 @@ object MediaLibraryQueryBuilder {
                 "title" -> "title $safeDirection"
                 "year" -> "year $safeDirection, title ASC"
                 "rating" -> "AVG(media.displayRating) $safeDirection, title ASC"
-                "addedAt" -> "MAX(media.addedAt) $safeDirection"
-                else -> "MAX(media.addedAt) $safeDirection"
+                "addedAt" -> "MAX(media.addedAt) $safeDirection, title ASC"
+                else -> "MAX(media.addedAt) $safeDirection, title ASC"
             }
         } else {
             // Non-unified: Use MIN(pageOffset) to respect Plex API order while supporting GROUP BY
@@ -182,7 +182,7 @@ object MediaLibraryQueryBuilder {
                         media.grandparentRatingKey, media.`index`, media.mediaParts, media.guid,
                         media.imdbId, media.tmdbId, media.rating, media.audienceRating,
                         media.contentRating, media.genres, media.unificationId,
-                        media.addedAt, media.updatedAt,
+                        MAX(media.addedAt) as addedAt, MAX(media.updatedAt) as updatedAt,
                         media.parentThumb, media.grandparentThumb,
                         media.displayRating,
                         media.scrapedRating,
@@ -195,9 +195,9 @@ object MediaLibraryQueryBuilder {
                         ${bestRowField("media.resolvedArtUrl", "resolvedArtUrl")},
                         ${bestRowField("media.resolvedBaseUrl", "resolvedBaseUrl")},
                         MAX(media.metadata_score) as _bestScore,
-                        GROUP_CONCAT(media.ratingKey) as ratingKeys,
-                        GROUP_CONCAT(media.serverId) as serverIds,
-                        GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """
+                        NULL as ratingKeys,
+                        GROUP_CONCAT(DISTINCT media.serverId || '=' || media.ratingKey) as serverIds,
+                        GROUP_CONCAT(DISTINCT CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END) as alternativeThumbUrls """
 
     // ── Non-unified SELECT (direct from media table, no metadata_score available) ──
     // Uses plain column references. Groups are typically single-row per media item
@@ -213,7 +213,7 @@ object MediaLibraryQueryBuilder {
                         media.grandparentRatingKey, media.`index`, media.mediaParts, media.guid,
                         media.imdbId, media.tmdbId, media.rating, media.audienceRating,
                         media.contentRating, media.genres, media.unificationId,
-                        media.addedAt, media.updatedAt,
+                        MAX(media.addedAt) as addedAt, MAX(media.updatedAt) as updatedAt,
                         media.parentThumb, media.grandparentThumb,
                         media.displayRating,
                         media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
@@ -222,9 +222,9 @@ object MediaLibraryQueryBuilder {
                         media.viewCount,
                         media.sourceServerId,
                         NULL as _bestScore,
-                        GROUP_CONCAT(media.ratingKey) as ratingKeys,
-                        GROUP_CONCAT(media.serverId) as serverIds,
-                        GROUP_CONCAT(CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END, '|') as alternativeThumbUrls """
+                        NULL as ratingKeys,
+                        GROUP_CONCAT(DISTINCT media.serverId || '=' || media.ratingKey) as serverIds,
+                        GROUP_CONCAT(DISTINCT CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END) as alternativeThumbUrls """
 
     private const val UNIFIED_FROM_SUBQUERY =
         """FROM (

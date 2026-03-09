@@ -240,6 +240,20 @@ interface MediaDao {
         excludeServerId: String,
     ): List<MediaEntity>
 
+    // Find a show on a specific server by unificationId (for Room-show shortcut in enrichment)
+    @Query("""
+        SELECT * FROM media
+        WHERE type = 'show'
+        AND unificationId = :unificationId
+        AND unificationId != ''
+        AND serverId = :serverId
+        LIMIT 1
+    """)
+    suspend fun findShowByUnificationIdAndServer(
+        unificationId: String,
+        serverId: String,
+    ): MediaEntity?
+
     @Query("SELECT DISTINCT serverId FROM media")
     suspend fun getDistinctServerIds(): List<String>
 

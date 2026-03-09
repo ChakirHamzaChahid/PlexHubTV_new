@@ -56,8 +56,7 @@ class PlayerController @Inject constructor(
 ) {
     // S-04: Child of applicationScope for structured concurrency — cancelled/recreated per session
     private var sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
-    private val scope: CoroutineScope
-        get() = CoroutineScope(sessionJob + mainDispatcher + globalHandler)
+    private var scope = CoroutineScope(sessionJob + mainDispatcher + globalHandler)
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -79,6 +78,12 @@ class PlayerController @Inject constructor(
     private var startOffset: Long = 0L
 
     fun initialize(startRatingKey: String?, startServerId: String?, startDirectUrl: String?, offset: Long) {
+        // Safety: if a previous session left a stale player (e.g., rapid navigation), clean up first
+        if (player != null || mpvPlayer != null) {
+            Timber.w("PlayerController: Releasing stale player before re-init")
+            release()
+        }
+
         this.ratingKey = startRatingKey
         this.serverId = startServerId
         this.directUrl = startDirectUrl
@@ -134,6 +139,31 @@ class PlayerController @Inject constructor(
         startPositionTracking()
     }
 
+    /**
+     * Switch to next/previous episode by reusing the existing player instance.
+     * Resets per-episode state (startOffset, resume toast, auto-next) without recreating ExoPlayer.
+     */
+    fun playNext(nextRatingKey: String, nextServerId: String) {
+        this.ratingKey = nextRatingKey
+        this.serverId = nextServerId
+        this.startOffset = 0L
+        this.directUrl = null
+        hasShownResumeToast = false
+        _uiState.update { it.copy(showAutoNextPopup = false, resumeMessage = null) }
+        loadMedia(nextRatingKey, nextServerId)
+    }
+
+    /**
+     * Switch to next/previous episode for direct-stream sources (Xtream/Backend).
+     * Resets per-episode state then delegates to playDirectStream().
+     */
+    fun playNextDirectStream(url: String, item: MediaItem) {
+        this.startOffset = 0L
+        hasShownResumeToast = false
+        _uiState.update { it.copy(showAutoNextPopup = false, resumeMessage = null) }
+        playDirectStream(url, item)
+    }
+
     fun release() {
         positionTrackerJob?.cancel()
         positionTrackerJob = null
@@ -141,15 +171,24 @@ class PlayerController @Inject constructor(
         playerStatsTracker.stopTracking()
         playerScrobbler.stop()
 
-        player?.release()
+        // Capture references and null immediately to prevent further use
+        val exo = player
+        val mpv = mpvPlayer
         player = null
-        mpvPlayer?.release()
         mpvPlayer = null
+
+        // Fire-and-forget release on main thread via applicationScope
+        // Avoids blocking onCleared() if ExoPlayer.release() hangs
+        applicationScope.launch(mainDispatcher) {
+            try { exo?.release() } catch (e: Exception) { Timber.w(e, "ExoPlayer release failed") }
+            try { mpv?.release() } catch (e: Exception) { Timber.w(e, "MPV release failed") }
+        }
 
         // Cancel ALL coroutines (position tracker, scrobbler, stats, collectors)
         sessionJob.cancel()
-        // Recreate a fresh child Job for the next initialize() cycle
+        // Recreate a fresh child Job + scope for the next initialize() cycle
         sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
+        scope = CoroutineScope(sessionJob + mainDispatcher + globalHandler)
 
         // Reset state so a fresh session doesn't inherit stale values
         _uiState.value = PlayerUiState()
@@ -189,6 +228,15 @@ class PlayerController @Inject constructor(
             return
         }
 
+        // Start perf tracking so ExoPlayer listener callbacks can checkpoint/end it
+        val opId = "player_load_${item?.ratingKey ?: "direct"}"
+        performanceTracker.startOperation(
+            opId,
+            com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK,
+            "Direct Stream Play",
+            mapOf("url" to url.take(80))
+        )
+
         val mediaItem = item ?: MediaItem(
             id = "iptv-$url",
             ratingKey = "iptv",
@@ -205,9 +253,14 @@ class PlayerController @Inject constructor(
             Pair(emptyList(), emptyList())
         }
 
+        playerScrobbler.resetAutoNext()
+        val next = playbackManager.getNextMedia()
+
         _uiState.update {
             it.copy(
                 currentItem = mediaItem,
+                nextItem = next,
+                showAutoNextPopup = false,
                 isPlaying = true,
                 isBuffering = true,
                 currentPosition = if (it.currentItem?.id != mediaItem.id) 0L else it.currentPosition,
@@ -253,6 +306,10 @@ class PlayerController @Inject constructor(
 
         /** Bitrate threshold (kbps) above which MPV is preferred for its FFmpeg demuxer */
         private const val HIGH_BITRATE_THRESHOLD_KBPS = 60_000
+
+        /** File size threshold (bytes) above which MPV is preferred regardless of reported bitrate.
+         *  ExoPlayer's seek index and demuxer can OOM on very large containers. */
+        private const val LARGE_FILE_THRESHOLD_BYTES = 20L * 1024 * 1024 * 1024 // 20 GB
 
         /** Audio codecs known to crash ExoPlayer on most Android TV devices */
         private val ALWAYS_PROBLEMATIC_CODECS = setOf("truehd", "dts-hd ma", "dts-hd", "dtshd")
@@ -634,31 +691,18 @@ class PlayerController @Inject constructor(
 
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            // P1.1: Try PlaybackManager cache first to avoid double fetch
-            // Cache is only valid if mediaParts contain streams (audio/subtitle track info)
-            val cachedMedia = playbackManager.currentMedia.value
+            // Always fetch full detail from API to get chapters/markers.
+            // PlaybackManager cache (queue items) comes from /children endpoint
+            // which doesn't include markers — skip intro/credits would be missing.
             val mediaFetchStart = System.currentTimeMillis()
-            val cacheHasStreams = cachedMedia != null
-                && cachedMedia.ratingKey == rKey
-                && cachedMedia.serverId == sId
-                && cachedMedia.mediaParts.isNotEmpty()
-                && cachedMedia.mediaParts.first().streams.isNotEmpty()
-            val media: MediaItem? = if (cacheHasStreams) {
-                val cacheDuration = System.currentTimeMillis() - mediaFetchStart
-                performanceTracker.addCheckpoint(opId, "Media Detail (Cache Hit)", mapOf("duration" to cacheDuration))
-                Timber.d("PlayerController: Using cached media from PlaybackManager for $rKey")
-                cachedMedia
-            } else {
-                // P1.2: Use .first() instead of .collect to avoid infinite flow collection
-                val result = getMediaDetailUseCase(rKey, sId).first()
-                val fetchDuration = System.currentTimeMillis() - mediaFetchStart
-                performanceTracker.addCheckpoint(
-                    opId,
-                    "Media Detail (Network Fetch)",
-                    mapOf("duration" to fetchDuration, "success" to (result.isSuccess))
-                )
-                result.getOrNull()?.item
-            }
+            val result = getMediaDetailUseCase(rKey, sId).first()
+            val fetchDuration = System.currentTimeMillis() - mediaFetchStart
+            performanceTracker.addCheckpoint(
+                opId,
+                "Media Detail Fetched",
+                mapOf("duration" to fetchDuration, "success" to (result.isSuccess))
+            )
+            val media: MediaItem? = result.getOrNull()?.item
 
             if (media == null) {
                 performanceTracker.endOperation(opId, success = false, errorMessage = "Unable to load media")
@@ -721,7 +765,7 @@ class PlayerController @Inject constructor(
                 }
             }
 
-            // High-bitrate / interlace pre-flight: route to MPV for FFmpeg demuxer or deinterlace
+            // High-bitrate / interlace / large-file pre-flight: route to MPV
             if (isDirectPlay && !isMpvMode) {
                 val videoStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
                 val videoBitrateKbps = videoStream?.bitrate ?: 0
@@ -729,12 +773,25 @@ class PlayerController @Inject constructor(
                 val isInterlaced = videoStream?.scanType?.equals("interlaced", ignoreCase = true) == true
                 val needsDeinterlace = isInterlaced && deinterlaceMode == "auto"
 
-                if (videoBitrateKbps > HIGH_BITRATE_THRESHOLD_KBPS || needsDeinterlace) {
+                // Estimate bitrate from file size when Plex reports 0 (common for remux/recently-added)
+                val fileSizeBytes = part?.size ?: 0L
+                val mediaDurationMs = part?.duration ?: media.durationMs ?: 0L
+                val estimatedBitrateKbps = if (videoBitrateKbps == 0 && mediaDurationMs > 0 && fileSizeBytes > 0) {
+                    ((fileSizeBytes * 8) / (mediaDurationMs / 1000) / 1000).toInt()
+                } else videoBitrateKbps
+                val effectiveBitrateKbps = maxOf(videoBitrateKbps, estimatedBitrateKbps)
+                val isLargeFile = fileSizeBytes > LARGE_FILE_THRESHOLD_BYTES
+
+                if (effectiveBitrateKbps > HIGH_BITRATE_THRESHOLD_KBPS || needsDeinterlace || isLargeFile) {
                     val reason = when {
-                        needsDeinterlace && videoBitrateKbps > HIGH_BITRATE_THRESHOLD_KBPS ->
-                            "interlaced + high-bitrate (${videoBitrateKbps}kbps)"
+                        isLargeFile && needsDeinterlace ->
+                            "large file (${fileSizeBytes / (1024*1024*1024)}GB) + interlaced"
+                        isLargeFile ->
+                            "large file (${fileSizeBytes / (1024*1024*1024)}GB > 20GB threshold)"
+                        needsDeinterlace && effectiveBitrateKbps > HIGH_BITRATE_THRESHOLD_KBPS ->
+                            "interlaced + high-bitrate (${effectiveBitrateKbps}kbps)"
                         needsDeinterlace -> "interlaced content (scanType=${videoStream?.scanType})"
-                        else -> "high-bitrate (${videoBitrateKbps}kbps > ${HIGH_BITRATE_THRESHOLD_KBPS}kbps)"
+                        else -> "high-bitrate (${effectiveBitrateKbps}kbps > ${HIGH_BITRATE_THRESHOLD_KBPS}kbps${if (videoBitrateKbps == 0) ", estimated from file size" else ""})"
                     }
                     Timber.d("PlayerController: $reason → switching to MPV")
                     performanceTracker.addCheckpoint(opId, "Auto-route → MPV", mapOf("reason" to reason))
@@ -808,8 +865,8 @@ class PlayerController @Inject constructor(
                     mpvPlayer?.seekTo(seekTarget)
                     performanceTracker.addCheckpoint(opId, "MPV Seek Applied", mapOf("position" to seekTarget))
 
-                    // Verify seek success after a delay
-                    scope.launch {
+                    // Verify seek success after a delay (on background thread — no main thread needed)
+                    scope.launch(defaultDispatcher) {
                         kotlinx.coroutines.delay(500)
                         val actualPos = mpvPlayer?.position?.value ?: 0
                         if (actualPos < seekTarget - 2000) {  // Tolerance 2s
@@ -991,19 +1048,23 @@ class PlayerController @Inject constructor(
                     }
                 } else {
                     player?.let { p ->
+                        val pos = p.currentPosition
+                        val dur = p.duration.coerceAtLeast(0)
                         if (p.isPlaying) {
-                            val pos = p.currentPosition
-                            val dur = p.duration.coerceAtLeast(0)
-                            _uiState.update { 
+                            _uiState.update {
                                 it.copy(
                                     currentPosition = pos,
                                     bufferedPosition = p.bufferedPosition,
                                     duration = dur
-                                ) 
+                                )
                             }
                             chapterMarkerManager.updatePlaybackPosition(pos)
+                        }
+                        // Check auto-next even during buffering near end of stream —
+                        // ExoPlayer may enter BUFFERING at 95%+ which previously blocked the popup
+                        if (pos > 0 && dur > 0) {
                             playerScrobbler.checkAutoNext(
-                                position = pos, 
+                                position = pos,
                                 duration = dur,
                                 hasNextItem = _uiState.value.nextItem != null,
                                 isPopupAlreadyShown = _uiState.value.showAutoNextPopup

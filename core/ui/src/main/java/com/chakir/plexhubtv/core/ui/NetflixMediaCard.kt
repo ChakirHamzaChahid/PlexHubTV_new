@@ -171,12 +171,12 @@ fun NetflixMediaCard(
                 contentDescription = "Affiche de ${media.title}",
                 contentScale = ContentScale.Crop,
                 imageWidth = when (cardType) {
-                    CardType.POSTER, CardType.TOP_TEN -> 420
-                    CardType.WIDE -> 720
+                    CardType.POSTER, CardType.TOP_TEN -> 300
+                    CardType.WIDE -> 540
                 },
                 imageHeight = when (cardType) {
-                    CardType.POSTER, CardType.TOP_TEN -> 630
-                    CardType.WIDE -> 405
+                    CardType.POSTER, CardType.TOP_TEN -> 450
+                    CardType.WIDE -> 304
                 },
                 modifier = Modifier
                     .fillMaxSize()

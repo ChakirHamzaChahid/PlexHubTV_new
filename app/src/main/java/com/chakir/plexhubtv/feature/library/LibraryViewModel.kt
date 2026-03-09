@@ -105,8 +105,9 @@ class LibraryViewModel
                     )
                 }
                 .distinctUntilChanged { old, new ->
-                    // Custom equals check
-                    old == new
+                    // Ignore initialScrollIndex: it's a navigation param, not a filter param.
+                    // Changing scroll position should NOT invalidate the PagingData flow.
+                    old.copy(initialScrollIndex = null) == new.copy(initialScrollIndex = null)
                 }
                 // Debounce removed: refresh is now explicitly triggered in UI via LaunchedEffect
                 .flatMapLatest { params ->

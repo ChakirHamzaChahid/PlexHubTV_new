@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import timber.log.Timber
 
 /**
@@ -61,6 +62,9 @@ fun FallbackAsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
             .data(currentUrl)
             .size(imageWidth, imageHeight)
+            .crossfade(200)
+            .memoryCachePolicy(coil3.request.CachePolicy.ENABLED)
+            .diskCachePolicy(coil3.request.CachePolicy.ENABLED)
             .listener(
                 onError = { request, result ->
                     val nextIndex = currentUrlIndex + 1

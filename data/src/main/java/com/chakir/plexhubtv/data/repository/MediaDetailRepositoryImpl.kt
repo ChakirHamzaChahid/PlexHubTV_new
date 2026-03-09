@@ -131,6 +131,8 @@ class MediaDetailRepositoryImpl
                         thumbUrl = bestSeasonEntity?.parentThumb,
                         episodes = unifiedEps,
                         availableServerIds = allServerIds,
+                        bestSeasonRatingKey = bestSeasonEntity?.parentRatingKey,
+                        bestSeasonServerId = bestSeasonEntity?.serverId,
                     )
                 }
         }
@@ -165,6 +167,29 @@ class MediaDetailRepositoryImpl
             } catch (e: Exception) {
                 Timber.w(e, "Failed to cache mediaParts for ${item.ratingKey}")
             }
+        }
+
+        override suspend fun getParentShowIds(ratingKey: String, serverId: String): com.chakir.plexhubtv.domain.repository.ParentShowInfo? {
+            val entity = mediaDao.getMedia(ratingKey, serverId) ?: return null
+            return com.chakir.plexhubtv.domain.repository.ParentShowInfo(
+                imdbId = entity.imdbId,
+                tmdbId = entity.tmdbId,
+                unificationId = entity.unificationId,
+            )
+        }
+
+        override suspend fun findRemoteShowByUnificationId(unificationId: String, serverId: String): MediaItem? {
+            val entity = mediaDao.findShowByUnificationIdAndServer(unificationId, serverId)
+                ?: return null
+            val client = serverClientResolver.getClient(serverId)
+            val baseUrl = client?.baseUrl
+            val token = client?.server?.accessToken
+            val domain = mapper.mapEntityToDomain(entity)
+            return if (baseUrl != null && token != null) {
+                mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                    baseUrl = baseUrl, accessToken = token
+                )
+            } else domain
         }
 
         override suspend fun getShowSeasons(

@@ -289,7 +289,7 @@ class MediaDetailViewModel
                         detailResult.getOrNull()?.item ?: run {
                             Timber.w("playItem: Failed to fetch detail for ${source.ratingKey} on ${source.serverId}, falling back to shallow copy")
                             item.copy(
-                                id = "${source.serverId}:${source.ratingKey}",
+                                id = "${source.serverId}_${source.ratingKey}",
                                 serverId = source.serverId,
                                 ratingKey = source.ratingKey,
                             )
@@ -430,6 +430,9 @@ class MediaDetailViewModel
                         Timber.w(e, "VM: Failed to prefetch episodes from ${source.serverName}")
                     }
                 }
+                // Invalidate stale episode enrichment cache so the next enrichment
+                // re-queries Room and finds the newly cached remote episodes
+                enrichMediaItemUseCase.invalidateEpisodeCache()
                 // Re-run unified seasons now that remote episodes are in Room
                 loadUnifiedSeasons(show)
             }
@@ -460,7 +463,30 @@ class MediaDetailViewModel
                 ).onSuccess { unifiedSeasons ->
                     val duration = System.currentTimeMillis() - startTime
                     Timber.i("VM: Loaded ${unifiedSeasons.size} unified seasons in ${duration}ms")
-                    _uiState.update { it.copy(unifiedSeasons = unifiedSeasons) }
+                    _uiState.update { currentState ->
+                        // Merge seasons from other servers that are missing from the primary list
+                        val existingIndices = currentState.seasons.map { it.parentIndex }.toSet()
+                        val supplementary = unifiedSeasons
+                            .filter { it.seasonIndex !in existingIndices && it.bestSeasonRatingKey != null && it.bestSeasonServerId != null }
+                            .map { unified ->
+                                MediaItem(
+                                    id = "unified-s${unified.seasonIndex}-${unified.bestSeasonServerId}",
+                                    ratingKey = unified.bestSeasonRatingKey!!,
+                                    serverId = unified.bestSeasonServerId!!,
+                                    title = unified.title,
+                                    type = MediaType.Season,
+                                    thumbUrl = unified.thumbUrl,
+                                    parentIndex = unified.seasonIndex,
+                                )
+                            }
+                        val mergedSeasons = if (supplementary.isNotEmpty()) {
+                            Timber.i("VM: Merged ${supplementary.size} extra seasons from other servers")
+                            (currentState.seasons + supplementary).sortedBy { it.parentIndex }
+                        } else {
+                            currentState.seasons
+                        }
+                        currentState.copy(unifiedSeasons = unifiedSeasons, seasons = mergedSeasons)
+                    }
                 }.onFailure { error ->
                     Timber.w(error, "VM: Failed to load unified seasons")
                 }

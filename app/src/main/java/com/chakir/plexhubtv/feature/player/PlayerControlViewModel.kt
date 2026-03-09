@@ -49,21 +49,33 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.Pause -> playerController.pause()
             is PlayerAction.SeekTo -> playerController.seekTo(action.position)
             is PlayerAction.Next -> {
-                playbackManager.next()
-                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
+                val nextMedia = playbackManager.getNextMedia()
+                if (nextMedia != null) {
+                    playbackManager.next()
+                    loadOrPlayMedia(nextMedia)
+                } else {
+                    onAction(PlayerAction.Close)
+                }
             }
             is PlayerAction.Previous -> {
-                playbackManager.previous()
-                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
+                val prevMedia = playbackManager.getPreviousMedia()
+                if (prevMedia != null) {
+                    playbackManager.previous()
+                    loadOrPlayMedia(prevMedia)
+                }
             }
             is PlayerAction.SkipMarker -> {
                  val position = action.marker.endTime
                  playerController.seekTo(position)
             }
             is PlayerAction.PlayNext -> {
-                playerController.updateState { it.copy(showAutoNextPopup = false) }
-                playbackManager.next()
-                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
+                val nextMedia = playbackManager.getNextMedia()
+                if (nextMedia != null) {
+                    playbackManager.next()
+                    loadOrPlayMedia(nextMedia)
+                } else {
+                    onAction(PlayerAction.Close)
+                }
             }
             is PlayerAction.CancelAutoNext -> {
                 playerController.updateState { it.copy(showAutoNextPopup = false) }
@@ -156,15 +168,24 @@ class PlayerControlViewModel @Inject constructor(
     }
 
     /**
-     * Load or play media, handling Plex (loadMedia), Xtream, and Backend (direct URL) paths.
+     * Switch to next/previous episode, reusing the existing player instance.
+     * Resets per-episode state (startOffset, resume toast) via PlayerController.playNext*().
      */
     private fun loadOrPlayMedia(media: MediaItem) {
         if (directStreamUrlBuilder.isDirectStream(media.serverId)) {
-            resolveAndPlayDirectStream(
-                media.ratingKey, media.serverId, 0L, media,
-            ) { directStreamUrlBuilder.buildUrl(media.ratingKey, media.serverId) }
+            viewModelScope.launch {
+                val url = directStreamUrlBuilder.buildUrl(media.ratingKey, media.serverId)
+                if (url != null) {
+                    playerController.playNextDirectStream(url, media)
+                } else {
+                    Timber.e("[Player] Failed to resolve stream URL for ${media.ratingKey} on ${media.serverId}")
+                    playerController.updateState {
+                        it.copy(error = "Failed to get stream URL", isBuffering = false)
+                    }
+                }
+            }
         } else {
-            playerController.loadMedia(media.ratingKey, media.serverId)
+            playerController.playNext(media.ratingKey, media.serverId)
         }
     }
 
@@ -183,7 +204,7 @@ class PlayerControlViewModel @Inject constructor(
         viewModelScope.launch {
             val url = urlBuilder()
             if (url != null) {
-                val media = cachedMedia ?: playbackManager.currentMedia.value?.takeIf {
+                val media = cachedMedia ?: playbackManager.state.value.currentMedia?.takeIf {
                     it.ratingKey == ratingKey && it.serverId == serverId
                 }
                 playerController.playDirectStream(url, media)

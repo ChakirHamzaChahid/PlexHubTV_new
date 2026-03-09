@@ -64,4 +64,12 @@ class ServerClientResolver @Inject constructor(
     suspend fun getServers(): List<Server> {
         return authRepository.getServers(forceRefresh = false).getOrNull() ?: emptyList()
     }
+
+    /**
+     * Invalidates the cached connection for a server so the next
+     * [getClient] re-tests all connection candidates.
+     */
+    fun invalidateConnection(serverId: String) {
+        connectionManager.invalidateConnection(serverId)
+    }
 }

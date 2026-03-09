@@ -1,6 +1,5 @@
 package com.chakir.plexhubtv.di.image
 
-import android.app.ActivityManager
 import android.content.Context
 import coil3.ImageLoader
 import coil3.disk.DiskCache
@@ -36,26 +35,22 @@ object ImageModule {
             .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)    // 10s instead of 30s
             .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)   // 10s instead of 30s
             .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)    // 15s total max (prevents 60s hangs)
-            .retryOnConnectionFailure(false) // Don't retry failed connections for images
+            .retryOnConnectionFailure(false) // Don't retry — FallbackAsyncImage handles URL-level fallback
+            .connectionPool(okhttp3.ConnectionPool(8, 5, java.util.concurrent.TimeUnit.MINUTES))
             .build()
 
-        // ✅ ADAPTIVE CACHE: Calculate optimal cache size based on available RAM
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-        val memoryInfo = ActivityManager.MemoryInfo()
-        activityManager?.getMemoryInfo(memoryInfo)
-
-        val totalRam = memoryInfo.totalMem
-        val memoryCacheSize = when {
-            totalRam < 2_000_000_000 -> (totalRam * 0.10).toLong() // 1-2 GB RAM: 10%
-            totalRam < 4_000_000_000 -> (totalRam * 0.12).toLong() // 2-4 GB RAM: 12%
-            else -> (totalRam * 0.15).toLong()                      // 4+ GB RAM: 15%
-        }.coerceIn(50 * 1024 * 1024L, 400 * 1024 * 1024L) // Min 50 MB, Max 400 MB
+        // ✅ ADAPTIVE CACHE: Use JVM heap limit (not system RAM) to avoid exceeding heap on low-RAM devices.
+        // System RAM can be 2GB while heap limit is only 192MB — sizing cache as % of system RAM
+        // could configure a 200MB cache that exceeds the heap, leading to OOM under load.
+        val maxHeap = Runtime.getRuntime().maxMemory()
+        val memoryCacheSize = (maxHeap * 0.25).toLong() // 25% of heap — Coil's default heuristic
+            .coerceIn(32 * 1024 * 1024L, 256 * 1024 * 1024L) // Min 32 MB, Max 256 MB
 
         Timber.i(
-            "ImageCache: Total RAM = %.2f GB, Cache = %.1f MB (%.1f%%)",
-            totalRam / (1024.0 * 1024.0 * 1024.0),
+            "ImageCache: Heap limit = %.0f MB, Cache = %.1f MB (%.0f%%)",
+            maxHeap / (1024.0 * 1024.0),
             memoryCacheSize / (1024.0 * 1024.0),
-            (memoryCacheSize.toDouble() / totalRam) * 100
+            (memoryCacheSize.toDouble() / maxHeap) * 100
         )
 
         return ImageLoader.Builder(context)

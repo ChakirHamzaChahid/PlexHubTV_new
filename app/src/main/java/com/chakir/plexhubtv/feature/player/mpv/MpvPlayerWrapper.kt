@@ -92,11 +92,11 @@ class MpvPlayerWrapper(
                 Timber.d("MPV: zero-copy mode (vo=mediacodec_embed, hwdec=mediacodec)")
             }
 
-            // VLC-like demuxer cache for high-bitrate content
+            // VLC-like demuxer cache for high-bitrate content (Tuned for Android TV memory limits)
             MPVLib.setOptionString("cache", "yes")
-            MPVLib.setOptionString("demuxer-max-bytes", "800MiB")
-            MPVLib.setOptionString("demuxer-readahead-secs", "30")
-            MPVLib.setOptionString("demuxer-max-back-bytes", "200MiB")
+            MPVLib.setOptionString("demuxer-max-bytes", "150MiB") // Was 800MB (OOM on TV)
+            MPVLib.setOptionString("demuxer-readahead-secs", "20")
+            MPVLib.setOptionString("demuxer-max-back-bytes", "50MiB") // Was 200MB
 
             // Subtitles: use Android system fonts (fontconfig unavailable on Android)
             MPVLib.setOptionString("sub-ass", "yes")
