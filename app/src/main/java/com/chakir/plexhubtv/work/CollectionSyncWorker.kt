@@ -10,6 +10,8 @@ import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import dagger.assisted.Assisted
@@ -194,12 +196,13 @@ class CollectionSyncWorker
                     androidx.work.ListenableWorker.Result.success()
                 } catch (e: Exception) {
                     Timber.e("Worker failed: ${e.message}")
-                    if (e is kotlinx.coroutines.CancellationException) {
-                        // If cancelled (e.g. by user or system), don't retry locally if it was a system kill.
-                        // But generally clean exit.
-                        throw e
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    val appError = e.toAppError()
+                    if (appError.isRetryable()) {
+                        androidx.work.ListenableWorker.Result.retry()
+                    } else {
+                        androidx.work.ListenableWorker.Result.failure()
                     }
-                    androidx.work.ListenableWorker.Result.retry()
                 }
             }
 

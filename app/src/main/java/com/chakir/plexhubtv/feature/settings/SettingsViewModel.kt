@@ -2,12 +2,14 @@ package com.chakir.plexhubtv.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
@@ -144,6 +146,7 @@ class SettingsViewModel
                     val syncRequest =
                         OneTimeWorkRequestBuilder<LibrarySyncWorker>()
                             .setConstraints(constraints)
+                            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                             .build()
 
                     workManager.enqueueUniqueWork(
@@ -242,6 +245,7 @@ class SettingsViewModel
                     val syncRequest =
                         OneTimeWorkRequestBuilder<RatingSyncWorker>()
                             .setConstraints(constraints)
+                            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                             .build()
 
                     workManager.enqueueUniqueWork(

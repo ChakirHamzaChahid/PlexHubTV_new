@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -236,6 +237,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                 val immediateSyncRequest =
                     androidx.work.OneTimeWorkRequestBuilder<LibrarySyncWorker>()
                         .setConstraints(constraints)
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                         .build()
 
                 WorkManager.getInstance(this@PlexHubApplication).enqueueUniqueWork(
@@ -252,6 +254,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
             PeriodicWorkRequestBuilder<LibrarySyncWorker>(6, TimeUnit.HOURS)
                 .setConstraints(constraints)
                 .setInitialDelay(20, TimeUnit.MINUTES)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
@@ -264,6 +267,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
         val collectionSyncRequest =
             PeriodicWorkRequestBuilder<com.chakir.plexhubtv.work.CollectionSyncWorker>(6, TimeUnit.HOURS)
                 .setConstraints(constraints)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
@@ -280,7 +284,8 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
             Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
-        ).build()
+        ).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+        .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "ChannelSync",

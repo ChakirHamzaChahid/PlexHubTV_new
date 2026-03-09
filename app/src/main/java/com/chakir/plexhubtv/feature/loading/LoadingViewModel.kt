@@ -2,12 +2,14 @@ package com.chakir.plexhubtv.feature.loading
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
@@ -55,6 +57,7 @@ class LoadingViewModel
                         .build()
                     val syncRequest = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
                         .setConstraints(constraints)
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                         .build()
                     workManager.enqueueUniqueWork(
                         "LibrarySync_Initial",
