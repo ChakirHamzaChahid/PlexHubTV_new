@@ -210,6 +210,7 @@
     <string name="collection_error_description">Error: %1$s</string>
     <string name="detail_collection_items_description">Collection items list</string>
     <string name="collection_items_description">Collection items list</string>
+    <string name="collection_empty">No items in this collection</string>
 
     <!-- ══════════════════════════════════════════════
          Season Detail Screen

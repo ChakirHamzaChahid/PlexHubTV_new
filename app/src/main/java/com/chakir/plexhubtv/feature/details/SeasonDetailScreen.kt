@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.details
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
@@ -397,21 +399,36 @@ private fun SeasonActionButton(
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) 1.1f else 1f,
+        animationSpec = tween(200), label = "scale",
+    )
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
+        animationSpec = tween(200), label = "bg",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.3f),
+        animationSpec = tween(200), label = "border",
+    )
+    val labelColor by animateColorAsState(
+        targetValue = if (isFocused) Color.White else NetflixLightGray,
+        animationSpec = tween(200), label = "label",
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { isFocused = it.isFocused }
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clickable(onClick = onClick)
             .padding(8.dp),
     ) {
         Surface(
             shape = CircleShape,
-            color = if (isFocused) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                if (isFocused) Color.White else Color.White.copy(alpha = 0.3f),
-            ),
+            color = backgroundColor,
+            border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
             modifier = Modifier.size(48.dp),
         ) {
             Icon(
@@ -427,7 +444,7 @@ private fun SeasonActionButton(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-            color = if (isFocused) Color.White else NetflixLightGray,
+            color = labelColor,
         )
     }
 }

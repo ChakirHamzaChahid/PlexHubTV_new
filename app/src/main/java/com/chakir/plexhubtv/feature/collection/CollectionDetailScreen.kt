@@ -105,51 +105,67 @@ fun CollectionDetailScreen(
                 )
             } else {
                 state.collection?.let { collection ->
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        collection.summary?.let { summary ->
-                            if (summary.isNotBlank()) {
-                                Text(
-                                    text = summary,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
-                                    maxLines = 5,
-                                )
-                            }
-                        }
-
-                        val gridState = rememberLazyGridState()
-                        val gridFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
-
-                        // Request focus ONCE, outside the items lambda
-                        LaunchedEffect(Unit) {
-                            gridFocusRequester.requestFocus()
-                        }
-
-                        LazyVerticalGrid(
-                            state = gridState,
-                            columns = GridCells.Adaptive(minSize = 120.dp),
-                            contentPadding = PaddingValues(48.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                    if (collection.items.isEmpty()) {
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .focusRequester(gridFocusRequester)
-                                .testTag("collection_items_list")
-                                .semantics { contentDescription = itemsDesc },
+                                .testTag("collection_empty"),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            items(
-                                items = collection.items,
-                                key = { item -> "${item.serverId}_${item.ratingKey}" },
-                            ) { item ->
-                                MediaCard(
-                                    media = item,
-                                    onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
-                                    onPlay = {},
-                                    onFocus = {},
-                                    width = 120.dp,
-                                    height = 180.dp,
-                                )
+                            Text(
+                                text = stringResource(R.string.collection_empty),
+                                color = Color.White.copy(alpha = 0.7f),
+                            )
+                        }
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            collection.summary?.let { summary ->
+                                if (summary.isNotBlank()) {
+                                    Text(
+                                        text = summary,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
+                                        maxLines = 5,
+                                    )
+                                }
+                            }
+
+                            val gridState = rememberLazyGridState()
+                            val gridFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+
+                            // Data-reactive focus: fires only when items are available
+                            LaunchedEffect(collection.items.isNotEmpty()) {
+                                if (collection.items.isNotEmpty()) {
+                                    gridFocusRequester.requestFocus()
+                                }
+                            }
+
+                            LazyVerticalGrid(
+                                state = gridState,
+                                columns = GridCells.Adaptive(minSize = 120.dp),
+                                contentPadding = PaddingValues(48.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .focusRequester(gridFocusRequester)
+                                    .testTag("collection_items_list")
+                                    .semantics { contentDescription = itemsDesc },
+                            ) {
+                                items(
+                                    items = collection.items,
+                                    key = { item -> "${item.serverId}_${item.ratingKey}" },
+                                ) { item ->
+                                    MediaCard(
+                                        media = item,
+                                        onClick = { onNavigateToDetail(item.ratingKey, item.serverId) },
+                                        onPlay = {},
+                                        onFocus = {},
+                                        width = 120.dp,
+                                        height = 180.dp,
+                                    )
+                                }
                             }
                         }
                     }

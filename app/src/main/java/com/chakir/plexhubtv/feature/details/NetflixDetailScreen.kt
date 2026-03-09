@@ -280,7 +280,7 @@ fun NetflixDetailScreen(
                                     .focusRequester(contentRowFocusRequester)
                                     .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
-                                items(seasons, key = { "${it.ratingKey}_${it.serverId}" }) { season ->
+                                items(seasons, key = { "${it.ratingKey}_${it.serverId}" }, contentType = { "season" }) { season ->
                                     NetflixMediaCard(
                                         media = season,
                                         onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
@@ -307,7 +307,7 @@ fun NetflixDetailScreen(
                                     .focusRequester(contentRowFocusRequester)
                                     .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
-                                items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }) { item ->
+                                items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }, contentType = { "media" }) { item ->
                                     NetflixMediaCard(
                                         media = item,
                                         onClick = { onAction(MediaDetailEvent.OpenMediaDetail(item)) },
@@ -334,7 +334,7 @@ fun NetflixDetailScreen(
                                     .focusRequester(contentRowFocusRequester)
                                     .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
-                                items(state.collections, key = { it.id }) { collection ->
+                                items(state.collections, key = { it.id }, contentType = { "collection" }) { collection ->
                                     CollectionCard(
                                         title = collection.title,
                                         itemCount = collection.items.size,
@@ -362,7 +362,7 @@ fun NetflixDetailScreen(
                                     .focusRequester(contentRowFocusRequester)
                                     .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
-                                items(extras, key = { it.ratingKey }) { extra ->
+                                items(extras, key = { it.ratingKey }, contentType = { "extra" }) { extra ->
                                     ExtraCard(
                                         extra = extra,
                                         onClick = { onAction(MediaDetailEvent.PlayExtra(extra)) },
