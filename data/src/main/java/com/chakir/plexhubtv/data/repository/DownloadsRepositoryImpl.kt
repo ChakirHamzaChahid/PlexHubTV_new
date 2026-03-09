@@ -10,7 +10,12 @@ import javax.inject.Inject
 
 /**
  * Implémentation du repository de téléchargements.
- * Gère le statut et l'accès aux médias téléchargés localement (Feature future/partielle).
+ * Gère le statut et l'accès aux médias téléchargés localement.
+ *
+ * TODO(AGENT-6-002 / #92): Entirely stubbed — all methods return empty/success stubs.
+ *  UI entry points (download button, nav item) are hidden until this is implemented.
+ *  Implementation requires: WorkManager for background downloads, HTTP streaming to file,
+ *  progress tracking via DownloadDao, and offline playback support in PlayerController.
  */
 class DownloadsRepositoryImpl
     @Inject

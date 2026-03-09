@@ -202,7 +202,8 @@ class MediaDetailViewModel
                     }
                 }
                 is MediaDetailEvent.DownloadClicked -> {
-                    // Download feature not implemented
+                    // TODO: Download feature not implemented (AGENT-6-002 / #92).
+                    //  Button hidden in UI. Implement with WorkManager when ready.
                 }
                 is MediaDetailEvent.ToggleFavorite -> {
                     val media = _uiState.value.media ?: return

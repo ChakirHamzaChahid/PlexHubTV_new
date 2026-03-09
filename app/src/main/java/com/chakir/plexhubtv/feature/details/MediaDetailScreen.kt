@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -205,27 +204,8 @@ fun ActionButtonsRow(
             }
         }
 
-        // Download Button
-        var isDownloadFocused by remember { mutableStateOf(false) }
-
-        Button(
-            onClick = { onAction(MediaDetailEvent.DownloadClicked) },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isDownloadFocused) Color.White else Color.White.copy(alpha = 0.15f),
-                contentColor = if (isDownloadFocused) Color.Black else Color.White,
-                disabledContainerColor = Color.White.copy(alpha = 0.08f),
-                disabledContentColor = Color.White.copy(alpha = 0.38f),
-            ),
-            shape = RoundedCornerShape(4.dp),
-            modifier = Modifier
-                .height(40.dp)
-                .scale(if (isDownloadFocused) 1.05f else 1f)
-                .onFocusChanged { isDownloadFocused = it.isFocused },
-        ) {
-            Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Download", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-        }
+        // TODO: Download button hidden — feature is fully stubbed (AGENT-6-002 / #92).
+        //  Re-enable when DownloadsRepositoryImpl has real WorkManager-based download logic.
 
         // Watch Status
         var watchFocused by remember { mutableStateOf(false) }
