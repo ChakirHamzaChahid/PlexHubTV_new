@@ -70,6 +70,16 @@ interface ProfileDao {
     suspend fun activateProfile(profileId: String, timestamp: Long = System.currentTimeMillis())
 
     /**
+     * Atomically switches the active profile: deactivates all, then activates the target.
+     * Without @Transaction, a failure after deactivateAll leaves zero active profiles.
+     */
+    @Transaction
+    suspend fun switchActiveProfile(profileId: String, timestamp: Long = System.currentTimeMillis()) {
+        deactivateAllProfiles()
+        activateProfile(profileId, timestamp)
+    }
+
+    /**
      * Compte le nombre de profils.
      */
     @Query("SELECT COUNT(*) FROM profiles")

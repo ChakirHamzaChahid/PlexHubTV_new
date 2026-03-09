@@ -151,11 +151,7 @@ class OnDeckRepositoryImpl
                 // Update DB transactionally
                 mediaDao.upsertMedia(sorted)
 
-                // Clear stale On Deck entries before inserting fresh ones —
-                // without this, items removed from On Deck months ago persist forever.
-                homeContentDao.clearHomeContent("onDeck", "onDeck")
-
-                // Update HomeContent for ordering
+                // Atomically replace On Deck entries (single Room transaction)
                 val homeContent =
                     sorted.mapIndexed { index, entity ->
                         com.chakir.plexhubtv.core.database.HomeContentEntity(
@@ -167,7 +163,7 @@ class OnDeckRepositoryImpl
                             orderIndex = index,
                         )
                     }
-                homeContentDao.insertHomeContent(homeContent)
+                homeContentDao.replaceHomeContent("onDeck", "onDeck", homeContent)
             } catch (e: Exception) {
                 Timber.e(e, "OnDeck refresh failed")
             }

@@ -99,11 +99,8 @@ class ProfileRepositoryImpl @Inject constructor(
             val profile = getProfileById(profileId)
                 ?: return Result.failure(AppError.Validation("Profile not found"))
 
-            // Deactivate all profiles
-            profileDao.deactivateAllProfiles()
-
-            // Activate the selected profile
-            profileDao.activateProfile(profileId)
+            // Atomically deactivate all + activate selected (single Room transaction)
+            profileDao.switchActiveProfile(profileId)
 
             Timber.i("Switched to profile: ${profile.name}")
             Result.success(profile.copy(isActive = true, lastUsed = System.currentTimeMillis()))
