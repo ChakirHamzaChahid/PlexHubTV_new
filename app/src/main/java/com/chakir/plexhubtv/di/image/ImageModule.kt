@@ -43,7 +43,7 @@ object ImageModule {
         // System RAM can be 2GB while heap limit is only 192MB — sizing cache as % of system RAM
         // could configure a 200MB cache that exceeds the heap, leading to OOM under load.
         val maxHeap = Runtime.getRuntime().maxMemory()
-        val memoryCacheSize = (maxHeap * 0.25).toLong() // 25% of heap — Coil's default heuristic
+        val memoryCacheSize = (maxHeap * 0.20).toLong() // 20% of heap
             .coerceIn(32 * 1024 * 1024L, 256 * 1024 * 1024L) // Min 32 MB, Max 256 MB
 
         Timber.i(

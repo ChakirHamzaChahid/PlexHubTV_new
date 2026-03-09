@@ -246,6 +246,7 @@ class MpvPlayerWrapper(
         // Detach lifecycle observer to prevent leak
         attachedLifecycleOwner?.lifecycle?.removeObserver(this)
         attachedLifecycleOwner = null
+        surfaceView?.holder?.removeCallback(this)
         surfaceView = null
         isInitialized = false
     }

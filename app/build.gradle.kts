@@ -163,6 +163,7 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.compose.animation)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
     implementation(libs.androidx.compose.navigation)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
