@@ -23,12 +23,135 @@ object DatabaseModule {
             }
         }
 
+    // Gap migrations v12→v15: These version bumps occurred during early development when
+    // fallbackToDestructiveMigration() silently wiped the DB on each update. No user retains
+    // data from these versions, but Room requires a complete migration chain. The 14→15
+    // migration defensively ensures all base tables exist (CREATE TABLE IF NOT EXISTS) to
+    // handle the theoretical case of a very old install upgrading directly to the latest version.
+
+    private val MIGRATION_12_13 =
+        object : androidx.room.migration.Migration(12, 13) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // No-op: version bump during early development
+            }
+        }
+
+    private val MIGRATION_13_14 =
+        object : androidx.room.migration.Migration(13, 14) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // No-op: version bump during early development
+            }
+        }
+
+    private val MIGRATION_14_15 =
+        object : androidx.room.migration.Migration(14, 15) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Defensive: ensure base tables exist for very old installs.
+                // On fresh installs Room creates these from @Entity annotations,
+                // but on migration paths they must exist before 18→19 reworks collections.
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `downloads` (
+                        `globalKey` TEXT NOT NULL, `serverId` TEXT NOT NULL,
+                        `ratingKey` TEXT NOT NULL, `type` TEXT NOT NULL,
+                        `parentRatingKey` TEXT, `grandparentRatingKey` TEXT,
+                        `status` TEXT NOT NULL, `progress` INTEGER NOT NULL,
+                        `totalBytes` INTEGER, `downloadedBytes` INTEGER NOT NULL,
+                        `videoFilePath` TEXT, `thumbPath` TEXT, `errorMessage` TEXT,
+                        `retryCount` INTEGER NOT NULL, `downloadedAt` INTEGER,
+                        PRIMARY KEY(`globalKey`))"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `api_cache` (
+                        `cacheKey` TEXT NOT NULL, `data` TEXT NOT NULL,
+                        `cachedAt` INTEGER NOT NULL, `pinned` INTEGER NOT NULL,
+                        `ttlSeconds` INTEGER NOT NULL,
+                        PRIMARY KEY(`cacheKey`))"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `offline_watch_progress` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `serverId` TEXT NOT NULL, `ratingKey` TEXT NOT NULL,
+                        `globalKey` TEXT NOT NULL, `actionType` TEXT NOT NULL,
+                        `viewOffset` INTEGER, `duration` INTEGER,
+                        `shouldMarkWatched` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL,
+                        `syncAttempts` INTEGER NOT NULL, `lastError` TEXT)"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `home_content` (
+                        `type` TEXT NOT NULL, `hubIdentifier` TEXT NOT NULL,
+                        `title` TEXT NOT NULL, `itemServerId` TEXT NOT NULL,
+                        `itemRatingKey` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`type`, `hubIdentifier`, `itemServerId`, `itemRatingKey`))"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `favorites` (
+                        `ratingKey` TEXT NOT NULL, `serverId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL, `type` TEXT NOT NULL,
+                        `thumbUrl` TEXT, `artUrl` TEXT, `year` INTEGER,
+                        `addedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`ratingKey`, `serverId`))"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `remote_keys` (
+                        `libraryKey` TEXT NOT NULL, `filter` TEXT NOT NULL,
+                        `sortOrder` TEXT NOT NULL, `offset` INTEGER NOT NULL,
+                        `prevKey` INTEGER, `nextKey` INTEGER,
+                        PRIMARY KEY(`libraryKey`, `filter`, `sortOrder`, `offset`))"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `library_sections` (
+                        `id` TEXT NOT NULL, `serverId` TEXT NOT NULL,
+                        `libraryKey` TEXT NOT NULL, `title` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        PRIMARY KEY(`id`))"""
+                )
+                // collections table with OLD schema (single-column PK).
+                // Migration 18→19 will rework it to composite PK (id, serverId).
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `collections` (
+                        `id` TEXT NOT NULL, `serverId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL, `summary` TEXT, `thumbUrl` TEXT,
+                        `lastSync` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`))"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `media_collection_cross_ref` (
+                        `mediaRatingKey` TEXT NOT NULL, `collectionId` TEXT NOT NULL,
+                        `serverId` TEXT NOT NULL,
+                        PRIMARY KEY(`mediaRatingKey`, `collectionId`, `serverId`))"""
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_media_collection_cross_ref_mediaRatingKey_serverId` ON `media_collection_cross_ref` (`mediaRatingKey`, `serverId`)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_media_collection_cross_ref_collectionId_serverId` ON `media_collection_cross_ref` (`collectionId`, `serverId`)"
+                )
+            }
+        }
+
     private val MIGRATION_15_16 =
         object : androidx.room.migration.Migration(15, 16) {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "CREATE TABLE IF NOT EXISTS `track_preferences` (`ratingKey` TEXT NOT NULL, `serverId` TEXT NOT NULL, `audioStreamId` TEXT, `subtitleStreamId` TEXT, `lastUpdated` INTEGER NOT NULL, PRIMARY KEY(`ratingKey`, `serverId`))",
                 )
+            }
+        }
+
+    // Gap migrations v16→v18: Same situation as v12→v15.
+    private val MIGRATION_16_17 =
+        object : androidx.room.migration.Migration(16, 17) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // No-op: version bump during early development
+            }
+        }
+
+    private val MIGRATION_17_18 =
+        object : androidx.room.migration.Migration(17, 18) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // No-op: version bump during early development
             }
         }
 
@@ -369,7 +492,12 @@ object DatabaseModule {
             )
             .addMigrations(
                 MIGRATION_11_12,
+                MIGRATION_12_13,
+                MIGRATION_13_14,
+                MIGRATION_14_15,
                 MIGRATION_15_16,
+                MIGRATION_16_17,
+                MIGRATION_17_18,
                 MIGRATION_18_19,
                 MIGRATION_19_20,
                 MIGRATION_20_21,
