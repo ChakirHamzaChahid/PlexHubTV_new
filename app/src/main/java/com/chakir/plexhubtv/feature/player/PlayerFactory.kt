@@ -38,20 +38,17 @@ interface PlayerFactory {
 class ExoPlayerFactory
     @Inject
     constructor() : PlayerFactory {
+        // Shared OkHttpClient: reuses connection pool and thread pool across player sessions.
+        // Previously created per createExoPlayer() call, leaking pools on each session.
+        // Uses CrlfFixSocketFactory for Xtream/IPTV servers that send bare \r in headers.
+        private val playerOkHttpClient: OkHttpClient = OkHttpClient.Builder()
+            .socketFactory(CrlfFixSocketFactory())
+            .addInterceptor(RangeRetryInterceptor())
+            .build()
+
         override fun createExoPlayer(context: Context, isRelay: Boolean): ExoPlayer {
             val loadControl = createLoadControl(isRelay)
-
-            // Use OkHttpDataSource with CrlfFixSocketFactory.
-            // Many Xtream/IPTV servers send HTTP headers with bare \r instead of \r\n.
-            // Both Android's HttpURLConnection and standard OkHttp reject these with
-            // "EOFException: \n not found". CrlfFixSocketFactory transparently inserts
-            // \n after bare \r during header parsing, then passes body bytes through
-            // directly for zero overhead on video streaming.
-            val okHttpClient = OkHttpClient.Builder()
-                .socketFactory(CrlfFixSocketFactory())
-                .addInterceptor(RangeRetryInterceptor())
-                .build()
-            val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
+            val dataSourceFactory = OkHttpDataSource.Factory(playerOkHttpClient)
             val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
             val trackSelector = DefaultTrackSelector(context).apply {
