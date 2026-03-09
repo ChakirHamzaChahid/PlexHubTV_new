@@ -211,6 +211,12 @@ fun SettingsScreen(
                         },
                         onClick = { showDeinterlaceDialog = true },
                     )
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_auto_play_next),
+                        subtitle = stringResource(R.string.settings_auto_play_next_subtitle),
+                        isChecked = state.autoPlayNextEnabled,
+                        onCheckedChange = { onAction(SettingsAction.ToggleAutoPlayNext(it)) },
+                    )
                 }
             }
 

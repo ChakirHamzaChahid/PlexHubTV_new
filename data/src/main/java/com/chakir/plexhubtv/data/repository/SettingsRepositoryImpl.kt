@@ -73,6 +73,12 @@ class SettingsRepositoryImpl
             settingsDataStore.saveDeinterlaceMode(mode)
         }
 
+        override val autoPlayNextEnabled: Flow<Boolean> = settingsDataStore.autoPlayNextEnabled
+
+        override suspend fun setAutoPlayNext(enabled: Boolean) {
+            settingsDataStore.saveAutoPlayNext(enabled)
+        }
+
         override suspend fun setPreferredAudioLanguage(lang: String?) {
             settingsDataStore.savePreferredAudioLanguage(lang)
         }

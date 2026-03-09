@@ -267,6 +267,7 @@
     <string name="player_next_episode_label">Épisode suivant</string>
     <string name="player_next_episode_title">Prochain épisode : %1$s</string>
     <string name="player_play_now">Lire maintenant</string>
+    <string name="player_play_now_countdown">Lire maintenant (%1$ds)</string>
     <string name="player_unknown_title">Titre inconnu</string>
     <string name="player_playing_from">Lecture depuis %1$s</string>
     <string name="player_resuming_from">Reprise à %1$s</string>
@@ -369,6 +370,8 @@
     <string name="settings_section_playback">Lecture</string>
     <string name="settings_video_quality">Qualité vidéo</string>
     <string name="settings_player_engine">Moteur de lecture</string>
+    <string name="settings_auto_play_next">Lecture automatique de l\'épisode suivant</string>
+    <string name="settings_auto_play_next_subtitle">Lire automatiquement l\'épisode suivant après un compte à rebours de 15 secondes</string>
 
     <!-- Langues -->
     <string name="settings_section_languages">Langues</string>

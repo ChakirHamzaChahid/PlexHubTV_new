@@ -36,6 +36,10 @@ interface SettingsRepository {
 
     suspend fun setDeinterlaceMode(mode: String)
 
+    val autoPlayNextEnabled: Flow<Boolean>
+
+    suspend fun setAutoPlayNext(enabled: Boolean)
+
     // --- Audio/Subtitle Preferences ---
     val preferredAudioLanguage: Flow<String?> // "fr", "en", etc.
 

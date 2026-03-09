@@ -4,10 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
 import com.chakir.plexhubtv.feature.player.url.DirectStreamUrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -19,9 +23,13 @@ class PlayerControlViewModel @Inject constructor(
     val chapterMarkerManager: ChapterMarkerManager,
     private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
     private val directStreamUrlBuilder: DirectStreamUrlBuilder,
+    settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     val uiState = playerController.uiState
+
+    val autoPlayNextEnabled: StateFlow<Boolean> = settingsRepository.autoPlayNextEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     init {
         val ratingKey: String? = savedStateHandle["ratingKey"]

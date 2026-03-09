@@ -109,6 +109,10 @@ class SettingsViewModel
                     _uiState.update { it.copy(deinterlaceMode = action.mode) }
                     viewModelScope.launch { settingsRepository.setDeinterlaceMode(action.mode) }
                 }
+                is SettingsAction.ToggleAutoPlayNext -> {
+                    _uiState.update { it.copy(autoPlayNextEnabled = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setAutoPlayNext(action.enabled) }
+                }
                 is SettingsAction.ToggleShowYearOnCards -> {
                     _uiState.update { it.copy(showYearOnCards = action.enabled) }
                     viewModelScope.launch { settingsRepository.setShowYearOnCards(action.enabled) }
@@ -568,6 +572,13 @@ class SettingsViewModel
             viewModelScope.launch {
                 settingsRepository.deinterlaceMode.collect { mode ->
                     _uiState.update { it.copy(deinterlaceMode = mode) }
+                }
+            }
+
+            // Collect autoPlayNextEnabled separately
+            viewModelScope.launch {
+                settingsRepository.autoPlayNextEnabled.collect { enabled ->
+                    _uiState.update { it.copy(autoPlayNextEnabled = enabled) }
                 }
             }
 

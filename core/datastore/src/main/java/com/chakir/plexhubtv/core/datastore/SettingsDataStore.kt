@@ -53,6 +53,7 @@ class SettingsDataStore
         private val DEFAULT_SERVER = stringPreferencesKey("default_server")
         private val PLAYER_ENGINE = stringPreferencesKey("player_engine")
         private val DEINTERLACE_MODE = stringPreferencesKey("deinterlace_mode")
+        private val AUTO_PLAY_NEXT = stringPreferencesKey("auto_play_next")
         private val LAST_SYNC_TIME = stringPreferencesKey("last_sync_time")
         private val FIRST_SYNC_COMPLETE = stringPreferencesKey("first_sync_complete")
         private val EXCLUDED_SERVER_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("excluded_server_ids")
@@ -184,6 +185,10 @@ class SettingsDataStore
         val deinterlaceMode: Flow<String> =
             dataStore.data
                 .map { preferences -> preferences[DEINTERLACE_MODE] ?: "auto" }
+
+        val autoPlayNextEnabled: Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[AUTO_PLAY_NEXT]?.toBoolean() ?: true }
 
         val lastSyncTime: Flow<Long> =
             dataStore.data
@@ -342,6 +347,12 @@ class SettingsDataStore
         suspend fun saveDeinterlaceMode(mode: String) {
             dataStore.edit { preferences ->
                 preferences[DEINTERLACE_MODE] = mode
+            }
+        }
+
+        suspend fun saveAutoPlayNext(enabled: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[AUTO_PLAY_NEXT] = enabled.toString()
             }
         }
 

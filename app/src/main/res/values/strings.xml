@@ -267,6 +267,7 @@
     <string name="player_next_episode_label">Next Episode</string>
     <string name="player_next_episode_title">Next episode: %1$s</string>
     <string name="player_play_now">Play Now</string>
+    <string name="player_play_now_countdown">Play Now (%1$ds)</string>
     <string name="player_unknown_title">Unknown Title</string>
     <string name="player_playing_from">Playing from %1$s</string>
     <string name="player_resuming_from">Resuming from %1$s</string>
@@ -379,6 +380,8 @@
     <string name="settings_deinterlace_mode">Deinterlacing</string>
     <string name="settings_deinterlace_auto">Auto (recommended)</string>
     <string name="settings_deinterlace_off">Off</string>
+    <string name="settings_auto_play_next">Auto-play next episode</string>
+    <string name="settings_auto_play_next_subtitle">Automatically play the next episode after a 15-second countdown</string>
 
     <!-- Languages -->
     <string name="settings_section_languages">Languages</string>
