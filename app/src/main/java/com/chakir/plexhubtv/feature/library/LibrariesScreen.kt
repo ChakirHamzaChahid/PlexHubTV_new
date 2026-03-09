@@ -421,36 +421,41 @@ fun LibrariesScreen(
             }
             // ...
 
-            when {
-                // Loading state (only for INITIAL load)
-                pagedItems.loadState.refresh is androidx.paging.LoadState.Loading && pagedItems.itemCount == 0 -> {
-                    LibraryGridSkeleton(
-                        modifier = Modifier.fillMaxSize()
-                    )
+            // Isolate loadState read to prevent recomposition cascade:
+            // Reading loadState.refresh registers a Compose snapshot dependency.
+            // Using derivedStateOf limits recomposition to only this boolean check,
+            // not the entire parent composable tree.
+            val showSkeleton by remember {
+                derivedStateOf {
+                    pagedItems.loadState.refresh is androidx.paging.LoadState.Loading && pagedItems.itemCount == 0
                 }
-                // Content
-                else -> {
-                    if (state.display.selectedTab == LibraryTab.Recommended) {
-                        RecommendedContent(
-                            hubs = state.display.hubs,
-                            onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
-                        )
-                    } else {
-                        LibraryContent(
-                            pagedItems = pagedItems,
-                            viewMode = state.display.viewMode,
-                            onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
-                            onAction = onAction,
-                            gridState = gridState,
-                            listState = listState,
-                            showSidebar = showSidebar,
-                            scrollRequest = scrollRequest,
-                            onScrollConsumed = onScrollConsumed,
-                            lastFocusedId = state.scroll.lastFocusedId,
-                            showYear = showYear,
-                            gridColumnsCount = gridColumnsCount,
-                        )
-                    }
+            }
+
+            if (showSkeleton) {
+                LibraryGridSkeleton(
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                if (state.display.selectedTab == LibraryTab.Recommended) {
+                    RecommendedContent(
+                        hubs = state.display.hubs,
+                        onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
+                    )
+                } else {
+                    LibraryContent(
+                        pagedItems = pagedItems,
+                        viewMode = state.display.viewMode,
+                        onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
+                        onAction = onAction,
+                        gridState = gridState,
+                        listState = listState,
+                        showSidebar = showSidebar,
+                        scrollRequest = scrollRequest,
+                        onScrollConsumed = onScrollConsumed,
+                        lastFocusedId = state.scroll.lastFocusedId,
+                        showYear = showYear,
+                        gridColumnsCount = gridColumnsCount,
+                    )
                 }
             }
         }

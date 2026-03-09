@@ -3,6 +3,12 @@ package com.chakir.plexhubtv.feature.library
 import com.chakir.plexhubtv.core.model.LibrarySection
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 
 enum class LibraryTab(val title: String) {
     Recommended("Recommended"),
@@ -20,8 +26,8 @@ enum class LibraryViewMode {
 data class LibraryDisplayState(
     val isLoading: Boolean = false,
     val isLoadingMore: Boolean = false,
-    val items: List<MediaItem> = emptyList(),
-    val hubs: List<com.chakir.plexhubtv.core.model.Hub> = emptyList(),
+    val items: ImmutableList<MediaItem> = persistentListOf(),
+    val hubs: ImmutableList<com.chakir.plexhubtv.core.model.Hub> = persistentListOf(),
     val totalItems: Int = 0,
     val filteredItems: Int? = null,
     val mediaType: MediaType = MediaType.Movie,
@@ -39,16 +45,16 @@ data class LibraryFilterState(
     val selectedServerFilter: String? = null,
     val searchQuery: String = "",
     val isSearchVisible: Boolean = false,
-    val excludedServerIds: Set<String> = emptySet(),
-    val availableGenres: List<String> = emptyList(),
-    val availableServers: List<String> = emptyList(),
-    val availableServersMap: Map<String, String> = emptyMap(),
+    val excludedServerIds: ImmutableSet<String> = persistentSetOf(),
+    val availableGenres: ImmutableList<String> = persistentListOf(),
+    val availableServers: ImmutableList<String> = persistentListOf(),
+    val availableServersMap: ImmutableMap<String, String> = persistentMapOf(),
 )
 
 data class LibrarySelectionState(
     val selectedServerId: String? = null,
     val selectedLibraryId: String? = null,
-    val availableLibraries: List<LibrarySection> = emptyList(),
+    val availableLibraries: ImmutableList<LibrarySection> = persistentListOf(),
 )
 
 data class LibraryDialogState(

@@ -3,6 +3,8 @@ package com.chakir.plexhubtv.feature.library
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
+import androidx.paging.filter
+import com.chakir.plexhubtv.core.model.AgeRating
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -14,6 +16,8 @@ import java.util.concurrent.TimeUnit
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
+import com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
 import com.chakir.plexhubtv.feature.common.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,9 +30,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toImmutableSet
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -48,6 +56,8 @@ class LibraryViewModel
     @Inject
     constructor(
         private val getLibraryContentUseCase: GetLibraryContentUseCase,
+        private val profileRepository: ProfileRepository,
+        private val filterContentByAgeUseCase: FilterContentByAgeUseCase,
         private val authRepository: com.chakir.plexhubtv.domain.repository.AuthRepository,
         private val libraryRepository: com.chakir.plexhubtv.domain.repository.LibraryRepository,
         private val mediaDao: com.chakir.plexhubtv.core.database.MediaDao,
@@ -113,6 +123,9 @@ class LibraryViewModel
                 }
                 // Debounce removed: refresh is now explicitly triggered in UI via LaunchedEffect
                 .flatMapLatest { params ->
+                    Timber.d(
+                        "DATA [Library] Loading content: Library=${params.libraryId} Type=${params.mediaType} Filter=${params.filter} Sort=${params.sort} Server=${params.serverId}",
+                    )
                     getLibraryContentUseCase(
                         serverId = params.serverId,
                         libraryKey = params.libraryId,
@@ -125,13 +138,29 @@ class LibraryViewModel
                         excludedServerIds = params.excludedServerIds,
                         initialKey = params.initialScrollIndex,
                         query = params.query,
-                    ).also {
-                        Timber.d(
-                            "DATA [Library] Loading content: Library=${params.libraryId} Type=${params.mediaType} Filter=${params.filter} Sort=${params.sort} Server=${params.serverId}",
-                        )
+                    ).map { pagingData ->
+                        val profile = profileRepository.getActiveProfile()
+                        if (profile != null && (profile.isKidsProfile || profile.ageRating != AgeRating.ADULT)) {
+                            pagingData.filter { item -> filterContentByAgeUseCase.isItemAllowed(item, profile) }
+                        } else {
+                            pagingData
+                        }
                     }
                 }
                 .cachedIn(viewModelScope)
+                .also {
+                    if (com.chakir.plexhubtv.BuildConfig.DEBUG) {
+                        var emissionCount = 0
+                        viewModelScope.launch {
+                            it.onEach {
+                                emissionCount++
+                                if (emissionCount > 1) {
+                                    Timber.w("PERF [Library] PagingData re-emission #$emissionCount (possible background media table write)")
+                                }
+                            }.collect {} // Side-effect only collector for debug logging
+                        }
+                    }
+                }
 
         data class FilterParams(
             val filter: String,
@@ -189,7 +218,7 @@ class LibraryViewModel
                         Timber.e(e, "LibraryViewModel: excludedServerIds collection failed")
                     }
                 ) { excluded ->
-                    _uiState.update { it.copy(filter = it.filter.copy(excludedServerIds = excluded)) }
+                    _uiState.update { it.copy(filter = it.filter.copy(excludedServerIds = excluded.toImmutableSet())) }
                 }
 
                 // Restore persisted filter preferences
@@ -331,7 +360,7 @@ class LibraryViewModel
                 _uiState.update {
                     it.copy(
                         display = it.display.copy(totalItems = totalCount, isLoading = false),
-                        filter = it.filter.copy(availableServers = serverNames, availableServersMap = serverMap, availableGenres = allGenres),
+                        filter = it.filter.copy(availableServers = serverNames.toImmutableList(), availableServersMap = serverMap.toImmutableMap(), availableGenres = allGenres.toImmutableList()),
                     )
                 }
 
