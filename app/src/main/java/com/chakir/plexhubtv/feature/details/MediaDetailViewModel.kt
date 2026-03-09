@@ -57,7 +57,7 @@ class MediaDetailViewModel
         private val _uiState = MutableStateFlow(MediaDetailUiState(isLoading = true))
         val uiState: StateFlow<MediaDetailUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<MediaDetailNavigationEvent>()
+        private val _navigationEvents = Channel<MediaDetailNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         init {

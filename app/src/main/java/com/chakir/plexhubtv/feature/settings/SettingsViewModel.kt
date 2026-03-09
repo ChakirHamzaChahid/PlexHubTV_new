@@ -53,7 +53,7 @@ class SettingsViewModel
         private val _uiState = MutableStateFlow(SettingsUiState())
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<SettingsNavigationEvent>()
+        private val _navigationEvents = Channel<SettingsNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         val isTvChannelsEnabled: StateFlow<Boolean> = settingsRepository.isTvChannelsEnabled

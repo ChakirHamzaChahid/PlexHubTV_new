@@ -24,8 +24,8 @@ class MpvPlayerWrapper(
     companion object {
     }
 
-    private var surfaceView: SurfaceView? = null
-    var isInitialized = false
+    private @Volatile var surfaceView: SurfaceView? = null
+    @Volatile var isInitialized = false
         private set
 
     private val _isPlaying = MutableStateFlow(false)
@@ -68,9 +68,9 @@ class MpvPlayerWrapper(
     private val _cacheDuration = MutableStateFlow(0.0)
     val cacheDuration: StateFlow<Double> = _cacheDuration.asStateFlow()
 
-    private var pendingUrl: String? = null
-    private var pendingPosition: Long? = null
-    private var attachedLifecycleOwner: LifecycleOwner? = null
+    @Volatile private var pendingUrl: String? = null
+    @Volatile private var pendingPosition: Long? = null
+    @Volatile private var attachedLifecycleOwner: LifecycleOwner? = null
 
     override fun initialize(viewGroup: ViewGroup) {
         if (isInitialized) return

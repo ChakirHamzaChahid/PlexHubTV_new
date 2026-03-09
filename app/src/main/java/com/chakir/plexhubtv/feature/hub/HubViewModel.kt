@@ -33,7 +33,7 @@ class HubViewModel
         private val _uiState = MutableStateFlow(HubUiState(isLoading = true))
         val uiState: StateFlow<HubUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<HubNavigationEvent>()
+        private val _navigationEvents = Channel<HubNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         init {

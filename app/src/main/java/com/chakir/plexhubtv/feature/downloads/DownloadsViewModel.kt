@@ -28,7 +28,7 @@ class DownloadsViewModel
         private val _uiState = MutableStateFlow(DownloadsUiState(isLoading = true))
         val uiState: StateFlow<DownloadsUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<DownloadsNavigationEvent>()
+        private val _navigationEvents = Channel<DownloadsNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         init {

@@ -28,7 +28,7 @@ class AppProfileViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AppProfileUiState())
     val uiState: StateFlow<AppProfileUiState> = _uiState.asStateFlow()
 
-    private val _navigationEvents = Channel<AppProfileNavigationEvent>()
+    private val _navigationEvents = Channel<AppProfileNavigationEvent>(Channel.BUFFERED)
     val navigationEvents = _navigationEvents.receiveAsFlow()
 
     init {

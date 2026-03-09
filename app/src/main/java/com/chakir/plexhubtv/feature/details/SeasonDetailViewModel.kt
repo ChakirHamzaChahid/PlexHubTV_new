@@ -79,7 +79,7 @@ class SeasonDetailViewModel
         private val _isOfflineMode = MutableStateFlow(false)
         val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
 
-        private val _navigationEvents = Channel<SeasonDetailNavigationEvent>()
+        private val _navigationEvents = Channel<SeasonDetailNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         init {

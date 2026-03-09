@@ -63,7 +63,7 @@ class LibraryViewModel
         val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
         // Canal pour les événements de navigation (Effets uniques, ex: Toast, Navigation)
-        private val _navigationEvents = Channel<LibraryNavigationEvent>()
+        private val _navigationEvents = Channel<LibraryNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         /**
