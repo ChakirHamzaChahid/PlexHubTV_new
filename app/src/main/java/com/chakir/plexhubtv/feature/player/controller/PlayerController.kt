@@ -61,20 +61,29 @@ class PlayerController @Inject constructor(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
+    @Volatile
     var player: ExoPlayer? = null
         private set
+    @Volatile
     var mpvPlayer: com.chakir.plexhubtv.feature.player.mpv.MpvPlayer? = null
         private set
 
     private var positionTrackerJob: Job? = null
+    @Volatile
     private var isMpvMode = false
+    @Volatile
     private var isDirectPlay = false
     /** PLY-19: Prevents resume toast from re-appearing on quality/track changes */
+    @Volatile
     private var hasShownResumeToast = false
 
+    @Volatile
     private var ratingKey: String? = null
+    @Volatile
     private var serverId: String? = null
+    @Volatile
     private var directUrl: String? = null
+    @Volatile
     private var startOffset: Long = 0L
 
     fun initialize(startRatingKey: String?, startServerId: String?, startDirectUrl: String?, offset: Long) {
