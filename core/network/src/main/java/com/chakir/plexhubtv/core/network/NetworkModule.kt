@@ -128,6 +128,7 @@ object NetworkModule {
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -256,6 +257,7 @@ object NetworkModule {
             .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -295,6 +297,7 @@ object NetworkModule {
         val tmdbClient = okHttpClient.newBuilder()
             .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
 
         return Retrofit.Builder()
@@ -323,6 +326,7 @@ object NetworkModule {
         val omdbClient = okHttpClient.newBuilder()
             .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
 
         return Retrofit.Builder()

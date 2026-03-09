@@ -14,7 +14,7 @@ import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.flow.first
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
@@ -120,7 +120,7 @@ class EnrichMediaItemUseCase
                     Timber.d("Enrich: Room-first found ${localMatches.size} remote source(s) for '${item.title}'")
 
                     // Fetch full details for matches that lack mediaParts or streams (needed for resolution, codecs, languages)
-                    val roomSources = coroutineScope {
+                    val roomSources = supervisorScope {
                         localMatches.map { match ->
                             async {
                                 val needsFullDetails = match.mediaParts.isEmpty() ||
@@ -158,7 +158,7 @@ class EnrichMediaItemUseCase
                     val networkSources = if (missingPlexServers.isNotEmpty() && item.type == MediaType.Episode) {
                         performanceTracker.addCheckpoint(opId, "Room Partial - Network Fallback",
                             mapOf("roomMatches" to roomSources.size, "missingServers" to missingPlexServers.size))
-                        coroutineScope {
+                        supervisorScope {
                             missingPlexServers.map { server ->
                                 async {
                                     try {
@@ -277,7 +277,7 @@ class EnrichMediaItemUseCase
             opId: String,
         ): MediaItem =
             kotlinx.coroutines.withContext(ioDispatcher) {
-                coroutineScope {
+                supervisorScope {
                     val networkStart = System.currentTimeMillis()
                     val matchesDeferred =
                         allServers

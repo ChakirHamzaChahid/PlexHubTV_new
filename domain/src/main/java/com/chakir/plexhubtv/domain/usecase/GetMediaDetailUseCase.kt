@@ -9,7 +9,7 @@ import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -72,14 +72,14 @@ class GetMediaDetailUseCase
                     return@flow
                 }
 
-                coroutineScope {
+                supervisorScope {
                     // 1. Fetch primary detail + speculatively fetch children in TRUE parallel
                     // Both getMediaDetail and getChildren are Room-first (~5ms), so launching both
                     // simultaneously saves the sequential wait even if children aren't needed.
                     val itemDeferred = async { mediaDetailRepository.getMediaDetail(ratingKey, serverId) }
                     val childrenDeferred = async { mediaDetailRepository.getShowSeasons(ratingKey, serverId) }
-
-                    val itemResult = itemDeferred.await()
+                    
+                    val itemResult = try { itemDeferred.await() } catch (e: Exception) { Result.failure(e) }
 
                     if (itemResult.isSuccess) {
                         val item = itemResult.getOrThrow()
@@ -120,7 +120,7 @@ class GetMediaDetailUseCase
     private suspend fun mergeEpisodesFromAllSources(
         season: MediaItem,
         primaryEpisodes: List<MediaItem>
-    ): List<MediaItem> = coroutineScope {
+    ): List<MediaItem> = supervisorScope {
         try {
             // Load episodes from all remote sources in parallel
             val allSourceEpisodes = season.remoteSources.map { source ->
