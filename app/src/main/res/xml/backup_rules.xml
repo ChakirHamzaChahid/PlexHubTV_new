@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  fullBackupContent rules for API 23-30.
+  Excludes all sensitive data from cloud/ADB backups.
+-->
+<full-backup-content>
+    <!-- Exclude encrypted prefs (tokens, API keys, Xtream passwords) -->
+    <exclude domain="sharedpref" path="plex_secure_prefs.xml" />
+    <!-- Exclude DataStore files (may contain user settings with server URLs) -->
+    <exclude domain="file" path="datastore/" />
+    <!-- Exclude Room database (contains server credentials, watch history) -->
+    <exclude domain="database" path="plexhub_database" />
+    <exclude domain="database" path="plexhub_database-wal" />
+    <exclude domain="database" path="plexhub_database-shm" />
+</full-backup-content>
