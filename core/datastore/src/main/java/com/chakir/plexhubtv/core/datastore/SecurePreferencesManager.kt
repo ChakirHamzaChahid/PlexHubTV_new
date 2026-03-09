@@ -34,6 +34,7 @@ class SecurePreferencesManager
             const val KEY_CLIENT_ID = "client_id"
             const val KEY_TMDB_API_KEY = "tmdb_api_key"
             const val KEY_OMDB_API_KEY = "omdb_api_key"
+        const val KEY_PARENTAL_PIN = "parental_pin"
         }
 
         private val _isEncryptionDegraded = MutableStateFlow(false)
@@ -170,6 +171,22 @@ class SecurePreferencesManager
 
         fun getOmdbApiKey(): String? =
             encryptedPrefs?.getString(KEY_OMDB_API_KEY, null)
+
+        fun saveParentalPin(pin: String) {
+            synchronized(this) {
+                encryptedPrefs?.edit()?.putString(KEY_PARENTAL_PIN, pin)?.apply()
+                    ?: Timber.w("Cannot save parental PIN: encryption unavailable")
+            }
+        }
+
+        fun getParentalPin(): String? =
+            encryptedPrefs?.getString(KEY_PARENTAL_PIN, null)
+
+        fun clearParentalPin() {
+            synchronized(this) {
+                encryptedPrefs?.edit()?.remove(KEY_PARENTAL_PIN)?.apply()
+            }
+        }
 
         fun putSecret(key: String, value: String) {
             synchronized(this) {

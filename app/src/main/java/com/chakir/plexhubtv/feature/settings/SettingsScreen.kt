@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +36,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.BuildConfig
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
+import com.chakir.plexhubtv.core.ui.ParentalPinDialog
+import com.chakir.plexhubtv.core.ui.PinDialogMode
 
 private const val PRIVACY_POLICY_URL = "https://chakir-elarram.github.io/PlexHubTV/privacy-policy-en.html"
 
@@ -104,6 +107,7 @@ fun SettingsScreen(
     var showRatingSyncSourceDialog by remember { mutableStateOf(false) }
     var showRatingSyncDelayDialog by remember { mutableStateOf(false) }
     var showRatingSyncDailyLimitDialog by remember { mutableStateOf(false) }
+    var showParentalPinDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
@@ -161,6 +165,30 @@ fun SettingsScreen(
                         icon = Icons.Default.ManageAccounts,
                         onClick = { onAction(SettingsAction.ManageAppProfiles) },
                     )
+                }
+            }
+
+            // --- Parental Controls ---
+            item {
+                SettingsSection(stringResource(R.string.settings_section_parental)) {
+                    SettingsTile(
+                        title = if (state.hasParentalPin) {
+                            stringResource(R.string.settings_parental_pin_change)
+                        } else {
+                            stringResource(R.string.settings_parental_pin_set)
+                        },
+                        subtitle = stringResource(R.string.settings_parental_pin_subtitle),
+                        icon = Icons.Default.Lock,
+                        onClick = { showParentalPinDialog = true },
+                    )
+                    if (state.hasParentalPin) {
+                        SettingsTile(
+                            title = stringResource(R.string.settings_parental_pin_remove),
+                            subtitle = stringResource(R.string.settings_parental_pin_remove_subtitle),
+                            titleColor = MaterialTheme.colorScheme.error,
+                            onClick = { onAction(SettingsAction.ClearParentalPin) },
+                        )
+                    }
                 }
             }
 
@@ -931,6 +959,18 @@ fun SettingsScreen(
                 onAction(SettingsAction.ChangeRatingSyncDelay(delay))
                 showRatingSyncDelayDialog = false
             },
+        )
+    }
+
+    // Parental PIN Dialog
+    if (showParentalPinDialog) {
+        ParentalPinDialog(
+            mode = PinDialogMode.SetPin,
+            onPinSubmit = { pin ->
+                onAction(SettingsAction.SetParentalPin(pin))
+                showParentalPinDialog = false
+            },
+            onDismiss = { showParentalPinDialog = false },
         )
     }
 

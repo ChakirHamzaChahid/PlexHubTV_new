@@ -58,10 +58,12 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.SeekTo -> playerController.seekTo(action.position)
             is PlayerAction.Next -> {
                 val nextMedia = playbackManager.getNextMedia()
+                Timber.d("[Player] Next pressed: nextMedia=${nextMedia?.title} (rk=${nextMedia?.ratingKey}, sid=${nextMedia?.serverId})")
                 if (nextMedia != null) {
                     playbackManager.next()
                     loadOrPlayMedia(nextMedia)
                 } else {
+                    Timber.w("[Player] Next pressed but NO next media in queue → closing dialogs only")
                     onAction(PlayerAction.Close)
                 }
             }
@@ -78,10 +80,12 @@ class PlayerControlViewModel @Inject constructor(
             }
             is PlayerAction.PlayNext -> {
                 val nextMedia = playbackManager.getNextMedia()
+                Timber.d("[Player] PlayNext (auto): nextMedia=${nextMedia?.title} (rk=${nextMedia?.ratingKey}, sid=${nextMedia?.serverId})")
                 if (nextMedia != null) {
                     playbackManager.next()
                     loadOrPlayMedia(nextMedia)
                 } else {
+                    Timber.w("[Player] PlayNext (auto) but NO next media in queue")
                     onAction(PlayerAction.Close)
                 }
             }
@@ -180,10 +184,13 @@ class PlayerControlViewModel @Inject constructor(
      * Resets per-episode state (startOffset, resume toast) via PlayerController.playNext*().
      */
     private fun loadOrPlayMedia(media: MediaItem) {
-        if (directStreamUrlBuilder.isDirectStream(media.serverId)) {
+        val isDirectStream = directStreamUrlBuilder.isDirectStream(media.serverId)
+        Timber.d("[Player] loadOrPlayMedia: '${media.title}' (rk=${media.ratingKey}, sid=${media.serverId}, isDirectStream=$isDirectStream)")
+        if (isDirectStream) {
             viewModelScope.launch {
                 val url = directStreamUrlBuilder.buildUrl(media.ratingKey, media.serverId)
                 if (url != null) {
+                    Timber.d("[Player] loadOrPlayMedia: Direct stream URL resolved, calling playNextDirectStream")
                     playerController.playNextDirectStream(url, media)
                 } else {
                     Timber.e("[Player] Failed to resolve stream URL for ${media.ratingKey} on ${media.serverId}")
@@ -193,6 +200,7 @@ class PlayerControlViewModel @Inject constructor(
                 }
             }
         } else {
+            Timber.d("[Player] loadOrPlayMedia: Plex path, calling playNext(${media.ratingKey}, ${media.serverId})")
             playerController.playNext(media.ratingKey, media.serverId)
         }
     }

@@ -17,6 +17,7 @@ import com.chakir.plexhubtv.domain.repository.PlaybackRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import androidx.paging.map
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -138,6 +139,40 @@ class PlaybackRepositoryImpl
                     .orEmpty()
 
                 entities.map { entity ->
+                    val domain = mapper.mapEntityToDomain(entity)
+                    val server = serverMap[entity.serverId]
+                    // Always use current connection URL, not stale resolvedBaseUrl
+                    val baseUrl = server?.let {
+                        connectionManager.getCachedUrl(it.clientIdentifier) ?: it.address
+                    }
+
+                    if (server != null && baseUrl != null) {
+                        mediaUrlResolver.resolveUrls(domain, baseUrl, server.accessToken).copy(
+                            baseUrl = baseUrl,
+                            accessToken = server.accessToken,
+                        )
+                    } else {
+                        domain
+                    }
+                }
+            }
+        }
+
+        override fun getWatchHistoryPaged(): Flow<androidx.paging.PagingData<MediaItem>> {
+            return androidx.paging.Pager(
+                config = androidx.paging.PagingConfig(
+                    pageSize = 20,
+                    enablePlaceholders = false,
+                    initialLoadSize = 40
+                ),
+                pagingSourceFactory = { mediaDao.getHistoryPaged() }
+            ).flow.map { pagingData ->
+                // Build server map once for O(1) lookups (memory-cached in AuthRepository)
+                val serverMap = authRepository.getServers().getOrNull()
+                    ?.associateBy { it.clientIdentifier }
+                    .orEmpty()
+
+                pagingData.map { entity ->
                     val domain = mapper.mapEntityToDomain(entity)
                     val server = serverMap[entity.serverId]
                     // Always use current connection URL, not stale resolvedBaseUrl

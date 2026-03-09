@@ -105,6 +105,7 @@ class BackendSourceHandler @Inject constructor(
                         title = firstEp.parentTitle ?: "Season $seasonNum",
                         type = MediaType.Season,
                         parentRatingKey = ratingKey,
+                        parentIndex = seasonNum,
                         seasonIndex = seasonNum,
                         thumbUrl = firstEp.thumbUrl,
                         parentTitle = firstEp.grandparentTitle,

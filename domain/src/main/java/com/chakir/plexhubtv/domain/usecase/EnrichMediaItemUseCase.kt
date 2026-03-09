@@ -12,12 +12,17 @@ import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.first
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,6 +50,13 @@ class EnrichMediaItemUseCase
         // In-memory cache: keyed by "ratingKey:serverId" → enriched MediaItem
         private val cache = ConcurrentHashMap<String, MediaItem>()
 
+        // In-flight deduplication: prevents duplicate enrichment when prefetch + play overlap
+        private val inFlight = ConcurrentHashMap<String, Deferred<MediaItem>>()
+
+        // Show-level source cache: grandparentTitle → (serverId → showRatingKey)
+        // Avoids repeated search API calls when binge-watching episodes of the same show
+        private val showServerCache = ConcurrentHashMap<String, ConcurrentHashMap<String, String>>()
+
         /**
          * Clears cached episode enrichment results so the next call re-queries Room.
          * Call after new remote episodes are cached to Room (e.g. after prefetch).
@@ -70,14 +82,27 @@ class EnrichMediaItemUseCase
                 return cached
             }
 
+            // In-flight deduplication: if another coroutine is already enriching this item, await its result
+            val deferred = CompletableDeferred<MediaItem>()
+            val existing = inFlight.putIfAbsent(cacheKey, deferred)
+            if (existing != null) {
+                Timber.d("Enrich: In-flight dedup for ${item.title} ($cacheKey) — awaiting existing")
+                performanceTracker.endOperation(opId, success = true, additionalMeta = mapOf("deduplicated" to true))
+                return existing.await()
+            }
+
             return try {
                 enrich(item, opId).also {
                     cache[cacheKey] = it
+                    deferred.complete(it)
                     performanceTracker.endOperation(opId, success = true, additionalMeta = mapOf("cacheHit" to false, "sources" to it.remoteSources.size))
                 }
             } catch (e: Exception) {
+                deferred.completeExceptionally(e)
                 performanceTracker.endOperation(opId, success = false, errorMessage = e.message)
                 throw e
+            } finally {
+                inFlight.remove(cacheKey)
             }
         }
 
@@ -159,16 +184,25 @@ class EnrichMediaItemUseCase
                         performanceTracker.addCheckpoint(opId, "Room Partial - Network Fallback",
                             mapOf("roomMatches" to roomSources.size, "missingServers" to missingPlexServers.size))
                         supervisorScope {
-                            missingPlexServers.map { server ->
+                            val partialResults = CopyOnWriteArrayList<MediaSource>()
+                            val jobs = missingPlexServers.map { server ->
                                 async {
                                     try {
-                                        enrichEpisodeViaTreeTraversal(item, server, opId)
+                                        val result = enrichEpisodeViaTreeTraversal(item, server, opId)
+                                        if (result != null) partialResults.add(result)
+                                        result
                                     } catch (e: Exception) {
                                         Timber.w(e, "Enrich: tree traversal failed on ${server.name} for '${item.title}'")
                                         null
                                     }
                                 }
-                            }.awaitAll().filterNotNull()
+                            }
+                            val completedInTime = withTimeoutOrNull(4000) { jobs.awaitAll() }
+                            if (completedInTime == null) {
+                                Timber.w("Enrich: Partial network fallback timed out after 4s, returning ${partialResults.size} results")
+                                jobs.forEach { if (it.isActive) it.cancel() }
+                            }
+                            partialResults.toList()
                         }
                     } else emptyList()
 
@@ -276,36 +310,73 @@ class EnrichMediaItemUseCase
             serverMap: Map<String, String>,
             opId: String,
         ): MediaItem =
-            kotlinx.coroutines.withContext(ioDispatcher) {
+            withContext(ioDispatcher) {
                 supervisorScope {
                     val networkStart = System.currentTimeMillis()
-                    val matchesDeferred =
-                        allServers
-                            .filter { it.clientIdentifier != item.serverId }
-                            .map { server ->
-                                async {
-                                    val serverSearchStart = System.currentTimeMillis()
-                                    try {
-                                        if (item.type == MediaType.Episode) {
-                                            // Tree traversal: search show → find season → find episode by index
-                                            enrichEpisodeViaTreeTraversal(item, server, opId)
-                                        } else {
-                                            enrichMovieOrShowViaSearch(item, server, serverSearchStart, opId)
-                                        }
-                                    } catch (e: Exception) {
-                                        val serverSearchDuration = System.currentTimeMillis() - serverSearchStart
-                                        performanceTracker.addCheckpoint(
-                                            opId,
-                                            "Network Search FAILED: ${server.name}",
-                                            mapOf("duration" to serverSearchDuration, "error" to (e.message ?: "unknown"))
-                                        )
-                                        Timber.w(e, "Enrich: search failed on ${server.name} for '${item.title}'")
-                                        null
-                                    }
-                                }
-                            }
+                    val otherServers = allServers.filter { it.clientIdentifier != item.serverId }
 
-                    val matches = matchesDeferred.awaitAll().filterNotNull()
+                    // === Episode pre-filtering: only search servers that have the parent show ===
+                    val preFilteredShowMap: Map<String, String> = if (item.type == MediaType.Episode) {
+                        val parentUnificationId = item.grandparentRatingKey?.let { gpRk ->
+                            mediaDetailRepository.getParentShowIds(gpRk, item.serverId)?.unificationId
+                        }
+                        if (!parentUnificationId.isNullOrBlank()) {
+                            val serversWithShow = mediaDetailRepository.findServersWithShow(parentUnificationId, item.serverId)
+                            if (serversWithShow.isNotEmpty()) {
+                                performanceTracker.addCheckpoint(opId, "Pre-filtered servers",
+                                    mapOf("total" to otherServers.size, "withShow" to serversWithShow.size))
+                                Timber.d("Enrich: Pre-filtered ${otherServers.size} servers to ${serversWithShow.size} (show found in Room)")
+                            }
+                            serversWithShow
+                        } else emptyMap()
+                    } else emptyMap()
+
+                    val collectedResults = CopyOnWriteArrayList<MediaSource>()
+
+                    val jobs = otherServers.map { server ->
+                        async {
+                            val serverSearchStart = System.currentTimeMillis()
+                            try {
+                                val result = if (item.type == MediaType.Episode) {
+                                    val knownShowRk = preFilteredShowMap[server.clientIdentifier]
+                                    if (knownShowRk != null) {
+                                        // Show found in Room on this server → direct traversal (skip search API)
+                                        val seasonIndex = item.seasonIndex ?: item.parentIndex ?: return@async null
+                                        val episodeIndex = item.episodeIndex ?: return@async null
+                                        traverseShowToEpisode(knownShowRk, server.clientIdentifier, seasonIndex, episodeIndex, server.name, opId)
+                                    } else if (preFilteredShowMap.isNotEmpty()) {
+                                        // Pre-filtering active but show NOT on this server → skip entirely
+                                        null
+                                    } else {
+                                        // No pre-filtering info → full tree traversal (search API fallback)
+                                        enrichEpisodeViaTreeTraversal(item, server, opId)
+                                    }
+                                } else {
+                                    enrichMovieOrShowViaSearch(item, server, serverSearchStart, opId)
+                                }
+                                if (result != null) collectedResults.add(result)
+                                result
+                            } catch (e: Exception) {
+                                val serverSearchDuration = System.currentTimeMillis() - serverSearchStart
+                                performanceTracker.addCheckpoint(
+                                    opId,
+                                    "Network Search FAILED: ${server.name}",
+                                    mapOf("duration" to serverSearchDuration, "error" to (e.message ?: "unknown"))
+                                )
+                                Timber.w(e, "Enrich: search failed on ${server.name} for '${item.title}'")
+                                null
+                            }
+                        }
+                    }
+
+                    // Wait up to 4s — slow/dead servers won't block the entire enrichment
+                    val completedInTime = withTimeoutOrNull(4000) { jobs.awaitAll() }
+                    if (completedInTime == null) {
+                        Timber.w("Enrich: Network fallback timed out after 4s, returning ${collectedResults.size} partial results")
+                        jobs.forEach { if (it.isActive) it.cancel() }
+                    }
+
+                    val matches = collectedResults.toList()
                     val networkTotalDuration = System.currentTimeMillis() - networkStart
                     performanceTracker.addCheckpoint(
                         opId,
@@ -345,6 +416,18 @@ class EnrichMediaItemUseCase
             val seasonIndex = episode.seasonIndex ?: episode.parentIndex ?: return null
             val episodeIndex = episode.episodeIndex ?: return null
 
+            // === Strategy 0: Show-level source cache (instant for episode 2+) ===
+            val cachedShowRk = showServerCache[showTitle]?.get(server.clientIdentifier)
+            if (cachedShowRk != null) {
+                val result = traverseShowToEpisode(cachedShowRk, server.clientIdentifier, seasonIndex, episodeIndex, server.name, opId)
+                if (result != null) {
+                    performanceTracker.addCheckpoint(opId, "Show Cache Hit: ${server.name}", mapOf("showRk" to cachedShowRk))
+                    return result
+                }
+                // Cache stale (show removed?) — remove entry and fall through
+                showServerCache[showTitle]?.remove(server.clientIdentifier)
+            }
+
             // Look up parent show info from Room once (used by both strategies)
             val parentInfo = episode.grandparentRatingKey?.let { gpRk ->
                 mediaDetailRepository.getParentShowIds(gpRk, episode.serverId)
@@ -362,13 +445,15 @@ class EnrichMediaItemUseCase
                     val result = traverseShowToEpisode(remoteShow.ratingKey, server.clientIdentifier, seasonIndex, episodeIndex, server.name, opId)
                     if (result != null) {
                         performanceTracker.addCheckpoint(opId, "Room-Show Shortcut: ${server.name}", mapOf("showRk" to remoteShow.ratingKey))
+                        // Cache for subsequent episodes
+                        showServerCache.getOrPut(showTitle) { ConcurrentHashMap() }[server.clientIdentifier] = remoteShow.ratingKey
                         return result
                     }
                 }
             }
 
             // === Strategy 2: Search API + multi-strategy matching ===
-            val searchRes = kotlinx.coroutines.withTimeoutOrNull(3000) {
+            val searchRes = withTimeoutOrNull(3000) {
                 searchRepository.searchOnServer(server, showTitle)
             }
             val candidates = searchRes?.getOrNull() ?: emptyList()
@@ -391,6 +476,9 @@ class EnrichMediaItemUseCase
                 Timber.d("Enrich: Tree traversal miss on ${server.name} — searched '$showTitle', found: $showTitles")
                 return null
             }
+
+            // Cache for subsequent episodes
+            showServerCache.getOrPut(showTitle) { ConcurrentHashMap() }[server.clientIdentifier] = showMatch.ratingKey
 
             return traverseShowToEpisode(showMatch.ratingKey, server.clientIdentifier, seasonIndex, episodeIndex, server.name, opId)
         }
@@ -439,7 +527,7 @@ class EnrichMediaItemUseCase
             serverSearchStart: Long,
             opId: String,
         ): MediaSource? {
-            val searchRes = kotlinx.coroutines.withTimeoutOrNull(3000) {
+            val searchRes = withTimeoutOrNull(3000) {
                 searchRepository.searchOnServer(server, item.title)
             }
             val results = searchRes?.getOrNull() ?: emptyList()

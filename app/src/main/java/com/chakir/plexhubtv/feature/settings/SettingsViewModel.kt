@@ -73,6 +73,7 @@ class SettingsViewModel
             observeSettings()
             observeBackendServers()
             observeXtreamAccounts()
+            _uiState.update { it.copy(hasParentalPin = settingsRepository.hasParentalPin()) }
         }
 
         fun onAction(action: SettingsAction) {
@@ -401,6 +402,14 @@ class SettingsViewModel
                         kotlinx.coroutines.delay(5000)
                         _uiState.update { it.copy(backendConfigMessage = null) }
                     }
+                }
+                is SettingsAction.SetParentalPin -> {
+                    settingsRepository.setParentalPin(action.pin)
+                    _uiState.update { it.copy(hasParentalPin = true) }
+                }
+                is SettingsAction.ClearParentalPin -> {
+                    settingsRepository.setParentalPin(null)
+                    _uiState.update { it.copy(hasParentalPin = false) }
                 }
                 is SettingsAction.SyncBackend -> {
                     _uiState.update { it.copy(isSyncingBackend = true, backendSyncMessage = null) }

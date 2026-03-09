@@ -35,7 +35,6 @@ jobs:
 
       - name: Unit Tests
         run: ./gradlew testDebugUnitTest --continue
-        continue-on-error: true
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug

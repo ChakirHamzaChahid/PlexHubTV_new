@@ -1,7 +1,11 @@
 package com.chakir.plexhubtv.feature.player.controller
 
 import android.app.Application
+import android.media.AudioAttributes as AndroidAudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.PlaybackException
@@ -86,6 +90,54 @@ class PlayerController @Inject constructor(
     @Volatile
     private var startOffset: Long = 0L
 
+    // --- MPV AudioFocus management ---
+    // ExoPlayer handles AudioFocus automatically via setAudioAttributes(handleAudioFocus=true).
+    // MPV needs manual AudioFocus since it's a standalone player with no Android framework integration.
+    private val audioManager = application.getSystemService(android.content.Context.AUDIO_SERVICE) as AudioManager
+
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        if (!isMpvMode) return@OnAudioFocusChangeListener
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                Timber.d("PlayerController: AudioFocus LOSS (MPV) → pausing")
+                mpvPlayer?.pause()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                Timber.d("PlayerController: AudioFocus LOSS_TRANSIENT (MPV) → pausing")
+                mpvPlayer?.pause()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                // MPV doesn't support volume ducking — pause instead
+                Timber.d("PlayerController: AudioFocus LOSS_TRANSIENT_CAN_DUCK (MPV) → pausing")
+                mpvPlayer?.pause()
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                Timber.d("PlayerController: AudioFocus GAIN (MPV) → resuming")
+                mpvPlayer?.resume()
+            }
+        }
+    }
+
+    private val mpvAudioFocusRequest: AudioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        .setAudioAttributes(
+            AndroidAudioAttributes.Builder()
+                .setUsage(AndroidAudioAttributes.USAGE_MEDIA)
+                .setContentType(AndroidAudioAttributes.CONTENT_TYPE_MOVIE)
+                .build()
+        )
+        .setOnAudioFocusChangeListener(audioFocusListener)
+        .build()
+
+    private fun requestMpvAudioFocus() {
+        val result = audioManager.requestAudioFocus(mpvAudioFocusRequest)
+        Timber.d("PlayerController: MPV AudioFocus request result=$result")
+    }
+
+    private fun abandonMpvAudioFocus() {
+        audioManager.abandonAudioFocusRequest(mpvAudioFocusRequest)
+        Timber.d("PlayerController: MPV AudioFocus abandoned")
+    }
+
     fun initialize(startRatingKey: String?, startServerId: String?, startDirectUrl: String?, offset: Long) {
         // Safety: if a previous session left a stale player (e.g., rapid navigation), clean up first
         if (player != null || mpvPlayer != null) {
@@ -153,6 +205,7 @@ class PlayerController @Inject constructor(
      * Resets per-episode state (startOffset, resume toast, auto-next) without recreating ExoPlayer.
      */
     fun playNext(nextRatingKey: String, nextServerId: String) {
+        Timber.d("PlayerController.playNext: Switching to rk=$nextRatingKey, sid=$nextServerId (isMpvMode=$isMpvMode, player=${player != null}, mpvPlayer=${mpvPlayer != null})")
         this.ratingKey = nextRatingKey
         this.serverId = nextServerId
         this.startOffset = 0L
@@ -179,6 +232,11 @@ class PlayerController @Inject constructor(
 
         playerStatsTracker.stopTracking()
         playerScrobbler.stop()
+
+        // Release MPV audio focus if in MPV mode
+        if (isMpvMode) {
+            abandonMpvAudioFocus()
+        }
 
         // Capture references and null immediately to prevent further use
         val exo = player
@@ -523,6 +581,7 @@ class PlayerController @Inject constructor(
         player = null
 
         mpvPlayer = playerFactory.createMpvPlayer(application, scope, config)
+        requestMpvAudioFocus()
 
         // S-05: Observe MPV init/runtime errors to avoid stuck screen
         scope.launch {
@@ -657,6 +716,7 @@ class PlayerController @Inject constructor(
     }
 
     fun loadMedia(rKey: String, sId: String, bitrateOverride: Int? = null, audioIndex: Int? = null, subtitleIndex: Int? = null, audioStreamId: String? = null, subtitleStreamId: String? = null) {
+        Timber.d("PlayerController.loadMedia: rk=$rKey, sid=$sId (isMpvMode=$isMpvMode, scopeActive=${sessionJob.isActive})")
         scope.launch {
             val opId = "player_load_$rKey"
             performanceTracker.startOperation(

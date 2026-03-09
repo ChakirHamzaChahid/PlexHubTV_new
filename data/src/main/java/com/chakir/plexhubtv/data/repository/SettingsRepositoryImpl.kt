@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.datastore.SecurePreferencesManager
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -13,6 +14,7 @@ class SettingsRepositoryImpl
     @Inject
     constructor(
         private val settingsDataStore: SettingsDataStore,
+        private val securePreferencesManager: SecurePreferencesManager,
         private val cacheManager: com.chakir.plexhubtv.core.util.CacheManager,
         private val database: com.chakir.plexhubtv.core.database.PlexDatabase,
     ) : SettingsRepository {
@@ -200,4 +202,22 @@ class SettingsRepositoryImpl
         override suspend fun saveLibraryServerFilter(serverName: String?) {
             settingsDataStore.saveLibraryServerFilter(serverName)
         }
+
+        // Parental PIN
+        override fun getParentalPin(): String? =
+            securePreferencesManager.getParentalPin()
+
+        override fun setParentalPin(pin: String?) {
+            if (pin.isNullOrBlank()) {
+                securePreferencesManager.clearParentalPin()
+            } else {
+                securePreferencesManager.saveParentalPin(pin)
+            }
+        }
+
+        override fun hasParentalPin(): Boolean =
+            securePreferencesManager.getParentalPin() != null
+
+        override fun verifyParentalPin(input: String): Boolean =
+            securePreferencesManager.getParentalPin() == input
     }

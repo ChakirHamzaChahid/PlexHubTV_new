@@ -14,10 +14,7 @@ class GetWatchHistoryUseCase
     constructor(
         private val playbackRepository: PlaybackRepository,
     ) {
-        operator fun invoke(
-            limit: Int = 50,
-            offset: Int = 0,
-        ): Flow<List<MediaItem>> {
-            return playbackRepository.getWatchHistory(limit, offset)
-        }
+        operator fun invoke(): Flow<androidx.paging.PagingData<MediaItem>> {
+        return playbackRepository.getWatchHistoryPaged()
+    }
     }

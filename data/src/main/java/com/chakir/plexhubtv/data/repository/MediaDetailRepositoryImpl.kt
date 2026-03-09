@@ -192,6 +192,9 @@ class MediaDetailRepositoryImpl
             } else domain
         }
 
+        override suspend fun findServersWithShow(unificationId: String, excludeServerId: String): Map<String, String> =
+            mediaDao.findServersWithShow(unificationId, excludeServerId)
+
         override suspend fun getShowSeasons(
             ratingKey: String,
             serverId: String,

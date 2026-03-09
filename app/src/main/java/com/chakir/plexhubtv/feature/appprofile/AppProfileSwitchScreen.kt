@@ -17,6 +17,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.core.model.Profile
+import com.chakir.plexhubtv.core.ui.ParentalPinDialog
+import com.chakir.plexhubtv.core.ui.PinDialogMode
 
 /**
  * Ecran de gestion des profils utilisateur (Profils locaux de l'app).
@@ -170,6 +172,16 @@ fun AppProfileSwitchScreen(
             profileName = state.profileToDelete.name,
             onConfirm = { onAction(AppProfileAction.DeleteProfile(state.profileToDelete.id)) },
             onDismiss = { onAction(AppProfileAction.DismissDialog) },
+        )
+    }
+
+    // PIN verification dialog
+    if (state.showPinDialog) {
+        ParentalPinDialog(
+            mode = PinDialogMode.VerifyPin,
+            error = state.pinError,
+            onPinSubmit = { pin -> onAction(AppProfileAction.VerifyPin(pin)) },
+            onDismiss = { onAction(AppProfileAction.DismissPin) },
         )
     }
 }

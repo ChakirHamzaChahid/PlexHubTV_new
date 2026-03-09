@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.feature.player
 
 import android.content.Context
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -57,11 +58,17 @@ class ExoPlayerFactory
                     .build()
             }
 
-            return ExoPlayer.Builder(context)
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                .build()
+
+        return ExoPlayer.Builder(context)
                 .setTrackSelector(trackSelector)
                 .setMediaSourceFactory(mediaSourceFactory)
                 .setLoadControl(loadControl)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
+                .setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true)
                 .build()
         }
 

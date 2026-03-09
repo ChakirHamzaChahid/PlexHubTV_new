@@ -40,6 +40,12 @@ import androidx.room.Entity
         androidx.room.Index(value = ["lastViewedAt"]),
         // Watch history GROUP BY optimization: materialized group key
         androidx.room.Index(value = ["historyGroupKey"]),
+        // ISSUE #113 FIX: Optimize getChildren() with episode ordering (MediaDao:26-30)
+        androidx.room.Index(value = ["parentRatingKey", "serverId", "index"]),
+        // ISSUE #113 FIX: Optimize Xtream queries getMediaByServerTypeFilter (MediaDao:59-60)
+        androidx.room.Index(value = ["serverId", "type", "filter", "titleSortable"]),
+        // ISSUE #113 FIX: Optimize findRemoteEpisodeSources for multi-server playback (MediaDao:232-248)
+        androidx.room.Index(value = ["type", "grandparentTitle", "parentIndex", "index"]),
     ],
 )
 data class MediaEntity(

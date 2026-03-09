@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 31 : Ajout de FTS4 sur media pour recherche plein texte performante.
+ * Version 36 : Ajout d'index composites pour optimisation des requêtes (Issue #113)
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -31,7 +31,7 @@ import androidx.room.TypeConverters
         BackendServerEntity::class,
         IdBridgeEntity::class,
     ],
-    version = 35,
+    version = 36,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {

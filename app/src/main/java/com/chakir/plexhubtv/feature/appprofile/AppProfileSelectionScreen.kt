@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.Profile
+import com.chakir.plexhubtv.core.ui.ParentalPinDialog
+import com.chakir.plexhubtv.core.ui.PinDialogMode
 
 /**
  * Route pour l'écran de sélection de profil avec ViewModel.
@@ -77,6 +79,16 @@ fun AppProfileSelectionRoute(
                 viewModel.onAction(AppProfileAction.SubmitCreateProfile(name, emoji, isKids))
             },
             onDismiss = { viewModel.onAction(AppProfileAction.DismissDialog) },
+        )
+    }
+
+    // PIN verification dialog
+    if (uiState.showPinDialog) {
+        ParentalPinDialog(
+            mode = PinDialogMode.VerifyPin,
+            error = uiState.pinError,
+            onPinSubmit = { pin -> viewModel.onAction(AppProfileAction.VerifyPin(pin)) },
+            onDismiss = { viewModel.onAction(AppProfileAction.DismissPin) },
         )
     }
 

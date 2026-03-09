@@ -42,6 +42,7 @@ interface HomeContentDao {
         FROM home_content h
         INNER JOIN media m ON h.itemServerId = m.serverId AND h.itemRatingKey = m.ratingKey
         WHERE h.type = :type AND h.hubIdentifier = :hubIdentifier
+        AND m.filter = 'all'
         ORDER BY h.orderIndex ASC
     """,
     )

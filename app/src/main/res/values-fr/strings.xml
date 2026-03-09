@@ -629,4 +629,20 @@
     <string name="remove_from_continue_watching_subtitle">Cela marquera « %1$s » comme vu</string>
     <string name="remove_button">Retirer</string>
     <string name="cancel_button">Annuler</string>
+
+    <!-- ══════════════════════════════════════════════
+         Contrôle parental
+         ══════════════════════════════════════════════ -->
+    <string name="settings_section_parental">Contrôle parental</string>
+    <string name="settings_parental_pin_set">Définir le code parental</string>
+    <string name="settings_parental_pin_change">Modifier le code parental</string>
+    <string name="settings_parental_pin_subtitle">Code requis pour quitter le profil enfant</string>
+    <string name="settings_parental_pin_remove">Supprimer le code parental</string>
+    <string name="settings_parental_pin_remove_subtitle">Désactiver le code pour le changement de profil</string>
+    <string name="parental_pin_set_title">Définir le code PIN</string>
+    <string name="parental_pin_confirm_title">Confirmer le code PIN</string>
+    <string name="parental_pin_verify_title">Entrer le code parental</string>
+    <string name="parental_pin_backspace">&#x232B;</string>
+    <string name="parental_pin_ok">OK</string>
+    <string name="parental_pin_cancel">Annuler</string>
 </resources>

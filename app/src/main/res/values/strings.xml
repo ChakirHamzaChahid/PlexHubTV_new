@@ -639,4 +639,20 @@
     <string name="remove_from_continue_watching_subtitle">This will mark \"%1$s\" as watched</string>
     <string name="remove_button">Remove</string>
     <string name="cancel_button">Cancel</string>
+
+    <!-- ══════════════════════════════════════════════
+         Parental Controls
+         ══════════════════════════════════════════════ -->
+    <string name="settings_section_parental">Parental Controls</string>
+    <string name="settings_parental_pin_set">Set Parental PIN</string>
+    <string name="settings_parental_pin_change">Change Parental PIN</string>
+    <string name="settings_parental_pin_subtitle">Require PIN to switch from Kids profile</string>
+    <string name="settings_parental_pin_remove">Remove Parental PIN</string>
+    <string name="settings_parental_pin_remove_subtitle">Disable PIN requirement for profile switching</string>
+    <string name="parental_pin_set_title">Set Parental PIN</string>
+    <string name="parental_pin_confirm_title">Confirm PIN</string>
+    <string name="parental_pin_verify_title">Enter Parental PIN</string>
+    <string name="parental_pin_backspace">&#x232B;</string>
+    <string name="parental_pin_ok">OK</string>
+    <string name="parental_pin_cancel">Cancel</string>
 </resources>

@@ -47,6 +47,8 @@ data class SettingsUiState(
     val ratingSyncDailyLimit: Int = 900,
     val ratingSyncProgressSeries: Int = 0,
     val ratingSyncProgressMovies: Int = 0,
+    // Parental PIN
+    val hasParentalPin: Boolean = false,
 )
 
 enum class AppTheme {
@@ -129,4 +131,8 @@ sealed interface SettingsAction {
     data class TestBackendConnection(val url: String) : SettingsAction
 
     data object SyncBackend : SettingsAction
+
+    data class SetParentalPin(val pin: String) : SettingsAction
+
+    data object ClearParentalPin : SettingsAction
 }

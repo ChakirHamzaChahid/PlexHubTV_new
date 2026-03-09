@@ -1,5 +1,7 @@
 # PlexHubTV
 
+[![Android CI](https://github.com/ChakirHamzaChahid/PlexHubTV_new/actions/workflows/ci.yml/badge.svg)](https://github.com/ChakirHamzaChahid/PlexHubTV_new/actions/workflows/ci.yml)
+
 A modern Android TV client for Plex Media Server, built with Jetpack Compose and Material 3 Design.
 
 ## Features

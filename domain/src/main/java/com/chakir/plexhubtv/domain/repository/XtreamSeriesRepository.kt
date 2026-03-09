@@ -14,5 +14,5 @@ interface XtreamSeriesRepository {
 
     suspend fun getSeriesDetail(accountId: String, seriesId: Int): Result<MediaDetail>
 
-    fun buildEpisodeUrl(accountId: String, episodeId: String, extension: String): String
+    suspend fun buildEpisodeUrl(accountId: String, episodeId: String, extension: String): String
 }

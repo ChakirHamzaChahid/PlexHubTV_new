@@ -214,3 +214,8 @@ artifacts/view.xml
 artifacts/view2.xml
 artifacts/view3.xml
 .kotlin/sessions/kotlin-compiler-3360614168295275067.salive
+post_calls.txt
+global_scopes.txt
+get_calls.txt
+coroutine_scopes.txt
+build_error_utf8.txt

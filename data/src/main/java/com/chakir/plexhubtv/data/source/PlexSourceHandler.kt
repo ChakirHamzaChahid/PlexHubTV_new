@@ -158,7 +158,9 @@ class PlexSourceHandler @Inject constructor(
                 if (response.isSuccessful) {
                     val metadata = response.body()?.mediaContainer?.metadata
                     if (metadata != null) {
-                        val entities = metadata.map { mapper.mapDtoToEntity(it, serverId, "") }
+                        val entities = metadata.mapIndexed { index, dto ->
+                            mapper.mapDtoToEntity(dto, serverId, "").copy(pageOffset = index)
+                        }
                         mediaDao.upsertMedia(entities)
                         Timber.d("Cached ${entities.size} Plex episodes to Room for $seasonRatingKey")
                         return@safeApiCall metadata.map {

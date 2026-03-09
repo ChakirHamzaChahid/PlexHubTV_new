@@ -3,6 +3,8 @@ package com.chakir.plexhubtv.feature.home
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
+import com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import com.chakir.plexhubtv.feature.common.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,6 +32,8 @@ class HomeViewModel
     @Inject
     constructor(
         private val getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase,
+        private val profileRepository: ProfileRepository,
+        private val filterContentByAgeUseCase: FilterContentByAgeUseCase,
         private val workManager: androidx.work.WorkManager,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
     ) : BaseViewModel() {
@@ -108,10 +112,16 @@ class HomeViewModel
                 .onEach { result ->
                     result.fold(
                         onSuccess = { content ->
+                            val activeProfile = profileRepository.getActiveProfile()
+                            val filtered = if (activeProfile != null) {
+                                filterContentByAgeUseCase(content.onDeck, activeProfile)
+                            } else {
+                                content.onDeck
+                            }
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
-                                    onDeck = content.onDeck.toImmutableList(),
+                                    onDeck = filtered.toImmutableList(),
                                 )
                             }
                         },

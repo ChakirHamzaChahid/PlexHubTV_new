@@ -24,9 +24,11 @@ interface PlaybackRepository {
 
     /** Récupère l'historique de visionnage. */
     fun getWatchHistory(
-        limit: Int,
-        offset: Int,
+        limit: Int = 100,
+        offset: Int = 0,
     ): Flow<List<MediaItem>>
+
+    fun getWatchHistoryPaged(): Flow<androidx.paging.PagingData<MediaItem>>
 
     /** Met à jour la sélection de flux (audio/sous-titres) pour un média. */
     suspend fun updateStreamSelection(

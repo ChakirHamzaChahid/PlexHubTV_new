@@ -135,4 +135,13 @@ interface SettingsRepository {
     suspend fun saveLibraryGenre(genre: String?)
 
     suspend fun saveLibraryServerFilter(serverName: String?)
+
+    // --- Parental PIN ---
+    fun getParentalPin(): String?
+
+    fun setParentalPin(pin: String?)
+
+    fun hasParentalPin(): Boolean
+
+    fun verifyParentalPin(input: String): Boolean
 }

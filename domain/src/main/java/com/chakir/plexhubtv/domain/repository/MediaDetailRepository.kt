@@ -51,6 +51,9 @@ interface MediaDetailRepository {
     /** Finds a show on a specific server by unificationId (Room-only, no network). */
     suspend fun findRemoteShowByUnificationId(unificationId: String, serverId: String): MediaItem?
 
+    /** Returns all servers (serverId → showRatingKey) that have a show with the given unificationId. */
+    suspend fun findServersWithShow(unificationId: String, excludeServerId: String): Map<String, String>
+
     /** Récupère toutes les collections associées au média. */
     fun getMediaCollections(
         ratingKey: String,

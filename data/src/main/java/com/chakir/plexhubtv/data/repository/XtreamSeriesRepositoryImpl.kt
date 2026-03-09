@@ -6,6 +6,7 @@ import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.XtreamCategory
+import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.core.network.xtream.XtreamApiClient
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.data.mapper.XtreamMediaMapper
@@ -33,8 +34,8 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
 ) : XtreamSeriesRepository {
 
     override suspend fun getCategories(accountId: String): Result<List<XtreamCategory>> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("XtreamSeriesRepository.getCategories") {
+            withContext(ioDispatcher) {
                 val (service, username, password) = getServiceCredentials(accountId)
                 val dtos = service.getSeriesCategories(username, password)
                 dtos.mapNotNull { xtreamMapper.mapCategoryDto(it) }
@@ -42,8 +43,8 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
         }
 
     override suspend fun syncSeries(accountId: String, categoryId: Int?): Result<Int> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("XtreamSeriesRepository.syncSeries") {
+            withContext(ioDispatcher) {
                 val (service, username, password) = getServiceCredentials(accountId)
                 val dtos = service.getSeries(username, password, categoryId = categoryId)
 
@@ -77,8 +78,8 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
         }.flowOn(ioDispatcher)
 
     override suspend fun getSeriesDetail(accountId: String, seriesId: Int): Result<MediaDetail> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("XtreamSeriesRepository.getSeriesDetail") {
+            withContext(ioDispatcher) {
                 val (service, username, password) = getServiceCredentials(accountId)
                 val response = service.getSeriesInfo(username, password, seriesId = seriesId)
                 // Patch seriesId: the "info" object from get_series_info doesn't include series_id,
@@ -133,15 +134,11 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
             }
         }
 
-    override fun buildEpisodeUrl(accountId: String, episodeId: String, extension: String): String {
-        val account = runCatching {
-            kotlinx.coroutines.runBlocking { accountRepo.getAccount(accountId) }
-        }.getOrNull() ?: throw IllegalStateException("Account $accountId not found")
-
-        val password = runCatching {
-            kotlinx.coroutines.runBlocking { accountRepo.getDecryptedPassword(accountId) }
-        }.getOrNull() ?: throw IllegalStateException("Password not found for account $accountId")
-
+    override suspend fun buildEpisodeUrl(accountId: String, episodeId: String, extension: String): String {
+        val account = accountRepo.getAccount(accountId)
+            ?: throw IllegalStateException("Account $accountId not found")
+        val password = accountRepo.getDecryptedPassword(accountId)
+            ?: throw IllegalStateException("Password not found for account $accountId")
         return apiClient.buildEpisodeUrl(account, account.username, password, episodeId, extension)
     }
 

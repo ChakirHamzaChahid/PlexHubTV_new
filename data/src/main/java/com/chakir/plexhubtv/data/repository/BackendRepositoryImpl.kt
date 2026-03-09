@@ -17,6 +17,7 @@ import com.chakir.plexhubtv.core.network.backend.BackendApiClient
 import com.chakir.plexhubtv.core.network.backend.BackendCategoryUpdate
 import com.chakir.plexhubtv.core.network.backend.BackendCategoryUpdateRequest
 import com.chakir.plexhubtv.core.network.backend.BackendSyncRequest
+import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.data.mapper.BackendMediaMapper
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.BackendRepository
@@ -46,8 +47,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun addServer(label: String, baseUrl: String): Result<BackendServer> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.addServer") {
+            withContext(ioDispatcher) {
                 val service = backendApiClient.getService(baseUrl)
                 val health = service.getHealth()
                 require(health.status == "ok") { "Backend unhealthy: ${health.status}" }
@@ -74,8 +75,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun testConnection(baseUrl: String): Result<BackendConnectionInfo> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.testConnection") {
+            withContext(ioDispatcher) {
                 val service = backendApiClient.getService(baseUrl)
                 val health = service.getHealth()
                 BackendConnectionInfo(
@@ -87,8 +88,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun syncMedia(backendId: String): Result<Int> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.syncMedia") {
+            withContext(ioDispatcher) {
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
                 val service = backendApiClient.getService(backend.baseUrl)
@@ -169,8 +170,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getStreamUrl(ratingKey: String, backendServerId: String): Result<String> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.getStreamUrl") {
+            withContext(ioDispatcher) {
                 val backendId = backendServerId.removePrefix("backend_")
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
@@ -189,8 +190,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getEpisodes(parentRatingKey: String, backendServerId: String): Result<List<MediaItem>> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.getEpisodes") {
+            withContext(ioDispatcher) {
                 val backendId = backendServerId.removePrefix("backend_")
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
@@ -219,12 +220,12 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getMediaDetail(ratingKey: String, backendServerId: String): Result<MediaItem> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.getMediaDetail") {
+            withContext(ioDispatcher) {
                 // Room first
                 val localEntity = mediaDao.getMedia(ratingKey, backendServerId)
                 if (localEntity != null) {
-                    return@runCatching mediaMapper.mapEntityToDomain(localEntity)
+                    return@withContext mediaMapper.mapEntityToDomain(localEntity)
                 }
 
                 // Fallback: fetch from backend API
@@ -250,8 +251,8 @@ class BackendRepositoryImpl @Inject constructor(
         port: Int,
         username: String,
         password: String,
-    ): Result<Unit> = withContext(ioDispatcher) {
-        runCatching {
+    ): Result<Unit> = safeApiCall("BackendRepository.createXtreamAccount") {
+        withContext(ioDispatcher) {
             val backend = backendServerDao.getById(backendId)
                 ?: throw IllegalStateException("Backend server $backendId not found")
             val service = backendApiClient.getService(backend.baseUrl)
@@ -269,8 +270,8 @@ class BackendRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteXtreamAccount(backendId: String, accountId: String): Result<Unit> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.deleteXtreamAccount") {
+            withContext(ioDispatcher) {
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
                 val service = backendApiClient.getService(backend.baseUrl)
@@ -279,8 +280,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun testXtreamAccount(backendId: String, accountId: String): Result<Unit> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.testXtreamAccount") {
+            withContext(ioDispatcher) {
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
                 val service = backendApiClient.getService(backend.baseUrl)
@@ -290,8 +291,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun syncAll(backendId: String): Result<String> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.syncAll") {
+            withContext(ioDispatcher) {
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
                 val service = backendApiClient.getService(backend.baseUrl)
@@ -300,8 +301,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun triggerAccountSync(backendId: String, accountId: String): Result<String> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.triggerAccountSync") {
+            withContext(ioDispatcher) {
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
                 val service = backendApiClient.getService(backend.baseUrl)
@@ -310,8 +311,8 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getCategories(backendId: String, accountId: String): Result<CategoryConfig> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.getCategories") {
+            withContext(ioDispatcher) {
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
                 val service = backendApiClient.getService(backend.baseUrl)
@@ -335,8 +336,8 @@ class BackendRepositoryImpl @Inject constructor(
         accountId: String,
         filterMode: String,
         categories: List<CategorySelection>,
-    ): Result<Unit> = withContext(ioDispatcher) {
-        runCatching {
+    ): Result<Unit> = safeApiCall("BackendRepository.updateCategories") {
+        withContext(ioDispatcher) {
             val backend = backendServerDao.getById(backendId)
                 ?: throw IllegalStateException("Backend server $backendId not found")
             val service = backendApiClient.getService(backend.baseUrl)
@@ -357,8 +358,8 @@ class BackendRepositoryImpl @Inject constructor(
     }
 
     override suspend fun refreshCategories(backendId: String, accountId: String): Result<Unit> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("BackendRepository.refreshCategories") {
+            withContext(ioDispatcher) {
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
                 val service = backendApiClient.getService(backend.baseUrl)

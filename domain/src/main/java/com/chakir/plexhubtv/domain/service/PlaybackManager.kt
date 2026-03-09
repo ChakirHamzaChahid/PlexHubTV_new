@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,14 +32,13 @@ class PlaybackManager
         ) {
             _state.update { current ->
                 val effectiveQueue = if (queue.isEmpty()) listOf(media) else queue
-                // Use ratingKey (canonical Plex identifier) instead of synthetic id
-                // which can differ between enriched items and queue items
-                // Fallback to ID or just ratingKey for unified items
                 val index = effectiveQueue.indexOfFirst {
                     it.ratingKey == media.ratingKey && it.serverId == media.serverId
                 }.takeIf { it != -1 } ?: effectiveQueue.indexOfFirst {
                     it.ratingKey == media.ratingKey || it.id == media.id
                 }.let { if (it == -1) 0 else it }
+
+                Timber.d("PlaybackManager.play: '${media.title}' (rk=${media.ratingKey}, sid=${media.serverId}) | queue=${effectiveQueue.size} items | index=$index | hasNext=${index + 1 < effectiveQueue.size}")
 
                 current.copy(
                     currentMedia = media,
@@ -86,11 +86,13 @@ class PlaybackManager
         fun getNextMedia(): MediaItem? {
             val s = _state.value
             val nextIndex = s.currentIndex + 1
-            return if (nextIndex >= 0 && nextIndex < s.playQueue.size) {
+            val result = if (nextIndex >= 0 && nextIndex < s.playQueue.size) {
                 s.playQueue[nextIndex]
             } else {
                 null
             }
+            Timber.d("PlaybackManager.getNextMedia: currentIndex=${s.currentIndex}, queueSize=${s.playQueue.size}, nextIndex=$nextIndex, hasNext=${result != null}, next='${result?.title}'")
+            return result
         }
 
         fun getPreviousMedia(): MediaItem? {

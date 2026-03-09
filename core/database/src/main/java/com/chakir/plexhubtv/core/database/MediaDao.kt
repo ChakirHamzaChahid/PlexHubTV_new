@@ -33,6 +33,15 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE guid = :guid")
     suspend fun getAllMediaByGuid(guid: String): List<MediaEntity>
 
+    // Optimization: Bulk query to prevent N+1 issues in Watchlist Sync
+    @Query("SELECT * FROM media WHERE guid IN (:guids)")
+    suspend fun getAllMediaByGuids(guids: List<String>): List<MediaEntity>
+
+    // ISSUE #113 FIX: Batch fetch media entities to prevent N+1 in FavoritesRepository
+    // Uses composite key concatenation since SQLite doesn't support tuple IN syntax
+    @Query("SELECT * FROM media WHERE (ratingKey || '|' || serverId) IN (:compositeKeys)")
+    suspend fun getBatchByCompositeKeys(compositeKeys: List<String>): List<MediaEntity>
+
     @Query("DELETE FROM media WHERE librarySectionId = :libraryId AND filter = :filter AND sortOrder = :sortOrder")
     suspend fun clearByLibraryFilterSort(
         libraryId: String,
@@ -168,6 +177,22 @@ interface MediaDao {
         offset: Int,
     ): Flow<List<MediaEntity>>
 
+    @Query(
+        "SELECT ratingKey, serverId, librarySectionId, title, titleSortable, " +
+        "filter, sortOrder, pageOffset, type, thumbUrl, artUrl, year, duration, summary, " +
+        "viewOffset, viewCount, MAX(lastViewedAt) as lastViewedAt, " +
+        "parentTitle, parentRatingKey, parentIndex, grandparentTitle, grandparentRatingKey, " +
+        "`index`, mediaParts, guid, imdbId, tmdbId, rating, audienceRating, contentRating, " +
+        "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
+        "parentThumb, grandparentThumb, displayRating, " +
+        "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
+        "historyGroupKey, scrapedRating, sourceServerId " +
+        "FROM media WHERE lastViewedAt > 0 " +
+        "GROUP BY historyGroupKey " +
+        "ORDER BY MAX(lastViewedAt) DESC"
+    )
+    fun getHistoryPaged(): androidx.paging.PagingSource<Int, MediaEntity>
+
     // Metadata for filters
     @Query(
         "SELECT COUNT(DISTINCT CASE WHEN unificationId = '' THEN ratingKey || serverId ELSE unificationId END) FROM media WHERE type = :type",
@@ -292,6 +317,17 @@ interface MediaDao {
         showUnificationId: String,
         enabledServerIds: List<String>,
     ): List<MediaEntity>
+
+    // Find all servers that have a show with the given unificationId (for enrichment pre-filtering)
+    @Query("""
+        SELECT serverId, ratingKey FROM media
+        WHERE type = 'show' AND unificationId = :unificationId
+        AND unificationId != '' AND serverId != :excludeServerId
+    """)
+    suspend fun findServersWithShow(
+        unificationId: String,
+        excludeServerId: String,
+    ): Map<@androidx.room.MapColumn(columnName = "serverId") String, @androidx.room.MapColumn(columnName = "ratingKey") String>
 
     // Persistence helper to survive library syncs
     @Query("SELECT ratingKey, scrapedRating FROM media WHERE ratingKey IN (:ratingKeys) AND serverId = :serverId")
