@@ -150,9 +150,18 @@ interface MediaDao {
     ): Int
 
     @Query(
-        "SELECT *, MAX(lastViewedAt) as lastViewedAt FROM media WHERE lastViewedAt > 0 " +
+        "SELECT ratingKey, serverId, librarySectionId, title, titleSortable, " +
+        "filter, sortOrder, pageOffset, type, thumbUrl, artUrl, year, duration, summary, " +
+        "viewOffset, viewCount, MAX(lastViewedAt) as lastViewedAt, " +
+        "parentTitle, parentRatingKey, parentIndex, grandparentTitle, grandparentRatingKey, " +
+        "`index`, mediaParts, guid, imdbId, tmdbId, rating, audienceRating, contentRating, " +
+        "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
+        "parentThumb, grandparentThumb, displayRating, " +
+        "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
+        "historyGroupKey, scrapedRating, sourceServerId " +
+        "FROM media WHERE lastViewedAt > 0 " +
         "GROUP BY historyGroupKey " +
-        "ORDER BY lastViewedAt DESC LIMIT :limit OFFSET :offset"
+        "ORDER BY MAX(lastViewedAt) DESC LIMIT :limit OFFSET :offset"
     )
     fun getHistory(
         limit: Int,
