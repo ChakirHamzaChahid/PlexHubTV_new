@@ -70,6 +70,7 @@ class MpvPlayerWrapper(
 
     private var pendingUrl: String? = null
     private var pendingPosition: Long? = null
+    private var attachedLifecycleOwner: LifecycleOwner? = null
 
     override fun initialize(viewGroup: ViewGroup) {
         if (isInitialized) return
@@ -228,6 +229,7 @@ class MpvPlayerWrapper(
     }
 
     override fun attach(lifecycleOwner: LifecycleOwner) {
+        attachedLifecycleOwner = lifecycleOwner
         lifecycleOwner.lifecycle.addObserver(this)
     }
 
@@ -237,7 +239,13 @@ class MpvPlayerWrapper(
 
     override fun release() {
         if (!isInitialized) return
+        // Remove observers BEFORE destroy to prevent JNI callbacks on torn-down native context
+        MPVLib.removeObserver(this)
+        MPVLib.removeLogObserver(this)
         MPVLib.destroy()
+        // Detach lifecycle observer to prevent leak
+        attachedLifecycleOwner?.lifecycle?.removeObserver(this)
+        attachedLifecycleOwner = null
         surfaceView = null
         isInitialized = false
     }
