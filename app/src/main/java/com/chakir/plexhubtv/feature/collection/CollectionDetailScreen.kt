@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.feature.collection
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -7,7 +8,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +37,8 @@ fun CollectionDetailRoute(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    BackHandler(onBack = onNavigateBack)
+
     CollectionDetailScreen(
         state = uiState,
         onNavigateToDetail = onNavigateToDetail,
@@ -59,10 +62,16 @@ fun CollectionDetailScreen(
         topBar = {
             TopAppBar(
                 title = { Text(state.collection?.title ?: collectionTitle) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.settings_back_description))
+                    }
+                },
                 colors =
                     TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black,
                         titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
                     ),
             )
         },

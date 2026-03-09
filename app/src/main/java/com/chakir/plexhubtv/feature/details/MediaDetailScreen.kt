@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.feature.details
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -74,6 +74,8 @@ fun MediaDetailRoute(
 
     val events = viewModel.navigationEvents
     val errorEvents = viewModel.errorEvents
+
+    BackHandler(onBack = onNavigateBack)
 
     // Handle navigation events
     LaunchedEffect(events) {
