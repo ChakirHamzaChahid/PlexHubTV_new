@@ -285,6 +285,7 @@ class HubsRepositoryImpl
                                 dto,
                                 client.server.clientIdentifier,
                                 dto.librarySectionID ?: "0",
+                                isOwned = client.server.isOwned,
                             )
                             entity.copy(
                                 filter = "hub",

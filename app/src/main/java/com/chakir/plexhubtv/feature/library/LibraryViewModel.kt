@@ -3,7 +3,6 @@ package com.chakir.plexhubtv.feature.library
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
-import androidx.paging.filter
 import com.chakir.plexhubtv.core.model.AgeRating
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import androidx.work.BackoffPolicy
@@ -17,7 +16,6 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
-import com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
 import com.chakir.plexhubtv.feature.common.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -57,7 +55,6 @@ class LibraryViewModel
     constructor(
         private val getLibraryContentUseCase: GetLibraryContentUseCase,
         private val profileRepository: ProfileRepository,
-        private val filterContentByAgeUseCase: FilterContentByAgeUseCase,
         private val authRepository: com.chakir.plexhubtv.domain.repository.AuthRepository,
         private val libraryRepository: com.chakir.plexhubtv.domain.repository.LibraryRepository,
         private val mediaDao: com.chakir.plexhubtv.core.database.MediaDao,
@@ -126,6 +123,19 @@ class LibraryViewModel
                     Timber.d(
                         "DATA [Library] Loading content: Library=${params.libraryId} Type=${params.mediaType} Filter=${params.filter} Sort=${params.sort} Server=${params.serverId}",
                     )
+                    // Compute maxAge for SQL-level content filtering (avoids iterating pagingData.filter{} per page)
+                    val profile = profileRepository.getActiveProfile()
+                    val maxAge = if (profile != null && (profile.isKidsProfile || profile.ageRating != AgeRating.ADULT)) {
+                        val profileMax = when (profile.ageRating) {
+                            AgeRating.GENERAL -> 0
+                            AgeRating.PARENTAL_7 -> 7
+                            AgeRating.PARENTAL_13 -> 13
+                            AgeRating.PARENTAL_16 -> 16
+                            AgeRating.ADULT -> 99
+                        }
+                        if (profile.isKidsProfile) minOf(profileMax, 7) else profileMax
+                    } else null
+
                     getLibraryContentUseCase(
                         serverId = params.serverId,
                         libraryKey = params.libraryId,
@@ -138,14 +148,8 @@ class LibraryViewModel
                         excludedServerIds = params.excludedServerIds,
                         initialKey = params.initialScrollIndex,
                         query = params.query,
-                    ).map { pagingData ->
-                        val profile = profileRepository.getActiveProfile()
-                        if (profile != null && (profile.isKidsProfile || profile.ageRating != AgeRating.ADULT)) {
-                            pagingData.filter { item -> filterContentByAgeUseCase.isItemAllowed(item, profile) }
-                        } else {
-                            pagingData
-                        }
-                    }
+                        maxAgeRating = maxAge,
+                    )
                 }
                 .cachedIn(viewModelScope)
                 .also {
@@ -365,7 +369,8 @@ class LibraryViewModel
                 }
 
                 // Si la bibliothèque semble vide ou corrompue, déclencher une synchro arrière-plan
-                if (totalCount < 100 && _uiState.value.selection.selectedServerId == "all") {
+                val currentServerId = _uiState.value.selection.selectedServerId
+                if (totalCount < 100 && (currentServerId == "all" || currentServerId == null)) {
                     Timber.i("Low item count ($totalCount), triggering background sync...")
                     triggerBackgroundSync()
                 }

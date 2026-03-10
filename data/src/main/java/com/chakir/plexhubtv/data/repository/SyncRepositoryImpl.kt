@@ -150,7 +150,7 @@ class SyncRepositoryImpl
                                 val entities =
                                     validMetadata.mapIndexed { index, dto ->
                                         val dtoWithLib = dto.copy(librarySectionID = libraryKey)
-                                        val entity = mediaMapper.mapDtoToEntity(dtoWithLib, server.clientIdentifier, libraryKey)
+                                        val entity = mediaMapper.mapDtoToEntity(dtoWithLib, server.clientIdentifier, libraryKey, isOwned = server.isOwned)
 
                                         // Restore scrapedRating and recompute displayRating
                                         val restoredScrapedRating = existingRatingsMap[dto.ratingKey]

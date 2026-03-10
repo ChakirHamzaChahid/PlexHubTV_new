@@ -47,15 +47,25 @@ class EnrichMediaItemUseCase
         private val getEnabledServerIdsUseCase: GetEnabledServerIdsUseCase,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
-        // In-memory cache: keyed by "ratingKey:serverId" → enriched MediaItem
-        private val cache = ConcurrentHashMap<String, MediaItem>()
+        // In-memory LRU cache: keyed by "ratingKey:serverId" → enriched MediaItem
+        // Capped at 500 entries to prevent unbounded growth during long binge sessions
+        private val cache: MutableMap<String, MediaItem> = java.util.Collections.synchronizedMap(
+            object : LinkedHashMap<String, MediaItem>(128, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, MediaItem>): Boolean = size > 500
+            }
+        )
 
         // In-flight deduplication: prevents duplicate enrichment when prefetch + play overlap
         private val inFlight = ConcurrentHashMap<String, Deferred<MediaItem>>()
 
         // Show-level source cache: grandparentTitle → (serverId → showRatingKey)
         // Avoids repeated search API calls when binge-watching episodes of the same show
-        private val showServerCache = ConcurrentHashMap<String, ConcurrentHashMap<String, String>>()
+        // Capped at 200 entries to prevent unbounded growth
+        private val showServerCache: MutableMap<String, ConcurrentHashMap<String, String>> = java.util.Collections.synchronizedMap(
+            object : LinkedHashMap<String, ConcurrentHashMap<String, String>>(64, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ConcurrentHashMap<String, String>>): Boolean = size > 200
+            }
+        )
 
         /**
          * Clears cached episode enrichment results so the next call re-queries Room.

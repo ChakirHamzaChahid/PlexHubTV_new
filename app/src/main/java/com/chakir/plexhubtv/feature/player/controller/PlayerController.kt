@@ -405,14 +405,22 @@ class PlayerController @Inject constructor(
             return !hasHardwareAudioDecoder(mimeType)
         }
 
+        // Cached codec lists — MediaCodecList queries take 100-300ms on low-end TV devices.
+        // The list never changes at runtime, so we cache it once on first access.
+        private val cachedAllCodecs: List<android.media.MediaCodecInfo> by lazy {
+            try {
+                android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).codecInfos.toList()
+            } catch (e: Exception) { emptyList() }
+        }
+        private val cachedRegularCodecs: List<android.media.MediaCodecInfo> by lazy {
+            try {
+                android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos.toList()
+            } catch (e: Exception) { emptyList() }
+        }
+
         private fun hasHardwareAudioDecoder(mimeType: String): Boolean {
-            return try {
-                val codecList = android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS)
-                codecList.codecInfos.any { info ->
-                    !info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
-                }
-            } catch (e: Exception) {
-                false
+            return cachedAllCodecs.any { info ->
+                !info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
             }
         }
 
@@ -436,14 +444,8 @@ class PlayerController @Inject constructor(
         }
 
         private fun hasHardwareVideoDecoder(mimeType: String): Boolean {
-            return try {
-                val codecList = android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS)
-                codecList.codecInfos.any { codecInfo ->
-                    !codecInfo.isEncoder && codecInfo.supportedTypes.contains(mimeType)
-                }
-            } catch (e: Exception) {
-                Timber.w(e, "Error checking video decoder support for $mimeType")
-                false
+            return cachedRegularCodecs.any { codecInfo ->
+                !codecInfo.isEncoder && codecInfo.supportedTypes.contains(mimeType)
             }
         }
     }

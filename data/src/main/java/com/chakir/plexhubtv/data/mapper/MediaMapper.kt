@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.data.mapper
 
 import com.chakir.plexhubtv.core.common.StringNormalizer
 import com.chakir.plexhubtv.core.database.MediaEntity
+import com.chakir.plexhubtv.core.database.computeMetadataScore
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.UnificationId
@@ -205,6 +206,7 @@ class MediaMapper
             dto: MetadataDTO,
             serverId: String,
             libraryKey: String,
+            isOwned: Boolean = false,
         ): MediaEntity {
             val unificationId = UnificationId.calculate(extractImdbId(dto), extractTmdbId(dto), dto.title, dto.year)
             return MediaEntity(
@@ -259,6 +261,20 @@ class MediaMapper
                 updatedAt = System.currentTimeMillis(),
                 parentThumb = dto.parentThumb,
                 grandparentThumb = dto.grandparentThumb,
+                metadataScore = computeMetadataScore(
+                    summary = dto.summary,
+                    thumbUrl = dto.thumb,
+                    imdbId = extractImdbId(dto),
+                    tmdbId = extractTmdbId(dto),
+                    year = dto.year,
+                    genres = dto.genres?.joinToString(",") { it.tag },
+                    serverId = serverId,
+                    rating = dto.rating,
+                    audienceRating = dto.audienceRating,
+                    contentRating = ContentRatingHelper.normalize(dto.contentRating),
+                    isOwned = isOwned,
+                ),
+                isOwned = isOwned,
             )
         }
 

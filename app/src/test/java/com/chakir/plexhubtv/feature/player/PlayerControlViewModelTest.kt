@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.player
 import androidx.lifecycle.SavedStateHandle
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.service.PlaybackManager
 import com.chakir.plexhubtv.domain.service.PlaybackState
 import com.chakir.plexhubtv.core.model.Chapter
@@ -28,6 +29,7 @@ class PlayerControlViewModelTest {
     private lateinit var savedStateHandle: SavedStateHandle
     private lateinit var chapterMarkerManager: ChapterMarkerManager
     private lateinit var playbackManager: PlaybackManager
+    private lateinit var settingsRepository: SettingsRepository
 
     private val testDispatcher = StandardTestDispatcher()
     private val testUiState = MutableStateFlow(PlayerUiState())
@@ -45,6 +47,7 @@ class PlayerControlViewModelTest {
         playbackManager = mockk(relaxed = true) {
             every { state } returns testPlaybackState
         }
+        settingsRepository = mockk(relaxed = true)
 
         // Setup SavedStateHandle with test data
         savedStateHandle = SavedStateHandle(
@@ -60,6 +63,7 @@ class PlayerControlViewModelTest {
             savedStateHandle = savedStateHandle,
             chapterMarkerManager = chapterMarkerManager,
             playbackManager = playbackManager,
+            settingsRepository = settingsRepository,
             directStreamUrlBuilder = mockk(relaxed = true),
         )
     }

@@ -25,6 +25,7 @@ object MediaLibraryQueryBuilder {
         val query: String? = null,
         val baseSort: String = "addedAt",
         val isDescending: Boolean = true,
+        val maxAgeRating: Int? = null,
     )
 
     data class BuiltQuery(val sql: String, val args: List<Any>) {
@@ -37,8 +38,8 @@ object MediaLibraryQueryBuilder {
 
         if (config.isUnified) {
             sql.append(UNIFIED_SELECT)
-            sql.append(UNIFIED_FROM_SUBQUERY)
-            sql.append("WHERE 1=1 ")
+            sql.append(UNIFIED_FROM)
+            sql.append("WHERE media.type = ? ")
             args.add(config.mediaTypeStr)
         } else {
             sql.append(NON_UNIFIED_SELECT)
@@ -138,8 +139,23 @@ object MediaLibraryQueryBuilder {
         }
 
         if (config.query != null) {
-            sql.append("AND title LIKE ? ")
-            args.add("%${config.query}%")
+            // Use FTS4 index for fast prefix/token search instead of LIKE '%query%' (full table scan)
+            sql.append("AND media.rowid IN (SELECT rowid FROM media_fts WHERE media_fts MATCH ?) ")
+            args.add("${config.query}*")
+        }
+
+        // Age-based content filtering (parental controls) — pushed to SQL to avoid
+        // iterating pagingData.filter{} on every loaded page in the ViewModel.
+        // Content ratings are normalized by ContentRatingHelper to: "TP", "NR", "XXX", or numeric ("7", "13", "16+", etc.)
+        if (config.maxAgeRating != null && config.maxAgeRating < 99) {
+            sql.append(
+                "AND (contentRating IS NULL OR contentRating = '' " +
+                "OR contentRating IN ('TP','NR') " +
+                "OR (contentRating NOT IN ('TP','NR','XXX') " +
+                    "AND CAST(REPLACE(contentRating, '+', '') AS INTEGER) <= ?) " +
+                ") "
+            )
+            args.add(config.maxAgeRating)
         }
     }
 
@@ -152,10 +168,10 @@ object MediaLibraryQueryBuilder {
 
     // Sort key for unified: metadata quality score + deterministic tiebreaker
     private const val UNIFIED_SORT_KEY =
-        "PRINTF('%020d', media.metadata_score) || '|' || media.ratingKey || '|' || media.serverId"
+        "PRINTF('%020d', media.metadataScore) || '|' || media.ratingKey || '|' || media.serverId"
 
     private const val BEST_PICK =
-        "MAX(PRINTF('%020d', media.metadata_score) || '|' || media.ratingKey || '|' || media.serverId)"
+        "MAX(PRINTF('%020d', media.metadataScore) || '|' || media.ratingKey || '|' || media.serverId)"
 
     private val BEST_PICK_TAIL = "SUBSTR($BEST_PICK, 22)"
 
@@ -166,7 +182,7 @@ object MediaLibraryQueryBuilder {
         return "NULLIF(SUBSTR($expr, INSTR($expr, CHAR(31)) + 1), '') as $alias"
     }
 
-    // ── Unified SELECT (with subquery providing metadata_score) ──
+    // ── Unified SELECT (metadataScore is a pre-computed column) ──
     // Image URL fields use bestRowField() to ensure they come from the same
     // winning row as ratingKey/serverId, preventing poster mismatches.
     private val UNIFIED_SELECT =
@@ -189,17 +205,19 @@ object MediaLibraryQueryBuilder {
                         media.historyGroupKey,
                         media.viewCount,
                         media.sourceServerId,
+                        media.metadataScore,
+                        media.isOwned,
                         ${bestRowField("media.thumbUrl", "thumbUrl")},
                         ${bestRowField("media.artUrl", "artUrl")},
                         ${bestRowField("media.resolvedThumbUrl", "resolvedThumbUrl")},
                         ${bestRowField("media.resolvedArtUrl", "resolvedArtUrl")},
                         ${bestRowField("media.resolvedBaseUrl", "resolvedBaseUrl")},
-                        MAX(media.metadata_score) as _bestScore,
+                        MAX(media.metadataScore) as _bestScore,
                         NULL as ratingKeys,
                         GROUP_CONCAT(DISTINCT media.serverId || '=' || media.ratingKey) as serverIds,
                         GROUP_CONCAT(DISTINCT CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END) as alternativeThumbUrls """
 
-    // ── Non-unified SELECT (direct from media table, no metadata_score available) ──
+    // ── Non-unified SELECT (direct from media table, no id_bridge JOIN) ──
     // Uses plain column references. Groups are typically single-row per media item
     // since the WHERE clause filters by server-specific librarySectionId.
     private const val NON_UNIFIED_SELECT =
@@ -221,33 +239,22 @@ object MediaLibraryQueryBuilder {
                         media.historyGroupKey,
                         media.viewCount,
                         media.sourceServerId,
+                        media.metadataScore,
+                        media.isOwned,
                         NULL as _bestScore,
                         NULL as ratingKeys,
                         GROUP_CONCAT(DISTINCT media.serverId || '=' || media.ratingKey) as serverIds,
                         GROUP_CONCAT(DISTINCT CASE WHEN media.resolvedThumbUrl IS NOT NULL AND media.resolvedThumbUrl != '' THEN media.resolvedThumbUrl ELSE NULL END) as alternativeThumbUrls """
 
-    private const val UNIFIED_FROM_SUBQUERY =
-        """FROM (
-                        SELECT m.*,
-                            id_bridge.imdbId as bridgedImdbId,
-                            (CASE WHEN m.summary IS NOT NULL AND m.summary != '' THEN 2 ELSE 0 END)
-                            + (CASE WHEN m.thumbUrl IS NOT NULL AND m.thumbUrl != '' THEN 2 ELSE 0 END)
-                            + (CASE WHEN m.imdbId IS NOT NULL THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.tmdbId IS NOT NULL THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.year IS NOT NULL AND m.year > 0 THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.genres IS NOT NULL AND m.genres != '' THEN 1 ELSE 0 END)
-                            + (CASE WHEN m.serverId NOT LIKE 'xtream_%' AND m.serverId NOT LIKE 'backend_%' THEN 100 ELSE 0 END)
-                            AS metadata_score
-                        FROM media m
-                        LEFT JOIN id_bridge ON m.tmdbId = id_bridge.tmdbId AND m.imdbId IS NULL
-                        WHERE m.type = ?
-                    ) media """
+    // metadataScore is now a pre-computed column (MIGRATION_36_37), eliminating the subquery
+    private const val UNIFIED_FROM =
+        "FROM media LEFT JOIN id_bridge ON media.tmdbId = id_bridge.tmdbId AND media.imdbId IS NULL "
 
-    // Unified GROUP BY: includes bridgedImdbId from the subquery's LEFT JOIN
+    // Unified GROUP BY: uses id_bridge.imdbId from the LEFT JOIN for TMDb→IMDb bridging
     private const val UNIFIED_GROUP_BY =
         """GROUP BY media.type, COALESCE(
                         media.imdbId,
-                        media.bridgedImdbId,
+                        id_bridge.imdbId,
                         CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
                         CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
                     ) """

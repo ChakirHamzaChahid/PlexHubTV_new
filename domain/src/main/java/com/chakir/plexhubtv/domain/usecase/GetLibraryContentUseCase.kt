@@ -49,8 +49,9 @@ class GetLibraryContentUseCase
             excludedServerIds: List<String> = emptyList(),
             initialKey: Int? = null,
             query: String? = null,
+            maxAgeRating: Int? = null,
         ): Flow<androidx.paging.PagingData<MediaItem>> =
             libraryRepository.getLibraryContent(
-                serverId, libraryKey, mediaType, filter, sort, isDescending, genre, selectedServerId, excludedServerIds, initialKey, query,
+                serverId, libraryKey, mediaType, filter, sort, isDescending, genre, selectedServerId, excludedServerIds, initialKey, query, maxAgeRating,
             )
     }

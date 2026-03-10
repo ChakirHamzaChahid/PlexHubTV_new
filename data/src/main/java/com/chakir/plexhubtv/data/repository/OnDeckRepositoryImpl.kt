@@ -111,7 +111,7 @@ class OnDeckRepositoryImpl
                                 val accessToken = client.server.accessToken ?: ""
                                 val response = client.getOnDeck()
                                 response.body()?.mediaContainer?.metadata?.map { dto: MetadataDTO ->
-                                    val entity = mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "")
+                                    val entity = mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "", isOwned = client.server.isOwned)
                                     entity.copy(
                                         resolvedThumbUrl = entity.thumbUrl?.let { path ->
                                             getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 300, 450)

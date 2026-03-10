@@ -94,10 +94,11 @@ class MpvPlayerWrapper(
             }
 
             // VLC-like demuxer cache for high-bitrate content (Tuned for Android TV memory limits)
+            // Total peak: 80 + 30 = 110 MiB (safe for Mi Box S 256 MB heap)
             MPVLib.setOptionString("cache", "yes")
-            MPVLib.setOptionString("demuxer-max-bytes", "150MiB") // Was 800MB (OOM on TV)
-            MPVLib.setOptionString("demuxer-readahead-secs", "20")
-            MPVLib.setOptionString("demuxer-max-back-bytes", "50MiB") // Was 200MB
+            MPVLib.setOptionString("demuxer-max-bytes", "80MiB")
+            MPVLib.setOptionString("demuxer-readahead-secs", "15")
+            MPVLib.setOptionString("demuxer-max-back-bytes", "30MiB")
 
             // Subtitles: use Android system fonts (fontconfig unavailable on Android)
             MPVLib.setOptionString("sub-ass", "yes")

@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 36 : Ajout d'index composites pour optimisation des requêtes (Issue #113)
+ * Version 37 : Pre-computed metadataScore column (eliminates subquery in unified paging query)
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -31,7 +31,7 @@ import androidx.room.TypeConverters
         BackendServerEntity::class,
         IdBridgeEntity::class,
     ],
-    version = 36,
+    version = 38,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {

@@ -102,6 +102,7 @@ class LibraryRepositoryImpl
             excludedServerIds: List<String>,
             initialKey: Int?,
             query: String?,
+            maxAgeRating: Int?,
         ): Flow<androidx.paging.PagingData<MediaItem>> {
             return flow {
                 var resolvedLibraryKey = libraryKey
@@ -168,6 +169,7 @@ class LibraryRepositoryImpl
                     query = dbQuery,
                     baseSort = baseSort,
                     isDescending = isDescending,
+                    maxAgeRating = maxAgeRating,
                 )
                 val builtQuery = MediaLibraryQueryBuilder.buildPagedQuery(queryConfig)
                 val rawQuery = builtQuery.toSimpleSQLiteQuery()
@@ -190,6 +192,7 @@ class LibraryRepositoryImpl
                             serverUrl = client.baseUrl,
                             token = client.server.accessToken ?: "",
                             mapper = mapper,
+                            isOwned = client.server.isOwned,
                         )
                     } else {
                         null
@@ -203,7 +206,7 @@ class LibraryRepositoryImpl
                                 prefetchDistance = 15, // TV viewport shows ~15-20 items; 50 caused excessive prefetch
                                 initialLoadSize = 100,
                                 enablePlaceholders = true,
-                                maxSize = 2000,
+                                maxSize = 800, // Reduced from 2000: saves ~50% paging RAM on 2GB TV devices
                             ),
                         initialKey = initialKey,
                         remoteMediator = remoteMediator,

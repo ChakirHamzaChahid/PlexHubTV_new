@@ -55,7 +55,7 @@ class PlayerScrobbler
             scrobbleJob =
                 scope.launch {
                     while (isActive) {
-                        delay(10000) // Scrobble every 10 seconds
+                        delay(30000) // Scrobble every 30 seconds (reduced CPU/network on low-end TV devices)
                         val item = currentItemProvider() ?: continue
                         val isPlaying = isPlayingProvider()
                         val position = currentPositionProvider()

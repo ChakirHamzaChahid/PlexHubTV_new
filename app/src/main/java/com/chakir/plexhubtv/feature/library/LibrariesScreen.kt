@@ -557,15 +557,15 @@ fun LibraryContent(
                                     }
                                 }
 
+                                val itemOnClick = remember(item.ratingKey, item.serverId) { { onItemClick(item) } }
+                                val itemOnFocus = remember(item.ratingKey, item.serverId) {
+                                    { focused: Boolean -> if (focused) onAction(LibraryAction.OnItemFocused(item)) }
+                                }
                                 NetflixMediaCard(
                                     media = item,
-                                    onClick = { onItemClick(item) },
+                                    onClick = itemOnClick,
                                     onPlay = { },
-                                    onFocus = { focused ->
-                                        if (focused) {
-                                            onAction(LibraryAction.OnItemFocused(item))
-                                        }
-                                    },
+                                    onFocus = itemOnFocus,
                                     compact = isCompact,
                                     showYear = showYear,
                                     modifier = Modifier

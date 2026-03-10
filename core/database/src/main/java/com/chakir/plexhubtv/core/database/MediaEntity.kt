@@ -112,4 +112,31 @@ data class MediaEntity(
     // Original serverId from backend (e.g. "xtream_05fd75e9"), used for backend API calls
     // Only populated for media synced from a PlexHub Backend server
     val sourceServerId: String? = null,
+    // Pre-computed metadata quality score for unified query row selection.
+    // Eliminates expensive CASE-expression subquery in MediaLibraryQueryBuilder.
+    val metadataScore: Int = 0,
+    // Whether this media comes from a server owned by the authenticated user (vs shared)
+    val isOwned: Boolean = false,
 )
+
+/** Computes metadata quality score matching the SQL backfill formula in MIGRATION_37_38. */
+fun computeMetadataScore(
+    summary: String?, thumbUrl: String?, imdbId: String?, tmdbId: String?,
+    year: Int?, genres: String?, serverId: String,
+    rating: Double? = null, audienceRating: Double? = null,
+    contentRating: String? = null, isOwned: Boolean = false,
+): Int {
+    var score = 0
+    if (!summary.isNullOrBlank()) score += 2
+    if (!thumbUrl.isNullOrBlank()) score += 2
+    if (imdbId != null) score += 1
+    if (tmdbId != null) score += 1
+    if (year != null && year > 0) score += 1
+    if (!genres.isNullOrBlank()) score += 1
+    if (rating != null && rating > 0.0) score += 1
+    if (audienceRating != null && audienceRating > 0.0) score += 1
+    if (!contentRating.isNullOrBlank()) score += 1
+    if (isOwned) score += 50
+    if (!serverId.startsWith("xtream_") && !serverId.startsWith("backend_")) score += 100
+    return score
+}

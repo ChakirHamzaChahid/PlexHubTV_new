@@ -497,6 +497,52 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_36_37 =
+        object : androidx.room.migration.Migration(36, 37) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Pre-compute metadataScore column to eliminate expensive subquery in unified paging
+                database.execSQL("ALTER TABLE media ADD COLUMN metadataScore INTEGER NOT NULL DEFAULT 0")
+
+                // Backfill existing rows with the same formula used at insert time
+                database.execSQL(
+                    """UPDATE media SET metadataScore =
+                        (CASE WHEN summary IS NOT NULL AND summary != '' THEN 2 ELSE 0 END)
+                        + (CASE WHEN thumbUrl IS NOT NULL AND thumbUrl != '' THEN 2 ELSE 0 END)
+                        + (CASE WHEN imdbId IS NOT NULL THEN 1 ELSE 0 END)
+                        + (CASE WHEN tmdbId IS NOT NULL THEN 1 ELSE 0 END)
+                        + (CASE WHEN year IS NOT NULL AND year > 0 THEN 1 ELSE 0 END)
+                        + (CASE WHEN genres IS NOT NULL AND genres != '' THEN 1 ELSE 0 END)
+                        + (CASE WHEN serverId NOT LIKE 'xtream_%' AND serverId NOT LIKE 'backend_%' THEN 100 ELSE 0 END)
+                    """
+                )
+            }
+        }
+
+    private val MIGRATION_37_38 =
+        object : androidx.room.migration.Migration(37, 38) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Add isOwned column (whether user owns the server this media comes from)
+                database.execSQL("ALTER TABLE media ADD COLUMN isOwned INTEGER NOT NULL DEFAULT 0")
+
+                // Recalculate metadataScore with new fields: rating(+1), audienceRating(+1), contentRating(+1), isOwned(+50)
+                // isOwned defaults to false (0) — next sync will populate correctly from server.isOwned
+                database.execSQL(
+                    """UPDATE media SET metadataScore =
+                        (CASE WHEN summary IS NOT NULL AND summary != '' THEN 2 ELSE 0 END)
+                        + (CASE WHEN thumbUrl IS NOT NULL AND thumbUrl != '' THEN 2 ELSE 0 END)
+                        + (CASE WHEN imdbId IS NOT NULL THEN 1 ELSE 0 END)
+                        + (CASE WHEN tmdbId IS NOT NULL THEN 1 ELSE 0 END)
+                        + (CASE WHEN year IS NOT NULL AND year > 0 THEN 1 ELSE 0 END)
+                        + (CASE WHEN genres IS NOT NULL AND genres != '' THEN 1 ELSE 0 END)
+                        + (CASE WHEN rating IS NOT NULL AND rating > 0 THEN 1 ELSE 0 END)
+                        + (CASE WHEN audienceRating IS NOT NULL AND audienceRating > 0 THEN 1 ELSE 0 END)
+                        + (CASE WHEN contentRating IS NOT NULL AND contentRating != '' THEN 1 ELSE 0 END)
+                        + (CASE WHEN serverId NOT LIKE 'xtream_%' AND serverId NOT LIKE 'backend_%' THEN 100 ELSE 0 END)
+                    """
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -547,6 +593,8 @@ object DatabaseModule {
                 MIGRATION_33_34,
                 MIGRATION_34_35,
                 MIGRATION_35_36,
+                MIGRATION_36_37,
+                MIGRATION_37_38,
             )
             .build()
     }

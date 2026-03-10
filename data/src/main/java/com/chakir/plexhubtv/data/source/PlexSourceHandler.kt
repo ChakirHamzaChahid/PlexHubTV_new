@@ -159,7 +159,7 @@ class PlexSourceHandler @Inject constructor(
                     val metadata = response.body()?.mediaContainer?.metadata
                     if (metadata != null) {
                         val entities = metadata.mapIndexed { index, dto ->
-                            mapper.mapDtoToEntity(dto, serverId, "").copy(pageOffset = index)
+                            mapper.mapDtoToEntity(dto, serverId, "", isOwned = client.server.isOwned).copy(pageOffset = index)
                         }
                         mediaDao.upsertMedia(entities)
                         Timber.d("Cached ${entities.size} Plex episodes to Room for $seasonRatingKey")

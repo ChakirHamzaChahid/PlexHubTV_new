@@ -4,9 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.domain.service.PlaybackManager
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.usecase.*
 import com.google.common.truth.Truth.assertThat
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,6 +41,8 @@ class MediaDetailViewModelTest {
     private lateinit var getMediaCollectionsUseCase: GetMediaCollectionsUseCase
     private lateinit var getUnifiedSeasonsUseCase: GetUnifiedSeasonsUseCase
     private lateinit var performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker
+    private lateinit var profileRepository: ProfileRepository
+    private lateinit var filterContentByAgeUseCase: FilterContentByAgeUseCase
 
     private val testDispatcher = StandardTestDispatcher()
     private val testMovie = MediaItem(
@@ -63,12 +70,18 @@ class MediaDetailViewModelTest {
         getMediaCollectionsUseCase = mockk(relaxed = true)
         getUnifiedSeasonsUseCase = mockk(relaxed = true)
         performanceTracker = mockk(relaxed = true)
+        profileRepository = mockk(relaxed = true)
+        filterContentByAgeUseCase = mockk(relaxed = true)
 
         // Default mock behaviors
         coEvery { getMediaDetailUseCase(any(), any()) } returns flowOf(Result.success(MediaDetail(testMovie)))
         coEvery { isFavoriteUseCase(any(), any()) } returns flowOf(false)
         coEvery { enrichMediaItemUseCase(any()) } returns testMovie
         coEvery { getNextEpisodeUseCase(any()) } returns Result.failure(Exception("No next episode found"))
+
+        mockkStatic("com.google.firebase.analytics.AnalyticsKt")
+        val firebaseAnalytics = mockk<FirebaseAnalytics>(relaxed = true)
+        every { Firebase.analytics } returns firebaseAnalytics
     }
 
     @After
@@ -98,6 +111,8 @@ class MediaDetailViewModelTest {
             getSimilarMediaUseCase = getSimilarMediaUseCase,
             getMediaCollectionsUseCase = getMediaCollectionsUseCase,
             getUnifiedSeasonsUseCase = getUnifiedSeasonsUseCase,
+            profileRepository = profileRepository,
+            filterContentByAgeUseCase = filterContentByAgeUseCase,
             performanceTracker = performanceTracker,
             mediaSourceResolver = mockk(relaxed = true),
             savedStateHandle = savedStateHandle
@@ -141,8 +156,8 @@ class MediaDetailViewModelTest {
     fun `PlayClicked - movie with multiple sources shows source selection`() = runTest {
         val movieWithMultipleSources = testMovie.copy(
             remoteSources = listOf(
-                mockk { every { serverName } returns "Server 1" },
-                mockk { every { serverName } returns "Server 2" }
+                MediaSource(serverId = "server1", ratingKey = "123", serverName = "Server 1"),
+                MediaSource(serverId = "server2", ratingKey = "123", serverName = "Server 2")
             )
         )
         coEvery { enrichMediaItemUseCase(any()) } returns movieWithMultipleSources

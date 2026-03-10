@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.data.mapper
 
 import com.chakir.plexhubtv.core.database.MediaEntity
+import com.chakir.plexhubtv.core.database.computeMetadataScore
 import com.chakir.plexhubtv.core.model.MediaPart
 import com.chakir.plexhubtv.core.model.UnificationId
 import com.chakir.plexhubtv.core.network.backend.BackendMediaItemDto
@@ -82,6 +83,18 @@ class BackendMediaMapper @Inject constructor() {
             resolvedArtUrl = dto.resolvedArtUrl ?: dto.artUrl,
             alternativeThumbUrls = dto.alternativeThumbUrls,
             mediaParts = parseMediaParts(dto.mediaParts),
+            metadataScore = computeMetadataScore(
+                summary = dto.summary,
+                thumbUrl = dto.thumbUrl,
+                imdbId = dto.imdbId,
+                tmdbId = dto.tmdbId,
+                year = dto.year,
+                genres = dto.genres,
+                serverId = remappedServerId,
+                rating = dto.rating,
+                audienceRating = dto.audienceRating,
+                contentRating = dto.contentRating,
+            ),
         )
     }
 }

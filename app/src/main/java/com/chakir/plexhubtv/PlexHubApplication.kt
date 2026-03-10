@@ -54,11 +54,13 @@ import com.google.firebase.perf.FirebasePerformance
 class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
-    @Inject lateinit var okHttpClient: okhttp3.OkHttpClient
+    // Heavy singletons use dagger.Lazy to defer creation from main-thread onCreate()
+    // to first access inside coroutines (off main thread). Saves ~100-200ms cold start.
+    @Inject lateinit var okHttpClientLazy: dagger.Lazy<okhttp3.OkHttpClient>
 
-    @Inject lateinit var settingsDataStore: SettingsDataStore
+    @Inject lateinit var settingsDataStoreLazy: dagger.Lazy<SettingsDataStore>
 
-    @Inject lateinit var imageLoader: ImageLoader
+    @Inject lateinit var imageLoaderLazy: dagger.Lazy<ImageLoader>
 
     @Inject @ApplicationScope
     lateinit var appScope: CoroutineScope
@@ -69,11 +71,11 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
     @Inject @DefaultDispatcher
     lateinit var defaultDispatcher: CoroutineDispatcher
 
-    @Inject lateinit var connectionManager: ConnectionManager
+    @Inject lateinit var connectionManagerLazy: dagger.Lazy<ConnectionManager>
 
-    @Inject lateinit var authRepository: AuthRepository
+    @Inject lateinit var authRepositoryLazy: dagger.Lazy<AuthRepository>
 
-    @Inject lateinit var tvChannelManager: TvChannelManager
+    @Inject lateinit var tvChannelManagerLazy: dagger.Lazy<TvChannelManager>
 
     private val _appReady = MutableStateFlow(false)
     val appReady: StateFlow<Boolean> = _appReady.asStateFlow()
@@ -99,7 +101,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
         // Initialize TV Channel (if enabled)
         appScope.launch {
             try {
-                tvChannelManager.createChannelIfNeeded()
+                tvChannelManagerLazy.get().createChannelIfNeeded()
             } catch (e: Exception) {
                 Timber.e(e, "TV Channel: Initialization failed")
             }
@@ -118,23 +120,23 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
             try {
                 val jobs =
                     listOf(
-                        // Job 1: Warm up Settings DataStore
+                        // Job 1: Warm up Settings DataStore (lazy creation happens here, off main thread)
                         async(ioDispatcher) {
                             try {
                                 Timber.d("Init: Loading settings...")
-                                settingsDataStore.isFirstSyncComplete.first()
+                                settingsDataStoreLazy.get().isFirstSyncComplete.first()
                                 Timber.d("Init: Settings loaded")
                             } catch (e: Exception) {
                                 Timber.e(e, "Init: Settings failed")
                             }
                         },
-                        // Job 2: Pre-warm ImageLoader (triggers Coil initialization)
+                        // Job 2: Pre-warm ImageLoader (lazy creation + Coil initialization)
                         async(defaultDispatcher) {
                             try {
                                 Timber.d("Init: Warming image cache...")
-                                // Access imageLoader to trigger Coil setup
-                                imageLoader.memoryCache
-                                imageLoader.diskCache
+                                val loader = imageLoaderLazy.get()
+                                loader.memoryCache
+                                loader.diskCache
                                 Timber.d("Init: Image cache ready")
                             } catch (e: Exception) {
                                 Timber.e(e, "Init: Image cache failed")
@@ -144,38 +146,34 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                         async(defaultDispatcher) {
                             try {
                                 Timber.d("Init: Warming WorkManager...")
-                                // Access workerFactory to ensure DI ready
                                 workerFactory
-                                delay(50) // Small delay to ensure init complete
+                                delay(50)
                                 Timber.d("Init: WorkManager ready")
                             } catch (e: Exception) {
                                 Timber.e(e, "Init: WorkManager failed")
                             }
                         },
-                        // Job 4: Pre-warm OkHttpClient connection pool
+                        // Job 4: Pre-warm OkHttpClient (lazy creation happens here, off main thread)
                         async(ioDispatcher) {
                             try {
                                 Timber.d("Init: Warming network stack...")
-                                // Access okHttpClient to trigger connection pool setup
-                                okHttpClient.connectionPool
+                                okHttpClientLazy.get().connectionPool
                                 Timber.d("Init: Network ready")
                             } catch (e: Exception) {
                                 Timber.e(e, "Init: Network failed")
                             }
                         },
                         // Job 5: Pre-warm ConnectionManager with known servers
-                        // Tests connections in parallel so URLs are ready before Home screen loads
                         async(ioDispatcher) {
                             try {
                                 Timber.d("Init: Pre-warming server connections...")
-                                val servers = authRepository.getServers(forceRefresh = false).getOrNull() ?: emptyList()
+                                val servers = authRepositoryLazy.get().getServers(forceRefresh = false).getOrNull() ?: emptyList()
                                 if (servers.isNotEmpty()) {
-                                    // Test all server connections in parallel, capped at 5s to avoid blocking cold start
                                     withTimeoutOrNull(5_000L) {
                                         servers.map { server ->
                                             async {
                                                 try {
-                                                    connectionManager.findBestConnection(server)
+                                                    connectionManagerLazy.get().findBestConnection(server)
                                                 } catch (e: Exception) {
                                                     Timber.w(e, "Init: Connection test failed for ${server.name}")
                                                 }
@@ -231,8 +229,8 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
 
         // 1. Trigger Immediate Sync ONLY if never completed AND library selection is done
         appScope.launch(ioDispatcher) {
-            val isFirstSyncComplete = settingsDataStore.isFirstSyncComplete.first()
-            val isLibrarySelectionDone = settingsDataStore.isLibrarySelectionComplete.first()
+            val isFirstSyncComplete = settingsDataStoreLazy.get().isFirstSyncComplete.first()
+            val isLibrarySelectionDone = settingsDataStoreLazy.get().isLibrarySelectionComplete.first()
             if (!isFirstSyncComplete && isLibrarySelectionDone) {
                 val immediateSyncRequest =
                     androidx.work.OneTimeWorkRequestBuilder<LibrarySyncWorker>()
@@ -297,7 +295,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
     }
 
     override fun newImageLoader(context: Context): ImageLoader {
-        return imageLoader
+        return imageLoaderLazy.get()
     }
 
     /**

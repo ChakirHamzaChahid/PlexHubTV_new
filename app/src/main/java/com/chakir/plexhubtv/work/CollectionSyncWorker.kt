@@ -151,29 +151,36 @@ class CollectionSyncWorker
                                         val items = itemsResponse.body()?.mediaContainer?.metadata ?: emptyList()
                                         Timber.d("       SUCCESS: '${collectionDto.title}' has ${items.size} items")
 
-                                        val crossRefs =
-                                            items.map { itemDto ->
-                                                // FORCE DISTINCT FILTER & OFFSET to avoid Unique Constraint Violation
-                                                // Constraint: (serverId, librarySectionId, filter, sortOrder, pageOffset) is UNIQUE
-                                                // Previous Bug: pageOffset=0 for all items caused cascade deletion of library items!
-                                                val mediaEntity =
-                                                    mediaMapper.mapDtoToEntity(itemDto, server.clientIdentifier, libKey)
-                                                        .copy(
-                                                            filter = "collection_sync",
-                                                            sortOrder = "default",
-                                                            // Use ratingKey as offset to ensure uniqueness within this filter bucket
-                                                            pageOffset = itemDto.ratingKey.toIntOrNull() ?: itemDto.ratingKey.hashCode(),
-                                                        )
-                                                // Log insertion attempt
-                                                // Timber.v("       - Inserting Media: ${itemDto.title} (${itemDto.ratingKey})")
-                                                mediaDao.insertMedia(mediaEntity)
+                                        val mediaEntities = mutableListOf<MediaEntity>()
+                                        val crossRefs = mutableListOf<MediaCollectionCrossRef>()
 
+                                        items.forEach { itemDto ->
+                                            // FORCE DISTINCT FILTER & OFFSET to avoid Unique Constraint Violation
+                                            // Constraint: (serverId, librarySectionId, filter, sortOrder, pageOffset) is UNIQUE
+                                            // Previous Bug: pageOffset=0 for all items caused cascade deletion of library items!
+                                            val mediaEntity =
+                                                mediaMapper.mapDtoToEntity(itemDto, server.clientIdentifier, libKey, isOwned = server.isOwned)
+                                                    .copy(
+                                                        filter = "collection_sync",
+                                                        sortOrder = "default",
+                                                        // Use ratingKey as offset to ensure uniqueness within this filter bucket
+                                                        pageOffset = itemDto.ratingKey.toIntOrNull() ?: itemDto.ratingKey.hashCode(),
+                                                    )
+                                            mediaEntities.add(mediaEntity)
+
+                                            crossRefs.add(
                                                 MediaCollectionCrossRef(
                                                     mediaRatingKey = itemDto.ratingKey,
                                                     collectionId = collectionEntity.id,
                                                     serverId = server.clientIdentifier,
                                                 )
-                                            }
+                                            )
+                                        }
+
+                                        // Bulk insert media in batches of 100 to avoid SQLite variable limit
+                                        mediaEntities.chunked(100).forEach { batch ->
+                                            mediaDao.upsertMedia(batch)
+                                        }
 
                                         Timber.d("       → Inserting ${crossRefs.size} cross-references")
                                         collectionDao.upsertCollectionWithItems(collectionEntity, crossRefs)

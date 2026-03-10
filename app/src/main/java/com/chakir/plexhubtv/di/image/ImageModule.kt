@@ -36,7 +36,7 @@ object ImageModule {
             .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)   // 10s instead of 30s
             .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)    // 15s total max (prevents 60s hangs)
             .retryOnConnectionFailure(false) // Don't retry — FallbackAsyncImage handles URL-level fallback
-            .connectionPool(okhttp3.ConnectionPool(8, 5, java.util.concurrent.TimeUnit.MINUTES))
+            .connectionPool(okhttp3.ConnectionPool(4, 5, java.util.concurrent.TimeUnit.MINUTES))
             .build()
 
         // ✅ ADAPTIVE CACHE: Use JVM heap limit (not system RAM) to avoid exceeding heap on low-RAM devices.
@@ -69,7 +69,7 @@ object ImageModule {
             .diskCache {
                 DiskCache.Builder()
                     .directory(File(context.cacheDir, "image_cache").toOkioPath())
-                    .maxSizeBytes(512L * 1024 * 1024) // 512 MB disk (reduced from 1GB)
+                    .maxSizeBytes(256L * 1024 * 1024) // 256 MB disk (3.2% of 8GB Mi Box S storage)
                     .build()
             }
             .precision(Precision.INEXACT)

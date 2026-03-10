@@ -87,10 +87,8 @@ class PlaybackStatsViewModelTest {
         viewModel.onAction(PlayerAction.TogglePerformanceOverlay)
 
         verify {
-            playerController.updateState(match {
-                val state = it(testUiState.value)
-                !state.showPerformanceOverlay && state.playerStats == null
-            })
+            playerController.updateState(match { !it(testUiState.value).showPerformanceOverlay })
+            playerController.updateState(match { it(testUiState.value).playerStats == null })
         }
     }
 

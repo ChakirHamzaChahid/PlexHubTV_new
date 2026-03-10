@@ -37,6 +37,7 @@ interface LibraryRepository {
         excludedServerIds: List<String> = emptyList(),
         initialKey: Int? = null,
         query: String? = null,
+        maxAgeRating: Int? = null,
     ): Flow<androidx.paging.PagingData<MediaItem>>
 
     /**

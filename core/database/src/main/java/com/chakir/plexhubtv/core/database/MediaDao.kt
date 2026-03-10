@@ -167,7 +167,7 @@ interface MediaDao {
         "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
         "parentThumb, grandparentThumb, displayRating, " +
         "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
-        "historyGroupKey, scrapedRating, sourceServerId " +
+        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned " +
         "FROM media WHERE lastViewedAt > 0 " +
         "GROUP BY historyGroupKey " +
         "ORDER BY MAX(lastViewedAt) DESC LIMIT :limit OFFSET :offset"
@@ -186,7 +186,7 @@ interface MediaDao {
         "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
         "parentThumb, grandparentThumb, displayRating, " +
         "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
-        "historyGroupKey, scrapedRating, sourceServerId " +
+        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned " +
         "FROM media WHERE lastViewedAt > 0 " +
         "GROUP BY historyGroupKey " +
         "ORDER BY MAX(lastViewedAt) DESC"
