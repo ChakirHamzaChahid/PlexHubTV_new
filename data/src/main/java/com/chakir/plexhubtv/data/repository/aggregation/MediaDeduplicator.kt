@@ -35,12 +35,13 @@ class DefaultMediaDeduplicator
             withContext(defaultDispatcher) {
                 // Advanced Grouping Logic
                 // Priority: IMDB ID -> TMDB ID -> Title+Year
+                // Only unify by external IDs (imdb/tmdb). No title+year fallback
+                // to avoid false unification of different movies with same name (e.g. "300" parody).
                 items.groupBy { item ->
                     when {
                         !item.imdbId.isNullOrBlank() -> "imdb://${item.imdbId}"
                         !item.tmdbId.isNullOrBlank() -> "tmdb://${item.tmdbId}"
-                        // Fallback to Title + Year (Normalized)
-                        else -> "${item.title.lowercase().trim().replace(Regex("[^a-z0-9 ]"), "")}_${item.year ?: 0}"
+                        else -> "${item.ratingKey}_${item.serverId}"
                     }
                 }.map { (_, group) ->
                     // Sort by Owned first, then by Last Updated (descending)

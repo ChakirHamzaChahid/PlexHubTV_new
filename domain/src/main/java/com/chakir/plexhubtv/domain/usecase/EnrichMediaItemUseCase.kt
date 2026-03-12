@@ -233,6 +233,16 @@ class EnrichMediaItemUseCase
                         "Room Query (Miss)",
                         mapOf("duration" to roomQueryDuration)
                     )
+                    // Room searched by unificationId (IMDB/TMDB/title+year) across ALL synced servers
+                    // and found nothing. For non-Plex items (backend/xtream), network fallback is
+                    // pointless — IPTV content is rarely duplicated on Plex servers, and if it were,
+                    // Room would have found it via the shared TMDB/IMDB ID.
+                    val isNonPlexItem = item.serverId.startsWith("backend_") || item.serverId.startsWith("xtream_")
+                    if (isNonPlexItem) {
+                        performanceTracker.addCheckpoint(opId, "Network Fallback Skipped (non-Plex Room miss)")
+                        Timber.d("Enrich: Skipping network fallback for non-Plex item '${item.title}' (Room miss with unificationId=${item.unificationId})")
+                        return item.copy(remoteSources = listOf(currentSource))
+                    }
                 }
             } else {
                 performanceTracker.addCheckpoint(opId, "Room Query Skipped (no unificationId)", mapOf("type" to item.type.name))
@@ -548,14 +558,24 @@ class EnrichMediaItemUseCase
                 mapOf("duration" to serverSearchDuration, "results" to results.size)
             )
 
+            // Match strategy depends on whether the item has external IDs:
+            // - With imdbId/tmdbId: ONLY match by ID (prevents false unification of
+            //   different movies with same title+year, e.g. "300" parody vs real "300")
+            // - Without any ID: fall back to title+year+type matching
+            val hasExternalId = !item.imdbId.isNullOrBlank() || !item.tmdbId.isNullOrBlank()
+
             return results.find { candidate ->
                 val idMatch =
                     (item.imdbId != null && item.imdbId == candidate.imdbId) ||
                         (item.tmdbId != null && item.tmdbId == candidate.tmdbId)
-                val titleMatch = candidate.title.equals(item.title, ignoreCase = true)
-                val yearMatch = (item.year == null || candidate.year == null || item.year == candidate.year)
-                val typeMatch = item.type == candidate.type
-                (idMatch) || (titleMatch && yearMatch && typeMatch)
+                if (hasExternalId) {
+                    idMatch
+                } else {
+                    val titleMatch = candidate.title.equals(item.title, ignoreCase = true)
+                    val yearMatch = (item.year == null || candidate.year == null || item.year == candidate.year)
+                    val typeMatch = item.type == candidate.type
+                    titleMatch && yearMatch && typeMatch
+                }
             }?.let { match ->
                 try {
                     val detailRes = mediaDetailRepository.getMediaDetail(match.ratingKey, server.clientIdentifier)
