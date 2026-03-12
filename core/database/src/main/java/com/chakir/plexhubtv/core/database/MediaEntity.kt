@@ -46,6 +46,10 @@ import androidx.room.Entity
         androidx.room.Index(value = ["serverId", "type", "filter", "titleSortable"]),
         // ISSUE #113 FIX: Optimize findRemoteEpisodeSources for multi-server playback (MediaDao:232-248)
         androidx.room.Index(value = ["type", "grandparentTitle", "parentIndex", "index"]),
+        // PERF: Unified query optimization — GROUP BY COALESCE(imdbId, ...) + LEFT JOIN id_bridge + ORDER BY title
+        androidx.room.Index(value = ["type", "imdbId"]),
+        androidx.room.Index(value = ["type", "tmdbId"]),
+        androidx.room.Index(value = ["type", "titleSortable"]),
     ],
 )
 data class MediaEntity(

@@ -543,6 +543,19 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_38_39 =
+        object : androidx.room.migration.Migration(38, 39) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Composite indexes for unified query performance on low-end devices (Mi Box S)
+                // (type, imdbId) — speeds up GROUP BY COALESCE(imdbId, ...) without full table scan
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_type_imdbId` ON `media` (`type`, `imdbId`)")
+                // (type, tmdbId) — speeds up LEFT JOIN id_bridge ON tmdbId with type pre-filter
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_type_tmdbId` ON `media` (`type`, `tmdbId`)")
+                // (type, titleSortable) — speeds up ORDER BY titleSortable for unified queries
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_type_titleSortable` ON `media` (`type`, `titleSortable`)")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -595,6 +608,7 @@ object DatabaseModule {
                 MIGRATION_35_36,
                 MIGRATION_36_37,
                 MIGRATION_37_38,
+                MIGRATION_38_39,
             )
             .build()
     }

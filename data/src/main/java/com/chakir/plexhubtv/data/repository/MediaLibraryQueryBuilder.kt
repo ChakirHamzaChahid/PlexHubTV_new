@@ -166,28 +166,40 @@ object MediaLibraryQueryBuilder {
     // causing mismatches (e.g., ratingKey from server A + thumbUrl from server B
     // → resolving thumbUrl against server B loads a completely different movie's poster).
 
-    // Sort key for unified: metadata quality score + deterministic tiebreaker
+    // Sort key for unified: metadata quality score + deterministic tiebreaker.
+    // Uses (score + 1000) instead of PRINTF('%020d') — same lexicographic order for 0-161 range,
+    // but eliminates ~43K PRINTF calls per query on ARM (critical for Mi Box S).
     private const val UNIFIED_SORT_KEY =
-        "PRINTF('%020d', media.metadataScore) || '|' || media.ratingKey || '|' || media.serverId"
+        "(media.metadataScore + 1000) || '|' || media.ratingKey || '|' || media.serverId"
 
     private const val BEST_PICK =
-        "MAX(PRINTF('%020d', media.metadataScore) || '|' || media.ratingKey || '|' || media.serverId)"
+        "MAX((media.metadataScore + 1000) || '|' || media.ratingKey || '|' || media.serverId)"
 
-    private val BEST_PICK_TAIL = "SUBSTR($BEST_PICK, 22)"
+    // Skip 4-digit score + 1 pipe = offset 6 (was 22 with PRINTF '%020d')
+    private val BEST_PICK_TAIL = "SUBSTR($BEST_PICK, 6)"
 
     // Extracts a field from the same winning row as BEST_PICK.
     // Uses CHAR(31) (unit separator) as delimiter — never appears in URLs or text.
+    // Returns NULL for empty values (safe for nullable columns).
     private fun bestRowField(field: String, alias: String): String {
         val expr = "MAX($UNIFIED_SORT_KEY || CHAR(31) || COALESCE($field, ''))"
         return "NULLIF(SUBSTR($expr, INSTR($expr, CHAR(31)) + 1), '') as $alias"
     }
 
+    // Variant for non-nullable String columns (unificationId, historyGroupKey).
+    // Returns '' instead of NULL to prevent Room NPE on non-null fields.
+    private fun bestRowFieldNonNull(field: String, alias: String): String {
+        val expr = "MAX($UNIFIED_SORT_KEY || CHAR(31) || COALESCE($field, ''))"
+        return "SUBSTR($expr, INSTR($expr, CHAR(31)) + 1) as $alias"
+    }
+
     // ── Unified SELECT (metadataScore is a pre-computed column) ──
-    // Image URL fields use bestRowField() to ensure they come from the same
-    // winning row as ratingKey/serverId, preventing poster mismatches.
+    // Only ratingKey/serverId and image URLs use correlated MAX (bestRowField) to ensure
+    // they come from the same winning row. All other fields use plain column references
+    // which is safe because unified groups contain the same logical movie (same external IDs).
     private val UNIFIED_SELECT =
         """SELECT
-                        SUBSTR($BEST_PICK, 22, INSTR($BEST_PICK_TAIL, '|') - 1) as ratingKey,
+                        SUBSTR($BEST_PICK, 6, INSTR($BEST_PICK_TAIL, '|') - 1) as ratingKey,
                         SUBSTR($BEST_PICK_TAIL, INSTR($BEST_PICK_TAIL, '|') + 1) as serverId,
                         media.librarySectionId, media.title,
                         media.titleSortable, media.filter, media.sortOrder,
@@ -250,21 +262,24 @@ object MediaLibraryQueryBuilder {
     private const val UNIFIED_FROM =
         "FROM media LEFT JOIN id_bridge ON media.tmdbId = id_bridge.tmdbId AND media.imdbId IS NULL "
 
-    // Unified GROUP BY: uses id_bridge.imdbId from the LEFT JOIN for TMDb→IMDb bridging
+    // Unified GROUP BY: uses id_bridge.imdbId from the LEFT JOIN for TMDb→IMDb bridging.
+    // No title+year fallback — only external IDs (imdb/tmdb) trigger unification.
+    // Movies without any external ID stay as separate entries (ratingKey||serverId).
     private const val UNIFIED_GROUP_BY =
         """GROUP BY media.type, COALESCE(
                         media.imdbId,
                         id_bridge.imdbId,
                         CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
-                        CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
+                        media.ratingKey || media.serverId
                     ) """
 
-    // Non-unified GROUP BY: no id_bridge JOIN available, so no bridgedImdbId
+    // Non-unified GROUP BY: no id_bridge JOIN available, so no bridgedImdbId.
+    // Same rule: no title+year fallback, only external IDs unify.
     private const val NON_UNIFIED_GROUP_BY =
         """GROUP BY media.type, COALESCE(
                         media.imdbId,
                         CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
-                        CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
+                        media.ratingKey || media.serverId
                     ) """
 
     private const val UNIFIED_COUNT_SELECT =
@@ -272,7 +287,7 @@ object MediaLibraryQueryBuilder {
                     media.imdbId,
                     id_bridge.imdbId,
                     CASE WHEN media.tmdbId IS NOT NULL AND media.tmdbId != '' THEN 'tmdb_' || media.tmdbId ELSE NULL END,
-                    CASE WHEN media.unificationId != '' THEN media.unificationId ELSE media.ratingKey || media.serverId END
+                    media.ratingKey || media.serverId
                 )) """
 
     private const val UNIFIED_COUNT_FROM =
