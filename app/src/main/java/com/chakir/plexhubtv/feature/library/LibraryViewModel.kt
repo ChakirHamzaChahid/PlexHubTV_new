@@ -124,16 +124,18 @@ class LibraryViewModel
                         "DATA [Library] Loading content: Library=${params.libraryId} Type=${params.mediaType} Filter=${params.filter} Sort=${params.sort} Server=${params.serverId}",
                     )
                     // Compute maxAge for SQL-level content filtering (avoids iterating pagingData.filter{} per page)
+                    // Only filter when: kids profile (capped at 7) or explicit PARENTAL_* age rating.
+                    // GENERAL and ADULT both mean "no filtering" — GENERAL was the old broken default
+                    // (never user-configurable since the dialog doesn't expose age rating selection).
                     val profile = profileRepository.getActiveProfile()
-                    val maxAge = if (profile != null && (profile.isKidsProfile || profile.ageRating != AgeRating.ADULT)) {
-                        val profileMax = when (profile.ageRating) {
-                            AgeRating.GENERAL -> 0
-                            AgeRating.PARENTAL_7 -> 7
-                            AgeRating.PARENTAL_13 -> 13
-                            AgeRating.PARENTAL_16 -> 16
-                            AgeRating.ADULT -> 99
+                    val maxAge = if (profile != null) {
+                        when {
+                            profile.isKidsProfile -> 7
+                            profile.ageRating == AgeRating.PARENTAL_7 -> 7
+                            profile.ageRating == AgeRating.PARENTAL_13 -> 13
+                            profile.ageRating == AgeRating.PARENTAL_16 -> 16
+                            else -> null // GENERAL or ADULT → no filtering
                         }
-                        if (profile.isKidsProfile) minOf(profileMax, 7) else profileMax
                     } else null
 
                     getLibraryContentUseCase(
@@ -251,9 +253,18 @@ class LibraryViewModel
                         ),
                     )
                 }
-            }
 
-            // Observe filter changes to compute filtered item count
+                // Launch count observer AFTER metadata + DataStore reads so the first count
+                // already uses the correct selectedServerId (set by single-server fast path).
+                launchFilteredCountObserver()
+            }
+        }
+
+        /**
+         * Observe les changements de filtre pour calculer le nombre d'éléments filtrés.
+         * Lancé après loadMetadata() pour éviter un premier count unifié inutile.
+         */
+        private fun launchFilteredCountObserver() {
             viewModelScope.launch {
                 _uiState
                     .map { state ->
@@ -339,6 +350,15 @@ class LibraryViewModel
                     }
                 } catch (e: Exception) {
                     Timber.w("Failed to load Backend servers for filter: ${e.message}")
+                }
+
+                // Single-server fast path: skip unified query when only one source exists
+                if (servers.size == 1 && serverNames.size == 1) {
+                    _uiState.update { it.copy(
+                        selection = it.selection.copy(
+                            selectedServerId = servers[0].clientIdentifier
+                        )
+                    ) }
                 }
 
                 // Utilisation des groupes de genres définis statiquement (UI_LABELS)

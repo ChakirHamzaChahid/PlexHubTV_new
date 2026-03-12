@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import androidx.paging.map
 import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 class PlaybackRepositoryImpl
@@ -35,6 +36,15 @@ class PlaybackRepositoryImpl
         private val mediaDetailRepository: MediaDetailRepository,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : PlaybackRepository {
+        private data class ProgressEntry(
+            val ratingKey: String,
+            val serverId: String,
+            val viewOffset: Long,
+            val lastViewedAt: Long,
+        )
+
+        private val progressCache = ConcurrentHashMap<String, ProgressEntry>()
+
         override suspend fun toggleWatchStatus(
             media: MediaItem,
             isWatched: Boolean,
@@ -80,19 +90,37 @@ class PlaybackRepositoryImpl
                 apiCache.evict(cacheKey)
             }
 
-            // Update local DB regardless of network status (Optimistic UI / Offline support)
-            try {
-                mediaDao.updateProgress(
-                    ratingKey = media.ratingKey,
-                    serverId = media.serverId,
-                    viewOffset = positionMs,
-                    lastViewedAt = System.currentTimeMillis(),
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to update local progress for ${media.ratingKey}")
-            }
+            // Cache progress in memory — flushed to DB once at playback stop to avoid
+            // Room PagingSource invalidation every 30s (critical for Mi Box S performance).
+            val key = "${media.serverId}:${media.ratingKey}"
+            progressCache[key] = ProgressEntry(
+                ratingKey = media.ratingKey,
+                serverId = media.serverId,
+                viewOffset = positionMs,
+                lastViewedAt = System.currentTimeMillis(),
+            )
 
             return result
+        }
+
+        override suspend fun flushLocalProgress() {
+            val entries = progressCache.values.toList()
+            progressCache.clear()
+            for (entry in entries) {
+                try {
+                    mediaDao.updateProgress(
+                        ratingKey = entry.ratingKey,
+                        serverId = entry.serverId,
+                        viewOffset = entry.viewOffset,
+                        lastViewedAt = entry.lastViewedAt,
+                    )
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to flush progress for ${entry.ratingKey}")
+                }
+            }
+            if (entries.isNotEmpty()) {
+                Timber.d("Flushed ${entries.size} progress entries to DB")
+            }
         }
 
         override suspend fun getNextMedia(currentItem: MediaItem): MediaItem? {

@@ -102,8 +102,13 @@ class PlayerScrobbler
             _showAutoNextPopup.update { false }
             prefetchNextEpisodeUseCase.reset()
 
-            // Update TV channel once when playback stops (fire-and-forget on IO)
+            // Flush cached progress to DB, then update TV channel (fire-and-forget on IO)
             applicationScope.launch(ioDispatcher) {
+                try {
+                    playbackRepository.flushLocalProgress()
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to flush progress cache on stop")
+                }
                 try {
                     tvChannelManager.updateContinueWatching()
                 } catch (e: Exception) {

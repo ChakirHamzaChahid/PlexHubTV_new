@@ -30,6 +30,9 @@ interface PlaybackRepository {
 
     fun getWatchHistoryPaged(): Flow<androidx.paging.PagingData<MediaItem>>
 
+    /** Écrit le cache de progression local en BDD (appelé au stop du player). */
+    suspend fun flushLocalProgress()
+
     /** Met à jour la sélection de flux (audio/sous-titres) pour un média. */
     suspend fun updateStreamSelection(
         serverId: String,
