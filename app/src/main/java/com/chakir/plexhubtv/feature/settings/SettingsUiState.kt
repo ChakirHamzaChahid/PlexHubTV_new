@@ -40,6 +40,10 @@ data class SettingsUiState(
     val backendConfigMessage: String? = null,
     val isSyncingBackend: Boolean = false,
     val backendSyncMessage: String? = null,
+    val isTriggeringBackendSync: Boolean = false,
+    val backendTriggerSyncMessage: String? = null,
+    val isCheckingBackendHealth: Boolean = false,
+    val backendHealthMessage: String? = null,
     // Rating Sync Configuration
     val ratingSyncSource: String = "tmdb", // "tmdb" or "omdb"
     val ratingSyncDelay: Long = 250L, // delay in ms
@@ -131,6 +135,10 @@ sealed interface SettingsAction {
     data class TestBackendConnection(val url: String) : SettingsAction
 
     data object SyncBackend : SettingsAction
+
+    data object TriggerBackendXtreamSync : SettingsAction
+
+    data object CheckBackendHealth : SettingsAction
 
     data class SetParentalPin(val pin: String) : SettingsAction
 

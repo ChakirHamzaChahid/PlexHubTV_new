@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.work
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
+import androidx.room.withTransaction
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.chakir.plexhubtv.R
@@ -30,6 +31,7 @@ class CollectionSyncWorker
         private val authRepository: AuthRepository,
         private val collectionDao: CollectionDao,
         private val mediaDao: MediaDao,
+        private val database: PlexDatabase,
         private val mediaMapper: MediaMapper,
         private val api: PlexApiService,
         private val connectionManager: ConnectionManager,
@@ -118,6 +120,11 @@ class CollectionSyncWorker
                                     val collections = collectionsContainer?.metadata ?: emptyList()
                                     Timber.i("     SUCCESS: Found ${collections.size} potential collections in '$libTitle'")
 
+                                    // Accumulate all entities for this library, then write in a single transaction
+                                    // to minimize Room InvalidationTracker notifications (1 per library instead of 1 per collection)
+                                    val pendingMedia = mutableListOf<MediaEntity>()
+                                    val pendingCollectionData = mutableListOf<Pair<CollectionEntity, List<MediaCollectionCrossRef>>>()
+
                                     collections.forEach { collectionDto ->
                                         if (collectionDto.type != "collection") {
                                             Timber.v(
@@ -151,7 +158,6 @@ class CollectionSyncWorker
                                         val items = itemsResponse.body()?.mediaContainer?.metadata ?: emptyList()
                                         Timber.d("       SUCCESS: '${collectionDto.title}' has ${items.size} items")
 
-                                        val mediaEntities = mutableListOf<MediaEntity>()
                                         val crossRefs = mutableListOf<MediaCollectionCrossRef>()
 
                                         items.forEach { itemDto ->
@@ -166,7 +172,7 @@ class CollectionSyncWorker
                                                         // Use ratingKey as offset to ensure uniqueness within this filter bucket
                                                         pageOffset = itemDto.ratingKey.toIntOrNull() ?: itemDto.ratingKey.hashCode(),
                                                     )
-                                            mediaEntities.add(mediaEntity)
+                                            pendingMedia.add(mediaEntity)
 
                                             crossRefs.add(
                                                 MediaCollectionCrossRef(
@@ -177,14 +183,22 @@ class CollectionSyncWorker
                                             )
                                         }
 
-                                        // Bulk insert media in batches of 100 to avoid SQLite variable limit
-                                        mediaEntities.chunked(100).forEach { batch ->
-                                            mediaDao.upsertMedia(batch)
-                                        }
+                                        pendingCollectionData.add(collectionEntity to crossRefs)
+                                        Timber.d("       QUEUED: '${collectionDto.title}' (items=${crossRefs.size})")
+                                    }
 
-                                        Timber.d("       → Inserting ${crossRefs.size} cross-references")
-                                        collectionDao.upsertCollectionWithItems(collectionEntity, crossRefs)
-                                        Timber.i("       DONE: Synced '${collectionDto.title}' (items=${crossRefs.size})")
+                                    // Single transaction for ALL collections in this library
+                                    // Room fires InvalidationTracker only ONCE per transaction commit
+                                    if (pendingMedia.isNotEmpty() || pendingCollectionData.isNotEmpty()) {
+                                        database.withTransaction {
+                                            pendingMedia.chunked(500).forEach { batch ->
+                                                mediaDao.upsertMedia(batch)
+                                            }
+                                            pendingCollectionData.forEach { (entity, refs) ->
+                                                collectionDao.upsertCollectionWithItems(entity, refs)
+                                            }
+                                        }
+                                        Timber.i("     FLUSHED: ${pendingMedia.size} media + ${pendingCollectionData.size} collections in single transaction for '$libTitle'")
                                     }
                                 } else {
                                     Timber.v("  -> Skipping library '$libTitle' (type=$libType)")

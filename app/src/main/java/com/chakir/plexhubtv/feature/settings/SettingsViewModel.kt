@@ -438,6 +438,77 @@ class SettingsViewModel
                         _uiState.update { it.copy(backendSyncMessage = null) }
                     }
                 }
+                is SettingsAction.TriggerBackendXtreamSync -> {
+                    _uiState.update { it.copy(isTriggeringBackendSync = true, backendTriggerSyncMessage = null) }
+                    viewModelScope.launch {
+                        try {
+                            val servers = backendRepository.observeServers().first()
+                            if (servers.isEmpty()) {
+                                _uiState.update { it.copy(isTriggeringBackendSync = false, backendTriggerSyncMessage = "No backend servers configured") }
+                            } else {
+                                val jobIds = mutableListOf<String>()
+                                servers.filter { it.isActive }.forEach { server ->
+                                    val result = backendRepository.syncAll(server.id)
+                                    result.getOrNull()?.let { jobIds.add(it) }
+                                }
+                                val msg = if (jobIds.isNotEmpty()) {
+                                    "Sync triggered (${jobIds.size} server(s))"
+                                } else {
+                                    "Failed to trigger sync"
+                                }
+                                _uiState.update { it.copy(isTriggeringBackendSync = false, backendTriggerSyncMessage = msg) }
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Backend trigger sync failed")
+                            _uiState.update {
+                                it.copy(isTriggeringBackendSync = false, backendTriggerSyncMessage = "Failed: ${e.message}")
+                            }
+                        }
+                        kotlinx.coroutines.delay(5000)
+                        _uiState.update { it.copy(backendTriggerSyncMessage = null) }
+                    }
+                }
+                is SettingsAction.CheckBackendHealth -> {
+                    _uiState.update { it.copy(isCheckingBackendHealth = true, backendHealthMessage = null) }
+                    viewModelScope.launch {
+                        try {
+                            val servers = backendRepository.observeServers().first()
+                            if (servers.isEmpty()) {
+                                _uiState.update { it.copy(isCheckingBackendHealth = false, backendHealthMessage = "No backend servers configured") }
+                            } else {
+                                val reports = mutableListOf<String>()
+                                servers.filter { it.isActive }.forEach { server ->
+                                    val result = backendRepository.getHealthInfo(server.id)
+                                    if (result.isSuccess) {
+                                        val info = result.getOrThrow()
+                                        val lastSync = info.lastSyncAt?.let {
+                                            val mins = (System.currentTimeMillis() - it) / 60_000
+                                            if (mins < 60) "${mins}m ago" else "${mins / 60}h ago"
+                                        } ?: "never"
+                                        reports.add(
+                                            "${server.label}: ${info.status} | v${info.version} | " +
+                                            "${info.accounts} accounts | ${info.totalMedia} media | " +
+                                            "${info.enrichedMedia} enriched | ${info.brokenStreams} broken | " +
+                                            "last sync: $lastSync"
+                                        )
+                                    } else {
+                                        reports.add("${server.label}: unreachable")
+                                    }
+                                }
+                                _uiState.update {
+                                    it.copy(isCheckingBackendHealth = false, backendHealthMessage = reports.joinToString("\n"))
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Backend health check failed")
+                            _uiState.update {
+                                it.copy(isCheckingBackendHealth = false, backendHealthMessage = "Failed: ${e.message}")
+                            }
+                        }
+                        kotlinx.coroutines.delay(10000)
+                        _uiState.update { it.copy(backendHealthMessage = null) }
+                    }
+                }
             }
         }
 

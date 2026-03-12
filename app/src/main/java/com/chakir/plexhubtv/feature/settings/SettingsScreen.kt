@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -511,6 +512,40 @@ fun SettingsScreen(
                             icon = Icons.Filled.Cached,
                             onClick = { if (!state.isSyncingBackend) onAction(SettingsAction.SyncBackend) },
                             trailingContent = if (state.isSyncingBackend) {
+                                { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                            } else {
+                                null
+                            },
+                        )
+
+                        // Trigger backend Xtream sync
+                        SettingsTile(
+                            title = stringResource(R.string.settings_backend_trigger_sync),
+                            subtitle = if (state.isTriggeringBackendSync) {
+                                stringResource(R.string.settings_syncing_message)
+                            } else {
+                                state.backendTriggerSyncMessage ?: stringResource(R.string.settings_backend_trigger_sync_subtitle)
+                            },
+                            icon = Icons.Filled.Sync,
+                            onClick = { if (!state.isTriggeringBackendSync) onAction(SettingsAction.TriggerBackendXtreamSync) },
+                            trailingContent = if (state.isTriggeringBackendSync) {
+                                { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                            } else {
+                                null
+                            },
+                        )
+
+                        // Check backend health
+                        SettingsTile(
+                            title = stringResource(R.string.settings_backend_health),
+                            subtitle = if (state.isCheckingBackendHealth) {
+                                stringResource(R.string.settings_syncing_message)
+                            } else {
+                                state.backendHealthMessage ?: stringResource(R.string.settings_backend_health_subtitle)
+                            },
+                            icon = Icons.Filled.Info,
+                            onClick = { if (!state.isCheckingBackendHealth) onAction(SettingsAction.CheckBackendHealth) },
+                            trailingContent = if (state.isCheckingBackendHealth) {
                                 { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
                             } else {
                                 null

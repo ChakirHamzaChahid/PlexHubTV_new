@@ -169,8 +169,9 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                                 Timber.d("Init: Pre-warming server connections...")
                                 val servers = authRepositoryLazy.get().getServers(forceRefresh = false).getOrNull() ?: emptyList()
                                 if (servers.isNotEmpty()) {
-                                    withTimeoutOrNull(5_000L) {
-                                        servers.map { server ->
+                                    // Limit to 3 servers max with 2s timeout to avoid blocking startup on slow Wi-Fi
+                                    withTimeoutOrNull(2_000L) {
+                                        servers.take(3).map { server ->
                                             async {
                                                 try {
                                                     connectionManagerLazy.get().findBestConnection(server)
@@ -180,7 +181,7 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                                             }
                                         }.awaitAll()
                                     }
-                                    Timber.d("Init: Server connections warmed (${servers.size} servers)")
+                                    Timber.d("Init: Server connections warmed (${servers.take(3).size}/${servers.size} servers)")
                                 } else {
                                     Timber.d("Init: No servers to warm")
                                 }
@@ -292,6 +293,18 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
         )
 
         Timber.d("TV Channel: Periodic worker scheduled (every 3h)")
+
+        // 5. Schedule daily API cache purge to prevent table bloat on low-storage devices
+        val cachePurgeRequest =
+            PeriodicWorkRequestBuilder<com.chakir.plexhubtv.work.CachePurgeWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(1, TimeUnit.HOURS)
+                .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "CachePurge",
+            ExistingPeriodicWorkPolicy.KEEP,
+            cachePurgeRequest,
+        )
     }
 
     override fun newImageLoader(context: Context): ImageLoader {

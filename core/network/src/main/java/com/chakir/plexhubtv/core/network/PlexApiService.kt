@@ -67,14 +67,14 @@ interface PlexApiService {
         @Query("X-Plex-Container-Size") size: Int = 100,
     ): Response<GenericPlexResponse>
 
-    @PUT("https://metadata.provider.plex.tv/actions/addToWatchlist")
+    @PUT("https://discover.provider.plex.tv/actions/addToWatchlist")
     suspend fun addToWatchlist(
         @Query("ratingKey") ratingKey: String,
         @Header("X-Plex-Token") token: String,
         @Header("X-Plex-Client-Identifier") clientId: String,
     ): Response<Unit>
 
-    @DELETE("https://metadata.provider.plex.tv/actions/removeFromWatchlist")
+    @PUT("https://discover.provider.plex.tv/actions/removeFromWatchlist")
     suspend fun removeFromWatchlist(
         @Query("ratingKey") ratingKey: String,
         @Header("X-Plex-Token") token: String,
