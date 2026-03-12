@@ -85,7 +85,8 @@ fun NetflixPlayerControls(
     onShowSettings: () -> Unit = {},
     onPreviousChapter: () -> Unit = {},
     onNextChapter: () -> Unit = {},
-    playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null
+    playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
+    getFrameBitmap: ((Long) -> android.graphics.Bitmap?)? = null,
 ) {
     val prevChapterDesc = stringResource(R.string.player_previous_chapter)
     val nextChapterDesc = stringResource(R.string.player_next_chapter)
@@ -214,7 +215,8 @@ fun NetflixPlayerControls(
                     markers = markers,
                     onSeek = onSeek,
                     playedColor = NetflixRed,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    getFrameBitmap = getFrameBitmap,
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))

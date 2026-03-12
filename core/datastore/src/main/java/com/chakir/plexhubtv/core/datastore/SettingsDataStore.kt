@@ -54,6 +54,10 @@ class SettingsDataStore
         private val PLAYER_ENGINE = stringPreferencesKey("player_engine")
         private val DEINTERLACE_MODE = stringPreferencesKey("deinterlace_mode")
         private val AUTO_PLAY_NEXT = stringPreferencesKey("auto_play_next")
+        private val SKIP_INTRO_MODE = stringPreferencesKey("skip_intro_mode")
+        private val SKIP_CREDITS_MODE = stringPreferencesKey("skip_credits_mode")
+        private val THEME_SONG_ENABLED = stringPreferencesKey("theme_song_enabled")
+        private val THEME_SONG_VOLUME = stringPreferencesKey("theme_song_volume")
         private val LAST_SYNC_TIME = stringPreferencesKey("last_sync_time")
         private val FIRST_SYNC_COMPLETE = stringPreferencesKey("first_sync_complete")
         private val EXCLUDED_SERVER_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("excluded_server_ids")
@@ -79,6 +83,21 @@ class SettingsDataStore
 
         // TV Channels Configuration
         private val TV_CHANNELS_ENABLED = stringPreferencesKey("tv_channels_enabled")
+
+        // Subtitle Style Preferences
+        private val SUBTITLE_FONT_SIZE = stringPreferencesKey("subtitle_font_size")
+        private val SUBTITLE_FONT_COLOR = stringPreferencesKey("subtitle_font_color")
+        private val SUBTITLE_BG_COLOR = stringPreferencesKey("subtitle_bg_color")
+        private val SUBTITLE_EDGE_TYPE = stringPreferencesKey("subtitle_edge_type")
+        private val SUBTITLE_EDGE_COLOR = stringPreferencesKey("subtitle_edge_color")
+
+        // Auto-Update Preferences
+        private val AUTO_CHECK_UPDATES = stringPreferencesKey("auto_check_updates")
+
+        // Screensaver Preferences
+        private val SCREENSAVER_ENABLED = stringPreferencesKey("screensaver_enabled")
+        private val SCREENSAVER_INTERVAL_SECONDS = stringPreferencesKey("screensaver_interval_seconds")
+        private val SCREENSAVER_SHOW_CLOCK = stringPreferencesKey("screensaver_show_clock")
 
         // Library Filter Preferences
         private val LIBRARY_SORT = stringPreferencesKey("library_sort")
@@ -190,6 +209,22 @@ class SettingsDataStore
             dataStore.data
                 .map { preferences -> preferences[AUTO_PLAY_NEXT]?.toBoolean() ?: true }
 
+        val skipIntroMode: Flow<String> =
+            dataStore.data
+                .map { preferences -> preferences[SKIP_INTRO_MODE] ?: "ask" }
+
+        val skipCreditsMode: Flow<String> =
+            dataStore.data
+                .map { preferences -> preferences[SKIP_CREDITS_MODE] ?: "ask" }
+
+        val themeSongEnabled: Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[THEME_SONG_ENABLED]?.toBoolean() ?: false }
+
+        val themeSongVolume: Flow<Float> =
+            dataStore.data
+                .map { preferences -> preferences[THEME_SONG_VOLUME]?.toFloatOrNull() ?: 0.3f }
+
         val lastSyncTime: Flow<Long> =
             dataStore.data
                 .map { preferences -> preferences[LAST_SYNC_TIME]?.toLongOrNull() ?: 0L }
@@ -257,6 +292,30 @@ class SettingsDataStore
         val isTvChannelsEnabled: Flow<Boolean> =
             dataStore.data
                 .map { preferences -> preferences[TV_CHANNELS_ENABLED]?.toBoolean() ?: true }
+
+        // Subtitle Style Preferences Flows
+        val subtitleFontSize: Flow<Int> =
+            dataStore.data.map { it[SUBTITLE_FONT_SIZE]?.toIntOrNull() ?: 22 }
+
+        val subtitleFontColor: Flow<Long> =
+            dataStore.data.map { it[SUBTITLE_FONT_COLOR]?.toLongOrNull() ?: 0xFFFFFFFF }
+
+        val subtitleBgColor: Flow<Long> =
+            dataStore.data.map { it[SUBTITLE_BG_COLOR]?.toLongOrNull() ?: 0x80000000 }
+
+        val subtitleEdgeType: Flow<Int> =
+            dataStore.data.map { it[SUBTITLE_EDGE_TYPE]?.toIntOrNull() ?: 0 }
+
+        val subtitleEdgeColor: Flow<Long> =
+            dataStore.data.map { it[SUBTITLE_EDGE_COLOR]?.toLongOrNull() ?: 0xFF000000 }
+
+        // Auto-Update Preferences Flow
+        val autoCheckUpdates: Flow<Boolean> =
+            dataStore.data.map { it[AUTO_CHECK_UPDATES]?.toBoolean() ?: true }
+
+        suspend fun saveAutoCheckUpdates(enabled: Boolean) {
+            dataStore.edit { it[AUTO_CHECK_UPDATES] = enabled.toString() }
+        }
 
         suspend fun saveToken(token: String) {
             // Use SecurePreferencesManager for encrypted storage
@@ -353,6 +412,30 @@ class SettingsDataStore
         suspend fun saveAutoPlayNext(enabled: Boolean) {
             dataStore.edit { preferences ->
                 preferences[AUTO_PLAY_NEXT] = enabled.toString()
+            }
+        }
+
+        suspend fun saveSkipIntroMode(mode: String) {
+            dataStore.edit { preferences ->
+                preferences[SKIP_INTRO_MODE] = mode
+            }
+        }
+
+        suspend fun saveSkipCreditsMode(mode: String) {
+            dataStore.edit { preferences ->
+                preferences[SKIP_CREDITS_MODE] = mode
+            }
+        }
+
+        suspend fun saveThemeSongEnabled(enabled: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[THEME_SONG_ENABLED] = enabled.toString()
+            }
+        }
+
+        suspend fun saveThemeSongVolume(volume: Float) {
+            dataStore.edit { preferences ->
+                preferences[THEME_SONG_VOLUME] = volume.toString()
             }
         }
 
@@ -525,6 +608,49 @@ class SettingsDataStore
             dataStore.edit { preferences ->
                 preferences[TV_CHANNELS_ENABLED] = enabled.toString()
             }
+        }
+
+        // Subtitle Style Save Functions
+        suspend fun saveSubtitleFontSize(size: Int) {
+            dataStore.edit { it[SUBTITLE_FONT_SIZE] = size.toString() }
+        }
+
+        suspend fun saveSubtitleFontColor(color: Long) {
+            dataStore.edit { it[SUBTITLE_FONT_COLOR] = color.toString() }
+        }
+
+        suspend fun saveSubtitleBgColor(color: Long) {
+            dataStore.edit { it[SUBTITLE_BG_COLOR] = color.toString() }
+        }
+
+        suspend fun saveSubtitleEdgeType(type: Int) {
+            dataStore.edit { it[SUBTITLE_EDGE_TYPE] = type.toString() }
+        }
+
+        suspend fun saveSubtitleEdgeColor(color: Long) {
+            dataStore.edit { it[SUBTITLE_EDGE_COLOR] = color.toString() }
+        }
+
+        // Screensaver Preferences Flows
+        val screensaverEnabled: Flow<Boolean> =
+            dataStore.data.map { it[SCREENSAVER_ENABLED]?.toBoolean() ?: true }
+
+        val screensaverIntervalSeconds: Flow<Int> =
+            dataStore.data.map { it[SCREENSAVER_INTERVAL_SECONDS]?.toIntOrNull() ?: 15 }
+
+        val screensaverShowClock: Flow<Boolean> =
+            dataStore.data.map { it[SCREENSAVER_SHOW_CLOCK]?.toBoolean() ?: true }
+
+        suspend fun saveScreensaverEnabled(enabled: Boolean) {
+            dataStore.edit { it[SCREENSAVER_ENABLED] = enabled.toString() }
+        }
+
+        suspend fun saveScreensaverIntervalSeconds(seconds: Int) {
+            dataStore.edit { it[SCREENSAVER_INTERVAL_SECONDS] = seconds.toString() }
+        }
+
+        suspend fun saveScreensaverShowClock(show: Boolean) {
+            dataStore.edit { it[SCREENSAVER_SHOW_CLOCK] = show.toString() }
         }
 
         // Library Filter Preferences Flows

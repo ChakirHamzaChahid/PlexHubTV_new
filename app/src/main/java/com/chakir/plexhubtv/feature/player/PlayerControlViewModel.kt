@@ -6,11 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
+import com.chakir.plexhubtv.feature.player.controller.TrickplayManager
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
 import com.chakir.plexhubtv.feature.player.url.DirectStreamUrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.chakir.plexhubtv.core.model.SubtitlePreferences
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -21,6 +24,7 @@ class PlayerControlViewModel @Inject constructor(
     private val playerController: PlayerController,
     private val savedStateHandle: SavedStateHandle,
     val chapterMarkerManager: ChapterMarkerManager,
+    val trickplayManager: TrickplayManager,
     private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
     private val directStreamUrlBuilder: DirectStreamUrlBuilder,
     settingsRepository: SettingsRepository,
@@ -30,6 +34,22 @@ class PlayerControlViewModel @Inject constructor(
 
     val autoPlayNextEnabled: StateFlow<Boolean> = settingsRepository.autoPlayNextEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val skipIntroMode: StateFlow<String> = settingsRepository.skipIntroMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "ask")
+
+    val skipCreditsMode: StateFlow<String> = settingsRepository.skipCreditsMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "ask")
+
+    val subtitlePrefs: StateFlow<SubtitlePreferences> = combine(
+        settingsRepository.subtitleFontSize,
+        settingsRepository.subtitleFontColor,
+        settingsRepository.subtitleBgColor,
+        settingsRepository.subtitleEdgeType,
+        settingsRepository.subtitleEdgeColor,
+    ) { fontSize, fontColor, bgColor, edgeType, edgeColor ->
+        SubtitlePreferences(fontSize, fontColor, bgColor, edgeType, edgeColor)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, SubtitlePreferences())
 
     init {
         val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -235,6 +255,7 @@ class PlayerControlViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        trickplayManager.clear()
         playerController.release()
     }
 

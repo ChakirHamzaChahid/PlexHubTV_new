@@ -44,7 +44,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
+import android.graphics.Typeface
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import com.chakir.plexhubtv.core.model.SubtitlePreferences
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -67,11 +70,25 @@ fun VideoPlayerRoute(
 ) {
     val uiState by controlViewModel.uiState.collectAsState()
     val autoPlayEnabled by controlViewModel.autoPlayNextEnabled.collectAsState()
+    val skipIntroMode by controlViewModel.skipIntroMode.collectAsState()
+    val skipCreditsMode by controlViewModel.skipCreditsMode.collectAsState()
+    val subtitlePrefs by controlViewModel.subtitlePrefs.collectAsState()
 
     // Collecte des Chapitres et Marqueurs
     val chapters by controlViewModel.chapterMarkerManager.chapters.collectAsState()
     val markers by controlViewModel.chapterMarkerManager.markers.collectAsState()
-    val visibleMarkers by controlViewModel.chapterMarkerManager.visibleMarkers.collectAsState()
+    val allVisibleMarkers by controlViewModel.chapterMarkerManager.visibleMarkers.collectAsState()
+
+    // Filter visible markers: only show button when mode is "ask"
+    val visibleMarkers = remember(allVisibleMarkers, skipIntroMode, skipCreditsMode) {
+        allVisibleMarkers.filter { marker ->
+            when (marker.type) {
+                "intro" -> skipIntroMode == "ask"
+                "credits" -> skipCreditsMode == "ask"
+                else -> true
+            }
+        }
+    }
 
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -100,6 +117,8 @@ fun VideoPlayerRoute(
         markers = markers,
         visibleMarkers = visibleMarkers,
         autoPlayEnabled = autoPlayEnabled,
+        subtitlePrefs = subtitlePrefs,
+        getFrameBitmap = { controlViewModel.trickplayManager.getFrameBitmap(it) },
         onAction = { action ->
             if (action is PlayerAction.Close) {
                 onClose()
@@ -139,6 +158,8 @@ fun VideoPlayerScreen(
     markers: List<com.chakir.plexhubtv.core.model.Marker> = emptyList(),
     visibleMarkers: List<com.chakir.plexhubtv.core.model.Marker> = emptyList(),
     autoPlayEnabled: Boolean = true,
+    subtitlePrefs: SubtitlePreferences = SubtitlePreferences(),
+    getFrameBitmap: ((Long) -> android.graphics.Bitmap?)? = null,
     onAction: (PlayerAction) -> Unit,
 ) {
     var controlsVisible by remember { mutableStateOf(false) }
@@ -285,7 +306,31 @@ fun VideoPlayerScreen(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                             )
+                        subtitleView?.setStyle(
+                            CaptionStyleCompat(
+                                subtitlePrefs.fontColor.toInt(),
+                                subtitlePrefs.backgroundColor.toInt(),
+                                android.graphics.Color.TRANSPARENT,
+                                subtitlePrefs.edgeType,
+                                subtitlePrefs.edgeColor.toInt(),
+                                Typeface.DEFAULT,
+                            )
+                        )
+                        subtitleView?.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, subtitlePrefs.fontSize.toFloat())
                     }
+                },
+                update = { playerView ->
+                    playerView.subtitleView?.setStyle(
+                        CaptionStyleCompat(
+                            subtitlePrefs.fontColor.toInt(),
+                            subtitlePrefs.backgroundColor.toInt(),
+                            android.graphics.Color.TRANSPARENT,
+                            subtitlePrefs.edgeType,
+                            subtitlePrefs.edgeColor.toInt(),
+                            Typeface.DEFAULT,
+                        )
+                    )
+                    playerView.subtitleView?.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, subtitlePrefs.fontSize.toFloat())
                 },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -325,7 +370,8 @@ fun VideoPlayerScreen(
                 onPreviousChapter = { onAction(PlayerAction.SeekToPreviousChapter) },
                 onNextChapter = { onAction(PlayerAction.SeekToNextChapter) },
                 modifier = Modifier,
-                playPauseFocusRequester = focusRequester
+                playPauseFocusRequester = focusRequester,
+                getFrameBitmap = getFrameBitmap,
             )
         }
 

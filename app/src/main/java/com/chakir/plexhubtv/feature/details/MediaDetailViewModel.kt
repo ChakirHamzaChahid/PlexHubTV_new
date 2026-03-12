@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -51,6 +52,8 @@ class MediaDetailViewModel
         private val filterContentByAgeUseCase: com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
+        val themeSongService: com.chakir.plexhubtv.core.ui.ThemeSongService,
+        private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
         savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -61,6 +64,9 @@ class MediaDetailViewModel
 
         private val _navigationEvents = Channel<MediaDetailNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
+
+        val themeSongEnabled: StateFlow<Boolean> = settingsRepository.themeSongEnabled
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
 
         init {
             if (ratingKey == null || serverId == null) {
@@ -257,6 +263,11 @@ class MediaDetailViewModel
                 is MediaDetailEvent.Retry -> {
                     loadDetail()
                     checkFavoriteStatus()
+                }
+                is MediaDetailEvent.OpenPerson -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(MediaDetailNavigationEvent.NavigateToPersonDetail(event.personName))
+                    }
                 }
             }
         }
@@ -490,7 +501,9 @@ class MediaDetailViewModel
                             }
                         val mergedSeasons = if (supplementary.isNotEmpty()) {
                             Timber.i("VM: Merged ${supplementary.size} extra seasons from other servers")
-                            (currentState.seasons + supplementary).sortedBy { it.parentIndex }
+                            (currentState.seasons + supplementary)
+                                .distinctBy { "${it.ratingKey}_${it.serverId}" }
+                                .sortedBy { it.parentIndex }
                         } else {
                             currentState.seasons
                         }
@@ -574,4 +587,6 @@ sealed interface MediaDetailNavigationEvent {
     data class NavigateToCollection(val collectionId: String, val serverId: String) : MediaDetailNavigationEvent
 
     data object NavigateBack : MediaDetailNavigationEvent
+
+    data class NavigateToPersonDetail(val personName: String) : MediaDetailNavigationEvent
 }

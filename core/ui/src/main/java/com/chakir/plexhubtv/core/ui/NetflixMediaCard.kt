@@ -103,9 +103,9 @@ fun NetflixMediaCard(
 
     // Dimensions based on CardType
     val cardWidth = when (cardType) {
-        CardType.POSTER -> 140.dp
-        CardType.WIDE -> 240.dp
-        CardType.TOP_TEN -> 140.dp // + rank styling
+        CardType.POSTER -> 120.dp
+        CardType.WIDE -> 200.dp
+        CardType.TOP_TEN -> 120.dp // + rank styling
     }
     val cardAspectRatio = when (cardType) {
         CardType.POSTER, CardType.TOP_TEN -> 2f / 3f

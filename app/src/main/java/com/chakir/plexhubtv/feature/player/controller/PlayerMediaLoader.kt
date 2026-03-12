@@ -7,7 +7,10 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.service.PlaybackManager
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -21,6 +24,7 @@ class PlayerMediaLoader
         private val chapterMarkerManager: ChapterMarkerManager,
         private val playerScrobbler: PlayerScrobbler,
         private val playbackManager: PlaybackManager,
+        private val trickplayManager: TrickplayManager,
     ) {
         data class MediaLoadResult(
             val item: MediaItem,
@@ -68,6 +72,16 @@ class PlayerMediaLoader
                     Timber.d("PlayerMediaLoader: Loaded ${media.chapters.size} chapters, ${media.markers.size} markers for ${media.title}")
                     media.markers.forEach { marker ->
                         Timber.d("  Marker: type=${marker.type}, start=${marker.startTime}ms, end=${marker.endTime}ms")
+                    }
+
+                    // Load trickplay BIF data in background
+                    val bifBaseUrl = media.baseUrl
+                    val bifToken = media.accessToken
+                    val bifPartId = media.mediaParts.firstOrNull()?.id
+                    if (bifBaseUrl != null && bifToken != null && bifPartId != null) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            trickplayManager.loadBif(bifBaseUrl, bifToken, bifPartId)
+                        }
                     }
 
                     val clientId = settingsRepository.clientId.first() ?: "PlexHubTV-Client"

@@ -172,6 +172,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.palette)
 
     // --- Networking & Data ---
     implementation(libs.kotlinx.serialization.json)

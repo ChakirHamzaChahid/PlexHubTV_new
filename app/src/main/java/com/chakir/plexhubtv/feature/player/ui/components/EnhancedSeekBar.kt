@@ -27,6 +27,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.Chapter
@@ -53,6 +55,7 @@ fun EnhancedSeekBar(
     modifier: Modifier = Modifier,
     isDragging: Boolean = false,
     playedColor: Color = Color(0xFFE5A00D),
+    getFrameBitmap: ((Long) -> Bitmap?)? = null,
 ) {
     if (duration <= 0L) return
 
@@ -82,8 +85,12 @@ fun EnhancedSeekBar(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         // Thumbnail preview popup (above the seek bar, follows drag position)
-        if (isDrag && scrubChapter != null && chapters.isNotEmpty()) {
-            val chapter = scrubChapter
+        val trickplayBitmap = remember(displayPosition, isDrag) {
+            if (isDrag && getFrameBitmap != null) getFrameBitmap(displayPosition) else null
+        }
+        val showPreview = isDrag && (scrubChapter != null || trickplayBitmap != null)
+
+        if (showPreview) {
             val progressPx = progress * boxWidth
             val offsetPx = (progressPx - thumbWidthPx / 2)
                 .coerceIn(0f, (boxWidth - thumbWidthPx).coerceAtLeast(0f))
@@ -102,41 +109,62 @@ fun EnhancedSeekBar(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // Thumbnail image
-                        if (chapter.thumbUrl != null) {
-                            AsyncImage(
-                                model = chapter.thumbUrl,
-                                contentDescription = chapter.title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .width(thumbWidth)
-                                    .height(90.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color.DarkGray),
-                            )
-                        } else {
-                            // Fallback: show chapter title in a box when no thumbnail
-                            Box(
-                                modifier = Modifier
-                                    .width(thumbWidth)
-                                    .height(90.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color.DarkGray.copy(alpha = 0.9f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = chapter.title,
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(8.dp),
+                        when {
+                            // Priority 1: Chapter thumbnail
+                            scrubChapter?.thumbUrl != null -> {
+                                AsyncImage(
+                                    model = scrubChapter.thumbUrl,
+                                    contentDescription = scrubChapter.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .width(thumbWidth)
+                                        .height(90.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.DarkGray),
                                 )
+                            }
+                            // Priority 2: BIF trickplay frame
+                            trickplayBitmap != null -> {
+                                androidx.compose.foundation.Image(
+                                    bitmap = trickplayBitmap.asImageBitmap(),
+                                    contentDescription = "Preview",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .width(thumbWidth)
+                                        .height(90.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.DarkGray),
+                                )
+                            }
+                            // Priority 3: Chapter title fallback
+                            scrubChapter != null -> {
+                                Box(
+                                    modifier = Modifier
+                                        .width(thumbWidth)
+                                        .height(90.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.DarkGray.copy(alpha = 0.9f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = scrubChapter.title,
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(8.dp),
+                                    )
+                                }
                             }
                         }
 
-                        // Chapter title + time below the thumbnail
+                        // Label below the thumbnail
+                        val label = if (scrubChapter != null) {
+                            "${scrubChapter.title} · ${formatTime(displayPosition)}"
+                        } else {
+                            formatTime(displayPosition)
+                        }
                         Text(
-                            text = "${chapter.title} · ${formatTime(displayPosition)}",
+                            text = label,
                             color = Color(0xFFE5A00D),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,

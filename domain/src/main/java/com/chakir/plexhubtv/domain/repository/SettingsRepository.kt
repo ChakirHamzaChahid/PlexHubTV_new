@@ -40,6 +40,19 @@ interface SettingsRepository {
 
     suspend fun setAutoPlayNext(enabled: Boolean)
 
+    val skipIntroMode: Flow<String> // "auto", "ask", "off"
+
+    suspend fun setSkipIntroMode(mode: String)
+
+    val skipCreditsMode: Flow<String> // "auto", "ask", "off"
+
+    suspend fun setSkipCreditsMode(mode: String)
+
+    // --- Theme Song ---
+    val themeSongEnabled: Flow<Boolean>
+
+    suspend fun setThemeSongEnabled(enabled: Boolean)
+
     // --- Audio/Subtitle Preferences ---
     val preferredAudioLanguage: Flow<String?> // "fr", "en", etc.
 
@@ -135,6 +148,33 @@ interface SettingsRepository {
     suspend fun saveLibraryGenre(genre: String?)
 
     suspend fun saveLibraryServerFilter(serverName: String?)
+
+    // --- Subtitle Style ---
+    val subtitleFontSize: Flow<Int>
+    val subtitleFontColor: Flow<Long>
+    val subtitleBgColor: Flow<Long>
+    val subtitleEdgeType: Flow<Int>
+    val subtitleEdgeColor: Flow<Long>
+
+    suspend fun saveSubtitleFontSize(size: Int)
+    suspend fun saveSubtitleFontColor(color: Long)
+    suspend fun saveSubtitleBgColor(color: Long)
+    suspend fun saveSubtitleEdgeType(type: Int)
+    suspend fun saveSubtitleEdgeColor(color: Long)
+
+    // --- Screensaver ---
+    val screensaverEnabled: Flow<Boolean>
+    val screensaverIntervalSeconds: Flow<Int>
+    val screensaverShowClock: Flow<Boolean>
+
+    suspend fun setScreensaverEnabled(enabled: Boolean)
+    suspend fun setScreensaverIntervalSeconds(seconds: Int)
+    suspend fun setScreensaverShowClock(show: Boolean)
+
+    // --- Auto-Update ---
+    val autoCheckUpdates: Flow<Boolean>
+
+    suspend fun setAutoCheckUpdates(enabled: Boolean)
 
     // --- Parental PIN ---
     fun getParentalPin(): String?

@@ -383,6 +383,34 @@
     <string name="settings_deinterlace_off">Off</string>
     <string name="settings_auto_play_next">Auto-play next episode</string>
     <string name="settings_auto_play_next_subtitle">Automatically play the next episode after a 15-second countdown</string>
+    <string name="settings_skip_intro">Skip intro</string>
+    <string name="settings_skip_intro_subtitle">Behavior when an intro marker is detected</string>
+    <string name="settings_skip_credits">Skip credits</string>
+    <string name="settings_skip_credits_subtitle">Behavior when a credits marker is detected</string>
+    <string name="settings_skip_mode_auto">Auto-skip</string>
+    <string name="settings_skip_mode_ask">Show button</string>
+    <string name="settings_skip_mode_off">Disabled</string>
+
+    <!-- Subtitle Style -->
+    <string name="settings_subtitle_style">Subtitle Style</string>
+    <string name="settings_subtitle_style_subtitle">Customize subtitle appearance</string>
+    <string name="settings_subtitle_font_size">Font Size</string>
+    <string name="settings_subtitle_font_color">Font Color</string>
+    <string name="settings_subtitle_bg_color">Background</string>
+    <string name="settings_subtitle_edge_type">Edge Style</string>
+    <string name="settings_color_white">White</string>
+    <string name="settings_color_yellow">Yellow</string>
+    <string name="settings_color_green">Green</string>
+    <string name="settings_color_cyan">Cyan</string>
+    <string name="settings_color_blue">Blue</string>
+    <string name="settings_bg_transparent">Transparent</string>
+    <string name="settings_bg_semi_transparent">Semi-transparent</string>
+    <string name="settings_bg_black">Solid black</string>
+    <string name="settings_edge_none">None</string>
+    <string name="settings_edge_outline">Outline</string>
+    <string name="settings_edge_drop_shadow">Drop shadow</string>
+    <string name="settings_edge_raised">Raised</string>
+    <string name="settings_edge_depressed">Depressed</string>
 
     <!-- Languages -->
     <string name="settings_section_languages">Languages</string>
@@ -508,6 +536,22 @@
     <string name="settings_section_legal">Legal</string>
     <string name="settings_privacy_policy">Privacy Policy</string>
     <string name="settings_privacy_policy_subtitle">View our privacy policy</string>
+
+    <!-- Screensaver -->
+    <string name="settings_section_screensaver">Screensaver</string>
+    <string name="settings_screensaver_enabled">Screensaver</string>
+    <string name="settings_screensaver_enabled_subtitle">Show artwork slideshow as Android TV daydream</string>
+    <string name="settings_screensaver_show_clock">Show Clock</string>
+    <string name="settings_screensaver_show_clock_subtitle">Display time overlay on screensaver</string>
+    <string name="settings_screensaver_interval">Slide Interval</string>
+    <string name="settings_screensaver_interval_subtitle">%1$d seconds between slides</string>
+
+    <!-- Updates -->
+    <string name="settings_section_updates">Updates</string>
+    <string name="settings_auto_check_updates">Check for updates</string>
+    <string name="settings_auto_check_updates_subtitle">Automatically check for new versions on startup</string>
+    <string name="settings_check_now">Check Now</string>
+    <string name="settings_check_now_subtitle">Check GitHub for a newer version</string>
 
     <!-- Debug -->
     <string name="settings_section_debug">Debug</string>

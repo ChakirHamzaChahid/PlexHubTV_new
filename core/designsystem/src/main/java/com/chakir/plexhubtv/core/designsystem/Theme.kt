@@ -99,6 +99,24 @@ private val MoroccoColorScheme =
         onSurfaceVariant = Color.LightGray,
     )
 
+private val OledBlackColorScheme =
+    darkColorScheme(
+        primary = OledText,
+        onPrimary = OledBlack,
+        secondary = OledAccent,
+        onSecondary = OledText,
+        tertiary = OledAccent,
+        onTertiary = OledText,
+        background = OledBlack,
+        surface = OledSurface,
+        onBackground = OledText,
+        onSurface = OledText,
+        error = Color(0xFFCF6679),
+        outline = Color(0xFF1A1A1A),
+        surfaceVariant = OledSurface,
+        onSurfaceVariant = OledTextMuted,
+    )
+
 private val NetflixColorScheme =
     darkColorScheme(
         primary = NetflixRed,
@@ -138,6 +156,7 @@ fun PlexHubTheme(
             "MonoLight" -> MonoLightColorScheme
             "Morocco" -> MoroccoColorScheme
             "Netflix" -> NetflixColorScheme
+            "OLEDBlack" -> OledBlackColorScheme
             "Plex" -> if (darkTheme) DarkColorScheme else LightColorScheme
             else -> if (darkTheme) DarkColorScheme else LightColorScheme
         }

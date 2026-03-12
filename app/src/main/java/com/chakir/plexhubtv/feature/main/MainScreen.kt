@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.feature.main
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,9 +21,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import com.chakir.plexhubtv.core.ui.rememberBackdropColors
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -76,6 +86,9 @@ fun MainScreen(
     // NAV-14: Focus requester so TopBar DPAD_DOWN can route focus into content area
     val contentFocusRequester = remember { FocusRequester() }
 
+    // App-level backdrop image URL (driven by Home screen's focused item)
+    var backdropImageUrl by remember { mutableStateOf<String?>(null) }
+
     // Determines the current selected item based on the route
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -122,7 +135,20 @@ fun MainScreen(
         }
     }
 
+    // Clear backdrop when navigating away from Home
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != Screen.Home.route) {
+            backdropImageUrl = null
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
+        // App-level backdrop (visible only on Home screen)
+        val showBackdrop = currentRoute == Screen.Home.route && backdropImageUrl != null
+        if (showBackdrop) {
+            AppBackdrop(imageUrl = backdropImageUrl)
+        }
+
         if (uiState.isOffline) {
             OfflineBanner()
         }
@@ -132,7 +158,12 @@ fun MainScreen(
             startDestination = Screen.Home.route,
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .then(
+                    if (currentRoute == Screen.Home.route)
+                        Modifier // Transparent — backdrop behind
+                    else
+                        Modifier.background(MaterialTheme.colorScheme.background)
+                )
                 .focusRequester(contentFocusRequester),
         ) {
             composable(Screen.Home.route) {
@@ -140,6 +171,7 @@ fun MainScreen(
                     onNavigateToDetails = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
                     onNavigateToPlayer = { ratingKey, serverId -> onNavigateToPlayer(ratingKey, serverId) },
                     onNavigateUp = { requestTopBarFocus = true },
+                    onBackdropChanged = { url -> backdropImageUrl = url },
                 )
             }
             composable(Screen.Hub.route) {
@@ -194,10 +226,16 @@ fun MainScreen(
                     onNavigateToLibrarySelection = { onNavigateToLibrarySelection() },
                     onNavigateToXtreamSetup = { onNavigateToXtreamSetup() },
                     onNavigateToXtreamCategorySelection = { accountId -> onNavigateToXtreamCategorySelection(accountId) },
+                    onNavigateToSubtitleStyle = { navController.navigate(Screen.SubtitleStyle.route) },
                 )
             }
             composable(Screen.ServerStatus.route) {
                 com.chakir.plexhubtv.feature.settings.serverstatus.ServerStatusRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
+            composable(Screen.SubtitleStyle.route) {
+                com.chakir.plexhubtv.feature.settings.SubtitleStyleRoute(
                     onNavigateBack = { navController.popBackStack() },
                 )
             }
@@ -257,6 +295,68 @@ fun MainScreen(
                 contentFocusRequester = contentFocusRequester,
             )
         }
+    }
+}
+
+@Composable
+private fun AppBackdrop(imageUrl: String?) {
+    val backdropColors = rememberBackdropColors(imageUrl)
+    val gradientBase = if (backdropColors.isDefault) Color.Black else backdropColors.secondary
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Background image with crossfade
+        Crossfade(
+            targetState = imageUrl,
+            animationSpec = tween(600),
+            label = "app_backdrop"
+        ) { url ->
+            if (url != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(url)
+                        .size(1280, 720)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = 0.65f }
+                )
+            }
+        }
+
+        // Vertical gradient (transparent → dark at bottom)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Transparent,
+                            gradientBase.copy(alpha = 0.6f),
+                            gradientBase,
+                        ),
+                        startY = 0f,
+                        endY = Float.POSITIVE_INFINITY
+                    )
+                )
+        )
+        // Horizontal gradient (dark left → transparent right)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            gradientBase.copy(alpha = 0.7f),
+                            Color.Transparent,
+                        ),
+                        startX = 0f,
+                        endX = 1600f
+                    )
+                )
+        )
     }
 }
 

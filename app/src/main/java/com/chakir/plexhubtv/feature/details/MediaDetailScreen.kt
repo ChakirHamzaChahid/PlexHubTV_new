@@ -67,6 +67,7 @@ fun MediaDetailRoute(
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateToSeason: (String, String) -> Unit,
     onNavigateToCollection: (String, String) -> Unit,
+    onNavigateToPersonDetail: (String) -> Unit = {},
     onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -85,6 +86,7 @@ fun MediaDetailRoute(
                 is MediaDetailNavigationEvent.NavigateToMediaDetail -> onNavigateToDetail(event.ratingKey, event.serverId)
                 is MediaDetailNavigationEvent.NavigateToSeason -> onNavigateToSeason(event.ratingKey, event.serverId)
                 is MediaDetailNavigationEvent.NavigateToCollection -> onNavigateToCollection(event.collectionId, event.serverId)
+                is MediaDetailNavigationEvent.NavigateToPersonDetail -> onNavigateToPersonDetail(event.personName)
                 is MediaDetailNavigationEvent.NavigateBack -> onNavigateBack()
             }
         }
@@ -92,6 +94,21 @@ fun MediaDetailRoute(
 
     HandleErrors(errorEvents, snackbarHostState) {
         viewModel.onEvent(MediaDetailEvent.Retry)
+    }
+
+    // Theme song playback
+    val themeSongService = viewModel.themeSongService
+    val themeSongEnabled by viewModel.themeSongEnabled.collectAsState()
+    val themeUrl = uiState.media?.themeUrl
+    val scope = rememberCoroutineScope()
+
+    DisposableEffect(themeUrl, themeSongEnabled) {
+        if (themeSongEnabled && themeUrl != null) {
+            themeSongService.play(themeUrl, scope = scope)
+        }
+        onDispose {
+            themeSongService.stop(scope)
+        }
     }
 
     MediaDetailScreen(

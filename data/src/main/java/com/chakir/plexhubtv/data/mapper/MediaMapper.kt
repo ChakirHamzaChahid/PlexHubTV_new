@@ -73,6 +73,7 @@ class MediaMapper
                 childCount = dto.childCount,
                 // Grandparent
                 grandparentRatingKey = dto.grandparentRatingKey,
+                themeUrl = dto.grandparentTheme?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
                 // Parts & Streams
                 mediaParts =
                     dto.media?.flatMap { mediaDto ->
@@ -91,6 +92,8 @@ class MediaMapper
                             )
                         } ?: emptyList()
                     } ?: emptyList(),
+                // Directors
+                directors = dto.directors?.mapNotNull { it.tag } ?: emptyList(),
                 // Cast
                 role =
                     dto.roles?.map { roleDto ->
@@ -99,7 +102,10 @@ class MediaMapper
                             filter = roleDto.filter,
                             role = roleDto.role,
                             tag = roleDto.tag,
-                            thumb = roleDto.thumb?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
+                            thumb = roleDto.thumb?.let { thumb ->
+                                if (thumb.startsWith("http")) "$thumb?X-Plex-Token=$accessToken"
+                                else "$baseUrl$thumb?X-Plex-Token=$accessToken"
+                            },
                         )
                     } ?: emptyList(),
                 baseUrl = baseUrl,

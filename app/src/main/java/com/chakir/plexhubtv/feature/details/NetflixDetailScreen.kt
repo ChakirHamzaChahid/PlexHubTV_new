@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -63,10 +64,17 @@ import com.chakir.plexhubtv.core.model.ExtraType
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
+import com.chakir.plexhubtv.core.ui.rememberBackdropColors
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
+import com.chakir.plexhubtv.core.model.AudioStream
+import com.chakir.plexhubtv.core.model.SubtitleStream
+import com.chakir.plexhubtv.core.model.VideoStream
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.ui.text.font.FontStyle
+import java.util.Calendar
 
 private enum class DetailFocusTarget { PlayButton, Tabs, ContentRow }
 
@@ -98,13 +106,16 @@ fun NetflixDetailScreen(
         } catch (_: Exception) { }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(NetflixBlack)) {
+    val backdropColors = rememberBackdropColors(media.artUrl ?: media.thumbUrl)
+    val gradientBase = if (backdropColors.isDefault) NetflixBlack else backdropColors.secondary
+
+    Box(modifier = Modifier.fillMaxSize().background(gradientBase)) {
         // 1. Full Screen Backdrop with Gradient
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(media.artUrl ?: media.thumbUrl)
-                    .size(1920, 1080) // TV resolution, not Size.ORIGINAL
+                    .size(1920, 1080)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -119,9 +130,9 @@ fun NetflixDetailScreen(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                NetflixBlack.copy(alpha = 0.5f),
-                                NetflixBlack.copy(alpha = 0.9f),
-                                NetflixBlack
+                                gradientBase.copy(alpha = 0.5f),
+                                gradientBase.copy(alpha = 0.9f),
+                                gradientBase
                             ),
                             startY = 0f,
                             endY = Float.POSITIVE_INFINITY
@@ -135,9 +146,9 @@ fun NetflixDetailScreen(
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
-                                NetflixBlack.copy(alpha = 0.9f),
-                                NetflixBlack.copy(alpha = 0.5f),
-                                Color.Transparent
+                                gradientBase.copy(alpha = 0.9f),
+                                gradientBase.copy(alpha = 0.5f),
+                                if (backdropColors.isDefault) Color.Transparent else backdropColors.primary
                             ),
                             startX = 0f,
                             endX = 1500f
@@ -147,238 +158,364 @@ fun NetflixDetailScreen(
             )
         }
 
-        // 2. Content Scroll — LazyColumn for proper D-Pad navigation
-        LazyColumn(
-            state = listState,
+        // 2. Content — Fixed header + scrollable body
+        Column(
             modifier = Modifier.fillMaxSize().zIndex(2f),
-            contentPadding = PaddingValues(start = 50.dp, bottom = 50.dp, top = 0.dp),
         ) {
-            // Spacer to push content down so header shows nicely
-            item(key = "detail_top_spacer") { Spacer(modifier = Modifier.height(350.dp)) }
+            // ── FIXED HEADER: Title + Meta + Genres (always visible) ──
+            DetailFixedHeader(
+                media = media,
+                seasons = seasons,
+                modifier = Modifier.fillMaxHeight(0.38f),
+            )
 
-            // Hero Metadata
-            item(key = "detail_metadata") {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(end = 50.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = media.title,
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+            // ── SCROLLABLE BODY: Buttons, tech info, summary, tabs, content ──
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 50.dp, bottom = 50.dp),
+            ) {
+                // Action Buttons
+                item(key = "detail_buttons") {
+                    Column(modifier = Modifier.fillMaxWidth().padding(end = 50.dp)) {
+                        // Technical badges row
+                        val streams = media.mediaParts.firstOrNull()?.streams ?: emptyList()
+                        val videoStreams = streams.filterIsInstance<VideoStream>()
+                        val audioStreams = streams.filterIsInstance<AudioStream>()
+                        val subtitleStreams = streams.filterIsInstance<SubtitleStream>()
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Meta Row
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val matchPercentage = ((media.rating ?: 0.0) * 10).toInt()
-                        if (matchPercentage > 0) {
-                            Text(
-                                text = "$matchPercentage% Match",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFF46D369),
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                        }
-
-                        media.year?.let {
-                            Text(text = it.toString(), style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
-                            Spacer(modifier = Modifier.width(16.dp))
-                        }
-
-                        media.contentRating?.let {
-                            Box(
-                                modifier = Modifier
-                                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                        if (videoStreams.isNotEmpty() || audioStreams.isNotEmpty() || subtitleStreams.isNotEmpty()) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(text = it, style = MaterialTheme.typography.labelMedium, color = Color.White)
+                                videoStreams.firstOrNull()?.let { video ->
+                                    val resolution = when {
+                                        (video.height ?: 0) >= 2160 -> "4K"
+                                        (video.height ?: 0) >= 1080 -> "1080p"
+                                        (video.height ?: 0) >= 720 -> "720p"
+                                        (video.height ?: 0) >= 480 -> "480p"
+                                        else -> "${video.height}p"
+                                    }
+                                    val hdrSuffix = if (video.hasHDR) " HDR" else ""
+                                    val altCount = videoStreams.size - 1
+                                    TechBadge(text = "$resolution$hdrSuffix${if (altCount > 0) " (+$altCount)" else ""}")
+                                }
+                                videoStreams.firstOrNull()?.codec?.uppercase()?.let { codec ->
+                                    TechBadge(text = codec)
+                                }
+                                audioStreams.firstOrNull()?.let { audio ->
+                                    val channelLabel = when (audio.channels) {
+                                        1 -> "Mono"; 2 -> "Stereo"; 6 -> "5.1"; 8 -> "7.1"
+                                        else -> audio.channels?.toString() ?: ""
+                                    }
+                                    val lang = audio.language ?: audio.languageCode ?: ""
+                                    val codec = audio.codec?.uppercase() ?: ""
+                                    val altCount = audioStreams.size - 1
+                                    val label = listOfNotNull(
+                                        lang.ifEmpty { null }, codec.ifEmpty { null }, channelLabel.ifEmpty { null },
+                                    ).joinToString(" ")
+                                    TechBadge(text = "\uD83D\uDD0A $label${if (altCount > 0) " (+$altCount)" else ""}")
+                                }
+                                if (subtitleStreams.isNotEmpty()) {
+                                    val firstSub = subtitleStreams.firstOrNull()
+                                    val lang = firstSub?.language ?: firstSub?.languageCode ?: "CC"
+                                    val altCount = subtitleStreams.size - 1
+                                    TechBadge(text = "CC $lang${if (altCount > 0) " (+$altCount)" else ""}")
+                                }
                             }
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
 
-                        media.durationMs?.let {
-                            val mins = it / 60000
-                            Text(
-                                text = if (media.type == MediaType.Show) "${seasons.size} Seasons" else "$mins m",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = NetflixLightGray
-                            )
+                        // Available on
+                        if (!state.isEnriching && media.remoteSources.isNotEmpty()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Available on: ", style = MaterialTheme.typography.bodyMedium, color = NetflixLightGray)
+                                Text(
+                                    text = media.remoteSources.joinToString(", ") { it.serverName },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White, fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
 
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text("HD", style = MaterialTheme.typography.labelSmall, color = NetflixLightGray, fontWeight = FontWeight.Bold)
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Available on (servers list) - only show after enrichment is complete
-                    if (!state.isEnriching && media.remoteSources.isNotEmpty()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Available on: ",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = NetflixLightGray
-                            )
-                            Text(
-                                text = media.remoteSources.joinToString(", ") { it.serverName },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                        Box(modifier = Modifier.onFocusChanged {
+                            if (it.hasFocus) lastFocusTarget = DetailFocusTarget.PlayButton
+                        }) {
+                            ActionButtonsRow(media, state, onAction, playButtonFocusRequester)
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Box(modifier = Modifier.onFocusChanged {
-                        if (it.hasFocus) lastFocusTarget = DetailFocusTarget.PlayButton
-                    }) {
-                        ActionButtonsRow(media, state, onAction, playButtonFocusRequester)
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    ExpandableSummary(
-                        text = media.summary ?: "",
-                        modifier = Modifier.width(600.dp),
-                    )
                 }
-            }
 
-            item(key = "detail_spacer_tabs") { Spacer(modifier = Modifier.height(40.dp)) }
+                // Tagline + Summary + Director + Cast
+                item(key = "detail_info") {
+                    Column(modifier = Modifier.fillMaxWidth().padding(end = 50.dp, top = 20.dp)) {
+                        if (!media.tagline.isNullOrBlank()) {
+                            Text(
+                                text = "\"${media.tagline}\"",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontStyle = FontStyle.Italic,
+                                color = Color.White.copy(alpha = 0.8f),
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
 
-            // 3. Tabs
-            item(key = "detail_tabs") {
-                Box(modifier = Modifier
-                    .focusRequester(tabsFocusRequester)
-                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.Tabs }
-                ) {
-                    NetflixDetailTabs(
-                        selectedTab = selectedTab,
-                        onTabSelected = { selectedTab = it },
-                        showEpisodes = media.type == MediaType.Show,
-                        showCollections = state.collections.isNotEmpty(),
-                        showTrailers = media.extras.isNotEmpty(),
-                    )
+                        ExpandableSummary(text = media.summary ?: "", modifier = Modifier.width(600.dp))
+
+                        if (media.directors.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Directed by ${media.directors.joinToString(", ")}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NetflixLightGray,
+                            )
+                        }
+
+                        val castList = media.role
+                        if (!castList.isNullOrEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            CastRow(
+                                cast = castList,
+                                onPersonClicked = { name -> onAction(MediaDetailEvent.OpenPerson(name)) },
+                            )
+                        }
+                    }
                 }
-            }
 
-            // 4. Tab Content — LazyRow for proper D-Pad inside LazyColumn
-            when (selectedTab) {
-                DetailTab.Episodes -> {
+                item(key = "detail_spacer_tabs") { Spacer(modifier = Modifier.height(40.dp)) }
+
+                // Tabs
+                item(key = "detail_tabs") {
+                    Box(modifier = Modifier
+                        .focusRequester(tabsFocusRequester)
+                        .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.Tabs }
+                    ) {
+                        NetflixDetailTabs(
+                            selectedTab = selectedTab,
+                            onTabSelected = { selectedTab = it },
+                            showEpisodes = media.type == MediaType.Show,
+                            showCollections = state.collections.isNotEmpty(),
+                            showTrailers = media.extras.isNotEmpty(),
+                        )
+                    }
+                }
+
+                // Tab Content
+                when (selectedTab) {
+                    DetailTab.Episodes -> {
+                        if (seasons.isNotEmpty()) {
+                            item(key = "detail_seasons_row") {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(end = 50.dp),
+                                    modifier = Modifier
+                                        .focusGroup()
+                                        .focusRequester(contentRowFocusRequester)
+                                        .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
+                                ) {
+                                    items(seasons, key = { "${it.ratingKey}_${it.serverId}" }, contentType = { "season" }) { season ->
+                                        NetflixMediaCard(
+                                            media = season,
+                                            onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
+                                            onPlay = {},
+                                            showYear = showYear,
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            item(key = "detail_no_seasons") { Text("No seasons available", color = NetflixLightGray) }
+                        }
+                    }
+                    DetailTab.MoreLikeThis -> {
+                        if (similarItems.isNotEmpty()) {
+                            item(key = "detail_similar_row") {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(end = 50.dp),
+                                    modifier = Modifier
+                                        .focusGroup()
+                                        .focusRequester(contentRowFocusRequester)
+                                        .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
+                                ) {
+                                    items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }, contentType = { "media" }) { item ->
+                                        NetflixMediaCard(
+                                            media = item,
+                                            onClick = { onAction(MediaDetailEvent.OpenMediaDetail(item)) },
+                                            onPlay = {},
+                                            showYear = showYear,
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            item(key = "detail_no_similar") { Text("No similar items found", color = NetflixLightGray) }
+                        }
+                    }
+                    DetailTab.Collections -> {
+                        if (state.collections.isNotEmpty()) {
+                            item(key = "detail_collections_row") {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(end = 50.dp),
+                                    modifier = Modifier
+                                        .focusGroup()
+                                        .focusRequester(contentRowFocusRequester)
+                                        .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
+                                ) {
+                                    items(state.collections, key = { it.id }, contentType = { "collection" }) { collection ->
+                                        CollectionCard(
+                                            title = collection.title,
+                                            itemCount = collection.items.size,
+                                            thumbUrl = collection.thumbUrl,
+                                            onClick = { onCollectionClicked(collection.id, collection.serverId) },
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            item(key = "detail_no_collections") { Text("No collections available", color = NetflixLightGray) }
+                        }
+                    }
+                    DetailTab.Trailers -> {
+                        val extras = media.extras
+                        if (extras.isNotEmpty()) {
+                            item(key = "detail_trailers_row") {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(end = 50.dp),
+                                    modifier = Modifier
+                                        .focusGroup()
+                                        .focusRequester(contentRowFocusRequester)
+                                        .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
+                                ) {
+                                    items(extras, key = { it.ratingKey }, contentType = { "extra" }) { extra ->
+                                        ExtraCard(
+                                            extra = extra,
+                                            onClick = { onAction(MediaDetailEvent.PlayExtra(extra)) },
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            item(key = "detail_no_trailers") { Text("No trailers available", color = NetflixLightGray) }
+                        }
+                    }
+                }
+
+                item(key = "detail_bottom_spacer") { Spacer(modifier = Modifier.height(50.dp)) }
+            }
+        }
+    }
+}
+
+/**
+ * Fixed header — always visible at the top of the detail screen.
+ * Shows title, meta row (year, duration, remaining, rating), and genres.
+ */
+@Composable
+private fun DetailFixedHeader(
+    media: MediaItem,
+    seasons: List<MediaItem>,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.fillMaxWidth().padding(start = 50.dp, end = 50.dp, bottom = 8.dp),
+        contentAlignment = Alignment.BottomStart,
+    ) {
+        Column {
+            Text(
+                text = media.title,
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Meta Row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                media.year?.let {
+                    Text(text = it.toString(), style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
+                    MetaDot()
+                }
+
+                if (media.type == MediaType.Show) {
                     if (seasons.isNotEmpty()) {
-                        item(key = "detail_seasons_row") {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier
-                                    .focusGroup()
-                                    .focusRequester(contentRowFocusRequester)
-                                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
-                            ) {
-                                items(seasons, key = { "${it.ratingKey}_${it.serverId}" }, contentType = { "season" }) { season ->
-                                    NetflixMediaCard(
-                                        media = season,
-                                        onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
-                                        onPlay = {},
-                                        showYear = showYear,
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        item(key = "detail_no_seasons") {
-                            Text("No seasons available", color = NetflixLightGray)
-                        }
+                        Text(
+                            text = "${seasons.size} Season${if (seasons.size > 1) "s" else ""}",
+                            style = MaterialTheme.typography.titleMedium, color = NetflixLightGray,
+                        )
+                    }
+                } else {
+                    media.durationMs?.let { durationMs ->
+                        Text(text = formatDuration(durationMs), style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
                     }
                 }
-                DetailTab.MoreLikeThis -> {
-                    if (similarItems.isNotEmpty()) {
-                        item(key = "detail_similar_row") {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier
-                                    .focusGroup()
-                                    .focusRequester(contentRowFocusRequester)
-                                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
-                            ) {
-                                items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }, contentType = { "media" }) { item ->
-                                    NetflixMediaCard(
-                                        media = item,
-                                        onClick = { onAction(MediaDetailEvent.OpenMediaDetail(item)) },
-                                        onPlay = {},
-                                        showYear = showYear,
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        item(key = "detail_no_similar") {
-                            Text("No similar items found", color = NetflixLightGray)
-                        }
+
+                val durationMs = media.durationMs
+                if (media.type != MediaType.Show && media.viewOffset > 0 && durationMs != null && durationMs > 0) {
+                    val remainingMs = (durationMs - media.viewOffset).coerceAtLeast(0)
+                    if (remainingMs > 0) {
+                        MetaDot()
+                        Text(text = "${formatDuration(remainingMs)} left", style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
                     }
                 }
-                DetailTab.Collections -> {
-                    if (state.collections.isNotEmpty()) {
-                        item(key = "detail_collections_row") {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier
-                                    .focusGroup()
-                                    .focusRequester(contentRowFocusRequester)
-                                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
-                            ) {
-                                items(state.collections, key = { it.id }, contentType = { "collection" }) { collection ->
-                                    CollectionCard(
-                                        title = collection.title,
-                                        itemCount = collection.items.size,
-                                        thumbUrl = collection.thumbUrl,
-                                        onClick = { onCollectionClicked(collection.id, collection.serverId) },
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        item(key = "detail_no_collections") {
-                            Text("No collections available", color = NetflixLightGray)
-                        }
+
+                media.contentRating?.let {
+                    MetaDot()
+                    Box(
+                        modifier = Modifier
+                            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(text = it, style = MaterialTheme.typography.labelMedium, color = Color.White)
                     }
                 }
-                DetailTab.Trailers -> {
-                    val extras = media.extras
-                    if (extras.isNotEmpty()) {
-                        item(key = "detail_trailers_row") {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                contentPadding = PaddingValues(end = 50.dp),
-                                modifier = Modifier
-                                    .focusGroup()
-                                    .focusRequester(contentRowFocusRequester)
-                                    .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
-                            ) {
-                                items(extras, key = { it.ratingKey }, contentType = { "extra" }) { extra ->
-                                    ExtraCard(
-                                        extra = extra,
-                                        onClick = { onAction(MediaDetailEvent.PlayExtra(extra)) },
-                                    )
-                                }
-                            }
+
+                val ratingValue = media.rating
+                if (ratingValue != null && ratingValue > 0) {
+                    MetaDot()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(String.format("%.1f", ratingValue), style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (media.type != MediaType.Show && media.viewOffset > 0 && durationMs != null && durationMs > 0) {
+                    val remainingMs = (durationMs - media.viewOffset).coerceAtLeast(0)
+                    if (remainingMs > 0) {
+                        MetaDot()
+                        val endsAt = remember(remainingMs) {
+                            val cal = Calendar.getInstance()
+                            cal.add(Calendar.MILLISECOND, remainingMs.toInt())
+                            String.format("%d:%02d %s",
+                                if (cal.get(Calendar.HOUR) == 0) 12 else cal.get(Calendar.HOUR),
+                                cal.get(Calendar.MINUTE),
+                                if (cal.get(Calendar.AM_PM) == Calendar.AM) "AM" else "PM"
+                            )
                         }
-                    } else {
-                        item(key = "detail_no_trailers") {
-                            Text("No trailers available", color = NetflixLightGray)
-                        }
+                        Text(text = "Ends at $endsAt", style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
                     }
                 }
             }
 
-            item(key = "detail_bottom_spacer") { Spacer(modifier = Modifier.height(50.dp)) }
+            // Genres
+            if (media.genres.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = media.genres.joinToString(", "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NetflixLightGray,
+                )
+            }
         }
     }
 }
@@ -635,6 +772,130 @@ private fun ExpandableSummary(
                         onClick = { isExpanded = !isExpanded }
                     ),
             )
+        }
+    }
+}
+
+@Composable
+private fun MetaDot() {
+    Text(
+        text = "•",
+        style = MaterialTheme.typography.titleMedium,
+        color = NetflixLightGray,
+    )
+}
+
+@Composable
+private fun TechBadge(text: String) {
+    Box(
+        modifier = Modifier
+            .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+private fun formatDuration(ms: Long): String {
+    val totalMinutes = ms / 60000
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
+        hours > 0 -> "${hours}h"
+        else -> "${minutes}m"
+    }
+}
+
+@Composable
+private fun CastRow(
+    cast: List<com.chakir.plexhubtv.core.model.CastMember>,
+    onPersonClicked: (String) -> Unit,
+) {
+    val displayCast = cast.take(8)
+    Column {
+        Text(
+            text = "Cast",
+            style = MaterialTheme.typography.titleSmall,
+            color = NetflixLightGray,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            displayCast.forEach { member ->
+                val name = member.tag ?: return@forEach
+                val interactionSource = remember { MutableInteractionSource() }
+                val isFocused by interactionSource.collectIsFocusedAsState()
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .width(72.dp)
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = { onPersonClicked(name) },
+                        ),
+                ) {
+                    if (member.thumb != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(member.thumb)
+                                .build(),
+                            contentDescription = name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .then(
+                                    if (isFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.CircleShape)
+                                    else Modifier
+                                ),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(Color.DarkGray)
+                                .then(
+                                    if (isFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.CircleShape)
+                                    else Modifier
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = name.first().toString(),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isFocused) Color.White else NetflixLightGray,
+                        fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    member.role?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.5f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
         }
     }
 }

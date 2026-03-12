@@ -15,6 +15,9 @@ data class SettingsUiState(
     val playerEngine: String = "ExoPlayer",
     val deinterlaceMode: String = "auto",
     val autoPlayNextEnabled: Boolean = true,
+    val skipIntroMode: String = "ask", // "auto", "ask", "off"
+    val skipCreditsMode: String = "ask", // "auto", "ask", "off"
+    val themeSongEnabled: Boolean = false,
     val appVersion: String = "1.0.0",
     val isSyncing: Boolean = false,
     val isSyncingWatchlist: Boolean = false,
@@ -51,8 +54,16 @@ data class SettingsUiState(
     val ratingSyncDailyLimit: Int = 900,
     val ratingSyncProgressSeries: Int = 0,
     val ratingSyncProgressMovies: Int = 0,
+    // Screensaver
+    val screensaverEnabled: Boolean = true,
+    val screensaverIntervalSeconds: Int = 15,
+    val screensaverShowClock: Boolean = true,
     // Parental PIN
     val hasParentalPin: Boolean = false,
+    // Auto-Update
+    val autoCheckUpdates: Boolean = true,
+    val isCheckingForUpdate: Boolean = false,
+    val updateCheckMessage: String? = null,
 )
 
 enum class AppTheme {
@@ -60,6 +71,7 @@ enum class AppTheme {
     MonoDark,
     MonoLight,
     Morocco,
+    OLEDBlack,
 }
 
 sealed interface SettingsAction {
@@ -76,6 +88,10 @@ sealed interface SettingsAction {
     data class ChangeDeinterlaceMode(val mode: String) : SettingsAction
 
     data class ToggleAutoPlayNext(val enabled: Boolean) : SettingsAction
+
+    data class ChangeSkipIntroMode(val mode: String) : SettingsAction
+
+    data class ChangeSkipCreditsMode(val mode: String) : SettingsAction
 
     data object Back : SettingsAction
 
@@ -143,4 +159,18 @@ sealed interface SettingsAction {
     data class SetParentalPin(val pin: String) : SettingsAction
 
     data object ClearParentalPin : SettingsAction
+
+    data object NavigateToSubtitleStyle : SettingsAction
+
+    data class ToggleThemeSong(val enabled: Boolean) : SettingsAction
+
+    data class ToggleScreensaver(val enabled: Boolean) : SettingsAction
+
+    data class ChangeScreensaverInterval(val seconds: Int) : SettingsAction
+
+    data class ToggleScreensaverClock(val enabled: Boolean) : SettingsAction
+
+    data class ToggleAutoCheckUpdates(val enabled: Boolean) : SettingsAction
+
+    data object CheckForUpdates : SettingsAction
 }

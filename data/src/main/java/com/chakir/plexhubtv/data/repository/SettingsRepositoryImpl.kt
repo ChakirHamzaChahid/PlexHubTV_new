@@ -81,6 +81,24 @@ class SettingsRepositoryImpl
             settingsDataStore.saveAutoPlayNext(enabled)
         }
 
+        override val skipIntroMode: Flow<String> = settingsDataStore.skipIntroMode
+
+        override suspend fun setSkipIntroMode(mode: String) {
+            settingsDataStore.saveSkipIntroMode(mode)
+        }
+
+        override val skipCreditsMode: Flow<String> = settingsDataStore.skipCreditsMode
+
+        override suspend fun setSkipCreditsMode(mode: String) {
+            settingsDataStore.saveSkipCreditsMode(mode)
+        }
+
+        override val themeSongEnabled: Flow<Boolean> = settingsDataStore.themeSongEnabled
+
+        override suspend fun setThemeSongEnabled(enabled: Boolean) {
+            settingsDataStore.saveThemeSongEnabled(enabled)
+        }
+
         override suspend fun setPreferredAudioLanguage(lang: String?) {
             settingsDataStore.savePreferredAudioLanguage(lang)
         }
@@ -202,6 +220,33 @@ class SettingsRepositoryImpl
         override suspend fun saveLibraryServerFilter(serverName: String?) {
             settingsDataStore.saveLibraryServerFilter(serverName)
         }
+
+        // Subtitle Style
+        override val subtitleFontSize: Flow<Int> = settingsDataStore.subtitleFontSize
+        override val subtitleFontColor: Flow<Long> = settingsDataStore.subtitleFontColor
+        override val subtitleBgColor: Flow<Long> = settingsDataStore.subtitleBgColor
+        override val subtitleEdgeType: Flow<Int> = settingsDataStore.subtitleEdgeType
+        override val subtitleEdgeColor: Flow<Long> = settingsDataStore.subtitleEdgeColor
+
+        override suspend fun saveSubtitleFontSize(size: Int) = settingsDataStore.saveSubtitleFontSize(size)
+        override suspend fun saveSubtitleFontColor(color: Long) = settingsDataStore.saveSubtitleFontColor(color)
+        override suspend fun saveSubtitleBgColor(color: Long) = settingsDataStore.saveSubtitleBgColor(color)
+        override suspend fun saveSubtitleEdgeType(type: Int) = settingsDataStore.saveSubtitleEdgeType(type)
+        override suspend fun saveSubtitleEdgeColor(color: Long) = settingsDataStore.saveSubtitleEdgeColor(color)
+
+        // Screensaver
+        override val screensaverEnabled: Flow<Boolean> = settingsDataStore.screensaverEnabled
+        override val screensaverIntervalSeconds: Flow<Int> = settingsDataStore.screensaverIntervalSeconds
+        override val screensaverShowClock: Flow<Boolean> = settingsDataStore.screensaverShowClock
+
+        override suspend fun setScreensaverEnabled(enabled: Boolean) = settingsDataStore.saveScreensaverEnabled(enabled)
+        override suspend fun setScreensaverIntervalSeconds(seconds: Int) = settingsDataStore.saveScreensaverIntervalSeconds(seconds)
+        override suspend fun setScreensaverShowClock(show: Boolean) = settingsDataStore.saveScreensaverShowClock(show)
+
+        // Auto-Update
+        override val autoCheckUpdates: Flow<Boolean> = settingsDataStore.autoCheckUpdates
+
+        override suspend fun setAutoCheckUpdates(enabled: Boolean) = settingsDataStore.saveAutoCheckUpdates(enabled)
 
         // Parental PIN
         override fun getParentalPin(): String? =

@@ -43,6 +43,14 @@ sealed class Screen(val route: String) {
 
     data object AppProfileSwitch : Screen("app_profile_switch")
 
+    data object SubtitleStyle : Screen("subtitle_style")
+
+    data object PersonDetail : Screen("person_detail/{personName}") {
+        const val ARG_PERSON_NAME = "personName"
+        fun createRoute(personName: String) =
+            "person_detail/${java.net.URLEncoder.encode(personName, "UTF-8")}"
+    }
+
     // --- Media Graph ---
     data object MediaDetail : Screen("media_detail/{ratingKey}?serverId={serverId}") {
         fun createRoute(

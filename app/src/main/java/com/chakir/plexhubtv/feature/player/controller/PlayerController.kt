@@ -73,6 +73,8 @@ class PlayerController @Inject constructor(
         private set
 
     private var positionTrackerJob: Job? = null
+    /** Tracks markers that were already auto-skipped in this session to avoid re-skipping */
+    private val autoSkippedMarkers = mutableSetOf<String>()
     @Volatile
     private var isMpvMode = false
     @Volatile
@@ -211,6 +213,7 @@ class PlayerController @Inject constructor(
         this.startOffset = 0L
         this.directUrl = null
         hasShownResumeToast = false
+        autoSkippedMarkers.clear()
         _uiState.update { it.copy(showAutoNextPopup = false, resumeMessage = null) }
         loadMedia(nextRatingKey, nextServerId)
     }
@@ -222,6 +225,7 @@ class PlayerController @Inject constructor(
     fun playNextDirectStream(url: String, item: MediaItem) {
         this.startOffset = 0L
         hasShownResumeToast = false
+        autoSkippedMarkers.clear()
         _uiState.update { it.copy(showAutoNextPopup = false, resumeMessage = null) }
         playDirectStream(url, item)
     }
@@ -262,6 +266,8 @@ class PlayerController @Inject constructor(
         isMpvMode = false
         isDirectPlay = false
         hasShownResumeToast = false
+        autoSkippedMarkers.clear()
+        chapterMarkerManager.clear()
     }
 
     /**
@@ -1095,7 +1101,19 @@ class PlayerController @Inject constructor(
     
     private fun startPositionTracking() {
         positionTrackerJob = scope.launch {
+            // Cache skip modes to avoid collecting on every tick — re-read every 10s is fine
+            var skipIntroMode = "ask"
+            var skipCreditsMode = "ask"
+            var modeRefreshCounter = 0
+
             while (isActive) {
+                // Refresh skip modes periodically (every ~10s)
+                if (modeRefreshCounter % 10 == 0) {
+                    skipIntroMode = settingsRepository.skipIntroMode.first()
+                    skipCreditsMode = settingsRepository.skipCreditsMode.first()
+                }
+                modeRefreshCounter++
+
                 if (isMpvMode) {
                     val mpv = mpvPlayer
                     if (mpv != null) {
@@ -1110,6 +1128,7 @@ class PlayerController @Inject constructor(
                             )
                         }
                         chapterMarkerManager.updatePlaybackPosition(pos)
+                        checkAutoSkipMarkers(pos, skipIntroMode, skipCreditsMode)
                         playerScrobbler.checkAutoNext(
                             position = pos,
                             duration = dur,
@@ -1130,6 +1149,7 @@ class PlayerController @Inject constructor(
                                 )
                             }
                             chapterMarkerManager.updatePlaybackPosition(pos)
+                            checkAutoSkipMarkers(pos, skipIntroMode, skipCreditsMode)
                         }
                         // Check auto-next even during buffering near end of stream —
                         // ExoPlayer may enter BUFFERING at 95%+ which previously blocked the popup
@@ -1145,6 +1165,30 @@ class PlayerController @Inject constructor(
                 }
                 delay(1000)
             }
+        }
+    }
+
+    /**
+     * Auto-skip markers when the corresponding mode is "auto".
+     * Each marker is skipped at most once per session via [autoSkippedMarkers].
+     */
+    private fun checkAutoSkipMarkers(positionMs: Long, skipIntroMode: String, skipCreditsMode: String) {
+        val visible = chapterMarkerManager.visibleMarkers.value
+        for (marker in visible) {
+            val mode = when (marker.type) {
+                "intro" -> skipIntroMode
+                "credits" -> skipCreditsMode
+                else -> "ask"
+            }
+            if (mode != "auto") continue
+
+            val markerKey = "${marker.type}-${marker.startTime}"
+            if (markerKey in autoSkippedMarkers) continue
+
+            autoSkippedMarkers.add(markerKey)
+            Timber.d("PlayerController: Auto-skipping ${marker.type} marker to ${marker.endTime}ms")
+            seekTo(marker.endTime)
+            return // Skip one marker per tick to avoid seeking twice
         }
     }
 

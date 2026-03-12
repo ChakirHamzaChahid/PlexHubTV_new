@@ -24,9 +24,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.chakir.plexhubtv.core.navigation.Screen
 import com.chakir.plexhubtv.feature.auth.AuthRoute
+import com.chakir.plexhubtv.core.update.UpdateDialog
 import com.chakir.plexhubtv.feature.auth.components.SessionExpiredDialog
 import com.chakir.plexhubtv.feature.plexhome.PlexHomeSwitcherRoute
 import com.chakir.plexhubtv.feature.details.MediaDetailRoute
+import com.chakir.plexhubtv.feature.details.PersonDetailRoute
 import com.chakir.plexhubtv.feature.details.SeasonDetailRoute
 import com.chakir.plexhubtv.feature.player.VideoPlayerRoute
 import dagger.hilt.android.AndroidEntryPoint
@@ -100,6 +102,7 @@ class MainActivity : ComponentActivity() {
 fun PlexHubApp(mainViewModel: MainViewModel) {
     val navController = rememberNavController()
     val showSessionExpiredDialog by mainViewModel.showSessionExpiredDialog.collectAsState()
+    val availableUpdate by mainViewModel.availableUpdate.collectAsState()
 
     // Show session expired dialog if token invalidated
     if (showSessionExpiredDialog) {
@@ -111,6 +114,14 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                     }
                 }
             }
+        )
+    }
+
+    // Show update available dialog
+    availableUpdate?.let { update ->
+        UpdateDialog(
+            updateInfo = update,
+            onDismiss = { mainViewModel.dismissUpdate() },
         )
     }
 
@@ -275,6 +286,9 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 onNavigateToCollection = { collectionId, serverId ->
                     navController.navigate(Screen.CollectionDetail.createRoute(collectionId, serverId))
                 },
+                onNavigateToPersonDetail = { personName ->
+                    navController.navigate(Screen.PersonDetail.createRoute(personName))
+                },
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -316,6 +330,18 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 onNavigateBack = {
                     navController.popBackStack()
                 },
+            )
+        }
+
+        // Person Detail
+        composable(
+            route = Screen.PersonDetail.route,
+            arguments = listOf(
+                navArgument(Screen.PersonDetail.ARG_PERSON_NAME) { type = NavType.StringType },
+            ),
+        ) {
+            PersonDetailRoute(
+                onNavigateBack = { navController.popBackStack() },
             )
         }
 

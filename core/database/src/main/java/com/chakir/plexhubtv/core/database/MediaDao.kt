@@ -339,6 +339,59 @@ interface MediaDao {
         excludeServerId: String,
     ): Map<@androidx.room.MapColumn(columnName = "serverId") String, @androidx.room.MapColumn(columnName = "ratingKey") String>
 
+    @Query("""
+        SELECT resolvedArtUrl FROM media
+        WHERE type IN ('movie', 'show')
+        AND resolvedArtUrl IS NOT NULL AND resolvedArtUrl != ''
+        ORDER BY RANDOM()
+        LIMIT :limit
+    """)
+    suspend fun getRandomArtworkUrls(limit: Int = 20): List<String>
+
+    // --- Suggestions queries ---
+
+    @Query("""
+        SELECT DISTINCT genres FROM media
+        WHERE lastViewedAt > 0
+        AND type IN ('movie', 'show')
+        AND genres IS NOT NULL AND genres != ''
+        ORDER BY lastViewedAt DESC
+        LIMIT 50
+    """)
+    suspend fun getRecentWatchedGenres(): List<String>
+
+    @Query("""
+        SELECT * FROM media
+        WHERE type IN ('movie', 'show')
+        AND (viewCount IS NULL OR viewCount = 0)
+        AND (lastViewedAt IS NULL OR lastViewedAt = 0)
+        AND genres LIKE '%' || :genre || '%'
+        ORDER BY RANDOM()
+        LIMIT :limit
+    """)
+    suspend fun getUnwatchedByGenre(genre: String, limit: Int): List<MediaEntity>
+
+    @Query("""
+        SELECT * FROM media
+        WHERE type IN ('movie', 'show')
+        AND (viewCount IS NULL OR viewCount = 0)
+        AND (lastViewedAt IS NULL OR lastViewedAt = 0)
+        ORDER BY RANDOM()
+        LIMIT :limit
+    """)
+    suspend fun getRandomUnwatched(limit: Int): List<MediaEntity>
+
+    @Query("""
+        SELECT * FROM media
+        WHERE type IN ('movie', 'show')
+        AND (viewCount IS NULL OR viewCount = 0)
+        AND (lastViewedAt IS NULL OR lastViewedAt = 0)
+        AND addedAt > :sinceTimestamp
+        ORDER BY addedAt DESC
+        LIMIT :limit
+    """)
+    suspend fun getFreshUnwatched(sinceTimestamp: Long, limit: Int): List<MediaEntity>
+
     // Persistence helper to survive library syncs
     @Query("SELECT ratingKey, scrapedRating FROM media WHERE ratingKey IN (:ratingKeys) AND serverId = :serverId")
     suspend fun getScrapedRatings(

@@ -58,6 +58,7 @@ fun SettingsRoute(
     onNavigateToLibrarySelection: () -> Unit = {},
     onNavigateToXtreamSetup: () -> Unit = {},
     onNavigateToXtreamCategorySelection: (String) -> Unit = {},
+    onNavigateToSubtitleStyle: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val events = viewModel.navigationEvents
@@ -74,6 +75,7 @@ fun SettingsRoute(
                 is SettingsNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
                 is SettingsNavigationEvent.NavigateToXtreamSetup -> onNavigateToXtreamSetup()
                 is SettingsNavigationEvent.NavigateToXtreamCategorySelection -> onNavigateToXtreamCategorySelection(event.accountId)
+                is SettingsNavigationEvent.NavigateToSubtitleStyle -> onNavigateToSubtitleStyle()
             }
         }
     }
@@ -109,6 +111,8 @@ fun SettingsScreen(
     var showRatingSyncDelayDialog by remember { mutableStateOf(false) }
     var showRatingSyncDailyLimitDialog by remember { mutableStateOf(false) }
     var showParentalPinDialog by remember { mutableStateOf(false) }
+    var showSkipIntroDialog by remember { mutableStateOf(false) }
+    var showSkipCreditsDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
@@ -246,6 +250,30 @@ fun SettingsScreen(
                         isChecked = state.autoPlayNextEnabled,
                         onCheckedChange = { onAction(SettingsAction.ToggleAutoPlayNext(it)) },
                     )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_skip_intro),
+                        subtitle = when (state.skipIntroMode) {
+                            "auto" -> stringResource(R.string.settings_skip_mode_auto)
+                            "ask" -> stringResource(R.string.settings_skip_mode_ask)
+                            else -> stringResource(R.string.settings_skip_mode_off)
+                        },
+                        onClick = { showSkipIntroDialog = true },
+                    )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_skip_credits),
+                        subtitle = when (state.skipCreditsMode) {
+                            "auto" -> stringResource(R.string.settings_skip_mode_auto)
+                            "ask" -> stringResource(R.string.settings_skip_mode_ask)
+                            else -> stringResource(R.string.settings_skip_mode_off)
+                        },
+                        onClick = { showSkipCreditsDialog = true },
+                    )
+                    SettingsSwitch(
+                        title = "Theme Song",
+                        subtitle = "Play TV show theme music on detail screens",
+                        isChecked = state.themeSongEnabled,
+                        onCheckedChange = { onAction(SettingsAction.ToggleThemeSong(it)) },
+                    )
                 }
             }
 
@@ -273,6 +301,11 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_preferred_subtitle),
                         subtitle = currentSubtitleDisplay,
                         onClick = { showSubtitleLangDialog = true },
+                    )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_subtitle_style),
+                        subtitle = stringResource(R.string.settings_subtitle_style_subtitle),
+                        onClick = { onAction(SettingsAction.NavigateToSubtitleStyle) },
                     )
                 }
             }
@@ -704,6 +737,65 @@ fun SettingsScreen(
                 }
             }
 
+            // --- Screensaver ---
+            item {
+                SettingsSection(stringResource(R.string.settings_section_screensaver)) {
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_screensaver_enabled),
+                        subtitle = stringResource(R.string.settings_screensaver_enabled_subtitle),
+                        isChecked = state.screensaverEnabled,
+                        onCheckedChange = { onAction(SettingsAction.ToggleScreensaver(it)) },
+                    )
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_screensaver_show_clock),
+                        subtitle = stringResource(R.string.settings_screensaver_show_clock_subtitle),
+                        isChecked = state.screensaverShowClock,
+                        onCheckedChange = { onAction(SettingsAction.ToggleScreensaverClock(it)) },
+                    )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_screensaver_interval),
+                        subtitle = stringResource(R.string.settings_screensaver_interval_subtitle, state.screensaverIntervalSeconds),
+                        onClick = {
+                            val next = when (state.screensaverIntervalSeconds) {
+                                10 -> 15
+                                15 -> 20
+                                20 -> 30
+                                30 -> 45
+                                45 -> 60
+                                else -> 10
+                            }
+                            onAction(SettingsAction.ChangeScreensaverInterval(next))
+                        },
+                    )
+                }
+            }
+
+            // --- Updates ---
+            item {
+                SettingsSection(stringResource(R.string.settings_section_updates)) {
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_auto_check_updates),
+                        subtitle = stringResource(R.string.settings_auto_check_updates_subtitle),
+                        isChecked = state.autoCheckUpdates,
+                        onCheckedChange = { onAction(SettingsAction.ToggleAutoCheckUpdates(it)) },
+                    )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_check_now),
+                        subtitle = if (state.isCheckingForUpdate) {
+                            stringResource(R.string.settings_syncing_message)
+                        } else {
+                            state.updateCheckMessage ?: stringResource(R.string.settings_check_now_subtitle)
+                        },
+                        onClick = { if (!state.isCheckingForUpdate) onAction(SettingsAction.CheckForUpdates) },
+                        trailingContent = if (state.isCheckingForUpdate) {
+                            { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                        } else {
+                            null
+                        },
+                    )
+                }
+            }
+
             // --- Legal ---
             item {
                 val uriHandler = LocalUriHandler.current
@@ -807,6 +899,56 @@ fun SettingsScreen(
                 }
                 onAction(SettingsAction.ChangeDeinterlaceMode(mode))
                 showDeinterlaceDialog = false
+            },
+        )
+    }
+
+    if (showSkipIntroDialog) {
+        val optAuto = stringResource(R.string.settings_skip_mode_auto)
+        val optAsk = stringResource(R.string.settings_skip_mode_ask)
+        val optOff = stringResource(R.string.settings_skip_mode_off)
+        SettingsDialog(
+            title = stringResource(R.string.settings_skip_intro),
+            options = listOf(optAuto, optAsk, optOff),
+            currentValue = when (state.skipIntroMode) {
+                "auto" -> optAuto
+                "ask" -> optAsk
+                else -> optOff
+            },
+            onDismissRequest = { showSkipIntroDialog = false },
+            onOptionSelected = { selected ->
+                val mode = when (selected) {
+                    optAuto -> "auto"
+                    optAsk -> "ask"
+                    else -> "off"
+                }
+                onAction(SettingsAction.ChangeSkipIntroMode(mode))
+                showSkipIntroDialog = false
+            },
+        )
+    }
+
+    if (showSkipCreditsDialog) {
+        val optAuto = stringResource(R.string.settings_skip_mode_auto)
+        val optAsk = stringResource(R.string.settings_skip_mode_ask)
+        val optOff = stringResource(R.string.settings_skip_mode_off)
+        SettingsDialog(
+            title = stringResource(R.string.settings_skip_credits),
+            options = listOf(optAuto, optAsk, optOff),
+            currentValue = when (state.skipCreditsMode) {
+                "auto" -> optAuto
+                "ask" -> optAsk
+                else -> optOff
+            },
+            onDismissRequest = { showSkipCreditsDialog = false },
+            onOptionSelected = { selected ->
+                val mode = when (selected) {
+                    optAuto -> "auto"
+                    optAsk -> "ask"
+                    else -> "off"
+                }
+                onAction(SettingsAction.ChangeSkipCreditsMode(mode))
+                showSkipCreditsDialog = false
             },
         )
     }
