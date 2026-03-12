@@ -3,15 +3,19 @@ package com.chakir.plexhubtv.feature.library
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
+import com.chakir.plexhubtv.core.model.AgeRating
 import com.chakir.plexhubtv.core.common.safeCollectIn
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
 import com.chakir.plexhubtv.feature.common.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,9 +28,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toImmutableSet
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -46,6 +54,7 @@ class LibraryViewModel
     @Inject
     constructor(
         private val getLibraryContentUseCase: GetLibraryContentUseCase,
+        private val profileRepository: ProfileRepository,
         private val authRepository: com.chakir.plexhubtv.domain.repository.AuthRepository,
         private val libraryRepository: com.chakir.plexhubtv.domain.repository.LibraryRepository,
         private val mediaDao: com.chakir.plexhubtv.core.database.MediaDao,
@@ -63,7 +72,7 @@ class LibraryViewModel
         val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
         // Canal pour les événements de navigation (Effets uniques, ex: Toast, Navigation)
-        private val _navigationEvents = Channel<LibraryNavigationEvent>()
+        private val _navigationEvents = Channel<LibraryNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         /**
@@ -105,11 +114,30 @@ class LibraryViewModel
                     )
                 }
                 .distinctUntilChanged { old, new ->
-                    // Custom equals check
-                    old == new
+                    // Ignore initialScrollIndex: it's a navigation param, not a filter param.
+                    // Changing scroll position should NOT invalidate the PagingData flow.
+                    old.copy(initialScrollIndex = null) == new.copy(initialScrollIndex = null)
                 }
                 // Debounce removed: refresh is now explicitly triggered in UI via LaunchedEffect
                 .flatMapLatest { params ->
+                    Timber.d(
+                        "DATA [Library] Loading content: Library=${params.libraryId} Type=${params.mediaType} Filter=${params.filter} Sort=${params.sort} Server=${params.serverId}",
+                    )
+                    // Compute maxAge for SQL-level content filtering (avoids iterating pagingData.filter{} per page)
+                    // Only filter when: kids profile (capped at 7) or explicit PARENTAL_* age rating.
+                    // GENERAL and ADULT both mean "no filtering" — GENERAL was the old broken default
+                    // (never user-configurable since the dialog doesn't expose age rating selection).
+                    val profile = profileRepository.getActiveProfile()
+                    val maxAge = if (profile != null) {
+                        when {
+                            profile.isKidsProfile -> 7
+                            profile.ageRating == AgeRating.PARENTAL_7 -> 7
+                            profile.ageRating == AgeRating.PARENTAL_13 -> 13
+                            profile.ageRating == AgeRating.PARENTAL_16 -> 16
+                            else -> null // GENERAL or ADULT → no filtering
+                        }
+                    } else null
+
                     getLibraryContentUseCase(
                         serverId = params.serverId,
                         libraryKey = params.libraryId,
@@ -122,13 +150,23 @@ class LibraryViewModel
                         excludedServerIds = params.excludedServerIds,
                         initialKey = params.initialScrollIndex,
                         query = params.query,
-                    ).also {
-                        Timber.d(
-                            "DATA [Library] Loading content: Library=${params.libraryId} Type=${params.mediaType} Filter=${params.filter} Sort=${params.sort} Server=${params.serverId}",
-                        )
-                    }
+                        maxAgeRating = maxAge,
+                    )
                 }
                 .cachedIn(viewModelScope)
+                .also {
+                    if (com.chakir.plexhubtv.BuildConfig.DEBUG) {
+                        var emissionCount = 0
+                        viewModelScope.launch {
+                            it.onEach {
+                                emissionCount++
+                                if (emissionCount > 1) {
+                                    Timber.w("PERF [Library] PagingData re-emission #$emissionCount (possible background media table write)")
+                                }
+                            }.collect {} // Side-effect only collector for debug logging
+                        }
+                    }
+                }
 
         data class FilterParams(
             val filter: String,
@@ -186,7 +224,7 @@ class LibraryViewModel
                         Timber.e(e, "LibraryViewModel: excludedServerIds collection failed")
                     }
                 ) { excluded ->
-                    _uiState.update { it.copy(filter = it.filter.copy(excludedServerIds = excluded)) }
+                    _uiState.update { it.copy(filter = it.filter.copy(excludedServerIds = excluded.toImmutableSet())) }
                 }
 
                 // Restore persisted filter preferences
@@ -194,6 +232,8 @@ class LibraryViewModel
                 val savedSortDesc = settingsRepository.librarySortDescending.firstOrNull() ?: false
                 val savedGenre = settingsRepository.libraryGenre.firstOrNull()
                 val savedServerFilter = settingsRepository.libraryServerFilter.firstOrNull()
+                val showYear = settingsRepository.showYearOnCards.firstOrNull() ?: false
+                val gridColumns = settingsRepository.gridColumnsCount.firstOrNull() ?: 6
 
                 // Use saved server filter, fallback to default server preference
                 val serverFilter = savedServerFilter
@@ -207,11 +247,24 @@ class LibraryViewModel
                             selectedGenre = savedGenre,
                             selectedServerFilter = serverFilter,
                         ),
+                        display = it.display.copy(
+                            showYearOnCards = showYear,
+                            gridColumnsCount = gridColumns,
+                        ),
                     )
                 }
-            }
 
-            // Observe filter changes to compute filtered item count
+                // Launch count observer AFTER metadata + DataStore reads so the first count
+                // already uses the correct selectedServerId (set by single-server fast path).
+                launchFilteredCountObserver()
+            }
+        }
+
+        /**
+         * Observe les changements de filtre pour calculer le nombre d'éléments filtrés.
+         * Lancé après loadMetadata() pour éviter un premier count unifié inutile.
+         */
+        private fun launchFilteredCountObserver() {
             viewModelScope.launch {
                 _uiState
                     .map { state ->
@@ -299,6 +352,15 @@ class LibraryViewModel
                     Timber.w("Failed to load Backend servers for filter: ${e.message}")
                 }
 
+                // Single-server fast path: skip unified query when only one source exists
+                if (servers.size == 1 && serverNames.size == 1) {
+                    _uiState.update { it.copy(
+                        selection = it.selection.copy(
+                            selectedServerId = servers[0].clientIdentifier
+                        )
+                    ) }
+                }
+
                 // Utilisation des groupes de genres définis statiquement (UI_LABELS)
                 val allGenres = com.chakir.plexhubtv.core.model.GenreGrouping.UI_LABELS
 
@@ -322,12 +384,13 @@ class LibraryViewModel
                 _uiState.update {
                     it.copy(
                         display = it.display.copy(totalItems = totalCount, isLoading = false),
-                        filter = it.filter.copy(availableServers = serverNames, availableServersMap = serverMap, availableGenres = allGenres),
+                        filter = it.filter.copy(availableServers = serverNames.toImmutableList(), availableServersMap = serverMap.toImmutableMap(), availableGenres = allGenres.toImmutableList()),
                     )
                 }
 
                 // Si la bibliothèque semble vide ou corrompue, déclencher une synchro arrière-plan
-                if (totalCount < 100 && _uiState.value.selection.selectedServerId == "all") {
+                val currentServerId = _uiState.value.selection.selectedServerId
+                if (totalCount < 100 && (currentServerId == "all" || currentServerId == null)) {
                     Timber.i("Low item count ($totalCount), triggering background sync...")
                     triggerBackgroundSync()
                 }
@@ -360,6 +423,7 @@ class LibraryViewModel
             val syncRequest =
                 OneTimeWorkRequestBuilder<com.chakir.plexhubtv.work.LibrarySyncWorker>()
                     .setConstraints(constraints)
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                     .build()
 
             workManager.enqueueUniqueWork(

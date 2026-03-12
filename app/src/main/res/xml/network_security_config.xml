@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!--
-        Security Configuration (SEC3):
-        - Cleartext (HTTP) traffic is BLOCKED by default for all domains
-        - Public APIs (plex.tv, tmdb, omdb) MUST use HTTPS (enforced at OS level)
-        - Exception: localhost connections allowed for local testing/development
+        SÉCURITÉ PRODUCTION (SEC-01)
 
-        Note: Local Plex servers on private IPs (192.168.x.x, 10.x.x.x) should use HTTPS.
-        The app supports self-signed certificates for LAN servers via custom TrustManager.
-        Android NSC does not support IP range wildcards, so HTTP-only servers on private
-        IPs require HTTPS migration or will be blocked.
+        RÈGLE PAR DÉFAUT : HTTP AUTORISÉ
+        - IPTV providers use arbitrary domains with HTTP (can't whitelist all)
+        - Local/VPN backends use private IPs with HTTP
+        - Plex Media Server local may use HTTP on LAN
+
+        EXCEPTIONS HTTPS (strictes) :
+        - plex.tv / plex.app : auth tokens, HTTPS obligatoire
     -->
-    <!-- TODO: Re-enable cleartext blocking after debugging network issues -->
+
+    <!-- RÈGLE PAR DÉFAUT : HTTP AUTORISÉ (nécessaire pour IPTV + backends locaux) -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
 
-    <!-- Allow cleartext only for localhost (development/testing) -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">127.0.0.1</domain>
-        <domain includeSubdomains="true">10.0.2.2</domain> <!-- Android emulator host -->
+    <!-- SÉCURITÉ STRICTE : Plex Cloud (HTTPS OBLIGATOIRE - protège les tokens) -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">plex.tv</domain>
+        <domain includeSubdomains="true">plex.app</domain>
     </domain-config>
 </network-security-config>

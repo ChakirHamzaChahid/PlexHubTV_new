@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.datastore.SecurePreferencesManager
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -13,12 +14,15 @@ class SettingsRepositoryImpl
     @Inject
     constructor(
         private val settingsDataStore: SettingsDataStore,
+        private val securePreferencesManager: SecurePreferencesManager,
         private val cacheManager: com.chakir.plexhubtv.core.util.CacheManager,
         private val database: com.chakir.plexhubtv.core.database.PlexDatabase,
     ) : SettingsRepository {
         override val showHeroSection: Flow<Boolean> = settingsDataStore.showHeroSection
         override val episodePosterMode: Flow<String> = settingsDataStore.episodePosterMode
         override val appTheme: Flow<String> = settingsDataStore.appTheme
+        override val showYearOnCards: Flow<Boolean> = settingsDataStore.showYearOnCards
+        override val gridColumnsCount: Flow<Int> = settingsDataStore.gridColumnsCount
         override val isCacheEnabled: Flow<Boolean> = settingsDataStore.isCacheEnabled
         override val defaultServer: Flow<String> = settingsDataStore.defaultServer
         override val playerEngine: Flow<String> = settingsDataStore.playerEngine
@@ -39,6 +43,14 @@ class SettingsRepositoryImpl
             settingsDataStore.saveAppTheme(theme)
         }
 
+        override suspend fun setShowYearOnCards(show: Boolean) {
+            settingsDataStore.saveShowYearOnCards(show)
+        }
+
+        override suspend fun setGridColumnsCount(count: Int) {
+            settingsDataStore.saveGridColumnsCount(count)
+        }
+
         override fun getVideoQuality(): Flow<String> = settingsDataStore.videoQuality
 
         override suspend fun setVideoQuality(quality: String) {
@@ -55,6 +67,18 @@ class SettingsRepositoryImpl
 
         override suspend fun setPlayerEngine(engine: String) {
             settingsDataStore.savePlayerEngine(engine)
+        }
+
+        override val deinterlaceMode: Flow<String> = settingsDataStore.deinterlaceMode
+
+        override suspend fun setDeinterlaceMode(mode: String) {
+            settingsDataStore.saveDeinterlaceMode(mode)
+        }
+
+        override val autoPlayNextEnabled: Flow<Boolean> = settingsDataStore.autoPlayNextEnabled
+
+        override suspend fun setAutoPlayNext(enabled: Boolean) {
+            settingsDataStore.saveAutoPlayNext(enabled)
         }
 
         override suspend fun setPreferredAudioLanguage(lang: String?) {
@@ -178,4 +202,22 @@ class SettingsRepositoryImpl
         override suspend fun saveLibraryServerFilter(serverName: String?) {
             settingsDataStore.saveLibraryServerFilter(serverName)
         }
+
+        // Parental PIN
+        override fun getParentalPin(): String? =
+            securePreferencesManager.getParentalPin()
+
+        override fun setParentalPin(pin: String?) {
+            if (pin.isNullOrBlank()) {
+                securePreferencesManager.clearParentalPin()
+            } else {
+                securePreferencesManager.saveParentalPin(pin)
+            }
+        }
+
+        override fun hasParentalPin(): Boolean =
+            securePreferencesManager.getParentalPin() != null
+
+        override fun verifyParentalPin(input: String): Boolean =
+            securePreferencesManager.getParentalPin() == input
     }

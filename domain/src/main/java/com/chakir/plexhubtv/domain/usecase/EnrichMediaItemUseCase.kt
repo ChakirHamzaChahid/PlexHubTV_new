@@ -12,12 +12,17 @@ import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.SearchRepository
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.first
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,8 +47,34 @@ class EnrichMediaItemUseCase
         private val getEnabledServerIdsUseCase: GetEnabledServerIdsUseCase,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) {
-        // In-memory cache: keyed by "ratingKey:serverId" → enriched MediaItem
-        private val cache = ConcurrentHashMap<String, MediaItem>()
+        // In-memory LRU cache: keyed by "ratingKey:serverId" → enriched MediaItem
+        // Capped at 500 entries to prevent unbounded growth during long binge sessions
+        private val cache: MutableMap<String, MediaItem> = java.util.Collections.synchronizedMap(
+            object : LinkedHashMap<String, MediaItem>(128, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, MediaItem>): Boolean = size > 500
+            }
+        )
+
+        // In-flight deduplication: prevents duplicate enrichment when prefetch + play overlap
+        private val inFlight = ConcurrentHashMap<String, Deferred<MediaItem>>()
+
+        // Show-level source cache: grandparentTitle → (serverId → showRatingKey)
+        // Avoids repeated search API calls when binge-watching episodes of the same show
+        // Capped at 200 entries to prevent unbounded growth
+        private val showServerCache: MutableMap<String, ConcurrentHashMap<String, String>> = java.util.Collections.synchronizedMap(
+            object : LinkedHashMap<String, ConcurrentHashMap<String, String>>(64, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ConcurrentHashMap<String, String>>): Boolean = size > 200
+            }
+        )
+
+        /**
+         * Clears cached episode enrichment results so the next call re-queries Room.
+         * Call after new remote episodes are cached to Room (e.g. after prefetch).
+         */
+        fun invalidateEpisodeCache() {
+            val removed = cache.entries.removeAll { it.value.type == MediaType.Episode }
+            if (removed) Timber.d("Enrich: Invalidated episode cache entries")
+        }
 
         suspend operator fun invoke(item: MediaItem): MediaItem {
             val opId = "enrich_${item.ratingKey}"
@@ -61,14 +92,27 @@ class EnrichMediaItemUseCase
                 return cached
             }
 
+            // In-flight deduplication: if another coroutine is already enriching this item, await its result
+            val deferred = CompletableDeferred<MediaItem>()
+            val existing = inFlight.putIfAbsent(cacheKey, deferred)
+            if (existing != null) {
+                Timber.d("Enrich: In-flight dedup for ${item.title} ($cacheKey) — awaiting existing")
+                performanceTracker.endOperation(opId, success = true, additionalMeta = mapOf("deduplicated" to true))
+                return existing.await()
+            }
+
             return try {
                 enrich(item, opId).also {
                     cache[cacheKey] = it
+                    deferred.complete(it)
                     performanceTracker.endOperation(opId, success = true, additionalMeta = mapOf("cacheHit" to false, "sources" to it.remoteSources.size))
                 }
             } catch (e: Exception) {
+                deferred.completeExceptionally(e)
                 performanceTracker.endOperation(opId, success = false, errorMessage = e.message)
                 throw e
+            } finally {
+                inFlight.remove(cacheKey)
             }
         }
 
@@ -111,7 +155,7 @@ class EnrichMediaItemUseCase
                     Timber.d("Enrich: Room-first found ${localMatches.size} remote source(s) for '${item.title}'")
 
                     // Fetch full details for matches that lack mediaParts or streams (needed for resolution, codecs, languages)
-                    val remoteSources = coroutineScope {
+                    val roomSources = supervisorScope {
                         localMatches.map { match ->
                             async {
                                 val needsFullDetails = match.mediaParts.isEmpty() ||
@@ -141,13 +185,46 @@ class EnrichMediaItemUseCase
                         }.awaitAll()
                     }
 
+                    // Room may not have episodes for ALL servers (episodes aren't synced by LibrarySyncWorker).
+                    // Check which Plex servers are still missing and use network fallback (tree traversal) for those.
+                    val coveredServerIds = roomSources.map { it.serverId }.toSet() + item.serverId
+                    val missingPlexServers = enabledPlexServers.filter { it.clientIdentifier !in coveredServerIds }
+
+                    val networkSources = if (missingPlexServers.isNotEmpty() && item.type == MediaType.Episode) {
+                        performanceTracker.addCheckpoint(opId, "Room Partial - Network Fallback",
+                            mapOf("roomMatches" to roomSources.size, "missingServers" to missingPlexServers.size))
+                        supervisorScope {
+                            val partialResults = CopyOnWriteArrayList<MediaSource>()
+                            val jobs = missingPlexServers.map { server ->
+                                async {
+                                    try {
+                                        val result = enrichEpisodeViaTreeTraversal(item, server, opId)
+                                        if (result != null) partialResults.add(result)
+                                        result
+                                    } catch (e: Exception) {
+                                        Timber.w(e, "Enrich: tree traversal failed on ${server.name} for '${item.title}'")
+                                        null
+                                    }
+                                }
+                            }
+                            val completedInTime = withTimeoutOrNull(4000) { jobs.awaitAll() }
+                            if (completedInTime == null) {
+                                Timber.w("Enrich: Partial network fallback timed out after 4s, returning ${partialResults.size} results")
+                                jobs.forEach { if (it.isActive) it.cancel() }
+                            }
+                            partialResults.toList()
+                        }
+                    } else emptyList()
+
+                    val allRemoteSources = roomSources + networkSources
+
                     // Extract alternative thumb URLs for image fallback
-                    val alternativeThumbUrls = remoteSources
+                    val alternativeThumbUrls = allRemoteSources
                         .mapNotNull { it.thumbUrl }
                         .filter { it.isNotBlank() }
 
                     return item.copy(
-                        remoteSources = listOf(currentSource) + remoteSources,
+                        remoteSources = listOf(currentSource) + allRemoteSources,
                         alternativeThumbUrls = alternativeThumbUrls
                     )
                 } else {
@@ -156,6 +233,16 @@ class EnrichMediaItemUseCase
                         "Room Query (Miss)",
                         mapOf("duration" to roomQueryDuration)
                     )
+                    // Room searched by unificationId (IMDB/TMDB/title+year) across ALL synced servers
+                    // and found nothing. For non-Plex items (backend/xtream), network fallback is
+                    // pointless — IPTV content is rarely duplicated on Plex servers, and if it were,
+                    // Room would have found it via the shared TMDB/IMDB ID.
+                    val isNonPlexItem = item.serverId.startsWith("backend_") || item.serverId.startsWith("xtream_")
+                    if (isNonPlexItem) {
+                        performanceTracker.addCheckpoint(opId, "Network Fallback Skipped (non-Plex Room miss)")
+                        Timber.d("Enrich: Skipping network fallback for non-Plex item '${item.title}' (Room miss with unificationId=${item.unificationId})")
+                        return item.copy(remoteSources = listOf(currentSource))
+                    }
                 }
             } else {
                 performanceTracker.addCheckpoint(opId, "Room Query Skipped (no unificationId)", mapOf("type" to item.type.name))
@@ -243,36 +330,73 @@ class EnrichMediaItemUseCase
             serverMap: Map<String, String>,
             opId: String,
         ): MediaItem =
-            kotlinx.coroutines.withContext(ioDispatcher) {
-                coroutineScope {
+            withContext(ioDispatcher) {
+                supervisorScope {
                     val networkStart = System.currentTimeMillis()
-                    val matchesDeferred =
-                        allServers
-                            .filter { it.clientIdentifier != item.serverId }
-                            .map { server ->
-                                async {
-                                    val serverSearchStart = System.currentTimeMillis()
-                                    try {
-                                        if (item.type == MediaType.Episode) {
-                                            // Tree traversal: search show → find season → find episode by index
-                                            enrichEpisodeViaTreeTraversal(item, server, opId)
-                                        } else {
-                                            enrichMovieOrShowViaSearch(item, server, serverSearchStart, opId)
-                                        }
-                                    } catch (e: Exception) {
-                                        val serverSearchDuration = System.currentTimeMillis() - serverSearchStart
-                                        performanceTracker.addCheckpoint(
-                                            opId,
-                                            "Network Search FAILED: ${server.name}",
-                                            mapOf("duration" to serverSearchDuration, "error" to (e.message ?: "unknown"))
-                                        )
-                                        Timber.w(e, "Enrich: search failed on ${server.name} for '${item.title}'")
-                                        null
-                                    }
-                                }
-                            }
+                    val otherServers = allServers.filter { it.clientIdentifier != item.serverId }
 
-                    val matches = matchesDeferred.awaitAll().filterNotNull()
+                    // === Episode pre-filtering: only search servers that have the parent show ===
+                    val preFilteredShowMap: Map<String, String> = if (item.type == MediaType.Episode) {
+                        val parentUnificationId = item.grandparentRatingKey?.let { gpRk ->
+                            mediaDetailRepository.getParentShowIds(gpRk, item.serverId)?.unificationId
+                        }
+                        if (!parentUnificationId.isNullOrBlank()) {
+                            val serversWithShow = mediaDetailRepository.findServersWithShow(parentUnificationId, item.serverId)
+                            if (serversWithShow.isNotEmpty()) {
+                                performanceTracker.addCheckpoint(opId, "Pre-filtered servers",
+                                    mapOf("total" to otherServers.size, "withShow" to serversWithShow.size))
+                                Timber.d("Enrich: Pre-filtered ${otherServers.size} servers to ${serversWithShow.size} (show found in Room)")
+                            }
+                            serversWithShow
+                        } else emptyMap()
+                    } else emptyMap()
+
+                    val collectedResults = CopyOnWriteArrayList<MediaSource>()
+
+                    val jobs = otherServers.map { server ->
+                        async {
+                            val serverSearchStart = System.currentTimeMillis()
+                            try {
+                                val result = if (item.type == MediaType.Episode) {
+                                    val knownShowRk = preFilteredShowMap[server.clientIdentifier]
+                                    if (knownShowRk != null) {
+                                        // Show found in Room on this server → direct traversal (skip search API)
+                                        val seasonIndex = item.seasonIndex ?: item.parentIndex ?: return@async null
+                                        val episodeIndex = item.episodeIndex ?: return@async null
+                                        traverseShowToEpisode(knownShowRk, server.clientIdentifier, seasonIndex, episodeIndex, server.name, opId)
+                                    } else if (preFilteredShowMap.isNotEmpty()) {
+                                        // Pre-filtering active but show NOT on this server → skip entirely
+                                        null
+                                    } else {
+                                        // No pre-filtering info → full tree traversal (search API fallback)
+                                        enrichEpisodeViaTreeTraversal(item, server, opId)
+                                    }
+                                } else {
+                                    enrichMovieOrShowViaSearch(item, server, serverSearchStart, opId)
+                                }
+                                if (result != null) collectedResults.add(result)
+                                result
+                            } catch (e: Exception) {
+                                val serverSearchDuration = System.currentTimeMillis() - serverSearchStart
+                                performanceTracker.addCheckpoint(
+                                    opId,
+                                    "Network Search FAILED: ${server.name}",
+                                    mapOf("duration" to serverSearchDuration, "error" to (e.message ?: "unknown"))
+                                )
+                                Timber.w(e, "Enrich: search failed on ${server.name} for '${item.title}'")
+                                null
+                            }
+                        }
+                    }
+
+                    // Wait up to 4s — slow/dead servers won't block the entire enrichment
+                    val completedInTime = withTimeoutOrNull(4000) { jobs.awaitAll() }
+                    if (completedInTime == null) {
+                        Timber.w("Enrich: Network fallback timed out after 4s, returning ${collectedResults.size} partial results")
+                        jobs.forEach { if (it.isActive) it.cancel() }
+                    }
+
+                    val matches = collectedResults.toList()
                     val networkTotalDuration = System.currentTimeMillis() - networkStart
                     performanceTracker.addCheckpoint(
                         opId,
@@ -293,8 +417,15 @@ class EnrichMediaItemUseCase
             }
 
         /**
-         * Tree traversal strategy for episodes: search by show title → find season by index → find episode by index.
-         * More reliable than title search since episode titles differ across servers/languages.
+         * Tree traversal strategy for episodes: find show → season by index → episode by index.
+         *
+         * Three strategies to find the show on the remote server (in order):
+         * 1) Room-show lookup: if parent show is already in Room on this server (via unificationId),
+         *    skip search entirely and navigate by ratingKey — fastest, title-independent
+         * 2) Search API + multi-strategy matching: IMDB/TMDB ID match, exact title, normalized title
+         * 3) If nothing works, give up
+         *
+         * Once the show is found, navigation is purely by season/episode index numbers.
          */
         private suspend fun enrichEpisodeViaTreeTraversal(
             episode: MediaItem,
@@ -305,39 +436,106 @@ class EnrichMediaItemUseCase
             val seasonIndex = episode.seasonIndex ?: episode.parentIndex ?: return null
             val episodeIndex = episode.episodeIndex ?: return null
 
-            // 1. Search for the show on the remote server
-            val searchRes = kotlinx.coroutines.withTimeoutOrNull(3000) {
+            // === Strategy 0: Show-level source cache (instant for episode 2+) ===
+            val cachedShowRk = showServerCache[showTitle]?.get(server.clientIdentifier)
+            if (cachedShowRk != null) {
+                val result = traverseShowToEpisode(cachedShowRk, server.clientIdentifier, seasonIndex, episodeIndex, server.name, opId)
+                if (result != null) {
+                    performanceTracker.addCheckpoint(opId, "Show Cache Hit: ${server.name}", mapOf("showRk" to cachedShowRk))
+                    return result
+                }
+                // Cache stale (show removed?) — remove entry and fall through
+                showServerCache[showTitle]?.remove(server.clientIdentifier)
+            }
+
+            // Look up parent show info from Room once (used by both strategies)
+            val parentInfo = episode.grandparentRatingKey?.let { gpRk ->
+                mediaDetailRepository.getParentShowIds(gpRk, episode.serverId)
+            }
+
+            // === Strategy 1: Room-show lookup (no search needed, title-independent) ===
+            // If the parent show is synced in Room on this server (via LibrarySyncWorker),
+            // we can jump directly to its ratingKey and traverse season→episode by index.
+            val parentUnificationId = parentInfo?.unificationId
+            if (!parentUnificationId.isNullOrBlank()) {
+                val remoteShow = mediaDetailRepository.findRemoteShowByUnificationId(
+                    parentUnificationId, server.clientIdentifier
+                )
+                if (remoteShow != null) {
+                    val result = traverseShowToEpisode(remoteShow.ratingKey, server.clientIdentifier, seasonIndex, episodeIndex, server.name, opId)
+                    if (result != null) {
+                        performanceTracker.addCheckpoint(opId, "Room-Show Shortcut: ${server.name}", mapOf("showRk" to remoteShow.ratingKey))
+                        // Cache for subsequent episodes
+                        showServerCache.getOrPut(showTitle) { ConcurrentHashMap() }[server.clientIdentifier] = remoteShow.ratingKey
+                        return result
+                    }
+                }
+            }
+
+            // === Strategy 2: Search API + multi-strategy matching ===
+            val searchRes = withTimeoutOrNull(3000) {
                 searchRepository.searchOnServer(server, showTitle)
             }
-            val showMatch = searchRes?.getOrNull()?.find {
-                it.title.equals(showTitle, ignoreCase = true) && it.type == MediaType.Show
-            }
+            val candidates = searchRes?.getOrNull() ?: emptyList()
+            val shows = candidates.filter { it.type == MediaType.Show }
+
+            // Match by: 1) IMDB/TMDB ID, 2) exact title, 3) normalized title
+            val showMatch = if (parentInfo != null) {
+                shows.find { candidate ->
+                    (parentInfo.imdbId != null && parentInfo.imdbId == candidate.imdbId) ||
+                        (parentInfo.tmdbId != null && parentInfo.tmdbId == candidate.tmdbId)
+                }
+            } else null
+                ?: shows.find { it.title.equals(showTitle, ignoreCase = true) }
+                ?: shows.find { normalizeTitle(it.title).equals(normalizeTitle(showTitle), ignoreCase = true) }
+
             if (showMatch == null) {
-                performanceTracker.addCheckpoint(opId, "Tree Traversal: Show not found on ${server.name}")
+                val showTitles = shows.take(3).joinToString { "'${it.title}'" }
+                performanceTracker.addCheckpoint(opId, "Tree Traversal: Show not found on ${server.name}",
+                    mapOf("searched" to showTitle, "candidates" to showTitles))
+                Timber.d("Enrich: Tree traversal miss on ${server.name} — searched '$showTitle', found: $showTitles")
                 return null
             }
 
-            // 2. Get seasons → find matching season by index
-            val seasons = mediaDetailRepository.getShowSeasons(showMatch.ratingKey, server.clientIdentifier)
+            // Cache for subsequent episodes
+            showServerCache.getOrPut(showTitle) { ConcurrentHashMap() }[server.clientIdentifier] = showMatch.ratingKey
+
+            return traverseShowToEpisode(showMatch.ratingKey, server.clientIdentifier, seasonIndex, episodeIndex, server.name, opId)
+        }
+
+        /**
+         * Given a show's ratingKey on a specific server, traverse season→episode by index numbers.
+         * Returns a MediaSource for the matched episode, or null if not found.
+         */
+        private suspend fun traverseShowToEpisode(
+            showRatingKey: String,
+            serverId: String,
+            seasonIndex: Int,
+            episodeIndex: Int,
+            serverName: String,
+            opId: String,
+        ): MediaSource? {
+            // Get seasons → find matching season by index
+            val seasons = mediaDetailRepository.getShowSeasons(showRatingKey, serverId)
                 .getOrNull() ?: return null
             val seasonMatch = seasons.find { it.seasonIndex == seasonIndex } ?: return null
 
-            // 3. Get episodes → find matching episode by index
-            val episodes = mediaDetailRepository.getSeasonEpisodes(seasonMatch.ratingKey, server.clientIdentifier)
+            // Get episodes → find matching episode by index
+            val episodes = mediaDetailRepository.getSeasonEpisodes(seasonMatch.ratingKey, serverId)
                 .getOrNull() ?: return null
             val episodeMatch = episodes.find { it.episodeIndex == episodeIndex } ?: return null
 
-            // 4. Fetch full episode details to get mediaParts/streams (needed for audio/subtitle tracks)
+            // Fetch full episode details to get mediaParts/streams
             val fullDetail = try {
-                val detailResult = mediaDetailRepository.getMediaDetail(episodeMatch.ratingKey, server.clientIdentifier)
+                val detailResult = mediaDetailRepository.getMediaDetail(episodeMatch.ratingKey, serverId)
                 detailResult.getOrNull() ?: episodeMatch
             } catch (e: Exception) {
                 Timber.w(e, "Enrich: Failed to fetch episode details for ${episodeMatch.ratingKey}")
                 episodeMatch
             }
 
-            performanceTracker.addCheckpoint(opId, "Tree Traversal Match: ${server.name}", mapOf("episode" to fullDetail.title))
-            return buildMediaSource(fullDetail, server.name)
+            performanceTracker.addCheckpoint(opId, "Tree Traversal Match: $serverName", mapOf("episode" to fullDetail.title))
+            return buildMediaSource(fullDetail, serverName)
         }
 
         /**
@@ -349,7 +547,7 @@ class EnrichMediaItemUseCase
             serverSearchStart: Long,
             opId: String,
         ): MediaSource? {
-            val searchRes = kotlinx.coroutines.withTimeoutOrNull(3000) {
+            val searchRes = withTimeoutOrNull(3000) {
                 searchRepository.searchOnServer(server, item.title)
             }
             val results = searchRes?.getOrNull() ?: emptyList()
@@ -360,14 +558,24 @@ class EnrichMediaItemUseCase
                 mapOf("duration" to serverSearchDuration, "results" to results.size)
             )
 
+            // Match strategy depends on whether the item has external IDs:
+            // - With imdbId/tmdbId: ONLY match by ID (prevents false unification of
+            //   different movies with same title+year, e.g. "300" parody vs real "300")
+            // - Without any ID: fall back to title+year+type matching
+            val hasExternalId = !item.imdbId.isNullOrBlank() || !item.tmdbId.isNullOrBlank()
+
             return results.find { candidate ->
                 val idMatch =
                     (item.imdbId != null && item.imdbId == candidate.imdbId) ||
                         (item.tmdbId != null && item.tmdbId == candidate.tmdbId)
-                val titleMatch = candidate.title.equals(item.title, ignoreCase = true)
-                val yearMatch = (item.year == null || candidate.year == null || item.year == candidate.year)
-                val typeMatch = item.type == candidate.type
-                (idMatch) || (titleMatch && yearMatch && typeMatch)
+                if (hasExternalId) {
+                    idMatch
+                } else {
+                    val titleMatch = candidate.title.equals(item.title, ignoreCase = true)
+                    val yearMatch = (item.year == null || candidate.year == null || item.year == candidate.year)
+                    val typeMatch = item.type == candidate.type
+                    titleMatch && yearMatch && typeMatch
+                }
             }?.let { match ->
                 try {
                     val detailRes = mediaDetailRepository.getMediaDetail(match.ratingKey, server.clientIdentifier)
@@ -384,5 +592,27 @@ class EnrichMediaItemUseCase
                     )
                 }
             }
+        }
+
+        /**
+         * Normalize a title for fuzzy matching: lowercase, strip common articles,
+         * collapse whitespace, remove punctuation that often differs across servers.
+         * e.g. "The Office (US)" → "office us", "L'Attaque des Titans" → "attaque des titans"
+         */
+        private fun normalizeTitle(title: String): String {
+            val articles = listOf("the ", "a ", "an ", "le ", "la ", "les ", "l'", "un ", "une ", "des ")
+            var normalized = title.lowercase().trim()
+            // Remove leading articles
+            for (article in articles) {
+                if (normalized.startsWith(article)) {
+                    normalized = normalized.removePrefix(article).trim()
+                    break
+                }
+            }
+            // Remove punctuation and collapse whitespace
+            return normalized
+                .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
         }
     }

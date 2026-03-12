@@ -74,7 +74,7 @@ fun NetflixHeroBillboard(
     onPlay: (MediaItem) -> Unit,
     onInfo: (MediaItem) -> Unit,
     modifier: Modifier = Modifier,
-    autoRotateIntervalMs: Long = 8000L,
+    autoRotateIntervalMs: Long = 12000L,
     initialFocusRequester: FocusRequester? = null,
     onNavigateDown: (() -> Unit)? = null,
     onNavigateUp: (() -> Unit)? = null,
@@ -124,7 +124,7 @@ fun NetflixHeroBillboard(
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(media.artUrl ?: media.thumbUrl)
-                    .size(1920, 1080) // TV max resolution, not Size.ORIGINAL
+                    .size(1280, 720) // Downscaled for GPU-limited TV devices (sufficient for 1080p with Crop)
                     .build(),
                 contentDescription = "Image de fond de ${media.title}",
                 contentScale = ContentScale.Crop,

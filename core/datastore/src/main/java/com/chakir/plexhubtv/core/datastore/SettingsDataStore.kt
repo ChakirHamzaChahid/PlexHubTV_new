@@ -47,9 +47,13 @@ class SettingsDataStore
         private val SHOW_HERO_SECTION = stringPreferencesKey("show_hero_section")
         private val EPISODE_POSTER_MODE = stringPreferencesKey("episode_poster_mode")
         private val APP_THEME = stringPreferencesKey("app_theme")
+        private val SHOW_YEAR_ON_CARDS = stringPreferencesKey("show_year_on_cards")
+        private val GRID_COLUMNS_COUNT = stringPreferencesKey("grid_columns_count")
         private val CACHE_ENABLED = stringPreferencesKey("cache_enabled")
         private val DEFAULT_SERVER = stringPreferencesKey("default_server")
         private val PLAYER_ENGINE = stringPreferencesKey("player_engine")
+        private val DEINTERLACE_MODE = stringPreferencesKey("deinterlace_mode")
+        private val AUTO_PLAY_NEXT = stringPreferencesKey("auto_play_next")
         private val LAST_SYNC_TIME = stringPreferencesKey("last_sync_time")
         private val FIRST_SYNC_COMPLETE = stringPreferencesKey("first_sync_complete")
         private val EXCLUDED_SERVER_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("excluded_server_ids")
@@ -154,6 +158,14 @@ class SettingsDataStore
             dataStore.data
                 .map { preferences -> preferences[APP_THEME] ?: "MonoDark" }
 
+        val showYearOnCards: Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[SHOW_YEAR_ON_CARDS]?.toBoolean() ?: false }
+
+        val gridColumnsCount: Flow<Int> =
+            dataStore.data
+                .map { preferences -> preferences[GRID_COLUMNS_COUNT]?.toIntOrNull() ?: 6 }
+
         val videoQuality: Flow<String> =
             dataStore.data
                 .map { preferences -> preferences[SERVER_QUALITY] ?: "Original" }
@@ -169,6 +181,14 @@ class SettingsDataStore
         val playerEngine: Flow<String> =
             dataStore.data
                 .map { preferences -> preferences[PLAYER_ENGINE] ?: "ExoPlayer" }
+
+        val deinterlaceMode: Flow<String> =
+            dataStore.data
+                .map { preferences -> preferences[DEINTERLACE_MODE] ?: "auto" }
+
+        val autoPlayNextEnabled: Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[AUTO_PLAY_NEXT]?.toBoolean() ?: true }
 
         val lastSyncTime: Flow<Long> =
             dataStore.data
@@ -276,6 +296,18 @@ class SettingsDataStore
             }
         }
 
+        suspend fun saveShowYearOnCards(show: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[SHOW_YEAR_ON_CARDS] = show.toString()
+            }
+        }
+
+        suspend fun saveGridColumnsCount(count: Int) {
+            dataStore.edit { preferences ->
+                preferences[GRID_COLUMNS_COUNT] = count.toString()
+            }
+        }
+
         suspend fun clearToken() {
             // Use SecurePreferencesManager
             securePrefs.clearPlexToken()
@@ -309,6 +341,18 @@ class SettingsDataStore
         suspend fun savePlayerEngine(engine: String) {
             dataStore.edit { preferences ->
                 preferences[PLAYER_ENGINE] = engine
+            }
+        }
+
+        suspend fun saveDeinterlaceMode(mode: String) {
+            dataStore.edit { preferences ->
+                preferences[DEINTERLACE_MODE] = mode
+            }
+        }
+
+        suspend fun saveAutoPlayNext(enabled: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[AUTO_PLAY_NEXT] = enabled.toString()
             }
         }
 

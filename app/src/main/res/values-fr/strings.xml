@@ -210,6 +210,7 @@
     <string name="collection_error_description">Erreur : %1$s</string>
     <string name="detail_collection_items_description">Liste des éléments de la collection</string>
     <string name="collection_items_description">Liste des éléments de la collection</string>
+    <string name="collection_empty">Aucun élément dans cette collection</string>
 
     <!-- ══════════════════════════════════════════════
          Écran de détails de saison
@@ -267,6 +268,7 @@
     <string name="player_next_episode_label">Épisode suivant</string>
     <string name="player_next_episode_title">Prochain épisode : %1$s</string>
     <string name="player_play_now">Lire maintenant</string>
+    <string name="player_play_now_countdown">Lire maintenant (%1$ds)</string>
     <string name="player_unknown_title">Titre inconnu</string>
     <string name="player_playing_from">Lecture depuis %1$s</string>
     <string name="player_resuming_from">Reprise à %1$s</string>
@@ -360,11 +362,17 @@
     <!-- Apparence -->
     <string name="settings_section_appearance">Apparence</string>
     <string name="settings_app_theme">Thème de l\'application</string>
+    <string name="settings_show_year_on_cards">Afficher l\'année sur les vignettes</string>
+    <string name="settings_show_year_on_cards_subtitle">Afficher l\'année de sortie sous le titre des films et séries</string>
+    <string name="settings_grid_columns">Colonnes de la grille</string>
+    <string name="settings_grid_columns_subtitle">%d colonnes par ligne</string>
 
     <!-- Lecture -->
     <string name="settings_section_playback">Lecture</string>
     <string name="settings_video_quality">Qualité vidéo</string>
     <string name="settings_player_engine">Moteur de lecture</string>
+    <string name="settings_auto_play_next">Lecture automatique de l\'épisode suivant</string>
+    <string name="settings_auto_play_next_subtitle">Lire automatiquement l\'épisode suivant après un compte à rebours de 15 secondes</string>
 
     <!-- Langues -->
     <string name="settings_section_languages">Langues</string>
@@ -560,6 +568,7 @@
          Écran des favoris
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">Ma liste</string>
+    <string name="favorites_title_with_count">Ma liste (%d)</string>
     <string name="favorites_empty">Aucun favori pour le moment.</string>
     <string name="favorites_empty_hint">Ajoutez des films et séries à votre liste depuis l\'écran de détails.</string>
     <string name="favorites_screen_description">Écran des favoris</string>
@@ -620,4 +629,20 @@
     <string name="remove_from_continue_watching_subtitle">Cela marquera « %1$s » comme vu</string>
     <string name="remove_button">Retirer</string>
     <string name="cancel_button">Annuler</string>
+
+    <!-- ══════════════════════════════════════════════
+         Contrôle parental
+         ══════════════════════════════════════════════ -->
+    <string name="settings_section_parental">Contrôle parental</string>
+    <string name="settings_parental_pin_set">Définir le code parental</string>
+    <string name="settings_parental_pin_change">Modifier le code parental</string>
+    <string name="settings_parental_pin_subtitle">Code requis pour quitter le profil enfant</string>
+    <string name="settings_parental_pin_remove">Supprimer le code parental</string>
+    <string name="settings_parental_pin_remove_subtitle">Désactiver le code pour le changement de profil</string>
+    <string name="parental_pin_set_title">Définir le code PIN</string>
+    <string name="parental_pin_confirm_title">Confirmer le code PIN</string>
+    <string name="parental_pin_verify_title">Entrer le code parental</string>
+    <string name="parental_pin_backspace">&#x232B;</string>
+    <string name="parental_pin_ok">OK</string>
+    <string name="parental_pin_cancel">Annuler</string>
 </resources>

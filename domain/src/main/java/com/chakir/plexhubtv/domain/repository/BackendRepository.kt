@@ -16,6 +16,8 @@ interface BackendRepository {
 
     suspend fun testConnection(baseUrl: String): Result<BackendConnectionInfo>
 
+    suspend fun getHealthInfo(backendId: String): Result<BackendConnectionInfo>
+
     suspend fun syncMedia(backendId: String): Result<Int>
 
     suspend fun getStreamUrl(ratingKey: String, backendServerId: String): Result<String>

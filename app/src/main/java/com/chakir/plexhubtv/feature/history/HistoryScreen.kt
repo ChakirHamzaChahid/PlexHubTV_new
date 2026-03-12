@@ -33,6 +33,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import com.chakir.plexhubtv.feature.home.MediaCard
 
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.LoadState
+
 /**
  * Écran affichant l'historique de visionnage.
  */
@@ -41,17 +45,17 @@ fun HistoryRoute(
     viewModel: HistoryViewModel = hiltViewModel(),
     onNavigateToMedia: (String, String) -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val pagedItems = viewModel.pagedHistory.collectAsLazyPagingItems()
 
     HistoryScreen(
-        uiState = uiState,
-        onMediaClick = { media -> onNavigateToMedia(media.ratingKey, media.serverId) },
+        pagedItems = pagedItems,
+        onMediaClick = { media: com.chakir.plexhubtv.core.model.MediaItem -> onNavigateToMedia(media.ratingKey, media.serverId) },
     )
 }
 
 @Composable
 fun HistoryScreen(
-    uiState: HistoryUiState,
+    pagedItems: LazyPagingItems<com.chakir.plexhubtv.core.model.MediaItem>,
     onMediaClick: (com.chakir.plexhubtv.core.model.MediaItem) -> Unit,
 ) {
     val screenDescription = stringResource(R.string.history_screen_description)
@@ -75,14 +79,14 @@ fun HistoryScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (uiState.isLoading) {
+        if (pagedItems.loadState.refresh is LoadState.Loading) {
             LibraryGridSkeleton(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("history_loading")
                     .semantics { contentDescription = loadingDescription },
             )
-        } else if (uiState.historyItems.isEmpty()) {
+        } else if (pagedItems.itemCount == 0) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -116,8 +120,8 @@ fun HistoryScreen(
             val gridFocusRequester = remember { FocusRequester() }
 
             // NAV-07: Request focus on first grid item when content loads
-            LaunchedEffect(uiState.historyItems) {
-                if (uiState.historyItems.isNotEmpty()) {
+            LaunchedEffect(pagedItems.itemSnapshotList) {
+                if (pagedItems.itemCount > 0) {
                     try { gridFocusRequester.requestFocus() } catch (_: Exception) { }
                 }
             }
@@ -131,20 +135,25 @@ fun HistoryScreen(
                 modifier = Modifier.fillMaxSize().focusRequester(gridFocusRequester),
             ) {
                 items(
-                    count = uiState.historyItems.size,
-                    key = { index -> "${uiState.historyItems[index].serverId}_${uiState.historyItems[index].ratingKey}_$index" }
+                    count = pagedItems.itemCount,
+                    key = { index -> 
+                        val item = pagedItems[index]
+                        if (item != null) "${item.serverId}_${item.ratingKey}_$index" else "placeholder_$index" 
+                    }
                 ) { index ->
-                    val media = uiState.historyItems[index]
-                    MediaCard(
-                        media = media,
-                        onClick = { onMediaClick(media) },
-                        onPlay = { /* Optional direct play */ },
-                        onFocus = {},
-                        width = 100.dp,
-                        height = 150.dp,
-                        titleStyle = MaterialTheme.typography.labelMedium,
-                        subtitleStyle = MaterialTheme.typography.labelSmall,
-                    )
+                    val media = pagedItems[index]
+                    if (media != null) {
+                        MediaCard(
+                            media = media,
+                            onClick = { onMediaClick(media) },
+                            onPlay = { /* Optional direct play */ },
+                            onFocus = {},
+                            width = 100.dp,
+                            height = 150.dp,
+                            titleStyle = MaterialTheme.typography.labelMedium,
+                            subtitleStyle = MaterialTheme.typography.labelSmall,
+                        )
+                    }
                 }
             }
         }

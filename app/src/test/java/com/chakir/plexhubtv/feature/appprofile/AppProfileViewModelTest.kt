@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.feature.appprofile
 
 import com.chakir.plexhubtv.core.model.Profile
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -23,6 +24,7 @@ import org.junit.Test
 class AppProfileViewModelTest {
     private lateinit var viewModel: AppProfileViewModel
     private lateinit var profileRepository: ProfileRepository
+    private lateinit var settingsRepository: SettingsRepository
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -43,6 +45,7 @@ class AppProfileViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         profileRepository = mockk(relaxed = true)
+        settingsRepository = mockk(relaxed = true)
         every { profileRepository.getAllProfiles() } returns flowOf(listOf(defaultProfile, kidsProfile))
         every { profileRepository.getActiveProfileFlow() } returns flowOf(defaultProfile)
         coEvery { profileRepository.ensureDefaultProfile() } returns defaultProfile
@@ -55,7 +58,7 @@ class AppProfileViewModelTest {
 
     @Test
     fun `init loads profiles and active profile`() = runTest {
-        viewModel = AppProfileViewModel(profileRepository)
+        viewModel = AppProfileViewModel(profileRepository, settingsRepository)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -69,7 +72,7 @@ class AppProfileViewModelTest {
     fun `SelectProfile switches profile`() = runTest {
         coEvery { profileRepository.switchProfile("kids") } returns Result.success(kidsProfile)
 
-        viewModel = AppProfileViewModel(profileRepository)
+        viewModel = AppProfileViewModel(profileRepository, settingsRepository)
         advanceUntilIdle()
 
         viewModel.onAction(AppProfileAction.SelectProfile(kidsProfile))
@@ -82,7 +85,7 @@ class AppProfileViewModelTest {
     fun `SelectProfile handles error`() = runTest {
         coEvery { profileRepository.switchProfile("kids") } returns Result.failure(Exception("Cannot switch"))
 
-        viewModel = AppProfileViewModel(profileRepository)
+        viewModel = AppProfileViewModel(profileRepository, settingsRepository)
         advanceUntilIdle()
 
         viewModel.onAction(AppProfileAction.SelectProfile(kidsProfile))
@@ -96,7 +99,7 @@ class AppProfileViewModelTest {
     fun `DeleteProfile calls repository`() = runTest {
         coEvery { profileRepository.deleteProfile("kids") } returns Result.success(Unit)
 
-        viewModel = AppProfileViewModel(profileRepository)
+        viewModel = AppProfileViewModel(profileRepository, settingsRepository)
         advanceUntilIdle()
 
         viewModel.onAction(AppProfileAction.DeleteProfile("kids"))
@@ -107,7 +110,7 @@ class AppProfileViewModelTest {
 
     @Test
     fun `DismissDialog clears dialog state`() = runTest {
-        viewModel = AppProfileViewModel(profileRepository)
+        viewModel = AppProfileViewModel(profileRepository, settingsRepository)
         advanceUntilIdle()
 
         viewModel.onAction(AppProfileAction.CreateProfile)

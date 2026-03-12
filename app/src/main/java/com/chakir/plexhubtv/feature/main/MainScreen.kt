@@ -251,7 +251,7 @@ fun MainScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .zIndex(1f),
-                appLogoPainter = painterResource(id = R.drawable.ic_launcher_tv),
+                appLogoPainter = painterResource(id = R.drawable.tv_banner),
                 requestFocusOnSelectedItem = requestTopBarFocus,
                 onFocusChanged = { hasFocus -> isTopBarFocused = hasFocus },
                 contentFocusRequester = contentFocusRequester,

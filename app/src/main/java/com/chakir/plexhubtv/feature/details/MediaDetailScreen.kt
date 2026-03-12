@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.feature.details
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -9,8 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -75,6 +74,8 @@ fun MediaDetailRoute(
 
     val events = viewModel.navigationEvents
     val errorEvents = viewModel.errorEvents
+
+    BackHandler(onBack = onNavigateBack)
 
     // Handle navigation events
     LaunchedEffect(events) {
@@ -176,16 +177,16 @@ fun ActionButtonsRow(
             onClick = { onAction(MediaDetailEvent.PlayClicked) },
             enabled = !state.isPlayButtonLoading,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isPlayFocused) MaterialTheme.colorScheme.primary else Color.White,
-                contentColor = if (isPlayFocused) MaterialTheme.colorScheme.onPrimary else Color.Black,
-                disabledContainerColor = Color.White.copy(alpha = 0.5f),
-                disabledContentColor = Color.Black.copy(alpha = 0.5f),
+                containerColor = if (isPlayFocused) Color.White else Color.White.copy(alpha = 0.15f),
+                contentColor = if (isPlayFocused) Color.Black else Color.White,
+                disabledContainerColor = Color.White.copy(alpha = 0.08f),
+                disabledContentColor = Color.White.copy(alpha = 0.38f),
             ),
             shape = RoundedCornerShape(4.dp),
             modifier = Modifier
                 .height(40.dp)
                 .testTag("play_button")
-                .semantics { contentDescription = if (state.isPlayButtonLoading) "Chargement..." else "Lancer la lecture" }
+                .semantics { contentDescription = if (state.isPlayButtonLoading) playLoadingDesc else playDesc }
                 .scale(if (isPlayFocused) 1.05f else 1f)
                 .then(if (playButtonFocusRequester != null) Modifier.focusRequester(playButtonFocusRequester) else Modifier)
                 .onFocusChanged { isPlayFocused = it.isFocused },
@@ -193,7 +194,7 @@ fun ActionButtonsRow(
             if (state.isPlayButtonLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = if (isPlayFocused) MaterialTheme.colorScheme.onPrimary else Color.Black,
+                    color = Color.White.copy(alpha = 0.38f),
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -205,25 +206,8 @@ fun ActionButtonsRow(
             }
         }
 
-        // Download Button
-        var isDownloadFocused by remember { mutableStateOf(false) }
-
-        Button(
-            onClick = { onAction(MediaDetailEvent.DownloadClicked) },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isDownloadFocused) NetflixLightGray else NetflixDarkGray,
-                contentColor = Color.White
-            ),
-            shape = RoundedCornerShape(4.dp),
-            modifier = Modifier
-                .height(40.dp)
-                .scale(if (isDownloadFocused) 1.05f else 1f)
-                .onFocusChanged { isDownloadFocused = it.isFocused },
-        ) {
-            Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Download", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-        }
+        // TODO: Download button hidden — feature is fully stubbed (AGENT-6-002 / #92).
+        //  Re-enable when DownloadsRepositoryImpl has real WorkManager-based download logic.
 
         // Watch Status
         var watchFocused by remember { mutableStateOf(false) }
@@ -231,18 +215,22 @@ fun ActionButtonsRow(
             onClick = { onAction(MediaDetailEvent.ToggleWatchStatus) },
             modifier =
                 Modifier
-                    .size(40.dp) // Smaller
+                    .size(40.dp)
                     .onFocusChanged { watchFocused = it.isFocused }
                     .background(
-                        if (watchFocused) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.1f),
+                        if (watchFocused) Color.White else Color.White.copy(alpha = 0.1f),
                         CircleShape,
                     )
                     .scale(if (watchFocused) 1.1f else 1f),
         ) {
             Icon(
                 imageVector = Icons.Default.Check,
-                contentDescription = "Watch Status",
-                tint = if (media.isWatched) MaterialTheme.colorScheme.primary else Color.White,
+                contentDescription = watchStatusDesc,
+                tint = when {
+                    watchFocused -> Color.Black
+                    media.isWatched -> MaterialTheme.colorScheme.primary
+                    else -> Color.White
+                },
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -253,12 +241,12 @@ fun ActionButtonsRow(
             onClick = { onAction(MediaDetailEvent.ToggleFavorite) },
             modifier =
                 Modifier
-                    .size(40.dp) // Smaller
+                    .size(40.dp)
                     .testTag("favorite_button")
-                    .semantics { contentDescription = if (media.isFavorite) "Retirer des favoris" else "Ajouter aux favoris" }
+                    .semantics { contentDescription = if (media.isFavorite) removeFavDesc else addFavDesc }
                     .onFocusChanged { favFocused = it.isFocused }
                     .background(
-                        if (favFocused) MaterialTheme.colorScheme.primaryContainer else Color.White.copy(alpha = 0.1f),
+                        if (favFocused) Color.White else Color.White.copy(alpha = 0.1f),
                         CircleShape,
                     )
                     .scale(if (favFocused) 1.1f else 1f),
@@ -266,7 +254,11 @@ fun ActionButtonsRow(
             Icon(
                 imageVector = if (media.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                 contentDescription = null,
-                tint = if (media.isFavorite) MaterialTheme.colorScheme.error else Color.White,
+                tint = when {
+                    favFocused -> if (media.isFavorite) MaterialTheme.colorScheme.error else Color.Black
+                    media.isFavorite -> MaterialTheme.colorScheme.error
+                    else -> Color.White
+                },
                 modifier = Modifier.size(20.dp),
             )
         }

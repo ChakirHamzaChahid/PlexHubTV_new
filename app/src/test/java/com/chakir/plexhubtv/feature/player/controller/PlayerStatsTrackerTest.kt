@@ -25,7 +25,7 @@ class PlayerStatsTrackerTest {
     fun `startTracking - updates stats from exo providers`() =
         testScope.runTest {
             val metadata = mockk<StreamMetadata>()
-            every { metadata.bitrate } returns 5000
+            every { metadata.bitrate } returns 5000_000
             every { metadata.sampleMimeType } returns "video/h264"
             every { metadata.width } returns 1920
             every { metadata.height } returns 1080

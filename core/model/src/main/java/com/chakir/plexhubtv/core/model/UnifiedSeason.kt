@@ -6,6 +6,8 @@ data class UnifiedSeason(
     val thumbUrl: String?,
     val episodes: List<UnifiedEpisode>,
     val availableServerIds: Set<String>,
+    val bestSeasonRatingKey: String? = null,
+    val bestSeasonServerId: String? = null,
 )
 
 data class UnifiedEpisode(

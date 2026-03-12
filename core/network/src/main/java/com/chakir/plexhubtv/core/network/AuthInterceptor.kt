@@ -71,7 +71,9 @@ class AuthInterceptor
         val response = chain.proceed(requestBuilder.build())
 
         // Detect 401 and signal token invalidation
-        if (response.code == 401) {
+        // ONLY invalidate global token if 401 comes from plex.tv (e.g. main auth server).
+        // Individual local servers (IPs, plex.direct) returning 401 should NOT log the user out globally.
+        if (response.code == 401 && response.request.url.host.endsWith("plex.tv")) {
             authEventBus.emitTokenInvalid()
         }
 

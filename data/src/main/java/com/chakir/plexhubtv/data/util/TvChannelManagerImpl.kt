@@ -112,11 +112,29 @@ class TvChannelManagerImpl @Inject constructor(
             deleteAllPrograms(channelId)
 
             // Insert new programs
-            mediaItems.forEach { media ->
-                insertProgram(media, channelId)
+            val contentValuesArray = mediaItems.mapNotNull { media ->
+                try {
+                    // Validate required fields for deep linking
+                    if (media.ratingKey.isBlank() || media.serverId.isBlank()) {
+                        Timber.w("TV Channel: Skipping program with invalid ID: ${media.title}")
+                        null
+                    } else {
+                        createProgram(media, channelId).toContentValues()
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "TV Channel: Failed to create program for ${media.title}")
+                    null
+                }
+            }.toTypedArray()
+
+            if (contentValuesArray.isNotEmpty()) {
+                context.contentResolver.bulkInsert(
+                    TvContractCompat.PreviewPrograms.CONTENT_URI,
+                    contentValuesArray
+                )
             }
 
-            Timber.i("TV Channel: Updated with ${mediaItems.size} programs")
+            Timber.i("TV Channel: Updated with ${contentValuesArray.size} programs")
         } catch (e: Exception) {
             Timber.e(e, "TV Channel: Update failed")
         }

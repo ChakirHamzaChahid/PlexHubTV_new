@@ -5,6 +5,9 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.UnifiedSeason
 import kotlinx.coroutines.flow.Flow
 
+/** Lightweight container for parent show metadata used during episode enrichment. */
+data class ParentShowInfo(val imdbId: String?, val tmdbId: String?, val unificationId: String?)
+
 interface MediaDetailRepository {
     /** Récupère les métadonnées complètes d'un média avec gestion de fallback. */
     suspend fun getMediaDetail(
@@ -41,6 +44,15 @@ interface MediaDetailRepository {
 
     /** Met à jour les mediaParts d'un média en cache Room (pour persistence entre sessions). */
     suspend fun updateMediaParts(item: MediaItem)
+
+    /** Returns the IMDB, TMDB IDs and unificationId of a show from Room cache. */
+    suspend fun getParentShowIds(ratingKey: String, serverId: String): ParentShowInfo?
+
+    /** Finds a show on a specific server by unificationId (Room-only, no network). */
+    suspend fun findRemoteShowByUnificationId(unificationId: String, serverId: String): MediaItem?
+
+    /** Returns all servers (serverId → showRatingKey) that have a show with the given unificationId. */
+    suspend fun findServersWithShow(unificationId: String, excludeServerId: String): Map<String, String>
 
     /** Récupère toutes les collections associées au média. */
     fun getMediaCollections(

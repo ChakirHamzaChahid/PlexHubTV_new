@@ -2,9 +2,11 @@ package com.chakir.plexhubtv.work
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
+import androidx.room.withTransaction
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.core.network.ApiKeyManager
 import com.chakir.plexhubtv.core.network.OmdbApiService
 import com.chakir.plexhubtv.core.network.TmdbApiService
@@ -39,11 +41,42 @@ class RatingSyncWorker
         @Assisted context: Context,
         @Assisted params: WorkerParameters,
         private val mediaDao: MediaDao,
+        private val database: PlexDatabase,
         private val tmdbApiService: TmdbApiService,
         private val omdbApiService: OmdbApiService,
         private val apiKeyManager: ApiKeyManager,
         private val settingsRepository: SettingsRepository,
     ) : CoroutineWorker(context, params) {
+
+        companion object {
+            /** Batch size for DB updates. Each batch = 1 InvalidationTracker notification. */
+            private const val UPDATE_BATCH_SIZE = 50
+        }
+
+        private data class RatingUpdate(val type: String, val id: String, val rating: Double)
+        private val pendingUpdates = mutableListOf<RatingUpdate>()
+
+        private suspend fun queueUpdate(type: String, id: String, rating: Double): Int {
+            pendingUpdates.add(RatingUpdate(type, id, rating))
+            return if (pendingUpdates.size >= UPDATE_BATCH_SIZE) flushUpdates() else 0
+        }
+
+        /** Flush pending updates in a single Room transaction (1 invalidation per batch). */
+        private suspend fun flushUpdates(): Int {
+            if (pendingUpdates.isEmpty()) return 0
+            val batch = pendingUpdates.toList()
+            pendingUpdates.clear()
+            var updated = 0
+            database.withTransaction {
+                batch.forEach { u ->
+                    updated += when (u.type) {
+                        "tmdb" -> mediaDao.updateRatingByTmdbId(u.id, u.rating)
+                        else -> mediaDao.updateRatingByImdbId(u.id, u.rating)
+                    }
+                }
+            }
+            return updated
+        }
         override suspend fun doWork(): Result {
             return try {
                 Timber.i("WORKER [RatingSync] Starting rating synchronization")
@@ -115,9 +148,7 @@ class RatingSyncWorker
                     val rating = response.voteAverage ?: 0.0
 
                     if (rating > 0.0) {
-                        val rowsUpdated = mediaDao.updateRatingByTmdbId(tmdbId, rating)
-                        updated += rowsUpdated
-                        Timber.d("WORKER [RatingSync] Updated $rowsUpdated series with TMDb ID $tmdbId to rating $rating")
+                        updated += queueUpdate("tmdb", tmdbId, rating)
                     }
 
                     // Rate limiting
@@ -135,6 +166,7 @@ class RatingSyncWorker
                     Timber.e(e, "WORKER [RatingSync] Failed to fetch TMDb rating for $tmdbId")
                 }
             }
+            updated += flushUpdates()
 
             // Reset progress if all done and not batching
             if (!config.batchingEnabled || seriesToSync.size >= allSeries.size) {
@@ -160,9 +192,7 @@ class RatingSyncWorker
                     if (ratingStr != null && ratingStr != "N/A") {
                         val rating = ratingStr.toDoubleOrNull() ?: 0.0
                         if (rating > 0.0) {
-                            val rowsUpdated = mediaDao.updateRatingByImdbId(imdbId, rating)
-                            updated += rowsUpdated
-                            Timber.d("WORKER [RatingSync] Updated $rowsUpdated series with IMDb ID $imdbId to rating $rating")
+                            updated += queueUpdate("imdb", imdbId, rating)
                         }
                     }
 
@@ -176,6 +206,7 @@ class RatingSyncWorker
                     Timber.e(e, "WORKER [RatingSync] Failed to fetch OMDb rating for $imdbId")
                 }
             }
+            updated += flushUpdates()
 
             return updated
         }
@@ -219,9 +250,7 @@ class RatingSyncWorker
                     val rating = response.voteAverage ?: 0.0
 
                     if (rating > 0.0) {
-                        val rowsUpdated = mediaDao.updateRatingByTmdbId(tmdbId, rating)
-                        updated += rowsUpdated
-                        Timber.d("WORKER [RatingSync] Updated $rowsUpdated movies with TMDb ID $tmdbId to rating $rating")
+                        updated += queueUpdate("tmdb", tmdbId, rating)
                     }
 
                     // Rate limiting
@@ -239,6 +268,7 @@ class RatingSyncWorker
                     Timber.e(e, "WORKER [RatingSync] Failed to fetch TMDb rating for $tmdbId")
                 }
             }
+            updated += flushUpdates()
 
             // Reset progress if all done and not batching
             if (!config.batchingEnabled || moviesToSync.size >= allMovies.size) {
@@ -278,9 +308,7 @@ class RatingSyncWorker
                     if (ratingStr != null && ratingStr != "N/A") {
                         val rating = ratingStr.toDoubleOrNull() ?: 0.0
                         if (rating > 0.0) {
-                            val rowsUpdated = mediaDao.updateRatingByImdbId(imdbId, rating)
-                            updated += rowsUpdated
-                            Timber.d("WORKER [RatingSync] Updated $rowsUpdated movies with IMDb ID $imdbId to rating $rating")
+                            updated += queueUpdate("imdb", imdbId, rating)
                         }
                     }
 
@@ -299,6 +327,7 @@ class RatingSyncWorker
                     Timber.e(e, "WORKER [RatingSync] Failed to fetch OMDb rating for $imdbId")
                 }
             }
+            updated += flushUpdates()
 
             // Reset progress if all done and not batching
             if (!config.batchingEnabled || moviesToSync.size >= allMovies.size) {

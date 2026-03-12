@@ -1,8 +1,10 @@
 package com.chakir.plexhubtv.data.repository
 
+import androidx.room.withTransaction
 import com.chakir.plexhubtv.core.database.IdBridgeDao
 import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Server
@@ -35,6 +37,7 @@ class SyncRepositoryImpl
         private val serverClientResolver: ServerClientResolver,
         private val mediaDao: MediaDao,
         private val idBridgeDao: IdBridgeDao,
+        private val database: PlexDatabase,
         private val mediaMapper: MediaMapper,
         private val libraryRepository: LibraryRepository,
         private val settingsDataStore: SettingsDataStore,
@@ -119,6 +122,7 @@ class SyncRepositoryImpl
                     val size = 500 // Batch size
                     var hasMore = true
                     var totalSize = 0
+                    val syncedRatingKeys = mutableSetOf<String>()
 
                     while (hasMore) {
                         val startTime = System.currentTimeMillis()
@@ -150,7 +154,7 @@ class SyncRepositoryImpl
                                 val entities =
                                     validMetadata.mapIndexed { index, dto ->
                                         val dtoWithLib = dto.copy(librarySectionID = libraryKey)
-                                        val entity = mediaMapper.mapDtoToEntity(dtoWithLib, server.clientIdentifier, libraryKey)
+                                        val entity = mediaMapper.mapDtoToEntity(dtoWithLib, server.clientIdentifier, libraryKey, isOwned = server.isOwned)
 
                                         // Restore scrapedRating and recompute displayRating
                                         val restoredScrapedRating = existingRatingsMap[dto.ratingKey]
@@ -173,14 +177,20 @@ class SyncRepositoryImpl
                                         )
                                     }
 
+                                syncedRatingKeys.addAll(entities.map { it.ratingKey })
+
                                 if (entities.isNotEmpty()) {
-                                    mediaDao.upsertMedia(entities)
-                                    val bridgeEntries = entities.mapNotNull { entity ->
-                                        val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
-                                        val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
-                                        if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                                    // Single transaction: Room fires InvalidationTracker only ONCE
+                                    // instead of separately for media + id_bridge writes
+                                    database.withTransaction {
+                                        mediaDao.upsertMedia(entities)
+                                        val bridgeEntries = entities.mapNotNull { entity ->
+                                            val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+                                            val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+                                            if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                                        }
+                                        if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
                                     }
-                                    if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
                                 }
                                 val dbDuration = System.currentTimeMillis() - dbStartTime
                                 val skippedCount = metadata.size - entities.size
@@ -207,6 +217,20 @@ class SyncRepositoryImpl
                             val errorDuration = System.currentTimeMillis() - startTime
                             Timber.e("SYNC FAILED: lib=$libraryKey code=${response.code()} duration=${errorDuration}ms")
                             return@withContext Result.failure(AppError.Network.ServerError("Failed to fetch page: ${response.code()}"))
+                        }
+                    }
+
+                    // Differential cleanup: remove items no longer present on the server
+                    if (syncedRatingKeys.isNotEmpty()) {
+                        val existingKeys = mediaDao.getRatingKeysByLibrary(server.clientIdentifier, libraryKey)
+                        val staleKeys = existingKeys.filter { it !in syncedRatingKeys }
+                        if (staleKeys.isNotEmpty()) {
+                            database.withTransaction {
+                                staleKeys.chunked(500).forEach { chunk ->
+                                    mediaDao.deleteMediaByKeys(server.clientIdentifier, chunk)
+                                }
+                            }
+                            Timber.i("SYNC CLEANUP: Removed ${staleKeys.size} stale items from $libraryName")
                         }
                     }
 

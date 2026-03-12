@@ -83,11 +83,20 @@ class FavoritesViewModel
             desc: Boolean,
         ): List<MediaItem> {
             val sorted = when (sort) {
-                FavoritesSortOption.DATE_ADDED -> if (desc) items else items.reversed()
+                FavoritesSortOption.DATE_ADDED -> items.sortedWith(
+                    compareBy<MediaItem> { it.addedAt ?: 0L }
+                        .thenBy { it.title.lowercase() },
+                )
                 FavoritesSortOption.TITLE -> items.sortedBy { it.title.lowercase() }
-                FavoritesSortOption.YEAR -> items.sortedBy { it.year ?: 0 }
-                FavoritesSortOption.RATING -> items.sortedBy { it.audienceRating ?: it.rating ?: 0.0 }
+                FavoritesSortOption.YEAR -> items.sortedWith(
+                    compareBy<MediaItem> { it.year ?: 0 }
+                        .thenBy { it.title.lowercase() },
+                )
+                FavoritesSortOption.RATING -> items.sortedWith(
+                    compareBy<MediaItem> { it.audienceRating ?: it.rating ?: 0.0 }
+                        .thenBy { it.title.lowercase() },
+                )
             }
-            return if (sort != FavoritesSortOption.DATE_ADDED && desc) sorted.reversed() else sorted
+            return if (desc) sorted.reversed() else sorted
         }
     }

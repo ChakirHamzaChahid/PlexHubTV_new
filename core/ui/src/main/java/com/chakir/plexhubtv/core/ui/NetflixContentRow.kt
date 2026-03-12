@@ -41,6 +41,7 @@ fun NetflixContentRow(
     onItemLongPress: ((MediaItem) -> Unit)? = null,
     rowId: String = title.lowercase().replace(" ", "_"),
     leftExitFocusRequester: FocusRequester? = null,
+    showYear: Boolean = false,
 ) {
     if (items.isEmpty()) return
 
@@ -96,6 +97,7 @@ fun NetflixContentRow(
                     onClick = onClick,
                     onPlay = onPlay,
                     onLongPress = longPress,
+                    showYear = showYear,
                 )
             }
         }

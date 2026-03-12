@@ -15,7 +15,7 @@ data class Profile(
     val avatarUrl: String? = null,
     val avatarEmoji: String? = null,
     val isKidsProfile: Boolean = false,
-    val ageRating: AgeRating = AgeRating.GENERAL,
+    val ageRating: AgeRating = AgeRating.ADULT,
     val autoPlayNext: Boolean = true,
     val preferredAudioLanguage: String? = null,
     val preferredSubtitleLanguage: String? = null,

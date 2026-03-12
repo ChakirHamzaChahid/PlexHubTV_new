@@ -210,6 +210,7 @@
     <string name="collection_error_description">Error: %1$s</string>
     <string name="detail_collection_items_description">Collection items list</string>
     <string name="collection_items_description">Collection items list</string>
+    <string name="collection_empty">No items in this collection</string>
 
     <!-- ══════════════════════════════════════════════
          Season Detail Screen
@@ -267,6 +268,7 @@
     <string name="player_next_episode_label">Next Episode</string>
     <string name="player_next_episode_title">Next episode: %1$s</string>
     <string name="player_play_now">Play Now</string>
+    <string name="player_play_now_countdown">Play Now (%1$ds)</string>
     <string name="player_unknown_title">Unknown Title</string>
     <string name="player_playing_from">Playing from %1$s</string>
     <string name="player_resuming_from">Resuming from %1$s</string>
@@ -367,11 +369,20 @@
     <!-- Appearance -->
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_app_theme">App Theme</string>
+    <string name="settings_show_year_on_cards">Show Year on Cards</string>
+    <string name="settings_show_year_on_cards_subtitle">Display release year under movie and TV show titles</string>
+    <string name="settings_grid_columns">Grid Columns</string>
+    <string name="settings_grid_columns_subtitle">%d columns per row</string>
 
     <!-- Playback -->
     <string name="settings_section_playback">Playback</string>
     <string name="settings_video_quality">Video Quality</string>
     <string name="settings_player_engine">Player Engine</string>
+    <string name="settings_deinterlace_mode">Deinterlacing</string>
+    <string name="settings_deinterlace_auto">Auto (recommended)</string>
+    <string name="settings_deinterlace_off">Off</string>
+    <string name="settings_auto_play_next">Auto-play next episode</string>
+    <string name="settings_auto_play_next_subtitle">Automatically play the next episode after a 15-second countdown</string>
 
     <!-- Languages -->
     <string name="settings_section_languages">Languages</string>
@@ -462,6 +473,10 @@
     <string name="settings_backend_sync">Sync from Backend</string>
     <string name="settings_backend_sync_subtitle">Fetch enriched media from backend</string>
     <string name="settings_backend_remove_confirm">Remove this backend server?</string>
+    <string name="settings_backend_trigger_sync">Trigger Xtream Sync</string>
+    <string name="settings_backend_trigger_sync_subtitle">Update backend DB with new Xtream content</string>
+    <string name="settings_backend_health">Backend Status</string>
+    <string name="settings_backend_health_subtitle">Check backend server health</string>
 
     <!-- IPTV (Settings) -->
     <string name="settings_section_iptv">IPTV</string>
@@ -567,6 +582,7 @@
          Favorites Screen
          ══════════════════════════════════════════════ -->
     <string name="favorites_title">My List</string>
+    <string name="favorites_title_with_count">My List (%d)</string>
     <string name="favorites_empty">No favorites yet.</string>
     <string name="favorites_empty_hint">Add movies and shows to your list from the detail screen.</string>
     <string name="favorites_screen_description">Favorites screen</string>
@@ -627,4 +643,20 @@
     <string name="remove_from_continue_watching_subtitle">This will mark \"%1$s\" as watched</string>
     <string name="remove_button">Remove</string>
     <string name="cancel_button">Cancel</string>
+
+    <!-- ══════════════════════════════════════════════
+         Parental Controls
+         ══════════════════════════════════════════════ -->
+    <string name="settings_section_parental">Parental Controls</string>
+    <string name="settings_parental_pin_set">Set Parental PIN</string>
+    <string name="settings_parental_pin_change">Change Parental PIN</string>
+    <string name="settings_parental_pin_subtitle">Require PIN to switch from Kids profile</string>
+    <string name="settings_parental_pin_remove">Remove Parental PIN</string>
+    <string name="settings_parental_pin_remove_subtitle">Disable PIN requirement for profile switching</string>
+    <string name="parental_pin_set_title">Set Parental PIN</string>
+    <string name="parental_pin_confirm_title">Confirm PIN</string>
+    <string name="parental_pin_verify_title">Enter Parental PIN</string>
+    <string name="parental_pin_backspace">&#x232B;</string>
+    <string name="parental_pin_ok">OK</string>
+    <string name="parental_pin_cancel">Cancel</string>
 </resources>

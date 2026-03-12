@@ -47,7 +47,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
@@ -69,6 +68,8 @@ fun FavoritesRoute(
         uiState = uiState,
         onMediaClick = { media -> onNavigateToMedia(media.ratingKey, media.serverId) },
         onSortChanged = { option -> viewModel.setSortOption(option) },
+        showYear = false, // TODO: Get from ViewModel/UiState
+        gridColumnsCount = 6, // Fixed for now, can be made configurable later
     )
 }
 
@@ -77,6 +78,8 @@ fun FavoritesScreen(
     uiState: FavoritesUiState,
     onMediaClick: (com.chakir.plexhubtv.core.model.MediaItem) -> Unit,
     onSortChanged: (FavoritesSortOption) -> Unit = {},
+    showYear: Boolean = false,
+    gridColumnsCount: Int = 6,
 ) {
     val screenDescription = stringResource(R.string.favorites_screen_description)
     val loadingDescription = stringResource(R.string.favorites_loading_description)
@@ -92,7 +95,7 @@ fun FavoritesScreen(
                 .padding(start = 58.dp, end = 58.dp, top = 80.dp),
     ) {
         Text(
-            text = stringResource(R.string.favorites_title),
+            text = stringResource(R.string.favorites_title_with_count, uiState.favorites.size),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -156,7 +159,7 @@ fun FavoritesScreen(
 
             LazyVerticalGrid(
                 state = gridState,
-                columns = GridCells.Adaptive(minSize = 140.dp),
+                columns = GridCells.Fixed(gridColumnsCount),
                 contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -166,18 +169,15 @@ fun FavoritesScreen(
                     items = uiState.favorites,
                     key = { media -> "${media.serverId}_${media.ratingKey}" },
                 ) { media ->
-                    var isFocused by remember { mutableStateOf(false) }
-                    Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                        NetflixMediaCard(
-                            media = media,
-                            onClick = { onMediaClick(media) },
-                            onPlay = { /* Optional direct play */ },
-                            onFocus = { focused -> isFocused = focused },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(2f / 3f)
-                        )
-                    }
+                    NetflixMediaCard(
+                        media = media,
+                        onClick = { onMediaClick(media) },
+                        onPlay = { /* Optional direct play */ },
+                        showYear = showYear,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(2f / 3f)
+                    )
                 }
             }
         }

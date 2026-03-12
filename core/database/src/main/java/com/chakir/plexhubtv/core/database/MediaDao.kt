@@ -33,6 +33,16 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE guid = :guid")
     suspend fun getAllMediaByGuid(guid: String): List<MediaEntity>
 
+    // Optimization: Bulk query to prevent N+1 issues in Watchlist Sync
+    @Query("SELECT * FROM media WHERE guid IN (:guids)")
+    suspend fun getAllMediaByGuids(guids: List<String>): List<MediaEntity>
+
+    // ISSUE #113 FIX: Batch fetch media entities to prevent N+1 in FavoritesRepository
+    // Grouped by serverId so the primary key prefix (ratingKey, serverId) is used for index lookup.
+    // Old approach: composite key concatenation forced full table scan.
+    @Query("SELECT * FROM media WHERE serverId = :serverId AND ratingKey IN (:ratingKeys)")
+    suspend fun getMediaByServerAndKeys(serverId: String, ratingKeys: List<String>): List<MediaEntity>
+
     @Query("DELETE FROM media WHERE librarySectionId = :libraryId AND filter = :filter AND sortOrder = :sortOrder")
     suspend fun clearByLibraryFilterSort(
         libraryId: String,
@@ -54,6 +64,15 @@ interface MediaDao {
 
     @Query("SELECT * FROM media WHERE serverId = :serverId AND type = :type AND filter = :filter ORDER BY titleSortable ASC")
     suspend fun getMediaByServerTypeFilter(serverId: String, type: String, filter: String): List<MediaEntity>
+
+    @Query("SELECT ratingKey FROM media WHERE serverId = :serverId AND librarySectionId = :libraryKey")
+    suspend fun getRatingKeysByLibrary(serverId: String, libraryKey: String): List<String>
+
+    @Query("SELECT ratingKey FROM media WHERE serverId = :serverId AND type = :type")
+    suspend fun getRatingKeysByServerAndType(serverId: String, type: String): List<String>
+
+    @Query("DELETE FROM media WHERE serverId = :serverId AND ratingKey IN (:ratingKeys)")
+    suspend fun deleteMediaByKeys(serverId: String, ratingKeys: List<String>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMedia(media: MediaEntity)
@@ -150,14 +169,39 @@ interface MediaDao {
     ): Int
 
     @Query(
-        "SELECT *, MAX(lastViewedAt) as lastViewedAt FROM media WHERE lastViewedAt > 0 " +
+        "SELECT ratingKey, serverId, librarySectionId, title, titleSortable, " +
+        "filter, sortOrder, pageOffset, type, thumbUrl, artUrl, year, duration, summary, " +
+        "viewOffset, viewCount, MAX(lastViewedAt) as lastViewedAt, " +
+        "parentTitle, parentRatingKey, parentIndex, grandparentTitle, grandparentRatingKey, " +
+        "`index`, mediaParts, guid, imdbId, tmdbId, rating, audienceRating, contentRating, " +
+        "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
+        "parentThumb, grandparentThumb, displayRating, " +
+        "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
+        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned " +
+        "FROM media WHERE lastViewedAt > 0 " +
         "GROUP BY historyGroupKey " +
-        "ORDER BY lastViewedAt DESC LIMIT :limit OFFSET :offset"
+        "ORDER BY MAX(lastViewedAt) DESC LIMIT :limit OFFSET :offset"
     )
     fun getHistory(
         limit: Int,
         offset: Int,
     ): Flow<List<MediaEntity>>
+
+    @Query(
+        "SELECT ratingKey, serverId, librarySectionId, title, titleSortable, " +
+        "filter, sortOrder, pageOffset, type, thumbUrl, artUrl, year, duration, summary, " +
+        "viewOffset, viewCount, MAX(lastViewedAt) as lastViewedAt, " +
+        "parentTitle, parentRatingKey, parentIndex, grandparentTitle, grandparentRatingKey, " +
+        "`index`, mediaParts, guid, imdbId, tmdbId, rating, audienceRating, contentRating, " +
+        "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
+        "parentThumb, grandparentThumb, displayRating, " +
+        "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
+        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned " +
+        "FROM media WHERE lastViewedAt > 0 " +
+        "GROUP BY historyGroupKey " +
+        "ORDER BY MAX(lastViewedAt) DESC"
+    )
+    fun getHistoryPaged(): androidx.paging.PagingSource<Int, MediaEntity>
 
     // Metadata for filters
     @Query(
@@ -240,6 +284,20 @@ interface MediaDao {
         excludeServerId: String,
     ): List<MediaEntity>
 
+    // Find a show on a specific server by unificationId (for Room-show shortcut in enrichment)
+    @Query("""
+        SELECT * FROM media
+        WHERE type = 'show'
+        AND unificationId = :unificationId
+        AND unificationId != ''
+        AND serverId = :serverId
+        LIMIT 1
+    """)
+    suspend fun findShowByUnificationIdAndServer(
+        unificationId: String,
+        serverId: String,
+    ): MediaEntity?
+
     @Query("SELECT DISTINCT serverId FROM media")
     suspend fun getDistinctServerIds(): List<String>
 
@@ -269,6 +327,17 @@ interface MediaDao {
         showUnificationId: String,
         enabledServerIds: List<String>,
     ): List<MediaEntity>
+
+    // Find all servers that have a show with the given unificationId (for enrichment pre-filtering)
+    @Query("""
+        SELECT serverId, ratingKey FROM media
+        WHERE type = 'show' AND unificationId = :unificationId
+        AND unificationId != '' AND serverId != :excludeServerId
+    """)
+    suspend fun findServersWithShow(
+        unificationId: String,
+        excludeServerId: String,
+    ): Map<@androidx.room.MapColumn(columnName = "serverId") String, @androidx.room.MapColumn(columnName = "ratingKey") String>
 
     // Persistence helper to survive library syncs
     @Query("SELECT ratingKey, scrapedRating FROM media WHERE ratingKey IN (:ratingKeys) AND serverId = :serverId")

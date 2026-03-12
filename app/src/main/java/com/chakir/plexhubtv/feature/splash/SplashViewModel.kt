@@ -33,7 +33,7 @@ class SplashViewModel
         private val authRepository: AuthRepository,
         private val settingsDataStore: SettingsDataStore,
     ) : ViewModel() {
-        private val _navigationEvent = Channel<SplashNavigationEvent>()
+        private val _navigationEvent = Channel<SplashNavigationEvent>(Channel.BUFFERED)
         val navigationEvent = _navigationEvent.receiveAsFlow()
 
         private data class TransitionState(

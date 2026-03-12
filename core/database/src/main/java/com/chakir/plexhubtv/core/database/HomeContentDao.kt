@@ -24,6 +24,16 @@ interface HomeContentDao {
     @Query("DELETE FROM home_content WHERE type = :type")
     suspend fun clearHomeContentByType(type: String)
 
+    /**
+     * Atomically replaces home content: clears existing entries then inserts fresh ones.
+     * Without @Transaction, a failure after clear leaves the section empty until next refresh.
+     */
+    @Transaction
+    suspend fun replaceHomeContent(type: String, hubIdentifier: String, items: List<HomeContentEntity>) {
+        clearHomeContent(type, hubIdentifier)
+        insertHomeContent(items)
+    }
+
     // Join with MediaEntity to get full objects
     @Transaction
     @Query(
@@ -32,6 +42,7 @@ interface HomeContentDao {
         FROM home_content h
         INNER JOIN media m ON h.itemServerId = m.serverId AND h.itemRatingKey = m.ratingKey
         WHERE h.type = :type AND h.hubIdentifier = :hubIdentifier
+        AND m.filter = 'all'
         ORDER BY h.orderIndex ASC
     """,
     )

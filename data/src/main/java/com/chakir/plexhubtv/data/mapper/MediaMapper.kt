@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.data.mapper
 
 import com.chakir.plexhubtv.core.common.StringNormalizer
 import com.chakir.plexhubtv.core.database.MediaEntity
+import com.chakir.plexhubtv.core.database.computeMetadataScore
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.UnificationId
@@ -166,14 +167,20 @@ class MediaMapper
                         id = dto.id, index = dto.index, language = dto.language, languageCode = dto.languageCode,
                         title = dto.title, displayTitle = dto.displayTitle, codec = dto.codec, selected = dto.selected,
                         width = dto.width, height = dto.height, bitrate = dto.bitrate, hasHDR = isHdr,
+                        scanType = dto.scanType,
                     )
                 }
-                2 ->
+                2 -> {
+                    val isOriginal = dto.displayTitle?.contains("(Original Audio)", ignoreCase = true) == true ||
+                        dto.title?.contains("original", ignoreCase = true) == true
+
                     com.chakir.plexhubtv.core.model.AudioStream(
                         id = dto.id, index = dto.index, language = dto.language, languageCode = dto.languageCode,
                         title = dto.title, displayTitle = dto.displayTitle, codec = dto.codec, selected = dto.selected,
                         channels = dto.channels,
+                        isOriginal = isOriginal,
                     )
+                }
                 3 ->
                     com.chakir.plexhubtv.core.model.SubtitleStream(
                         id = dto.id, index = dto.index, language = dto.language, languageCode = dto.languageCode,
@@ -199,6 +206,7 @@ class MediaMapper
             dto: MetadataDTO,
             serverId: String,
             libraryKey: String,
+            isOwned: Boolean = false,
         ): MediaEntity {
             val unificationId = UnificationId.calculate(extractImdbId(dto), extractTmdbId(dto), dto.title, dto.year)
             return MediaEntity(
@@ -253,6 +261,20 @@ class MediaMapper
                 updatedAt = System.currentTimeMillis(),
                 parentThumb = dto.parentThumb,
                 grandparentThumb = dto.grandparentThumb,
+                metadataScore = computeMetadataScore(
+                    summary = dto.summary,
+                    thumbUrl = dto.thumb,
+                    imdbId = extractImdbId(dto),
+                    tmdbId = extractTmdbId(dto),
+                    year = dto.year,
+                    genres = dto.genres?.joinToString(",") { it.tag },
+                    serverId = serverId,
+                    rating = dto.rating,
+                    audienceRating = dto.audienceRating,
+                    contentRating = ContentRatingHelper.normalize(dto.contentRating),
+                    isOwned = isOwned,
+                ),
+                isOwned = isOwned,
             )
         }
 

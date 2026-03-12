@@ -25,7 +25,7 @@ android {
         minSdk = 27
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "1.0.12"
     }
 
     signingConfigs {
@@ -75,15 +75,27 @@ android {
                 }
             buildConfigField("String", "API_BASE_URL", "\"https://plex.tv/\"")
             buildConfigField("String", "PLEX_TOKEN", "\"\"")
-            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"\"")
-            buildConfigField("String", "TMDB_API_KEY", "\"\"")
-            buildConfigField("String", "OMDB_API_KEY", "\"\"")
+            val releaseLocalProperties = Properties()
+            val releaseLocalPropertiesFile = rootProject.file("local.properties")
+            if (releaseLocalPropertiesFile.exists()) {
+                releaseLocalProperties.load(FileInputStream(releaseLocalPropertiesFile))
+            }
+            val releaseIptvUrl = releaseLocalProperties.getProperty("IPTV_PLAYLIST_URL") ?: ""
+            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"$releaseIptvUrl\"")
+            val releaseTmdbApiKey = releaseLocalProperties.getProperty("TMDB_API_KEY") ?: ""
+            buildConfigField("String", "TMDB_API_KEY", "\"$releaseTmdbApiKey\"")
+            val releaseOmdbApiKey = releaseLocalProperties.getProperty("OMDB_API_KEY") ?: ""
+            buildConfigField("String", "OMDB_API_KEY", "\"$releaseOmdbApiKey\"")
         }
     }
 
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 
     compileOptions {
@@ -155,6 +167,7 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.compose.animation)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
     implementation(libs.androidx.compose.navigation)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
@@ -200,6 +213,7 @@ dependencies {
 
     // WorkManager
     implementation(libs.androidx.work.runtime)
+    debugImplementation(libs.androidx.work.multiprocess)
 
     // --- HILT (Injection de dépendance) ---
     implementation(libs.hilt.android)

@@ -35,6 +35,7 @@ class MediaRemoteMediator(
     private val serverUrl: String, // Need Base URL to construct full path
     private val token: String,
     private val mapper: MediaMapper,
+    private val isOwned: Boolean = false,
 ) : RemoteMediator<Int, MediaEntity>() {
     private val remoteKeysDao = database.remoteKeysDao()
     private val mediaDao = database.mediaDao()
@@ -163,7 +164,7 @@ class MediaRemoteMediator(
 
                 val entities =
                     items.mapIndexed { index, dto ->
-                        val entity = mapper.mapDtoToEntity(dto, serverId, libraryKey)
+                        val entity = mapper.mapDtoToEntity(dto, serverId, libraryKey, isOwned = isOwned)
                         entity.copy(
                             librarySectionId = libraryKey,
                             filter = filter,

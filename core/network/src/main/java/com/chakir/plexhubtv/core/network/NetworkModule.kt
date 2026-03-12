@@ -1,18 +1,22 @@
 package com.chakir.plexhubtv.core.network
 
+import android.content.Context
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import timber.log.Timber
+import java.io.File
 import java.net.InetAddress
 import java.net.Socket
 import java.security.cert.CertPathValidatorException
@@ -110,6 +114,29 @@ object NetworkModule {
     }
 
     /**
+     * HTTP Disk Cache for OkHttp.
+     *
+     * Issue #117 (AGENT-8-001): Configure 50MB disk cache to reduce network calls
+     * for API responses. Respects cache-control headers from servers.
+     *
+     * Benefits:
+     * - Identical API requests served from disk (~10ms vs 500ms network)
+     * - Reduces bandwidth usage and battery consumption
+     * - LRU eviction policy with automatic cleanup
+     */
+    @Provides
+    @Singleton
+    fun provideHttpCache(@ApplicationContext context: Context): Cache {
+        val cacheDir = File(context.cacheDir, "http_cache")
+        val cacheSize = 50L * 1024 * 1024 // 50 MB (as requested in Issue #117)
+
+        Timber.i("HTTP Cache: Configured with size = %.1f MB at ${cacheDir.absolutePath}",
+            cacheSize / (1024.0 * 1024.0))
+
+        return Cache(cacheDir, cacheSize)
+    }
+
+    /**
      * Public OkHttpClient with standard system SSL validation.
      * No custom TrustManager — certificates are validated normally.
      * Used by TMDb and OMDb APIs (external public services).
@@ -120,14 +147,17 @@ object NetworkModule {
     fun providePublicOkHttpClient(
         authInterceptor: AuthInterceptor,
         loggingInterceptor: HttpLoggingInterceptor,
+        cache: Cache, // Issue #117: Add HTTP disk cache
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
+            .cache(cache) // Issue #117 (AGENT-8-001): Enable HTTP disk cache
             .connectionPool(okhttp3.ConnectionPool(5, 5, TimeUnit.MINUTES))
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -144,6 +174,7 @@ object NetworkModule {
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
         loggingInterceptor: HttpLoggingInterceptor,
+        cache: Cache, // Issue #117: Add HTTP disk cache
     ): OkHttpClient {
         val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
         trustManagerFactory.init(null as java.security.KeyStore?)
@@ -245,6 +276,7 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
+            .cache(cache) // Issue #117 (AGENT-8-001): Enable HTTP disk cache
             .connectionPool(okhttp3.ConnectionPool(5, 5, TimeUnit.MINUTES))
             .sslSocketFactory(sslContext.socketFactory, localAwareTrustManager)
             .hostnameVerifier { hostname, session ->
@@ -256,6 +288,7 @@ object NetworkModule {
             .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -295,6 +328,7 @@ object NetworkModule {
         val tmdbClient = okHttpClient.newBuilder()
             .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
 
         return Retrofit.Builder()
@@ -323,6 +357,7 @@ object NetworkModule {
         val omdbClient = okHttpClient.newBuilder()
             .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
 
         return Retrofit.Builder()

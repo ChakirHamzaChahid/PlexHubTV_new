@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -79,6 +78,7 @@ fun NetflixDetailScreen(
     state: MediaDetailUiState,
     onAction: (MediaDetailEvent) -> Unit,
     onCollectionClicked: (String, String) -> Unit,
+    showYear: Boolean = false,
 ) {
     var selectedTab by remember { mutableStateOf(if (media.type == MediaType.Show) DetailTab.Episodes else DetailTab.MoreLikeThis) }
     val listState = rememberLazyListState()
@@ -280,11 +280,12 @@ fun NetflixDetailScreen(
                                     .focusRequester(contentRowFocusRequester)
                                     .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
-                                items(seasons, key = { "${it.ratingKey}_${it.serverId}" }) { season ->
+                                items(seasons, key = { "${it.ratingKey}_${it.serverId}" }, contentType = { "season" }) { season ->
                                     NetflixMediaCard(
                                         media = season,
                                         onClick = { onAction(MediaDetailEvent.OpenSeason(season)) },
                                         onPlay = {},
+                                        showYear = showYear,
                                     )
                                 }
                             }
@@ -306,11 +307,12 @@ fun NetflixDetailScreen(
                                     .focusRequester(contentRowFocusRequester)
                                     .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
-                                items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }) { item ->
+                                items(similarItems, key = { "${it.ratingKey}_${it.serverId}" }, contentType = { "media" }) { item ->
                                     NetflixMediaCard(
                                         media = item,
                                         onClick = { onAction(MediaDetailEvent.OpenMediaDetail(item)) },
                                         onPlay = {},
+                                        showYear = showYear,
                                     )
                                 }
                             }
@@ -332,7 +334,7 @@ fun NetflixDetailScreen(
                                     .focusRequester(contentRowFocusRequester)
                                     .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
-                                items(state.collections, key = { it.id }) { collection ->
+                                items(state.collections, key = { it.id }, contentType = { "collection" }) { collection ->
                                     CollectionCard(
                                         title = collection.title,
                                         itemCount = collection.items.size,
@@ -360,7 +362,7 @@ fun NetflixDetailScreen(
                                     .focusRequester(contentRowFocusRequester)
                                     .onFocusChanged { if (it.hasFocus) lastFocusTarget = DetailFocusTarget.ContentRow }
                             ) {
-                                items(extras, key = { it.ratingKey }) { extra ->
+                                items(extras, key = { it.ratingKey }, contentType = { "extra" }) { extra ->
                                     ExtraCard(
                                         extra = extra,
                                         onClick = { onAction(MediaDetailEvent.PlayExtra(extra)) },

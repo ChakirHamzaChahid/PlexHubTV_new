@@ -102,6 +102,7 @@ class LibraryRepositoryImpl
             excludedServerIds: List<String>,
             initialKey: Int?,
             query: String?,
+            maxAgeRating: Int?,
         ): Flow<androidx.paging.PagingData<MediaItem>> {
             return flow {
                 var resolvedLibraryKey = libraryKey
@@ -168,6 +169,7 @@ class LibraryRepositoryImpl
                     query = dbQuery,
                     baseSort = baseSort,
                     isDescending = isDescending,
+                    maxAgeRating = maxAgeRating,
                 )
                 val builtQuery = MediaLibraryQueryBuilder.buildPagedQuery(queryConfig)
                 val rawQuery = builtQuery.toSimpleSQLiteQuery()
@@ -190,6 +192,7 @@ class LibraryRepositoryImpl
                             serverUrl = client.baseUrl,
                             token = client.server.accessToken ?: "",
                             mapper = mapper,
+                            isOwned = client.server.isOwned,
                         )
                     } else {
                         null
@@ -203,7 +206,7 @@ class LibraryRepositoryImpl
                                 prefetchDistance = 15, // TV viewport shows ~15-20 items; 50 caused excessive prefetch
                                 initialLoadSize = 100,
                                 enablePlaceholders = true,
-                                maxSize = 2000,
+                                maxSize = 800, // Reduced from 2000: saves ~50% paging RAM on 2GB TV devices
                             ),
                         initialKey = initialKey,
                         remoteMediator = remoteMediator,
@@ -239,11 +242,11 @@ class LibraryRepositoryImpl
                             val token = tokenMap[entity.serverId]
 
                             val serverIdsStr = entity.serverIds
-                            val ratingKeysStr = entity.ratingKeys
                             val finalDomain =
-                                if (serverIdsStr != null && ratingKeysStr != null) {
-                                    var sIds = serverIdsStr.split(",")
-                                    var rKeys = ratingKeysStr.split(",")
+                                if (serverIdsStr != null && serverIdsStr.contains("=")) {
+                                    val pairs = serverIdsStr.split(",").map { it.split("=") }.filter { it.size == 2 }
+                                    var sIds = pairs.map { it[0] }
+                                    var rKeys = pairs.map { it[1] }
 
                                     // Prioritize default server in multi-server results (Kotlin-side, SQLite version independent)
                                     if (sIds.size == rKeys.size && sIds.size > 1 && preferredServerIdForMapping != null) {
@@ -255,12 +258,12 @@ class LibraryRepositoryImpl
                                         }
                                     }
 
-                                    if (sIds.size == rKeys.size && sIds.size > 1) {
+                                    if (sIds.size == rKeys.size) {
                                         val sources =
                                             sIds.zip(rKeys)
                                                 .distinctBy { it.first } // Deduplicate by serverId
                                                 .mapNotNull { (sId, rKey) ->
-                                                    val serverName = serverNameMap[sId] ?: return@mapNotNull null
+                                                    val serverName = serverNameMap[sId] ?: sId.take(12)
 
                                                     com.chakir.plexhubtv.core.model.MediaSource(
                                                         serverId = sId,
@@ -271,11 +274,7 @@ class LibraryRepositoryImpl
                                                         artUrl = null,
                                                     )
                                                 }
-                                        if (sources.size > 1) {
-                                            domain.copy(remoteSources = sources)
-                                        } else {
-                                            domain
-                                        }
+                                        domain.copy(remoteSources = sources)
                                     } else {
                                         domain
                                     }

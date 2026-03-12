@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +37,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.BuildConfig
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
+import com.chakir.plexhubtv.core.ui.ParentalPinDialog
+import com.chakir.plexhubtv.core.ui.PinDialogMode
 
 private const val PRIVACY_POLICY_URL = "https://chakir-elarram.github.io/PlexHubTV/privacy-policy-en.html"
 
@@ -95,6 +99,7 @@ fun SettingsScreen(
     // Dialog States
     var showQualityDialog by remember { mutableStateOf(false) }
     var showPlayerEngineDialog by remember { mutableStateOf(false) }
+    var showDeinterlaceDialog by remember { mutableStateOf(false) }
     var showAudioLangDialog by remember { mutableStateOf(false) }
     var showSubtitleLangDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
@@ -103,6 +108,7 @@ fun SettingsScreen(
     var showRatingSyncSourceDialog by remember { mutableStateOf(false) }
     var showRatingSyncDelayDialog by remember { mutableStateOf(false) }
     var showRatingSyncDailyLimitDialog by remember { mutableStateOf(false) }
+    var showParentalPinDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.padding(top = 56.dp), // Clear Netflix TopBar overlay
@@ -163,6 +169,30 @@ fun SettingsScreen(
                 }
             }
 
+            // --- Parental Controls ---
+            item {
+                SettingsSection(stringResource(R.string.settings_section_parental)) {
+                    SettingsTile(
+                        title = if (state.hasParentalPin) {
+                            stringResource(R.string.settings_parental_pin_change)
+                        } else {
+                            stringResource(R.string.settings_parental_pin_set)
+                        },
+                        subtitle = stringResource(R.string.settings_parental_pin_subtitle),
+                        icon = Icons.Default.Lock,
+                        onClick = { showParentalPinDialog = true },
+                    )
+                    if (state.hasParentalPin) {
+                        SettingsTile(
+                            title = stringResource(R.string.settings_parental_pin_remove),
+                            subtitle = stringResource(R.string.settings_parental_pin_remove_subtitle),
+                            titleColor = MaterialTheme.colorScheme.error,
+                            onClick = { onAction(SettingsAction.ClearParentalPin) },
+                        )
+                    }
+                }
+            }
+
             // --- Appearance ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_appearance)) {
@@ -170,6 +200,20 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_app_theme),
                         subtitle = state.theme.name,
                         onClick = { showThemeDialog = true },
+                    )
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_show_year_on_cards),
+                        subtitle = stringResource(R.string.settings_show_year_on_cards_subtitle),
+                        isChecked = state.showYearOnCards,
+                        onCheckedChange = { onAction(SettingsAction.ToggleShowYearOnCards(it)) },
+                    )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_grid_columns),
+                        subtitle = stringResource(R.string.settings_grid_columns_subtitle, state.gridColumnsCount),
+                        onClick = {
+                            val newCount = if (state.gridColumnsCount == 6) 7 else 6
+                            onAction(SettingsAction.ChangeGridColumnsCount(newCount))
+                        },
                     )
                 }
             }
@@ -186,6 +230,21 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_player_engine),
                         subtitle = state.playerEngine,
                         onClick = { showPlayerEngineDialog = true },
+                    )
+                    SettingsTile(
+                        title = stringResource(R.string.settings_deinterlace_mode),
+                        subtitle = when (state.deinterlaceMode) {
+                            "auto" -> stringResource(R.string.settings_deinterlace_auto)
+                            "off" -> stringResource(R.string.settings_deinterlace_off)
+                            else -> state.deinterlaceMode
+                        },
+                        onClick = { showDeinterlaceDialog = true },
+                    )
+                    SettingsSwitch(
+                        title = stringResource(R.string.settings_auto_play_next),
+                        subtitle = stringResource(R.string.settings_auto_play_next_subtitle),
+                        isChecked = state.autoPlayNextEnabled,
+                        onCheckedChange = { onAction(SettingsAction.ToggleAutoPlayNext(it)) },
                     )
                 }
             }
@@ -458,6 +517,40 @@ fun SettingsScreen(
                                 null
                             },
                         )
+
+                        // Trigger backend Xtream sync
+                        SettingsTile(
+                            title = stringResource(R.string.settings_backend_trigger_sync),
+                            subtitle = if (state.isTriggeringBackendSync) {
+                                stringResource(R.string.settings_syncing_message)
+                            } else {
+                                state.backendTriggerSyncMessage ?: stringResource(R.string.settings_backend_trigger_sync_subtitle)
+                            },
+                            icon = Icons.Filled.Sync,
+                            onClick = { if (!state.isTriggeringBackendSync) onAction(SettingsAction.TriggerBackendXtreamSync) },
+                            trailingContent = if (state.isTriggeringBackendSync) {
+                                { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                            } else {
+                                null
+                            },
+                        )
+
+                        // Check backend health
+                        SettingsTile(
+                            title = stringResource(R.string.settings_backend_health),
+                            subtitle = if (state.isCheckingBackendHealth) {
+                                stringResource(R.string.settings_syncing_message)
+                            } else {
+                                state.backendHealthMessage ?: stringResource(R.string.settings_backend_health_subtitle)
+                            },
+                            icon = Icons.Filled.Info,
+                            onClick = { if (!state.isCheckingBackendHealth) onAction(SettingsAction.CheckBackendHealth) },
+                            trailingContent = if (state.isCheckingBackendHealth) {
+                                { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                            } else {
+                                null
+                            },
+                        )
                     }
 
                     // Config message
@@ -693,6 +786,31 @@ fun SettingsScreen(
         )
     }
 
+    if (showDeinterlaceDialog) {
+        val options = listOf(
+            stringResource(R.string.settings_deinterlace_auto),
+            stringResource(R.string.settings_deinterlace_off),
+        )
+        SettingsDialog(
+            title = stringResource(R.string.settings_deinterlace_mode),
+            options = options,
+            currentValue = when (state.deinterlaceMode) {
+                "auto" -> stringResource(R.string.settings_deinterlace_auto)
+                "off" -> stringResource(R.string.settings_deinterlace_off)
+                else -> state.deinterlaceMode
+            },
+            onDismissRequest = { showDeinterlaceDialog = false },
+            onOptionSelected = { selected ->
+                val mode = when (selected) {
+                    options[0] -> "auto"
+                    else -> "off"
+                }
+                onAction(SettingsAction.ChangeDeinterlaceMode(mode))
+                showDeinterlaceDialog = false
+            },
+        )
+    }
+
     if (showThemeDialog) {
         val options = AppTheme.values().map { it.name }
         SettingsDialog(
@@ -876,6 +994,18 @@ fun SettingsScreen(
                 onAction(SettingsAction.ChangeRatingSyncDelay(delay))
                 showRatingSyncDelayDialog = false
             },
+        )
+    }
+
+    // Parental PIN Dialog
+    if (showParentalPinDialog) {
+        ParentalPinDialog(
+            mode = PinDialogMode.SetPin,
+            onPinSubmit = { pin ->
+                onAction(SettingsAction.SetParentalPin(pin))
+                showParentalPinDialog = false
+            },
+            onDismiss = { showParentalPinDialog = false },
         )
     }
 

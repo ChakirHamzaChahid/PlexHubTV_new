@@ -6,6 +6,8 @@ import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
+import com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import com.chakir.plexhubtv.domain.usecase.HomeContent
 import com.google.common.truth.Truth.assertThat
@@ -29,6 +31,8 @@ class HomeViewModelTest {
     private lateinit var getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase
     private lateinit var workManager: WorkManager
     private lateinit var settingsDataStore: SettingsDataStore
+    private lateinit var profileRepository: ProfileRepository
+    private lateinit var filterContentByAgeUseCase: FilterContentByAgeUseCase
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -61,11 +65,16 @@ class HomeViewModelTest {
         getUnifiedHomeContentUseCase = mockk(relaxed = true)
         workManager = mockk(relaxed = true)
         settingsDataStore = mockk(relaxed = true)
+        profileRepository = mockk(relaxed = true)
+        filterContentByAgeUseCase = mockk(relaxed = true)
 
         every { getUnifiedHomeContentUseCase.sharedContent } returns sharedContentFlow
         every { getUnifiedHomeContentUseCase.refresh() } just Runs
         coEvery { settingsDataStore.isFirstSyncComplete } returns flowOf(true)
         coEvery { workManager.getWorkInfosForUniqueWorkFlow(any()) } returns flowOf(emptyList())
+
+        every { filterContentByAgeUseCase(any(), any()) } answers { firstArg() }
+        every { filterContentByAgeUseCase.isItemAllowed(any(), any()) } returns true
     }
 
     @After
@@ -77,6 +86,8 @@ class HomeViewModelTest {
     private fun createViewModel(): HomeViewModel {
         return HomeViewModel(
             getUnifiedHomeContentUseCase = getUnifiedHomeContentUseCase,
+            profileRepository = profileRepository,
+            filterContentByAgeUseCase = filterContentByAgeUseCase,
             workManager = workManager,
             settingsDataStore = settingsDataStore,
         )

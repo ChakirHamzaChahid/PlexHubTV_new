@@ -3,7 +3,9 @@ package com.chakir.plexhubtv.feature.player
 import androidx.lifecycle.SavedStateHandle
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.service.PlaybackManager
+import com.chakir.plexhubtv.domain.service.PlaybackState
 import com.chakir.plexhubtv.core.model.Chapter
 import com.chakir.plexhubtv.core.model.Marker
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -27,10 +29,11 @@ class PlayerControlViewModelTest {
     private lateinit var savedStateHandle: SavedStateHandle
     private lateinit var chapterMarkerManager: ChapterMarkerManager
     private lateinit var playbackManager: PlaybackManager
+    private lateinit var settingsRepository: SettingsRepository
 
     private val testDispatcher = StandardTestDispatcher()
     private val testUiState = MutableStateFlow(PlayerUiState())
-    private val testMediaFlow = MutableStateFlow<MediaItem?>(null)
+    private val testPlaybackState = MutableStateFlow(PlaybackState())
 
     @Before
     fun setup() {
@@ -42,8 +45,9 @@ class PlayerControlViewModelTest {
         }
         chapterMarkerManager = ChapterMarkerManager()
         playbackManager = mockk(relaxed = true) {
-            every { currentMedia } returns testMediaFlow
+            every { state } returns testPlaybackState
         }
+        settingsRepository = mockk(relaxed = true)
 
         // Setup SavedStateHandle with test data
         savedStateHandle = SavedStateHandle(
@@ -59,6 +63,7 @@ class PlayerControlViewModelTest {
             savedStateHandle = savedStateHandle,
             chapterMarkerManager = chapterMarkerManager,
             playbackManager = playbackManager,
+            settingsRepository = settingsRepository,
             directStreamUrlBuilder = mockk(relaxed = true),
         )
     }
@@ -114,12 +119,12 @@ class PlayerControlViewModelTest {
             title = "Next Episode",
             type = MediaType.Episode
         )
-        testMediaFlow.value = nextMedia
+        every { playbackManager.getNextMedia() } returns nextMedia
 
         viewModel.onAction(PlayerAction.Next)
 
         verify { playbackManager.next() }
-        verify { playerController.loadMedia("456", "server1") }
+        verify { playerController.playNext("456", "server1") }
     }
 
     @Test
@@ -131,12 +136,12 @@ class PlayerControlViewModelTest {
             title = "Previous Episode",
             type = MediaType.Episode
         )
-        testMediaFlow.value = prevMedia
+        every { playbackManager.getPreviousMedia() } returns prevMedia
 
         viewModel.onAction(PlayerAction.Previous)
 
         verify { playbackManager.previous() }
-        verify { playerController.loadMedia("000", "server1") }
+        verify { playerController.playNext("000", "server1") }
     }
 
     @Test

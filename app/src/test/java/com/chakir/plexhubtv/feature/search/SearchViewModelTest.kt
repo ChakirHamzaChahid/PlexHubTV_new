@@ -4,7 +4,12 @@ import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import androidx.lifecycle.SavedStateHandle
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
+import com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase
 import com.chakir.plexhubtv.domain.usecase.SearchAcrossServersUseCase
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
 import com.google.common.truth.Truth.assertThat
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +28,8 @@ import org.junit.Test
 class SearchViewModelTest {
     private lateinit var viewModel: SearchViewModel
     private lateinit var searchAcrossServersUseCase: SearchAcrossServersUseCase
+    private lateinit var profileRepository: ProfileRepository
+    private lateinit var filterContentByAgeUseCase: FilterContentByAgeUseCase
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -48,9 +55,18 @@ class SearchViewModelTest {
         Dispatchers.setMain(testDispatcher)
 
         searchAcrossServersUseCase = mockk(relaxed = true)
+        profileRepository = mockk(relaxed = true)
+        filterContentByAgeUseCase = mockk(relaxed = true)
 
         // Default mock behavior - successful search
         coEvery { searchAcrossServersUseCase(any()) } returns flowOf(Result.success(testResults))
+        
+        mockkStatic("com.google.firebase.analytics.AnalyticsKt")
+        val firebaseAnalytics = mockk<FirebaseAnalytics>(relaxed = true)
+        every { Firebase.analytics } returns firebaseAnalytics
+
+        every { filterContentByAgeUseCase(any(), any()) } answers { firstArg() }
+        every { filterContentByAgeUseCase.isItemAllowed(any(), any()) } returns true
     }
 
     @After
@@ -62,6 +78,8 @@ class SearchViewModelTest {
     private fun createViewModel(): SearchViewModel {
         return SearchViewModel(
             searchAcrossServersUseCase = searchAcrossServersUseCase,
+            profileRepository = profileRepository,
+            filterContentByAgeUseCase = filterContentByAgeUseCase,
             savedStateHandle = SavedStateHandle()
         )
     }
@@ -77,7 +95,7 @@ class SearchViewModelTest {
     }
 
     @Test
-    fun `QueryChange updates query without triggering search`() = runTest {
+    fun `QueryChange updates query and triggers search via debounce`() = runTest {
         viewModel = createViewModel()
 
         viewModel.onAction(SearchAction.QueryChange("matrix"))
@@ -85,10 +103,10 @@ class SearchViewModelTest {
 
         val state = viewModel.uiState.value
         assertThat(state.query).isEqualTo("matrix")
-        assertThat(state.searchState).isEqualTo(SearchState.Idle)
+        assertThat(state.searchState).isEqualTo(SearchState.Results)
 
-        // Search should not be triggered automatically
-        coVerify(exactly = 0) { searchAcrossServersUseCase(any()) }
+        // Search should receive the query
+        coVerify { searchAcrossServersUseCase("matrix") }
     }
 
     @Test

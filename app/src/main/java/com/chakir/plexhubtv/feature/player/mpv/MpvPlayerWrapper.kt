@@ -19,12 +19,13 @@ import timber.log.Timber
 class MpvPlayerWrapper(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val config: MpvConfig = MpvConfig(),
 ) : MpvPlayer, SurfaceHolder.Callback, MPVLib.EventObserver, MPVLib.LogObserver, DefaultLifecycleObserver {
     companion object {
     }
 
-    private var surfaceView: SurfaceView? = null
-    var isInitialized = false
+    private @Volatile var surfaceView: SurfaceView? = null
+    @Volatile var isInitialized = false
         private set
 
     private val _isPlaying = MutableStateFlow(false)
@@ -67,8 +68,12 @@ class MpvPlayerWrapper(
     private val _cacheDuration = MutableStateFlow(0.0)
     val cacheDuration: StateFlow<Double> = _cacheDuration.asStateFlow()
 
-    private var pendingUrl: String? = null
-    private var pendingPosition: Long? = null
+    @Volatile private var pendingUrl: String? = null
+    @Volatile private var pendingPosition: Long? = null
+    @Volatile private var attachedLifecycleOwner: LifecycleOwner? = null
+
+    /** When false, stats property callbacks skip StateFlow updates to reduce JNI/CPU overhead. */
+    @Volatile var statsObservingEnabled: Boolean = false
 
     override fun initialize(viewGroup: ViewGroup) {
         if (isInitialized) return
@@ -76,10 +81,27 @@ class MpvPlayerWrapper(
 
         try {
             MPVLib.create(context)
-            MPVLib.setOptionString("vo", "gpu")
-            MPVLib.setOptionString("gpu-context", "android")
-            MPVLib.setOptionString("opengl-es", "yes")
-            MPVLib.setOptionString("hwdec", "mediacodec")
+            if (config.deinterlace) {
+                // Deinterlace path: GPU rendering required for post-processing
+                MPVLib.setOptionString("vo", "gpu")
+                MPVLib.setOptionString("gpu-context", "android")
+                MPVLib.setOptionString("opengl-es", "yes")
+                MPVLib.setOptionString("hwdec", "mediacodec-copy")
+                MPVLib.setOptionString("deinterlace", "yes")
+                Timber.d("MPV: deinterlace ON (vo=gpu, hwdec=mediacodec-copy)")
+            } else {
+                // Zero-copy path: MediaCodec renders directly to Surface
+                MPVLib.setOptionString("vo", "mediacodec_embed")
+                MPVLib.setOptionString("hwdec", "mediacodec")
+                Timber.d("MPV: zero-copy mode (vo=mediacodec_embed, hwdec=mediacodec)")
+            }
+
+            // VLC-like demuxer cache for high-bitrate content (Tuned for Android TV memory limits)
+            // Total peak: 80 + 30 = 110 MiB (safe for Mi Box S 256 MB heap)
+            MPVLib.setOptionString("cache", "yes")
+            MPVLib.setOptionString("demuxer-max-bytes", "80MiB")
+            MPVLib.setOptionString("demuxer-readahead-secs", "15")
+            MPVLib.setOptionString("demuxer-max-back-bytes", "30MiB")
 
             // Subtitles: use Android system fonts (fontconfig unavailable on Android)
             MPVLib.setOptionString("sub-ass", "yes")
@@ -211,6 +233,7 @@ class MpvPlayerWrapper(
     }
 
     override fun attach(lifecycleOwner: LifecycleOwner) {
+        attachedLifecycleOwner = lifecycleOwner
         lifecycleOwner.lifecycle.addObserver(this)
     }
 
@@ -220,7 +243,14 @@ class MpvPlayerWrapper(
 
     override fun release() {
         if (!isInitialized) return
+        // Remove observers BEFORE destroy to prevent JNI callbacks on torn-down native context
+        MPVLib.removeObserver(this)
+        MPVLib.removeLogObserver(this)
         MPVLib.destroy()
+        // Detach lifecycle observer to prevent leak
+        attachedLifecycleOwner?.lifecycle?.removeObserver(this)
+        attachedLifecycleOwner = null
+        surfaceView?.holder?.removeCallback(this)
         surfaceView = null
         isInitialized = false
     }
@@ -234,6 +264,10 @@ class MpvPlayerWrapper(
             fps = _fps.value,
             cacheDuration = (_cacheDuration.value * 1000).toLong(),
         )
+    }
+
+    override fun setStatsObserving(enabled: Boolean) {
+        statsObservingEnabled = enabled
     }
 
     // SurfaceHolder.Callback
@@ -274,22 +308,17 @@ class MpvPlayerWrapper(
         property: String,
         value: Double,
     ) {
-        if (property == "time-pos") {
-            _position.update { (value * 1000).toLong() }
-        } else if (property == "duration") {
-            _duration.update { (value * 1000).toLong() }
-        } else if (property == "video-bitrate") {
-            _videoBitrate.update { value }
-        } else if (property == "estimated-vf-fps") {
-            _fps.update { value }
-        } else if (property == "demuxer-cache-duration") {
-            _cacheDuration.update { value }
-        } else if (property == "drop-frame-count") {
-            _droppedFrames.update { value.toLong() }
-        } else if (property == "video-w") {
-            _videoWidth.update { value.toLong() }
-        } else if (property == "video-h") {
-            _videoHeight.update { value.toLong() }
+        when (property) {
+            // Critical playback properties — always observe
+            "time-pos" -> _position.update { (value * 1000).toLong() }
+            "duration" -> _duration.update { (value * 1000).toLong() }
+            // Stats properties — skip updates when debug overlay is hidden to reduce CPU/JNI overhead
+            "video-bitrate" -> if (statsObservingEnabled) _videoBitrate.update { value }
+            "estimated-vf-fps" -> if (statsObservingEnabled) _fps.update { value }
+            "demuxer-cache-duration" -> if (statsObservingEnabled) _cacheDuration.update { value }
+            "drop-frame-count" -> if (statsObservingEnabled) _droppedFrames.update { value.toLong() }
+            "video-w" -> if (statsObservingEnabled) _videoWidth.update { value.toLong() }
+            "video-h" -> if (statsObservingEnabled) _videoHeight.update { value.toLong() }
         }
     }
 
@@ -297,10 +326,10 @@ class MpvPlayerWrapper(
         property: String,
         value: String,
     ) {
-        if (property == "video-format") {
-            _videoCodec.update { value }
-        } else if (property == "audio-codec-name") {
-            _audioCodec.update { value }
+        if (!statsObservingEnabled) return
+        when (property) {
+            "video-format" -> _videoCodec.update { value }
+            "audio-codec-name" -> _audioCodec.update { value }
         }
     }
 

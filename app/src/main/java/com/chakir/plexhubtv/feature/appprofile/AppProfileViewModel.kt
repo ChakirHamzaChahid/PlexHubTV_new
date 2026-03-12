@@ -3,8 +3,10 @@ package com.chakir.plexhubtv.feature.appprofile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
+import com.chakir.plexhubtv.core.model.AgeRating
 import com.chakir.plexhubtv.core.model.Profile
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,13 +24,14 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class AppProfileViewModel @Inject constructor(
-    private val profileRepository: ProfileRepository
+    private val profileRepository: ProfileRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppProfileUiState())
     val uiState: StateFlow<AppProfileUiState> = _uiState.asStateFlow()
 
-    private val _navigationEvents = Channel<AppProfileNavigationEvent>()
+    private val _navigationEvents = Channel<AppProfileNavigationEvent>(Channel.BUFFERED)
     val navigationEvents = _navigationEvents.receiveAsFlow()
 
     init {
@@ -46,6 +49,8 @@ class AppProfileViewModel @Inject constructor(
             is AppProfileAction.SubmitCreateProfile -> submitCreateProfile(action)
             is AppProfileAction.SubmitEditProfile -> submitEditProfile(action)
             is AppProfileAction.ConfirmDeleteProfile -> showDeleteConfirmation(action.profile)
+            is AppProfileAction.VerifyPin -> verifyPin(action.pin)
+            is AppProfileAction.DismissPin -> dismissPinDialog()
             is AppProfileAction.DismissDialog -> dismissDialog()
             is AppProfileAction.Back -> navigateBack()
         }
@@ -102,6 +107,27 @@ class AppProfileViewModel @Inject constructor(
     }
 
     private fun selectProfile(profile: Profile) {
+        val currentProfile = _uiState.value.activeProfile
+        // PIN guard: if switching FROM kids profile to non-kids profile, require PIN
+        val needsPin = currentProfile?.isKidsProfile == true &&
+                !profile.isKidsProfile &&
+                settingsRepository.hasParentalPin()
+
+        if (needsPin) {
+            _uiState.update {
+                it.copy(
+                    showPinDialog = true,
+                    pinError = null,
+                    pendingProfileSwitch = profile,
+                )
+            }
+            return
+        }
+
+        performProfileSwitch(profile)
+    }
+
+    private fun performProfileSwitch(profile: Profile) {
         viewModelScope.launch {
             try {
                 val result = profileRepository.switchProfile(profile.id)
@@ -117,6 +143,26 @@ class AppProfileViewModel @Inject constructor(
                 Timber.e(e, "Error switching profile")
                 _uiState.update { it.copy(error = e.message) }
             }
+        }
+    }
+
+    private fun verifyPin(pin: String) {
+        if (settingsRepository.verifyParentalPin(pin)) {
+            val pendingProfile = _uiState.value.pendingProfileSwitch ?: return
+            dismissPinDialog()
+            performProfileSwitch(pendingProfile)
+        } else {
+            _uiState.update { it.copy(pinError = "Wrong PIN") }
+        }
+    }
+
+    private fun dismissPinDialog() {
+        _uiState.update {
+            it.copy(
+                showPinDialog = false,
+                pinError = null,
+                pendingProfileSwitch = null,
+            )
         }
     }
 
@@ -146,6 +192,7 @@ class AppProfileViewModel @Inject constructor(
                 name = action.name.trim(),
                 avatarEmoji = action.avatarEmoji,
                 isKidsProfile = action.isKidsProfile,
+                ageRating = if (action.isKidsProfile) AgeRating.PARENTAL_7 else AgeRating.ADULT,
             )
             val result = profileRepository.createProfile(profile)
             if (result.isFailure) {

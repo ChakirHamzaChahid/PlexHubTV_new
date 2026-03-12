@@ -10,6 +10,7 @@ import com.chakir.plexhubtv.core.model.Server
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.LibraryRepository
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
@@ -41,6 +42,7 @@ class LibraryViewModelTest {
     private lateinit var workManager: WorkManager
     private lateinit var getLibraryIndexUseCase: GetLibraryIndexUseCase
     private lateinit var savedStateHandle: SavedStateHandle
+    private lateinit var profileRepository: ProfileRepository
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -79,14 +81,16 @@ class LibraryViewModelTest {
         connectionManager = mockk(relaxed = true)
         workManager = mockk(relaxed = true)
         getLibraryIndexUseCase = mockk(relaxed = true)
+        profileRepository = mockk(relaxed = true)
 
         // Default mock behaviors
         coEvery { authRepository.getServers() } returns Result.success(testServers)
         coEvery { mediaDao.getUniqueCountByType(any()) } returns 500
         coEvery { mediaDao.getRawCountByType(any()) } returns 600
-        coEvery { getLibraryContentUseCase(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns flowOf(PagingData.empty())
+        coEvery { getLibraryContentUseCase(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns flowOf(PagingData.empty())
         coEvery { settingsRepository.excludedServerIds } returns flowOf(emptySet())
         coEvery { settingsRepository.defaultServer } returns flowOf("all")
+
     }
 
     @After
@@ -107,6 +111,7 @@ class LibraryViewModelTest {
             connectionManager = connectionManager,
             workManager = workManager,
             getLibraryIndexUseCase = getLibraryIndexUseCase,
+            profileRepository = profileRepository,
             xtreamAccountRepository = mockk(relaxed = true),
             backendRepository = mockk(relaxed = true),
             savedStateHandle = savedStateHandle

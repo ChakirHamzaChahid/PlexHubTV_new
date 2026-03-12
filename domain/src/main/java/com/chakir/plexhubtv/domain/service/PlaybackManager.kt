@@ -4,78 +4,108 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * Unified playback state — all fields updated atomically via [MutableStateFlow.update].
+ */
+data class PlaybackState(
+    val currentMedia: MediaItem? = null,
+    val playQueue: List<MediaItem> = emptyList(),
+    val currentIndex: Int = -1,
+    val isShuffled: Boolean = false,
+)
 
 @Singleton
 class PlaybackManager
     @Inject
     constructor() {
-        private val _currentMedia = MutableStateFlow<MediaItem?>(null)
-        val currentMedia: StateFlow<MediaItem?> = _currentMedia.asStateFlow()
-
-        private val _playQueue = MutableStateFlow<List<MediaItem>>(emptyList())
-        val playQueue: StateFlow<List<MediaItem>> = _playQueue.asStateFlow()
-
-        private val _isShuffled = MutableStateFlow(false)
-        val isShuffled: StateFlow<Boolean> = _isShuffled.asStateFlow()
-
-        private val _currentIndex = MutableStateFlow(-1)
-        val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
+        private val _state = MutableStateFlow(PlaybackState())
+        val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
         fun play(
             media: MediaItem,
             queue: List<MediaItem> = emptyList(),
         ) {
-            _currentMedia.value = media
-            _playQueue.value = if (queue.isEmpty()) listOf(media) else queue
-            _currentIndex.value = _playQueue.value.indexOfFirst { it.id == media.id }
+            _state.update { current ->
+                val effectiveQueue = if (queue.isEmpty()) listOf(media) else queue
+                val index = effectiveQueue.indexOfFirst {
+                    it.ratingKey == media.ratingKey && it.serverId == media.serverId
+                }.takeIf { it != -1 } ?: effectiveQueue.indexOfFirst {
+                    it.ratingKey == media.ratingKey || it.id == media.id
+                }.let { if (it == -1) 0 else it }
+
+                Timber.d("PlaybackManager.play: '${media.title}' (rk=${media.ratingKey}, sid=${media.serverId}) | queue=${effectiveQueue.size} items | index=$index | hasNext=${index + 1 < effectiveQueue.size}")
+
+                current.copy(
+                    currentMedia = media,
+                    playQueue = effectiveQueue,
+                    currentIndex = index,
+                )
+            }
         }
 
         fun next() {
-            val nextIndex = _currentIndex.value + 1
-            if (nextIndex < _playQueue.value.size) {
-                _currentIndex.value = nextIndex
-                _currentMedia.value = _playQueue.value[nextIndex]
+            _state.update { current ->
+                val nextIndex = current.currentIndex + 1
+                if (nextIndex < current.playQueue.size) {
+                    current.copy(
+                        currentIndex = nextIndex,
+                        currentMedia = current.playQueue[nextIndex],
+                    )
+                } else {
+                    current
+                }
             }
         }
 
         fun previous() {
-            val prevIndex = _currentIndex.value - 1
-            if (prevIndex >= 0) {
-                _currentIndex.value = prevIndex
-                _currentMedia.value = _playQueue.value[prevIndex]
+            _state.update { current ->
+                val prevIndex = current.currentIndex - 1
+                if (prevIndex >= 0) {
+                    current.copy(
+                        currentIndex = prevIndex,
+                        currentMedia = current.playQueue[prevIndex],
+                    )
+                } else {
+                    current
+                }
             }
         }
 
         fun toggleShuffle() {
-            _isShuffled.value = !_isShuffled.value
-            if (_isShuffled.value) {
-                // Logic to shuffle _playQueue but keep current item at start or whatever Plezy does
+            // TODO: actually shuffle playQueue when enabling
+            _state.update { current ->
+                current.copy(isShuffled = !current.isShuffled)
             }
         }
 
         fun getNextMedia(): MediaItem? {
-            val nextIndex = _currentIndex.value + 1
-            return if (nextIndex >= 0 && nextIndex < _playQueue.value.size) {
-                _playQueue.value[nextIndex]
+            val s = _state.value
+            val nextIndex = s.currentIndex + 1
+            val result = if (nextIndex >= 0 && nextIndex < s.playQueue.size) {
+                s.playQueue[nextIndex]
             } else {
                 null
             }
+            Timber.d("PlaybackManager.getNextMedia: currentIndex=${s.currentIndex}, queueSize=${s.playQueue.size}, nextIndex=$nextIndex, hasNext=${result != null}, next='${result?.title}'")
+            return result
         }
 
         fun getPreviousMedia(): MediaItem? {
-            val prevIndex = _currentIndex.value - 1
-            return if (prevIndex >= 0 && prevIndex < _playQueue.value.size) {
-                _playQueue.value[prevIndex]
+            val s = _state.value
+            val prevIndex = s.currentIndex - 1
+            return if (prevIndex >= 0 && prevIndex < s.playQueue.size) {
+                s.playQueue[prevIndex]
             } else {
                 null
             }
         }
 
         fun clear() {
-            _currentMedia.value = null
-            _playQueue.value = emptyList()
-            _currentIndex.value = -1
+            _state.update { PlaybackState() }
         }
     }

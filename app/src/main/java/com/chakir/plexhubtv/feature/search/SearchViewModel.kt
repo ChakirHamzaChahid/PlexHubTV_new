@@ -6,6 +6,8 @@ import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.feature.common.BaseViewModel
+import com.chakir.plexhubtv.domain.repository.ProfileRepository
+import com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase
 import com.chakir.plexhubtv.domain.usecase.SearchAcrossServersUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -13,6 +15,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -32,6 +38,8 @@ class SearchViewModel
     @Inject
     constructor(
         private val searchAcrossServersUseCase: SearchAcrossServersUseCase,
+        private val profileRepository: ProfileRepository,
+        private val filterContentByAgeUseCase: FilterContentByAgeUseCase,
         private val savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val _uiState = MutableStateFlow(
@@ -46,6 +54,20 @@ class SearchViewModel
 
         init {
             Timber.d("SCREEN [Search]: Opened")
+
+            // ISSUE #114 FIX: Add automatic search with 400ms debounce
+            // Collect query changes, debounce for 400ms, then trigger search automatically
+            viewModelScope.launch {
+                uiState
+                    .map { it.query }
+                    .distinctUntilChanged() // Only trigger if query actually changed
+                    .debounce(400) // Wait 400ms after last keystroke
+                    .filter { it.length >= 2 } // Only search if at least 2 characters
+                    .collect { query ->
+                        Timber.d("SEARCH [Debounce]: Auto-triggering search for query='$query'")
+                        performSearch(query)
+                    }
+            }
         }
 
         fun onAction(action: SearchAction) {
@@ -110,11 +132,17 @@ class SearchViewModel
                         val duration = System.currentTimeMillis() - startTime
                         result.fold(
                             onSuccess = { items ->
-                                Timber.i("SCREEN [Search] SUCCESS: query='$query' Load Duration=${duration}ms | Results=${items.size}")
+                                val activeProfile = profileRepository.getActiveProfile()
+                                val filtered = if (activeProfile != null) {
+                                    filterContentByAgeUseCase(items, activeProfile)
+                                } else {
+                                    items
+                                }
+                                Timber.i("SCREEN [Search] SUCCESS: query='$query' Load Duration=${duration}ms | Results=${filtered.size}")
                                 _uiState.update {
                                     it.copy(
-                                        results = items,
-                                        searchState = if (items.isNotEmpty()) SearchState.Results else SearchState.NoResults,
+                                        results = filtered,
+                                        searchState = if (filtered.isNotEmpty()) SearchState.Results else SearchState.NoResults,
                                     )
                                 }
                             },

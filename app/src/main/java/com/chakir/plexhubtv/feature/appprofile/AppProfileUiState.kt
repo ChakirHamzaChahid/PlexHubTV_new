@@ -15,6 +15,9 @@ data class AppProfileUiState(
     val profileToEdit: Profile? = null,
     val showDeleteConfirmation: Boolean = false,
     val profileToDelete: Profile? = null,
+    val showPinDialog: Boolean = false,
+    val pinError: String? = null,
+    val pendingProfileSwitch: Profile? = null,
 )
 
 sealed interface AppProfileAction {
@@ -35,6 +38,8 @@ sealed interface AppProfileAction {
         val isKidsProfile: Boolean,
     ) : AppProfileAction
     data class ConfirmDeleteProfile(val profile: Profile) : AppProfileAction
+    data class VerifyPin(val pin: String) : AppProfileAction
+    data object DismissPin : AppProfileAction
     data object DismissDialog : AppProfileAction
     data object Back : AppProfileAction
 }

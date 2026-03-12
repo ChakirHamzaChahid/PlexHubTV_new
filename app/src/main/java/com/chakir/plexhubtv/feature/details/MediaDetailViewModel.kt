@@ -47,6 +47,8 @@ class MediaDetailViewModel
         private val getSimilarMediaUseCase: com.chakir.plexhubtv.domain.usecase.GetSimilarMediaUseCase,
         private val getMediaCollectionsUseCase: com.chakir.plexhubtv.domain.usecase.GetMediaCollectionsUseCase,
         private val getUnifiedSeasonsUseCase: com.chakir.plexhubtv.domain.usecase.GetUnifiedSeasonsUseCase,
+        private val profileRepository: com.chakir.plexhubtv.domain.repository.ProfileRepository,
+        private val filterContentByAgeUseCase: com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
         savedStateHandle: SavedStateHandle,
@@ -57,7 +59,7 @@ class MediaDetailViewModel
         private val _uiState = MutableStateFlow(MediaDetailUiState(isLoading = true))
         val uiState: StateFlow<MediaDetailUiState> = _uiState.asStateFlow()
 
-        private val _navigationEvents = Channel<MediaDetailNavigationEvent>()
+        private val _navigationEvents = Channel<MediaDetailNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
 
         init {
@@ -202,7 +204,8 @@ class MediaDetailViewModel
                     }
                 }
                 is MediaDetailEvent.DownloadClicked -> {
-                    // Download feature not implemented
+                    // TODO: Download feature not implemented (AGENT-6-002 / #92).
+                    //  Button hidden in UI. Implement with WorkManager when ready.
                 }
                 is MediaDetailEvent.ToggleFavorite -> {
                     val media = _uiState.value.media ?: return
@@ -289,7 +292,7 @@ class MediaDetailViewModel
                         detailResult.getOrNull()?.item ?: run {
                             Timber.w("playItem: Failed to fetch detail for ${source.ratingKey} on ${source.serverId}, falling back to shallow copy")
                             item.copy(
-                                id = "${source.serverId}:${source.ratingKey}",
+                                id = "${source.serverId}_${source.ratingKey}",
                                 serverId = source.serverId,
                                 ratingKey = source.ratingKey,
                             )
@@ -392,6 +395,8 @@ class MediaDetailViewModel
                     if (enriched.remoteSources.isNotEmpty()) {
                         val allKeys = enriched.remoteSources.map { it.ratingKey }
                         checkFavoriteStatus(allKeys)
+                        // Check remote servers for collections the primary server may not have
+                        loadCollectionsFromRemoteSources(enriched)
                     }
 
                     // For shows with remote sources: proactively fetch episodes from remote servers
@@ -428,6 +433,9 @@ class MediaDetailViewModel
                         Timber.w(e, "VM: Failed to prefetch episodes from ${source.serverName}")
                     }
                 }
+                // Invalidate stale episode enrichment cache so the next enrichment
+                // re-queries Room and finds the newly cached remote episodes
+                enrichMediaItemUseCase.invalidateEpisodeCache()
                 // Re-run unified seasons now that remote episodes are in Room
                 loadUnifiedSeasons(show)
             }
@@ -439,8 +447,14 @@ class MediaDetailViewModel
             viewModelScope.launch {
                 getSimilarMediaUseCase(rk, sid)
                     .onSuccess { items ->
-                        Timber.d("VM: Loaded ${items.size} similar items for $ratingKey")
-                        _uiState.update { it.copy(similarItems = items) }
+                        val activeProfile = profileRepository.getActiveProfile()
+                        val filtered = if (activeProfile != null) {
+                            filterContentByAgeUseCase(items, activeProfile)
+                        } else {
+                            items
+                        }
+                        Timber.d("VM: Loaded ${filtered.size} similar items for $ratingKey (${items.size} before filter)")
+                        _uiState.update { it.copy(similarItems = filtered) }
                     }
                     .onFailure { error ->
                         Timber.w(error, "VM: Failed to load similar items for $ratingKey")
@@ -458,7 +472,30 @@ class MediaDetailViewModel
                 ).onSuccess { unifiedSeasons ->
                     val duration = System.currentTimeMillis() - startTime
                     Timber.i("VM: Loaded ${unifiedSeasons.size} unified seasons in ${duration}ms")
-                    _uiState.update { it.copy(unifiedSeasons = unifiedSeasons) }
+                    _uiState.update { currentState ->
+                        // Merge seasons from other servers that are missing from the primary list
+                        val existingIndices = currentState.seasons.map { it.seasonIndex ?: it.parentIndex }.toSet()
+                        val supplementary = unifiedSeasons
+                            .filter { it.seasonIndex !in existingIndices && it.bestSeasonRatingKey != null && it.bestSeasonServerId != null }
+                            .map { unified ->
+                                MediaItem(
+                                    id = "unified-s${unified.seasonIndex}-${unified.bestSeasonServerId}",
+                                    ratingKey = unified.bestSeasonRatingKey!!,
+                                    serverId = unified.bestSeasonServerId!!,
+                                    title = unified.title,
+                                    type = MediaType.Season,
+                                    thumbUrl = unified.thumbUrl,
+                                    parentIndex = unified.seasonIndex,
+                                )
+                            }
+                        val mergedSeasons = if (supplementary.isNotEmpty()) {
+                            Timber.i("VM: Merged ${supplementary.size} extra seasons from other servers")
+                            (currentState.seasons + supplementary).sortedBy { it.parentIndex }
+                        } else {
+                            currentState.seasons
+                        }
+                        currentState.copy(unifiedSeasons = unifiedSeasons, seasons = mergedSeasons)
+                    }
                 }.onFailure { error ->
                     Timber.w(error, "VM: Failed to load unified seasons")
                 }
@@ -477,12 +514,51 @@ class MediaDetailViewModel
 
                     // Collections are BDD-local (fast) — query primary server only
                     val result = getMediaCollectionsUseCase(media.ratingKey, media.serverId).first()
-                    Timber.d("VM: Got ${result.size} collection(s) from primary server")
+                    val activeProfile = profileRepository.getActiveProfile()
+                    val filtered = if (activeProfile != null) {
+                        result.map { collection ->
+                            collection.copy(items = filterContentByAgeUseCase(collection.items, activeProfile))
+                        }.filter { it.items.isNotEmpty() }
+                    } else {
+                        result
+                    }
+                    Timber.d("VM: Got ${filtered.size} collection(s) from primary server (${result.size} before filter)")
 
-                    _uiState.update { it.copy(collections = result, isLoadingCollections = false) }
+                    _uiState.update { it.copy(collections = filtered, isLoadingCollections = false) }
                 } catch (e: Exception) {
                     Timber.e(e, "VM: Exception loading collections")
                     _uiState.update { it.copy(isLoadingCollections = false) }
+                }
+            }
+        }
+
+        /**
+         * After enrichment, check remote servers for collections that the primary server may lack.
+         * Merges with existing collections, deduplicating by title.
+         */
+        private fun loadCollectionsFromRemoteSources(enriched: MediaItem) {
+            viewModelScope.launch {
+                val existingTitles = _uiState.value.collections.map { it.title }.toSet()
+                val newCollections = mutableListOf<com.chakir.plexhubtv.core.model.Collection>()
+
+                for (source in enriched.remoteSources) {
+                    // Skip primary server (already queried in loadCollection)
+                    if (source.serverId == enriched.serverId && source.ratingKey == enriched.ratingKey) continue
+                    try {
+                        val collections = getMediaCollectionsUseCase(source.ratingKey, source.serverId).first()
+                        for (col in collections) {
+                            if (col.title !in existingTitles && newCollections.none { it.title == col.title }) {
+                                newCollections.add(col)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "VM: Failed to load collections from ${source.serverName}")
+                    }
+                }
+
+                if (newCollections.isNotEmpty()) {
+                    Timber.d("VM: Found ${newCollections.size} additional collection(s) from remote servers")
+                    _uiState.update { it.copy(collections = it.collections + newCollections) }
                 }
             }
         }

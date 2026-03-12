@@ -44,13 +44,27 @@ class FavoritesRepositoryImpl
                 val servers = authRepository.getServers().getOrNull() ?: emptyList()
                 val ownedServerIds = servers.filter { it.isOwned }.map { it.clientIdentifier }.toSet()
 
+                // ISSUE #113 FIX: Batch fetch all mediaEntities to prevent N+1 query pattern
+                // Group by serverId so each query uses the PK index prefix (ratingKey, serverId).
+                // Typically 1-3 servers → 1-3 indexed queries instead of 1 full table scan.
+                val mediaEntitiesMap = if (entities.isNotEmpty()) {
+                    entities.groupBy { it.serverId }
+                        .flatMap { (serverId, group) ->
+                            mediaDao.getMediaByServerAndKeys(serverId, group.map { it.ratingKey })
+                        }
+                        .associateBy { "${it.ratingKey}|${it.serverId}" }
+                } else {
+                    emptyMap()
+                }
+
                 val items =
                     entities.map { entity ->
                         val server = servers.find { it.clientIdentifier == entity.serverId }
                         val baseUrl = if (server != null) connectionManager.getCachedUrl(server.clientIdentifier) ?: server.address else null
                         val token = server?.accessToken
 
-                        val mediaEntity = mediaDao.getMedia(entity.ratingKey, entity.serverId)
+                        // O(1) lookup from map instead of O(n) database query
+                        val mediaEntity = mediaEntitiesMap["${entity.ratingKey}|${entity.serverId}"]
                         val domain =
                             if (mediaEntity != null) {
                                 mapper.mapEntityToDomain(mediaEntity)
@@ -73,7 +87,7 @@ class FavoritesRepositoryImpl
                                 )
                             }
 
-                        if (server != null && baseUrl != null) {
+                        val resolved = if (server != null && baseUrl != null) {
                             mediaUrlResolver.resolveUrls(domain, baseUrl, token ?: "").copy(
                                 baseUrl = baseUrl,
                                 accessToken = token,
@@ -81,6 +95,8 @@ class FavoritesRepositoryImpl
                         } else {
                             domain
                         }
+                        // Override addedAt with the favorite-specific timestamp (not the Plex library date)
+                        resolved.copy(addedAt = entity.addedAt)
                     }
 
                 mediaDeduplicator.deduplicate(items, ownedServerIds, servers)
@@ -103,27 +119,7 @@ class FavoritesRepositoryImpl
                 val isFav = favoriteDao.isFavorite(media.ratingKey, media.serverId).first()
                 if (isFav) {
                     favoriteDao.deleteFavorite(media.ratingKey, media.serverId)
-                    // Sync removal to Plex watchlist in background
-                    applicationScope.launch(ioDispatcher) {
-                        try {
-                            val token = settingsDataStore.plexToken.first()
-                            val clientId = settingsDataStore.clientId.first()
-                            // Use GUID for global watchlist sync if available, fallback to ratingKey logic if needed (but usually GUID is safer for Plex Discover)
-                            val idToSync = media.guid ?: media.ratingKey
-
-                            if (token != null && clientId != null) {
-                                if (idToSync.startsWith("plex://")) {
-                                    api.removeFromWatchlist(idToSync, token, clientId)
-                                } else {
-                                    // If no global GUID, we can't reliably sync to Plex Watchlist (which is global)
-                                    // But maybe the user wants to remove by ratingKey? Plex API usually expects `ratingKey` param to be the GUID string for Watchlist actions on metadata.provider.plex.tv
-                                    Timber.w("Skipping Watchlist sync: No valid GUID for ${media.title} ($idToSync)")
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Timber.w("Failed to sync removal to Plex: ${e.message}")
-                        }
-                    }
+                    syncWatchlistAction(media, isAdd = false)
                     Result.success(false)
                 } else {
                     favoriteDao.insertFavorite(
@@ -137,28 +133,46 @@ class FavoritesRepositoryImpl
                             year = media.year,
                         ),
                     )
-                    // Sync addition to Plex watchlist in background
-                    applicationScope.launch(ioDispatcher) {
-                        try {
-                            val token = settingsDataStore.plexToken.first()
-                            val clientId = settingsDataStore.clientId.first()
-                            val idToSync = media.guid ?: media.ratingKey
-
-                            if (token != null && clientId != null) {
-                                if (idToSync.startsWith("plex://")) {
-                                    api.addToWatchlist(idToSync, token, clientId)
-                                } else {
-                                    Timber.w("Skipping Watchlist sync: No valid GUID for ${media.title} ($idToSync)")
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Timber.w("Failed to sync addition to Plex: ${e.message}")
-                        }
-                    }
+                    syncWatchlistAction(media, isAdd = true)
                     Result.success(true)
                 }
             } catch (e: Exception) {
                 Result.failure(e.toAppError())
+            }
+        }
+
+        /**
+         * Syncs a favorite add/remove to the Plex Watchlist API in background.
+         * The API expects the metadata ID (e.g. "5e16137cd88e76001f426746"),
+         * NOT the full GUID URI ("plex://show/5e16137cd88e76001f426746").
+         */
+        private fun syncWatchlistAction(media: MediaItem, isAdd: Boolean) {
+            val guid = media.guid ?: return
+            if (!guid.startsWith("plex://")) {
+                Timber.w("Watchlist: skip sync, no plex:// GUID for '${media.title}' (guid=$guid)")
+                return
+            }
+            // Extract metadata ID: "plex://show/5e16137cd88e76001f426746" → "5e16137cd88e76001f426746"
+            val metadataId = guid.substringAfterLast('/')
+
+            applicationScope.launch(ioDispatcher) {
+                try {
+                    val token = settingsDataStore.plexToken.first()
+                    val clientId = settingsDataStore.clientId.first()
+                    if (token == null || clientId == null) {
+                        Timber.w("Watchlist: skip sync, missing token or clientId")
+                        return@launch
+                    }
+                    val response = if (isAdd) {
+                        api.addToWatchlist(metadataId, token, clientId)
+                    } else {
+                        api.removeFromWatchlist(metadataId, token, clientId)
+                    }
+                    val action = if (isAdd) "ADD" else "REMOVE"
+                    Timber.d("Watchlist $action '${media.title}' id=$metadataId → HTTP ${response.code()}")
+                } catch (e: Exception) {
+                    Timber.e(e, "Watchlist sync failed for '${media.title}'")
+                }
             }
         }
     }

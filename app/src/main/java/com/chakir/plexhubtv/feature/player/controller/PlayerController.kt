@@ -1,7 +1,11 @@
 package com.chakir.plexhubtv.feature.player.controller
 
 import android.app.Application
+import android.media.AudioAttributes as AndroidAudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem as ExoMediaItem
 import androidx.media3.common.PlaybackException
@@ -26,6 +30,7 @@ import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
 import com.chakir.plexhubtv.core.common.util.FormatUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import com.chakir.plexhubtv.feature.player.mpv.MpvConfig
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -55,29 +60,91 @@ class PlayerController @Inject constructor(
 ) {
     // S-04: Child of applicationScope for structured concurrency — cancelled/recreated per session
     private var sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
-    private val scope: CoroutineScope
-        get() = CoroutineScope(sessionJob + mainDispatcher + globalHandler)
+    private var scope = CoroutineScope(sessionJob + mainDispatcher + globalHandler)
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
+    @Volatile
     var player: ExoPlayer? = null
         private set
+    @Volatile
     var mpvPlayer: com.chakir.plexhubtv.feature.player.mpv.MpvPlayer? = null
         private set
 
     private var positionTrackerJob: Job? = null
+    @Volatile
     private var isMpvMode = false
+    @Volatile
     private var isDirectPlay = false
     /** PLY-19: Prevents resume toast from re-appearing on quality/track changes */
+    @Volatile
     private var hasShownResumeToast = false
 
+    @Volatile
     private var ratingKey: String? = null
+    @Volatile
     private var serverId: String? = null
+    @Volatile
     private var directUrl: String? = null
+    @Volatile
     private var startOffset: Long = 0L
 
+    // --- MPV AudioFocus management ---
+    // ExoPlayer handles AudioFocus automatically via setAudioAttributes(handleAudioFocus=true).
+    // MPV needs manual AudioFocus since it's a standalone player with no Android framework integration.
+    private val audioManager = application.getSystemService(android.content.Context.AUDIO_SERVICE) as AudioManager
+
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        if (!isMpvMode) return@OnAudioFocusChangeListener
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                Timber.d("PlayerController: AudioFocus LOSS (MPV) → pausing")
+                mpvPlayer?.pause()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                Timber.d("PlayerController: AudioFocus LOSS_TRANSIENT (MPV) → pausing")
+                mpvPlayer?.pause()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                // MPV doesn't support volume ducking — pause instead
+                Timber.d("PlayerController: AudioFocus LOSS_TRANSIENT_CAN_DUCK (MPV) → pausing")
+                mpvPlayer?.pause()
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                Timber.d("PlayerController: AudioFocus GAIN (MPV) → resuming")
+                mpvPlayer?.resume()
+            }
+        }
+    }
+
+    private val mpvAudioFocusRequest: AudioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        .setAudioAttributes(
+            AndroidAudioAttributes.Builder()
+                .setUsage(AndroidAudioAttributes.USAGE_MEDIA)
+                .setContentType(AndroidAudioAttributes.CONTENT_TYPE_MOVIE)
+                .build()
+        )
+        .setOnAudioFocusChangeListener(audioFocusListener)
+        .build()
+
+    private fun requestMpvAudioFocus() {
+        val result = audioManager.requestAudioFocus(mpvAudioFocusRequest)
+        Timber.d("PlayerController: MPV AudioFocus request result=$result")
+    }
+
+    private fun abandonMpvAudioFocus() {
+        audioManager.abandonAudioFocusRequest(mpvAudioFocusRequest)
+        Timber.d("PlayerController: MPV AudioFocus abandoned")
+    }
+
     fun initialize(startRatingKey: String?, startServerId: String?, startDirectUrl: String?, offset: Long) {
+        // Safety: if a previous session left a stale player (e.g., rapid navigation), clean up first
+        if (player != null || mpvPlayer != null) {
+            Timber.w("PlayerController: Releasing stale player before re-init")
+            release()
+        }
+
         this.ratingKey = startRatingKey
         this.serverId = startServerId
         this.directUrl = startDirectUrl
@@ -133,6 +200,32 @@ class PlayerController @Inject constructor(
         startPositionTracking()
     }
 
+    /**
+     * Switch to next/previous episode by reusing the existing player instance.
+     * Resets per-episode state (startOffset, resume toast, auto-next) without recreating ExoPlayer.
+     */
+    fun playNext(nextRatingKey: String, nextServerId: String) {
+        Timber.d("PlayerController.playNext: Switching to rk=$nextRatingKey, sid=$nextServerId (isMpvMode=$isMpvMode, player=${player != null}, mpvPlayer=${mpvPlayer != null})")
+        this.ratingKey = nextRatingKey
+        this.serverId = nextServerId
+        this.startOffset = 0L
+        this.directUrl = null
+        hasShownResumeToast = false
+        _uiState.update { it.copy(showAutoNextPopup = false, resumeMessage = null) }
+        loadMedia(nextRatingKey, nextServerId)
+    }
+
+    /**
+     * Switch to next/previous episode for direct-stream sources (Xtream/Backend).
+     * Resets per-episode state then delegates to playDirectStream().
+     */
+    fun playNextDirectStream(url: String, item: MediaItem) {
+        this.startOffset = 0L
+        hasShownResumeToast = false
+        _uiState.update { it.copy(showAutoNextPopup = false, resumeMessage = null) }
+        playDirectStream(url, item)
+    }
+
     fun release() {
         positionTrackerJob?.cancel()
         positionTrackerJob = null
@@ -140,15 +233,29 @@ class PlayerController @Inject constructor(
         playerStatsTracker.stopTracking()
         playerScrobbler.stop()
 
-        player?.release()
+        // Release MPV audio focus if in MPV mode
+        if (isMpvMode) {
+            abandonMpvAudioFocus()
+        }
+
+        // Capture references and null immediately to prevent further use
+        val exo = player
+        val mpv = mpvPlayer
         player = null
-        mpvPlayer?.release()
         mpvPlayer = null
+
+        // Fire-and-forget release on main thread via applicationScope
+        // Avoids blocking onCleared() if ExoPlayer.release() hangs
+        applicationScope.launch(mainDispatcher) {
+            try { exo?.release() } catch (e: Exception) { Timber.w(e, "ExoPlayer release failed") }
+            try { mpv?.release() } catch (e: Exception) { Timber.w(e, "MPV release failed") }
+        }
 
         // Cancel ALL coroutines (position tracker, scrobbler, stats, collectors)
         sessionJob.cancel()
-        // Recreate a fresh child Job for the next initialize() cycle
+        // Recreate a fresh child Job + scope for the next initialize() cycle
         sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
+        scope = CoroutineScope(sessionJob + mainDispatcher + globalHandler)
 
         // Reset state so a fresh session doesn't inherit stale values
         _uiState.value = PlayerUiState()
@@ -188,6 +295,15 @@ class PlayerController @Inject constructor(
             return
         }
 
+        // Start perf tracking so ExoPlayer listener callbacks can checkpoint/end it
+        val opId = "player_load_${item?.ratingKey ?: "direct"}"
+        performanceTracker.startOperation(
+            opId,
+            com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK,
+            "Direct Stream Play",
+            mapOf("url" to url.take(80))
+        )
+
         val mediaItem = item ?: MediaItem(
             id = "iptv-$url",
             ratingKey = "iptv",
@@ -204,9 +320,14 @@ class PlayerController @Inject constructor(
             Pair(emptyList(), emptyList())
         }
 
+        playerScrobbler.resetAutoNext()
+        val next = playbackManager.getNextMedia()
+
         _uiState.update {
             it.copy(
                 currentItem = mediaItem,
+                nextItem = next,
+                showAutoNextPopup = false,
                 isPlaying = true,
                 isBuffering = true,
                 currentPosition = if (it.currentItem?.id != mediaItem.id) 0L else it.currentPosition,
@@ -250,8 +371,24 @@ class PlayerController @Inject constructor(
         /** PLY-19: Only show resume indicator for positions > 30s to avoid false positives */
         private const val RESUME_THRESHOLD_MS = 30_000L
 
+        /** Bitrate threshold (kbps) above which MPV is preferred for its FFmpeg demuxer */
+        private const val HIGH_BITRATE_THRESHOLD_KBPS = 60_000
+
+        /** File size threshold (bytes) above which MPV is preferred regardless of reported bitrate.
+         *  ExoPlayer's seek index and demuxer can OOM on very large containers. */
+        private const val LARGE_FILE_THRESHOLD_BYTES = 20L * 1024 * 1024 * 1024 // 20 GB
+
         /** Audio codecs known to crash ExoPlayer on most Android TV devices */
         private val ALWAYS_PROBLEMATIC_CODECS = setOf("truehd", "dts-hd ma", "dts-hd", "dtshd")
+
+        /** Video codecs/profiles known to crash ExoPlayer on most Android TV devices */
+        private val PROBLEMATIC_VIDEO_CODECS = setOf(
+            "hevc dolbyvision",
+            "hevc dv",
+            "dolby vision",
+            "hdr10+",
+            "av1 hdr",
+        )
 
         private fun audioCodecToMime(codec: String): String? = when (codec) {
             "truehd" -> "audio/true-hd"
@@ -268,14 +405,47 @@ class PlayerController @Inject constructor(
             return !hasHardwareAudioDecoder(mimeType)
         }
 
+        // Cached codec lists — MediaCodecList queries take 100-300ms on low-end TV devices.
+        // The list never changes at runtime, so we cache it once on first access.
+        private val cachedAllCodecs: List<android.media.MediaCodecInfo> by lazy {
+            try {
+                android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).codecInfos.toList()
+            } catch (e: Exception) { emptyList() }
+        }
+        private val cachedRegularCodecs: List<android.media.MediaCodecInfo> by lazy {
+            try {
+                android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos.toList()
+            } catch (e: Exception) { emptyList() }
+        }
+
         private fun hasHardwareAudioDecoder(mimeType: String): Boolean {
-            return try {
-                val codecList = android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS)
-                codecList.codecInfos.any { info ->
-                    !info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
-                }
-            } catch (e: Exception) {
-                false
+            return cachedAllCodecs.any { info ->
+                !info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
+            }
+        }
+
+        fun isProblematicVideoCodec(codec: String, profile: String? = null): Boolean {
+            val fullCodec = if (profile != null) "$codec $profile".trim().lowercase() else codec.lowercase()
+
+            // Check exact match in problematic list
+            if (PROBLEMATIC_VIDEO_CODECS.any { fullCodec.contains(it) }) {
+                return true
+            }
+
+            // Check if device supports HDR/DolbyVision via MediaCodec
+            val mimeType = when {
+                fullCodec.contains("dolby") || fullCodec.contains("dv") -> "video/dolby-vision"
+                fullCodec.contains("hdr10+") -> "video/hevc"  // HDR10+ is HEVC variant
+                fullCodec.contains("av1") -> "video/av01"
+                else -> return false
+            }
+
+            return !hasHardwareVideoDecoder(mimeType)
+        }
+
+        private fun hasHardwareVideoDecoder(mimeType: String): Boolean {
+            return cachedRegularCodecs.any { codecInfo ->
+                !codecInfo.isEncoder && codecInfo.supportedTypes.contains(mimeType)
             }
         }
     }
@@ -403,8 +573,8 @@ class PlayerController @Inject constructor(
         }
     }
     
-    fun switchToMpv() {
-        Timber.d("SCREEN [Player] switchToMpv() called")
+    fun switchToMpv(config: MpvConfig = MpvConfig()) {
+        Timber.d("SCREEN [Player] switchToMpv() called (deinterlace=${config.deinterlace})")
         if (isMpvMode) return
         isMpvMode = true
         FirebaseCrashlytics.getInstance().setCustomKey("player_engine", "MPV")
@@ -412,15 +582,26 @@ class PlayerController @Inject constructor(
         player?.release()
         player = null
 
-        mpvPlayer = playerFactory.createMpvPlayer(application, scope)
+        mpvPlayer = playerFactory.createMpvPlayer(application, scope, config)
+        requestMpvAudioFocus()
 
         // S-05: Observe MPV init/runtime errors to avoid stuck screen
         scope.launch {
             mpvPlayer?.error?.filterNotNull()?.collect { errorMsg ->
                 Timber.e("PlayerController: MPV error: $errorMsg")
+
+                // Detect codec-related errors and provide user-friendly message
+                val userMessage = when {
+                    errorMsg.contains("codec", ignoreCase = true) ||
+                    errorMsg.contains("format not supported", ignoreCase = true) ||
+                    errorMsg.contains("decoder", ignoreCase = true) ->
+                        "Format vidéo non supporté par votre appareil. Essayez un autre fichier ou serveur."
+                    else -> errorMsg
+                }
+
                 _uiState.update {
                     it.copy(
-                        error = errorMsg,
+                        error = userMessage,
                         errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Generic,
                         isBuffering = false
                     )
@@ -537,6 +718,7 @@ class PlayerController @Inject constructor(
     }
 
     fun loadMedia(rKey: String, sId: String, bitrateOverride: Int? = null, audioIndex: Int? = null, subtitleIndex: Int? = null, audioStreamId: String? = null, subtitleStreamId: String? = null) {
+        Timber.d("PlayerController.loadMedia: rk=$rKey, sid=$sId (isMpvMode=$isMpvMode, scopeActive=${sessionJob.isActive})")
         scope.launch {
             val opId = "player_load_$rKey"
             performanceTracker.startOperation(
@@ -580,31 +762,18 @@ class PlayerController @Inject constructor(
 
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            // P1.1: Try PlaybackManager cache first to avoid double fetch
-            // Cache is only valid if mediaParts contain streams (audio/subtitle track info)
-            val cachedMedia = playbackManager.currentMedia.value
+            // Always fetch full detail from API to get chapters/markers.
+            // PlaybackManager cache (queue items) comes from /children endpoint
+            // which doesn't include markers — skip intro/credits would be missing.
             val mediaFetchStart = System.currentTimeMillis()
-            val cacheHasStreams = cachedMedia != null
-                && cachedMedia.ratingKey == rKey
-                && cachedMedia.serverId == sId
-                && cachedMedia.mediaParts.isNotEmpty()
-                && cachedMedia.mediaParts.first().streams.isNotEmpty()
-            val media: MediaItem? = if (cacheHasStreams) {
-                val cacheDuration = System.currentTimeMillis() - mediaFetchStart
-                performanceTracker.addCheckpoint(opId, "Media Detail (Cache Hit)", mapOf("duration" to cacheDuration))
-                Timber.d("PlayerController: Using cached media from PlaybackManager for $rKey")
-                cachedMedia
-            } else {
-                // P1.2: Use .first() instead of .collect to avoid infinite flow collection
-                val result = getMediaDetailUseCase(rKey, sId).first()
-                val fetchDuration = System.currentTimeMillis() - mediaFetchStart
-                performanceTracker.addCheckpoint(
-                    opId,
-                    "Media Detail (Network Fetch)",
-                    mapOf("duration" to fetchDuration, "success" to (result.isSuccess))
-                )
-                result.getOrNull()?.item
-            }
+            val result = getMediaDetailUseCase(rKey, sId).first()
+            val fetchDuration = System.currentTimeMillis() - mediaFetchStart
+            performanceTracker.addCheckpoint(
+                opId,
+                "Media Detail Fetched",
+                mapOf("duration" to fetchDuration, "success" to (result.isSuccess))
+            )
+            val media: MediaItem? = result.getOrNull()?.item
 
             if (media == null) {
                 performanceTracker.endOperation(opId, success = false, errorMessage = "Unable to load media")
@@ -653,6 +822,53 @@ class PlayerController @Inject constructor(
                     switchToMpv()
                     return@launch
                 }
+
+                // Video codec pre-flight: proactively switch to MPV for codecs ExoPlayer can't handle (HDR/DV/AV1)
+                val videoStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
+                val videoCodec = videoStream?.codec?.lowercase()
+                val videoProfile = videoStream?.displayTitle?.lowercase() ?: ""
+                if (videoCodec != null && isProblematicVideoCodec(videoCodec, videoProfile)) {
+                    val fullCodec = "$videoCodec $videoProfile".trim()
+                    Timber.d("PlayerController: Video codec '$fullCodec' not supported by ExoPlayer, switching to MPV")
+                    performanceTracker.addCheckpoint(opId, "Video Codec Preflight → MPV", mapOf("codec" to fullCodec))
+                    switchToMpv()
+                    return@launch
+                }
+            }
+
+            // High-bitrate / interlace / large-file pre-flight: route to MPV
+            if (isDirectPlay && !isMpvMode) {
+                val videoStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.VideoStream>()?.firstOrNull()
+                val videoBitrateKbps = videoStream?.bitrate ?: 0
+                val deinterlaceMode = settingsRepository.deinterlaceMode.first()
+                val isInterlaced = videoStream?.scanType?.equals("interlaced", ignoreCase = true) == true
+                val needsDeinterlace = isInterlaced && deinterlaceMode == "auto"
+
+                // Estimate bitrate from file size when Plex reports 0 (common for remux/recently-added)
+                val fileSizeBytes = part?.size ?: 0L
+                val mediaDurationMs = part?.duration ?: media.durationMs ?: 0L
+                val estimatedBitrateKbps = if (videoBitrateKbps == 0 && mediaDurationMs > 0 && fileSizeBytes > 0) {
+                    ((fileSizeBytes * 8) / (mediaDurationMs / 1000) / 1000).toInt()
+                } else videoBitrateKbps
+                val effectiveBitrateKbps = maxOf(videoBitrateKbps, estimatedBitrateKbps)
+                val isLargeFile = fileSizeBytes > LARGE_FILE_THRESHOLD_BYTES
+
+                if (effectiveBitrateKbps > HIGH_BITRATE_THRESHOLD_KBPS || needsDeinterlace || isLargeFile) {
+                    val reason = when {
+                        isLargeFile && needsDeinterlace ->
+                            "large file (${fileSizeBytes / (1024*1024*1024)}GB) + interlaced"
+                        isLargeFile ->
+                            "large file (${fileSizeBytes / (1024*1024*1024)}GB > 20GB threshold)"
+                        needsDeinterlace && effectiveBitrateKbps > HIGH_BITRATE_THRESHOLD_KBPS ->
+                            "interlaced + high-bitrate (${effectiveBitrateKbps}kbps)"
+                        needsDeinterlace -> "interlaced content (scanType=${videoStream?.scanType})"
+                        else -> "high-bitrate (${effectiveBitrateKbps}kbps > ${HIGH_BITRATE_THRESHOLD_KBPS}kbps${if (videoBitrateKbps == 0) ", estimated from file size" else ""})"
+                    }
+                    Timber.d("PlayerController: $reason → switching to MPV")
+                    performanceTracker.addCheckpoint(opId, "Auto-route → MPV", mapOf("reason" to reason))
+                    switchToMpv(MpvConfig(deinterlace = needsDeinterlace))
+                    return@launch
+                }
             }
 
             val (finalAudioStreamId, finalSubtitleStreamId) = playerTrackController.resolveInitialTracks(
@@ -697,14 +913,40 @@ class PlayerController @Inject constructor(
 
                 val currentPos = _uiState.value.currentPosition
                 val seekTarget = when {
-                    currentPos > 0 -> currentPos
-                    startOffset > 0 -> startOffset
-                    media.viewOffset > 0 -> media.viewOffset
-                    else -> 0L
+                    currentPos > 0 -> {
+                        Timber.d("PlayerController: Resume via currentPos=$currentPos (MPV)")
+                        currentPos
+                    }
+                    startOffset > 0 -> {
+                        Timber.d("PlayerController: Resume via startOffset=$startOffset (MPV)")
+                        startOffset
+                    }
+                    media.viewOffset > 0 -> {
+                        Timber.d("PlayerController: Resume via Plex viewOffset=${media.viewOffset} (MPV)")
+                        media.viewOffset
+                    }
+                    else -> {
+                        Timber.d("PlayerController: No resume position available, starting at 0 (MPV)")
+                        0L
+                    }
                 }
+
                 if (seekTarget > 0) {
+                    Timber.d("PlayerController: Seeking to $seekTarget ms (MPV)")
                     mpvPlayer?.seekTo(seekTarget)
                     performanceTracker.addCheckpoint(opId, "MPV Seek Applied", mapOf("position" to seekTarget))
+
+                    // Verify seek success after a delay (on background thread — no main thread needed)
+                    scope.launch(defaultDispatcher) {
+                        kotlinx.coroutines.delay(500)
+                        val actualPos = mpvPlayer?.position?.value ?: 0
+                        if (actualPos < seekTarget - 2000) {  // Tolerance 2s
+                            Timber.e("PlayerController: MPV Seek FAILED - target=$seekTarget, actual=$actualPos")
+                        } else {
+                            Timber.d("PlayerController: MPV Seek SUCCESS - target=$seekTarget, actual=$actualPos")
+                        }
+                    }
+
                     // PLY-19: Show resume indicator for significant positions (once per session)
                     if (seekTarget > RESUME_THRESHOLD_MS && !hasShownResumeToast) {
                         hasShownResumeToast = true
@@ -722,11 +964,12 @@ class PlayerController @Inject constructor(
                         }
                     }
                     if (resolvedSubtitle != null && resolvedSubtitle.id != "no") {
-                        val validTracks = _uiState.value.subtitleTracks.filter { it.id != "no" }
-                        val subIndex = validTracks.indexOf(resolvedSubtitle) + 1
+                        // MPV only sees embedded (non-external) subtitle tracks in the container.
+                        val embeddedTracks = _uiState.value.subtitleTracks.filter { it.id != "no" && !it.isExternal }
+                        val subIndex = embeddedTracks.indexOf(resolvedSubtitle) + 1
                         if (subIndex > 0) {
                             mpvPlayer?.setSubtitleId(subIndex.toString())
-                            Timber.d("PlayerController: MPV subtitle track set to index $subIndex (${resolvedSubtitle.language})")
+                            Timber.d("PlayerController: MPV subtitle track set to index $subIndex (${resolvedSubtitle.title})")
                         }
                     } else {
                         mpvPlayer?.setSubtitleId("no")
@@ -802,14 +1045,40 @@ class PlayerController @Inject constructor(
 
                     val currentPos = _uiState.value.currentPosition
                     val seekTarget = when {
-                        currentPos > 0 -> currentPos
-                        startOffset > 0 -> startOffset
-                        media.viewOffset > 0 -> media.viewOffset
-                        else -> 0L
+                        currentPos > 0 -> {
+                            Timber.d("PlayerController: Resume via currentPos=$currentPos (ExoPlayer)")
+                            currentPos
+                        }
+                        startOffset > 0 -> {
+                            Timber.d("PlayerController: Resume via startOffset=$startOffset (ExoPlayer)")
+                            startOffset
+                        }
+                        media.viewOffset > 0 -> {
+                            Timber.d("PlayerController: Resume via Plex viewOffset=${media.viewOffset} (ExoPlayer)")
+                            media.viewOffset
+                        }
+                        else -> {
+                            Timber.d("PlayerController: No resume position available, starting at 0 (ExoPlayer)")
+                            0L
+                        }
                     }
+
                     if (seekTarget > 0) {
+                        Timber.d("PlayerController: Seeking to $seekTarget ms (ExoPlayer)")
                         seekTo(seekTarget)
                         performanceTracker.addCheckpoint(opId, "ExoPlayer Seek Applied", mapOf("position" to seekTarget))
+
+                        // Verify seek success after a delay (ExoPlayer needs time to prepare)
+                        scope.launch {
+                            kotlinx.coroutines.delay(500)
+                            val actualPos = player?.currentPosition ?: 0
+                            if (actualPos < seekTarget - 2000) {  // Tolerance 2s
+                                Timber.e("PlayerController: ExoPlayer Seek FAILED - target=$seekTarget, actual=$actualPos")
+                            } else {
+                                Timber.d("PlayerController: ExoPlayer Seek SUCCESS - target=$seekTarget, actual=$actualPos")
+                            }
+                        }
+
                         // PLY-19: Show resume indicator for significant positions
                         if (seekTarget > RESUME_THRESHOLD_MS) {
                             _uiState.update { it.copy(resumeMessage = FormatUtils.formatDurationTimestamp(seekTarget)) }
@@ -832,7 +1101,7 @@ class PlayerController @Inject constructor(
                     if (mpv != null) {
                         val pos = mpv.position.value
                         val dur = mpv.duration.value
-                        _uiState.update { 
+                        _uiState.update {
                             it.copy(
                                 currentPosition = pos,
                                 duration = dur,
@@ -840,8 +1109,9 @@ class PlayerController @Inject constructor(
                                 isBuffering = mpv.isBuffering.value
                             )
                         }
+                        chapterMarkerManager.updatePlaybackPosition(pos)
                         playerScrobbler.checkAutoNext(
-                            position = pos, 
+                            position = pos,
                             duration = dur,
                             hasNextItem = _uiState.value.nextItem != null,
                             isPopupAlreadyShown = _uiState.value.showAutoNextPopup
@@ -849,19 +1119,23 @@ class PlayerController @Inject constructor(
                     }
                 } else {
                     player?.let { p ->
+                        val pos = p.currentPosition
+                        val dur = p.duration.coerceAtLeast(0)
                         if (p.isPlaying) {
-                            val pos = p.currentPosition
-                            val dur = p.duration.coerceAtLeast(0)
-                            _uiState.update { 
+                            _uiState.update {
                                 it.copy(
                                     currentPosition = pos,
                                     bufferedPosition = p.bufferedPosition,
                                     duration = dur
-                                ) 
+                                )
                             }
                             chapterMarkerManager.updatePlaybackPosition(pos)
+                        }
+                        // Check auto-next even during buffering near end of stream —
+                        // ExoPlayer may enter BUFFERING at 95%+ which previously blocked the popup
+                        if (pos > 0 && dur > 0) {
                             playerScrobbler.checkAutoNext(
-                                position = pos, 
+                                position = pos,
                                 duration = dur,
                                 hasNextItem = _uiState.value.nextItem != null,
                                 isPopupAlreadyShown = _uiState.value.showAutoNextPopup

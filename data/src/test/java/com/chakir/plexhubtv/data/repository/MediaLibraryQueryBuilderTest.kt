@@ -9,9 +9,9 @@ class MediaLibraryQueryBuilderTest {
     // ── Unified paged query ──
 
     @Test
-    fun `unified paged query contains GROUP BY COALESCE`() {
+    fun `unified paged query contains GROUP BY with type and COALESCE`() {
         val result = MediaLibraryQueryBuilder.buildPagedQuery(unifiedConfig())
-        assertThat(result.sql).contains("GROUP BY COALESCE(")
+        assertThat(result.sql).contains("GROUP BY media.type, COALESCE(")
     }
 
     @Test
@@ -21,10 +21,36 @@ class MediaLibraryQueryBuilderTest {
     }
 
     @Test
+    fun `unified paged query uses correlated MAX for ratingKey and serverId`() {
+        val result = MediaLibraryQueryBuilder.buildPagedQuery(unifiedConfig())
+        // Both ratingKey and serverId must be extracted from the SAME combined MAX
+        // to prevent mismatched pairs when metadata_scores are tied across servers
+        val combinedMax = "MAX(PRINTF('%020d', media.metadata_score) || '|' || media.ratingKey || '|' || media.serverId)"
+        assertThat(result.sql).contains(combinedMax)
+        // Must NOT contain independent MAX expressions for ratingKey/serverId
+        assertThat(result.sql).doesNotContain("MAX(PRINTF('%020d', media.metadata_score) || '|' || media.ratingKey)")
+        assertThat(result.sql).doesNotContain("MAX(PRINTF('%020d', media.metadata_score) || '|' || media.serverId)")
+    }
+
+    @Test
     fun `unified paged query contains GROUP_CONCAT`() {
         val result = MediaLibraryQueryBuilder.buildPagedQuery(unifiedConfig())
         assertThat(result.sql).contains("GROUP_CONCAT(media.ratingKey) as ratingKeys")
         assertThat(result.sql).contains("GROUP_CONCAT(media.serverId) as serverIds")
+    }
+
+    @Test
+    fun `unified paged query uses correlated MAX for image URLs`() {
+        val result = MediaLibraryQueryBuilder.buildPagedQuery(unifiedConfig())
+        // Image URLs must use CHAR(31) correlated MAX to come from the same winning row
+        // as ratingKey/serverId, preventing poster mismatches across servers
+        assertThat(result.sql).contains("CHAR(31) || COALESCE(media.thumbUrl")
+        assertThat(result.sql).contains("CHAR(31) || COALESCE(media.artUrl")
+        assertThat(result.sql).contains("CHAR(31) || COALESCE(media.resolvedThumbUrl")
+        assertThat(result.sql).contains("CHAR(31) || COALESCE(media.resolvedArtUrl")
+        assertThat(result.sql).contains("CHAR(31) || COALESCE(media.resolvedBaseUrl")
+        // Must NOT use plain column references for image URLs
+        assertThat(result.sql).doesNotContain("media.type, media.thumbUrl")
     }
 
     @Test
@@ -36,9 +62,9 @@ class MediaLibraryQueryBuilderTest {
     // ── Non-unified paged query ──
 
     @Test
-    fun `non-unified paged query contains WHERE librarySectionId`() {
+    fun `non-unified paged query contains WHERE type and librarySectionId`() {
         val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
-        assertThat(result.sql).contains("WHERE librarySectionId = ?")
+        assertThat(result.sql).contains("WHERE type = ? AND librarySectionId = ?")
     }
 
     @Test
@@ -48,19 +74,20 @@ class MediaLibraryQueryBuilderTest {
     }
 
     @Test
-    fun `non-unified paged query binds libraryKey, filter, sortOrder`() {
+    fun `non-unified paged query binds type, libraryKey, filter, sortOrder`() {
         val result = MediaLibraryQueryBuilder.buildPagedQuery(
             nonUnifiedConfig(libraryKey = "5", filter = "all", sortOrder = "addedAt:desc"),
         )
-        assertThat(result.args[0]).isEqualTo("5")
-        assertThat(result.args[1]).isEqualTo("all")
-        assertThat(result.args[2]).isEqualTo("addedAt:desc")
+        assertThat(result.args[0]).isEqualTo("movie")
+        assertThat(result.args[1]).isEqualTo("5")
+        assertThat(result.args[2]).isEqualTo("all")
+        assertThat(result.args[3]).isEqualTo("addedAt:desc")
     }
 
     @Test
-    fun `non-unified paged query contains GROUP BY for multi-source aggregation`() {
+    fun `non-unified paged query contains GROUP BY with type for multi-source aggregation`() {
         val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
-        assertThat(result.sql).contains("GROUP BY COALESCE(")
+        assertThat(result.sql).contains("GROUP BY media.type, COALESCE(")
     }
 
     @Test
@@ -68,6 +95,26 @@ class MediaLibraryQueryBuilderTest {
         val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
         assertThat(result.sql).contains("GROUP_CONCAT(media.ratingKey) as ratingKeys")
         assertThat(result.sql).contains("GROUP_CONCAT(media.serverId) as serverIds")
+    }
+
+    @Test
+    fun `non-unified paged query does not reference metadata_score`() {
+        val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
+        assertThat(result.sql).doesNotContain("metadata_score")
+    }
+
+    @Test
+    fun `non-unified paged query does not reference bridgedImdbId`() {
+        val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
+        assertThat(result.sql).doesNotContain("bridgedImdbId")
+    }
+
+    @Test
+    fun `non-unified paged query uses plain thumbUrl column`() {
+        val result = MediaLibraryQueryBuilder.buildPagedQuery(nonUnifiedConfig())
+        assertThat(result.sql).contains("media.thumbUrl")
+        // Should NOT use correlated MAX with CHAR(31) for non-unified
+        assertThat(result.sql).doesNotContain("CHAR(31)")
     }
 
     // ── Genre filter ──
@@ -295,6 +342,7 @@ class MediaLibraryQueryBuilderTest {
             ),
         )
         assertThat(result.args).containsExactly(
+            "movie",      // type = ?
             "3",          // librarySectionId = ?
             "all",        // filter = ?
             "title:asc",  // sortOrder = ?

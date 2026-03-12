@@ -2,74 +2,26 @@ package com.chakir.plexhubtv.feature.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.chakir.plexhubtv.core.common.safeCollectIn
-import com.chakir.plexhubtv.core.model.MediaItem
+import androidx.paging.cachedIn
 import com.chakir.plexhubtv.domain.usecase.GetWatchHistoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
-data class HistoryUiState(
-    val isLoading: Boolean = true,
-    val historyItems: List<MediaItem> = emptyList(),
-    val error: String? = null,
-)
-
 /**
  * ViewModel pour l'historique de visionnage.
- * Utilise [GetWatchHistoryUseCase].
+ * Utilise [GetWatchHistoryUseCase] et expose un Flow de PagingData.
  */
 @HiltViewModel
 class HistoryViewModel
     @Inject
     constructor(
-        private val getWatchHistoryUseCase: GetWatchHistoryUseCase,
+        getWatchHistoryUseCase: GetWatchHistoryUseCase,
     ) : ViewModel() {
-        private val _uiState = MutableStateFlow(HistoryUiState())
-        val uiState: StateFlow<HistoryUiState> = _uiState.asStateFlow()
+        val pagedHistory = getWatchHistoryUseCase()
+            .cachedIn(viewModelScope)
 
         init {
             Timber.d("SCREEN [History]: Opened")
-            loadHistory()
-        }
-
-        private fun loadHistory() {
-            val startTime = System.currentTimeMillis()
-            Timber.d("SCREEN [History]: Loading start")
-            getWatchHistoryUseCase()
-                .distinctUntilChanged { old, new ->
-                    // Only re-process when the list composition changes (new/removed/reordered items).
-                    // Ignore viewOffset/lastViewedAt updates from PlayerScrobbler to avoid
-                    // redundant reprocessing + network calls while the player is active.
-                    old.map { it.ratingKey to it.serverId } == new.map { it.ratingKey to it.serverId }
-                }
-                .safeCollectIn(
-                    scope = viewModelScope,
-                    onError = { e ->
-                        Timber.e(e, "HistoryViewModel: loadHistory failed")
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                error = e.message ?: "Failed to load history"
-                            )
-                        }
-                    }
-                ) { items ->
-                    val duration = System.currentTimeMillis() - startTime
-                    Timber.i("SCREEN [History] SUCCESS: duration=${duration}ms | items=${items.size}")
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            historyItems = items,
-                        )
-                    }
-                }
         }
     }

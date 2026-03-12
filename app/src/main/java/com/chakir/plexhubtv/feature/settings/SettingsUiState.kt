@@ -13,6 +13,8 @@ data class SettingsUiState(
     val availableServers: List<String> = listOf("MyServer"),
     val availableServersMap: Map<String, String> = emptyMap(),
     val playerEngine: String = "ExoPlayer",
+    val deinterlaceMode: String = "auto",
+    val autoPlayNextEnabled: Boolean = true,
     val appVersion: String = "1.0.0",
     val isSyncing: Boolean = false,
     val isSyncingWatchlist: Boolean = false,
@@ -26,6 +28,8 @@ data class SettingsUiState(
     val isSyncingRatings: Boolean = false,
     val ratingSyncMessage: String? = null,
     val iptvPlaylistUrl: String = "",
+    val showYearOnCards: Boolean = false,
+    val gridColumnsCount: Int = 6,
     // Xtream sync
     val isSyncingXtream: Boolean = false,
     val xtreamSyncMessage: String? = null,
@@ -36,6 +40,10 @@ data class SettingsUiState(
     val backendConfigMessage: String? = null,
     val isSyncingBackend: Boolean = false,
     val backendSyncMessage: String? = null,
+    val isTriggeringBackendSync: Boolean = false,
+    val backendTriggerSyncMessage: String? = null,
+    val isCheckingBackendHealth: Boolean = false,
+    val backendHealthMessage: String? = null,
     // Rating Sync Configuration
     val ratingSyncSource: String = "tmdb", // "tmdb" or "omdb"
     val ratingSyncDelay: Long = 250L, // delay in ms
@@ -43,6 +51,8 @@ data class SettingsUiState(
     val ratingSyncDailyLimit: Int = 900,
     val ratingSyncProgressSeries: Int = 0,
     val ratingSyncProgressMovies: Int = 0,
+    // Parental PIN
+    val hasParentalPin: Boolean = false,
 )
 
 enum class AppTheme {
@@ -63,6 +73,10 @@ sealed interface SettingsAction {
 
     data class ChangePlayerEngine(val engine: String) : SettingsAction
 
+    data class ChangeDeinterlaceMode(val mode: String) : SettingsAction
+
+    data class ToggleAutoPlayNext(val enabled: Boolean) : SettingsAction
+
     data object Back : SettingsAction
 
     data object Logout : SettingsAction
@@ -78,6 +92,10 @@ sealed interface SettingsAction {
     data class ChangePreferredSubtitleLanguage(val language: String?) : SettingsAction
 
     data class ToggleServerExclusion(val serverId: String) : SettingsAction
+
+    data class ToggleShowYearOnCards(val enabled: Boolean) : SettingsAction
+
+    data class ChangeGridColumnsCount(val count: Int) : SettingsAction
 
     data class SaveTmdbApiKey(val key: String) : SettingsAction
 
@@ -117,4 +135,12 @@ sealed interface SettingsAction {
     data class TestBackendConnection(val url: String) : SettingsAction
 
     data object SyncBackend : SettingsAction
+
+    data object TriggerBackendXtreamSync : SettingsAction
+
+    data object CheckBackendHealth : SettingsAction
+
+    data class SetParentalPin(val pin: String) : SettingsAction
+
+    data object ClearParentalPin : SettingsAction
 }

@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.work
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
+import androidx.room.withTransaction
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.chakir.plexhubtv.R
@@ -10,6 +11,8 @@ import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import dagger.assisted.Assisted
@@ -28,6 +31,7 @@ class CollectionSyncWorker
         private val authRepository: AuthRepository,
         private val collectionDao: CollectionDao,
         private val mediaDao: MediaDao,
+        private val database: PlexDatabase,
         private val mediaMapper: MediaMapper,
         private val api: PlexApiService,
         private val connectionManager: ConnectionManager,
@@ -116,6 +120,11 @@ class CollectionSyncWorker
                                     val collections = collectionsContainer?.metadata ?: emptyList()
                                     Timber.i("     SUCCESS: Found ${collections.size} potential collections in '$libTitle'")
 
+                                    // Accumulate all entities for this library, then write in a single transaction
+                                    // to minimize Room InvalidationTracker notifications (1 per library instead of 1 per collection)
+                                    val pendingMedia = mutableListOf<MediaEntity>()
+                                    val pendingCollectionData = mutableListOf<Pair<CollectionEntity, List<MediaCollectionCrossRef>>>()
+
                                     collections.forEach { collectionDto ->
                                         if (collectionDto.type != "collection") {
                                             Timber.v(
@@ -149,33 +158,47 @@ class CollectionSyncWorker
                                         val items = itemsResponse.body()?.mediaContainer?.metadata ?: emptyList()
                                         Timber.d("       SUCCESS: '${collectionDto.title}' has ${items.size} items")
 
-                                        val crossRefs =
-                                            items.map { itemDto ->
-                                                // FORCE DISTINCT FILTER & OFFSET to avoid Unique Constraint Violation
-                                                // Constraint: (serverId, librarySectionId, filter, sortOrder, pageOffset) is UNIQUE
-                                                // Previous Bug: pageOffset=0 for all items caused cascade deletion of library items!
-                                                val mediaEntity =
-                                                    mediaMapper.mapDtoToEntity(itemDto, server.clientIdentifier, libKey)
-                                                        .copy(
-                                                            filter = "collection_sync",
-                                                            sortOrder = "default",
-                                                            // Use ratingKey as offset to ensure uniqueness within this filter bucket
-                                                            pageOffset = itemDto.ratingKey.toIntOrNull() ?: itemDto.ratingKey.hashCode(),
-                                                        )
-                                                // Log insertion attempt
-                                                // Timber.v("       - Inserting Media: ${itemDto.title} (${itemDto.ratingKey})")
-                                                mediaDao.insertMedia(mediaEntity)
+                                        val crossRefs = mutableListOf<MediaCollectionCrossRef>()
 
+                                        items.forEach { itemDto ->
+                                            // FORCE DISTINCT FILTER & OFFSET to avoid Unique Constraint Violation
+                                            // Constraint: (serverId, librarySectionId, filter, sortOrder, pageOffset) is UNIQUE
+                                            // Previous Bug: pageOffset=0 for all items caused cascade deletion of library items!
+                                            val mediaEntity =
+                                                mediaMapper.mapDtoToEntity(itemDto, server.clientIdentifier, libKey, isOwned = server.isOwned)
+                                                    .copy(
+                                                        filter = "collection_sync",
+                                                        sortOrder = "default",
+                                                        // Use ratingKey as offset to ensure uniqueness within this filter bucket
+                                                        pageOffset = itemDto.ratingKey.toIntOrNull() ?: itemDto.ratingKey.hashCode(),
+                                                    )
+                                            pendingMedia.add(mediaEntity)
+
+                                            crossRefs.add(
                                                 MediaCollectionCrossRef(
                                                     mediaRatingKey = itemDto.ratingKey,
                                                     collectionId = collectionEntity.id,
                                                     serverId = server.clientIdentifier,
                                                 )
-                                            }
+                                            )
+                                        }
 
-                                        Timber.d("       → Inserting ${crossRefs.size} cross-references")
-                                        collectionDao.upsertCollectionWithItems(collectionEntity, crossRefs)
-                                        Timber.i("       DONE: Synced '${collectionDto.title}' (items=${crossRefs.size})")
+                                        pendingCollectionData.add(collectionEntity to crossRefs)
+                                        Timber.d("       QUEUED: '${collectionDto.title}' (items=${crossRefs.size})")
+                                    }
+
+                                    // Single transaction for ALL collections in this library
+                                    // Room fires InvalidationTracker only ONCE per transaction commit
+                                    if (pendingMedia.isNotEmpty() || pendingCollectionData.isNotEmpty()) {
+                                        database.withTransaction {
+                                            pendingMedia.chunked(500).forEach { batch ->
+                                                mediaDao.upsertMedia(batch)
+                                            }
+                                            pendingCollectionData.forEach { (entity, refs) ->
+                                                collectionDao.upsertCollectionWithItems(entity, refs)
+                                            }
+                                        }
+                                        Timber.i("     FLUSHED: ${pendingMedia.size} media + ${pendingCollectionData.size} collections in single transaction for '$libTitle'")
                                     }
                                 } else {
                                     Timber.v("  -> Skipping library '$libTitle' (type=$libType)")
@@ -194,12 +217,13 @@ class CollectionSyncWorker
                     androidx.work.ListenableWorker.Result.success()
                 } catch (e: Exception) {
                     Timber.e("Worker failed: ${e.message}")
-                    if (e is kotlinx.coroutines.CancellationException) {
-                        // If cancelled (e.g. by user or system), don't retry locally if it was a system kill.
-                        // But generally clean exit.
-                        throw e
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    val appError = e.toAppError()
+                    if (appError.isRetryable()) {
+                        androidx.work.ListenableWorker.Result.retry()
+                    } else {
+                        androidx.work.ListenableWorker.Result.failure()
                     }
-                    androidx.work.ListenableWorker.Result.retry()
                 }
             }
 

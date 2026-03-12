@@ -175,6 +175,7 @@ data class StreamDTO(
     val colorPrimaries: String? = null,
     val colorTransfer: String? = null,
     val profile: String? = null,
+    val scanType: String? = null,
 )
 
 data class HubDTO(

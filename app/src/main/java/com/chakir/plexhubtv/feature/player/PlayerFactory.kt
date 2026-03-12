@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.feature.player
 
 import android.content.Context
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -8,6 +9,8 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import com.chakir.plexhubtv.feature.player.mpv.MpvConfig
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayer
 import com.chakir.plexhubtv.feature.player.mpv.MpvPlayerWrapper
 import com.chakir.plexhubtv.feature.player.net.CrlfFixSocketFactory
@@ -29,32 +32,43 @@ interface PlayerFactory {
     fun createMpvPlayer(
         context: Context,
         scope: CoroutineScope,
+        config: MpvConfig = MpvConfig(),
     ): MpvPlayer
 }
 
 class ExoPlayerFactory
     @Inject
     constructor() : PlayerFactory {
+        // Shared OkHttpClient: reuses connection pool and thread pool across player sessions.
+        // Previously created per createExoPlayer() call, leaking pools on each session.
+        // Uses CrlfFixSocketFactory for Xtream/IPTV servers that send bare \r in headers.
+        private val playerOkHttpClient: OkHttpClient = OkHttpClient.Builder()
+            .socketFactory(CrlfFixSocketFactory())
+            .addInterceptor(RangeRetryInterceptor())
+            .build()
+
         override fun createExoPlayer(context: Context, isRelay: Boolean): ExoPlayer {
             val loadControl = createLoadControl(isRelay)
-
-            // Use OkHttpDataSource with CrlfFixSocketFactory.
-            // Many Xtream/IPTV servers send HTTP headers with bare \r instead of \r\n.
-            // Both Android's HttpURLConnection and standard OkHttp reject these with
-            // "EOFException: \n not found". CrlfFixSocketFactory transparently inserts
-            // \n after bare \r during header parsing, then passes body bytes through
-            // directly for zero overhead on video streaming.
-            val okHttpClient = OkHttpClient.Builder()
-                .socketFactory(CrlfFixSocketFactory())
-                .addInterceptor(RangeRetryInterceptor())
-                .build()
-            val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
+            val dataSourceFactory = OkHttpDataSource.Factory(playerOkHttpClient)
             val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
-            return ExoPlayer.Builder(context)
+            val trackSelector = DefaultTrackSelector(context).apply {
+                parameters = buildUponParameters()
+                    .setTunnelingEnabled(true)
+                    .build()
+            }
+
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                .build()
+
+        return ExoPlayer.Builder(context)
+                .setTrackSelector(trackSelector)
                 .setMediaSourceFactory(mediaSourceFactory)
                 .setLoadControl(loadControl)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
+                .setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true)
                 .build()
         }
 
@@ -113,7 +127,8 @@ class ExoPlayerFactory
         override fun createMpvPlayer(
             context: Context,
             scope: CoroutineScope,
+            config: MpvConfig,
         ): MpvPlayer {
-            return MpvPlayerWrapper(context, scope)
+            return MpvPlayerWrapper(context, scope, config)
         }
     }

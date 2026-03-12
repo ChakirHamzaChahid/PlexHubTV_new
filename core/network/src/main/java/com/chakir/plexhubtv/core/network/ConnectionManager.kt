@@ -191,6 +191,24 @@ class ConnectionManager
 
         fun getCachedUrl(serverId: String): String? = _activeConnections.value[serverId]
 
+        /**
+         * Invalidates the cached connection for a server so the next
+         * [findBestConnection] re-tests all candidates.
+         * Call when an API request fails with a timeout or connection error.
+         */
+        fun invalidateConnection(serverId: String) {
+            _activeConnections.update { it - serverId }
+            failedServers.remove(serverId)
+            Timber.d("ConnectionManager: Invalidated cached connection for $serverId")
+            scope.launch {
+                try {
+                    connectionCacheStore.saveCachedConnections(_activeConnections.value)
+                } catch (e: Exception) {
+                    Timber.w(e, "ConnectionManager: Failed to persist after invalidation")
+                }
+            }
+        }
+
         fun setOfflineMode(isOffline: Boolean) {
             _isOffline.value = isOffline
         }

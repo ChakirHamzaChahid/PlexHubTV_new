@@ -32,9 +32,15 @@ class PlexSourceHandler @Inject constructor(
         !serverId.startsWith("xtream_") && !serverId.startsWith("backend_")
 
     override suspend fun getDetail(ratingKey: String, serverId: String): Result<MediaItem> {
-        // Room first
         val localEntity = mediaDao.getMedia(ratingKey, serverId)
-        if (localEntity != null) {
+
+        // Episodes: API-first because Room never stores chapters/markers
+        // (episodes are cached from /children which doesn't include them).
+        // Without markers, skip intro/credits buttons won't appear.
+        val isEpisode = localEntity?.type == "episode"
+
+        if (!isEpisode && localEntity != null) {
+            // Non-episode Room cache (movies/shows synced via LibrarySyncWorker)
             val hasStreams = localEntity.mediaParts.isNotEmpty() &&
                 localEntity.mediaParts.first().streams.isNotEmpty()
             if (hasStreams) {
@@ -49,14 +55,19 @@ class PlexSourceHandler @Inject constructor(
                 } else domain
                 return Result.success(resolved)
             }
-            Timber.d("PlexSourceHandler: Room cache missing streams for $ratingKey, fetching from network")
         }
 
-        // API fallback
+        // API fetch (includes chapters & markers via includeMarkers=1)
         val client = serverClientResolver.getClient(serverId)
-            ?: return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
+            ?: if (localEntity != null) {
+                // Server offline but we have local data — return it
+                val domain = mapper.mapEntityToDomain(localEntity)
+                return Result.success(domain)
+            } else {
+                return Result.failure(AppError.Network.ServerError("Server $serverId unavailable"))
+            }
 
-        return safeApiCall("PlexSourceHandler.getDetail") {
+        val result = safeApiCall("PlexSourceHandler.getDetail") {
             val response = client.getMetadata(ratingKey)
             if (response.isSuccessful) {
                 val metadata = response.body()?.mediaContainer?.metadata?.firstOrNull()
@@ -64,8 +75,55 @@ class PlexSourceHandler @Inject constructor(
                     return@safeApiCall mapper.mapDtoToDomain(metadata, serverId, client.baseUrl, client.server.accessToken)
                 }
             }
+            // API failed — fall back to Room if available
+            if (localEntity != null) {
+                Timber.w("PlexSourceHandler: API failed for $ratingKey, falling back to Room cache")
+                val domain = mapper.mapEntityToDomain(localEntity)
+                val baseUrl = client.baseUrl
+                val token = client.server.accessToken
+                return@safeApiCall mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                    baseUrl = baseUrl, accessToken = token
+                )
+            }
             throw AppError.Media.NotFound("Media $ratingKey not found on server $serverId")
         }
+
+        // On timeout/connection error: invalidate stale cached connection and retry once
+        val error = result.exceptionOrNull()
+        val isConnectionError = error is AppError.Network.Timeout ||
+            error is AppError.Network.NoConnection ||
+            (error is AppError.Network.ServerError && error.cause is java.io.IOException)
+        if (isConnectionError) {
+            Timber.w("PlexSourceHandler: Connection failed for $serverId, invalidating cache and retrying")
+            serverClientResolver.invalidateConnection(serverId)
+            val retryClient = serverClientResolver.getClient(serverId)
+            if (retryClient != null) {
+                val retryResult = safeApiCall("PlexSourceHandler.getDetail(retry)") {
+                    val response = retryClient.getMetadata(ratingKey)
+                    if (response.isSuccessful) {
+                        val metadata = response.body()?.mediaContainer?.metadata?.firstOrNull()
+                        if (metadata != null) {
+                            return@safeApiCall mapper.mapDtoToDomain(metadata, serverId, retryClient.baseUrl, retryClient.server.accessToken)
+                        }
+                    }
+                    if (localEntity != null) {
+                        val domain = mapper.mapEntityToDomain(localEntity)
+                        return@safeApiCall mediaUrlResolver.resolveUrls(domain, retryClient.baseUrl, retryClient.server.accessToken).copy(
+                            baseUrl = retryClient.baseUrl, accessToken = retryClient.server.accessToken
+                        )
+                    }
+                    throw AppError.Media.NotFound("Media $ratingKey not found on server $serverId")
+                }
+                if (retryResult.isSuccess) return retryResult
+            }
+            // Retry also failed — fall back to Room if available
+            if (localEntity != null) {
+                Timber.w("PlexSourceHandler: Retry also failed for $ratingKey, falling back to Room cache")
+                return Result.success(mapper.mapEntityToDomain(localEntity))
+            }
+        }
+
+        return result
     }
 
     override suspend fun getSeasons(ratingKey: String, serverId: String): Result<List<MediaItem>> {
@@ -100,7 +158,9 @@ class PlexSourceHandler @Inject constructor(
                 if (response.isSuccessful) {
                     val metadata = response.body()?.mediaContainer?.metadata
                     if (metadata != null) {
-                        val entities = metadata.map { mapper.mapDtoToEntity(it, serverId, "") }
+                        val entities = metadata.mapIndexed { index, dto ->
+                            mapper.mapDtoToEntity(dto, serverId, "", isOwned = client.server.isOwned).copy(pageOffset = index)
+                        }
                         mediaDao.upsertMedia(entities)
                         Timber.d("Cached ${entities.size} Plex episodes to Room for $seasonRatingKey")
                         return@safeApiCall metadata.map {

@@ -23,7 +23,8 @@ class PlaybackStatsViewModel @Inject constructor(
             is PlayerAction.TogglePerformanceOverlay -> {
                 val newState = !uiState.value.showPerformanceOverlay
                 playerController.updateState { it.copy(showPerformanceOverlay = newState) }
-                
+                playerController.mpvPlayer?.setStatsObserving(newState)
+
                 if (newState) {
                      playerStatsTracker.stats.safeCollectIn(
                          scope = viewModelScope,

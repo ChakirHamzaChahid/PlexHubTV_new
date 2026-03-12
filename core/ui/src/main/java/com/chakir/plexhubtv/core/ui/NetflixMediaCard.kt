@@ -80,7 +80,8 @@ fun NetflixMediaCard(
     cardType: CardType = CardType.POSTER,
     compact: Boolean = false,
     onLongPress: (() -> Unit)? = null,
-    onFocus: (Boolean) -> Unit = {}
+    onFocus: (Boolean) -> Unit = {},
+    showYear: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -125,7 +126,7 @@ fun NetflixMediaCard(
                     else -> media.title
                 }
             }
-            .zIndex(if (isFocused) 10f else 0f)
+            .zIndex(if (isFocused) 1f else 0f)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -170,12 +171,12 @@ fun NetflixMediaCard(
                 contentDescription = "Affiche de ${media.title}",
                 contentScale = ContentScale.Crop,
                 imageWidth = when (cardType) {
-                    CardType.POSTER, CardType.TOP_TEN -> 420
-                    CardType.WIDE -> 720
+                    CardType.POSTER, CardType.TOP_TEN -> 300
+                    CardType.WIDE -> 540
                 },
                 imageHeight = when (cardType) {
-                    CardType.POSTER, CardType.TOP_TEN -> 630
-                    CardType.WIDE -> 405
+                    CardType.POSTER, CardType.TOP_TEN -> 450
+                    CardType.WIDE -> 304
                 },
                 modifier = Modifier
                     .fillMaxSize()
@@ -359,28 +360,26 @@ fun NetflixMediaCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val rating = media.rating
-                    if (rating != null && rating > 0) {
-                        Text(
-                            text = "${(rating * 10).toInt()}% Match",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF46D369),
-                            fontSize = 14.sp, // Increased from 10sp for TV readability
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
+                // Year display (when enabled via settings)
+                if (showYear && media.year != null) {
+                    Text(
+                        text = media.year.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp
+                    )
+                }
 
-                    val metaText = media.contentRating ?: media.year?.toString()
-                    if (metaText != null) {
-                        Text(
-                            text = metaText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 14.sp // Increased from 10sp for TV readability
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                //  val metaText = media.contentRating ?: media.year?.toString()
+                //   if (metaText != null) {
+                //       Text(
+                //           text = metaText,
+                //          style = MaterialTheme.typography.labelSmall,
+                //          color = Color.White.copy(alpha = 0.7f),
+                //          fontSize = 14.sp // Increased from 10sp for TV readability
+                //      )
+                //  }
                 }
             }
         }

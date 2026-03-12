@@ -5,6 +5,10 @@ import androidx.lifecycle.LifecycleOwner
 import com.chakir.plexhubtv.feature.player.PlayerStats
 import kotlinx.coroutines.flow.StateFlow
 
+data class MpvConfig(
+    val deinterlace: Boolean = false,
+)
+
 interface MpvPlayer {
     val isPlaying: StateFlow<Boolean>
     val isBuffering: StateFlow<Boolean>
@@ -39,4 +43,7 @@ interface MpvPlayer {
     fun release()
 
     fun getStats(): PlayerStats
+
+    /** Enable/disable stats property observation to reduce JNI overhead when overlay is hidden. */
+    fun setStatsObserving(enabled: Boolean) {}
 }

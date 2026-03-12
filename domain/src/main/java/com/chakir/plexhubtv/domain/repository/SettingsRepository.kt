@@ -10,12 +10,18 @@ interface SettingsRepository {
     val showHeroSection: Flow<Boolean>
     val episodePosterMode: Flow<String> // "poster" vs "thumb"
     val appTheme: Flow<String> // "dark", "oled", "light"
+    val showYearOnCards: Flow<Boolean> // Show release year under card titles
+    val gridColumnsCount: Flow<Int> // Number of columns in grid view (6 or 7)
 
     suspend fun setShowHeroSection(show: Boolean)
 
     suspend fun setEpisodePosterMode(mode: String)
 
     suspend fun setAppTheme(theme: String)
+
+    suspend fun setShowYearOnCards(show: Boolean)
+
+    suspend fun setGridColumnsCount(count: Int)
 
     // --- Player Preferences ---
     fun getVideoQuality(): Flow<String>
@@ -25,6 +31,14 @@ interface SettingsRepository {
     val playerEngine: Flow<String> // "exo" vs "mpv"
 
     suspend fun setPlayerEngine(engine: String)
+
+    val deinterlaceMode: Flow<String>
+
+    suspend fun setDeinterlaceMode(mode: String)
+
+    val autoPlayNextEnabled: Flow<Boolean>
+
+    suspend fun setAutoPlayNext(enabled: Boolean)
 
     // --- Audio/Subtitle Preferences ---
     val preferredAudioLanguage: Flow<String?> // "fr", "en", etc.
@@ -121,4 +135,13 @@ interface SettingsRepository {
     suspend fun saveLibraryGenre(genre: String?)
 
     suspend fun saveLibraryServerFilter(serverName: String?)
+
+    // --- Parental PIN ---
+    fun getParentalPin(): String?
+
+    fun setParentalPin(pin: String?)
+
+    fun hasParentalPin(): Boolean
+
+    fun verifyParentalPin(input: String): Boolean
 }

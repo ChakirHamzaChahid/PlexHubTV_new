@@ -28,6 +28,8 @@
 # Gson
 # ============================================================================
 -keep class com.chakir.plexhubtv.core.network.model.** { *; }
+-keep class com.chakir.plexhubtv.core.network.backend.** { *; }
+-keep class com.chakir.plexhubtv.core.network.xtream.** { *; }
 -keepclassmembers class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }

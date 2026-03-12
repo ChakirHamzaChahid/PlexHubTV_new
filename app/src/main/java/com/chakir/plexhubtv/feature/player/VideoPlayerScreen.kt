@@ -20,6 +20,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,6 +66,7 @@ fun VideoPlayerRoute(
     onClose: () -> Unit,
 ) {
     val uiState by controlViewModel.uiState.collectAsState()
+    val autoPlayEnabled by controlViewModel.autoPlayNextEnabled.collectAsState()
 
     // Collecte des Chapitres et Marqueurs
     val chapters by controlViewModel.chapterMarkerManager.chapters.collectAsState()
@@ -97,6 +99,7 @@ fun VideoPlayerRoute(
         chapters = chapters,
         markers = markers,
         visibleMarkers = visibleMarkers,
+        autoPlayEnabled = autoPlayEnabled,
         onAction = { action ->
             if (action is PlayerAction.Close) {
                 onClose()
@@ -135,6 +138,7 @@ fun VideoPlayerScreen(
     chapters: List<com.chakir.plexhubtv.core.model.Chapter> = emptyList(),
     markers: List<com.chakir.plexhubtv.core.model.Marker> = emptyList(),
     visibleMarkers: List<com.chakir.plexhubtv.core.model.Marker> = emptyList(),
+    autoPlayEnabled: Boolean = true,
     onAction: (PlayerAction) -> Unit,
 ) {
     var controlsVisible by remember { mutableStateOf(false) }
@@ -339,7 +343,7 @@ fun VideoPlayerScreen(
         val resumeMsg = uiState.resumeMessage
         if (resumeMsg != null) {
             LaunchedEffect(resumeMsg) {
-                delay(3000)
+                delay(5000)  // 5 seconds to avoid user confusion with delete dialog
                 onAction(PlayerAction.ClearResumeMessage)
             }
             ResumeToast(
@@ -373,9 +377,23 @@ fun VideoPlayerScreen(
             )
         }
 
-        // Auto-Next Popup
+        // Auto-Next Popup with countdown timer
+        val showPopup = uiState.showAutoNextPopup && uiState.nextItem != null
+        var countdown by remember { mutableIntStateOf(15) }
+
+        LaunchedEffect(showPopup) {
+            if (showPopup && autoPlayEnabled) {
+                countdown = 15
+                while (countdown > 0) {
+                    delay(1000)
+                    countdown--
+                }
+                onAction(PlayerAction.PlayNext)
+            }
+        }
+
         AnimatedVisibility(
-            visible = uiState.showAutoNextPopup && uiState.nextItem != null,
+            visible = showPopup,
             enter = fadeIn() + androidx.compose.animation.slideInVertically { -it },
             exit = fadeOut() + androidx.compose.animation.slideOutVertically { -it },
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 80.dp, end = 32.dp),
@@ -383,6 +401,7 @@ fun VideoPlayerScreen(
             uiState.nextItem?.let { nextItem ->
                 AutoNextPopup(
                     item = nextItem,
+                    countdown = if (autoPlayEnabled) countdown else -1,
                     onPlayNow = { onAction(PlayerAction.PlayNext) },
                     onCancel = { onAction(PlayerAction.CancelAutoNext) },
                     modifier = Modifier.testTag("player_auto_next_popup")
@@ -453,6 +472,7 @@ fun VideoPlayerScreen(
 @Composable
 fun AutoNextPopup(
     item: MediaItem,
+    countdown: Int = -1,
     onPlayNow: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
@@ -476,35 +496,36 @@ fun AutoNextPopup(
             .width(300.dp)
             .semantics { contentDescription = nextEpisodeDesc },
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Thumbnail
-            coil3.compose.AsyncImage(
-                model = item.thumbUrl,
-                contentDescription = null,
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .size(width = 80.dp, height = 45.dp)
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp)),
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = nextEpisodeLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
+        Column {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Thumbnail
+                coil3.compose.AsyncImage(
+                    model = item.thumbUrl,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier =
+                        Modifier
+                            .size(width = 80.dp, height = 45.dp)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp)),
                 )
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = nextEpisodeLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = item.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val playInteractionSource = remember { MutableInteractionSource() }
                     val isPlayFocused by playInteractionSource.collectIsFocusedAsState()
 
@@ -525,7 +546,12 @@ fun AutoNextPopup(
                                 ButtonDefaults.buttonColors()
                             },
                     ) {
-                        Text(stringResource(R.string.player_play_now), style = MaterialTheme.typography.labelSmall)
+                        val playText = if (countdown > 0) {
+                            stringResource(R.string.player_play_now_countdown, countdown)
+                        } else {
+                            stringResource(R.string.player_play_now)
+                        }
+                        Text(playText, style = MaterialTheme.typography.labelSmall)
                     }
 
                     val cancelInteractionSource = remember { MutableInteractionSource() }
@@ -555,7 +581,16 @@ fun AutoNextPopup(
                 }
             }
         }
+        if (countdown > 0) {
+            LinearProgressIndicator(
+                progress = { countdown / 15f },
+                modifier = Modifier.fillMaxWidth().height(3.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = Color.Transparent,
+            )
+        }
     }
+}
 }
 
 // Local PlayerControls removed in favor of com.chakir.plexhubtv.feature.player.PlayerControls

@@ -8,6 +8,7 @@ import com.chakir.plexhubtv.domain.service.PlaybackManager
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
 import kotlinx.coroutines.flow.first
+import timber.log.Timber
 import javax.inject.Inject
 
 class PlayerMediaLoader
@@ -63,6 +64,11 @@ class PlayerMediaLoader
                     val media = detail.item
                     chapterMarkerManager.setChapters(media.chapters)
                     chapterMarkerManager.setMarkers(media.markers)
+
+                    Timber.d("PlayerMediaLoader: Loaded ${media.chapters.size} chapters, ${media.markers.size} markers for ${media.title}")
+                    media.markers.forEach { marker ->
+                        Timber.d("  Marker: type=${marker.type}, start=${marker.startTime}ms, end=${marker.endTime}ms")
+                    }
 
                     val clientId = settingsRepository.clientId.first() ?: "PlexHubTV-Client"
                     val part = media.mediaParts.firstOrNull()

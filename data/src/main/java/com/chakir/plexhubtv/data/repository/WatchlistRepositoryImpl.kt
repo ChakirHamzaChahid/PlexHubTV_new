@@ -143,21 +143,25 @@ class WatchlistRepositoryImpl
                         offset += pageSize
                     } while (offset < totalSize)
 
-                    // For each item in watchlist, check if we have it locally matching by GUID
-                    allMetadata.forEachIndexed { index, item ->
-                        val guid = item.guid // This is the Plex GUID e.g. plex://movie/5d77682...
-                        if (guid != null) {
-                            // Find local item(s) that match this GUID
-                            val localItems = mediaDao.getAllMediaByGuid(guid) // Returns List<MediaEntity>
+                    // Optimization: batch fetch matching MediaEntities to fix N+1 issue
+                    val guids = allMetadata.mapNotNull { it.guid }.distinct()
+                    val allLocalItems = if (guids.isNotEmpty()) {
+                        mediaDao.getAllMediaByGuids(guids).groupBy { it.guid }
+                    } else {
+                        emptyMap()
+                    }
 
-                            // Use Plex API's addedAt (seconds → ms) to preserve watchlist order.
-                            // Fallback: descending index so first API item (newest) has highest value.
+                    val favoritesToInsert = mutableListOf<FavoriteEntity>()
+
+                    allMetadata.forEachIndexed { index, item ->
+                        val guid = item.guid
+                        if (guid != null) {
+                            val localItems = allLocalItems[guid] ?: emptyList()
                             val plexAddedAt = item.addedAt?.times(1000)
                                 ?: (System.currentTimeMillis() - index)
 
-                            // Mark all matching local instances as Favorites
                             localItems.forEach { local ->
-                                favoriteDao.insertFavorite(
+                                favoritesToInsert.add(
                                     FavoriteEntity(
                                         ratingKey = local.ratingKey,
                                         serverId = local.serverId,
@@ -167,10 +171,14 @@ class WatchlistRepositoryImpl
                                         artUrl = local.artUrl,
                                         year = local.year,
                                         addedAt = plexAddedAt,
-                                    ),
+                                    )
                                 )
                             }
                         }
+                    }
+
+                    if (favoritesToInsert.isNotEmpty()) {
+                        favoriteDao.insertFavorites(favoritesToInsert)
                     }
                 }
             }

@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.data.mapper
 
 import com.chakir.plexhubtv.core.common.StringNormalizer
 import com.chakir.plexhubtv.core.database.MediaEntity
+import com.chakir.plexhubtv.core.database.computeMetadataScore
 import com.chakir.plexhubtv.core.model.UnificationId
 import com.chakir.plexhubtv.core.model.XtreamCategory
 import com.chakir.plexhubtv.core.network.xtream.XtreamCategoryDto
@@ -38,6 +39,11 @@ class XtreamMediaMapper @Inject constructor() {
             rating = rating.takeIf { it > 0.0 },
             unificationId = UnificationId.calculateFromTitle(title, year),
             historyGroupKey = UnificationId.calculateFromTitle(title, year).ifEmpty { "$ratingKey$serverId" },
+            metadataScore = computeMetadataScore(
+                summary = null, thumbUrl = dto.streamIcon, imdbId = null, tmdbId = null,
+                year = year, genres = null, serverId = serverId,
+                rating = rating.takeIf { it > 0.0 },
+            ),
         )
     }
 
@@ -68,6 +74,11 @@ class XtreamMediaMapper @Inject constructor() {
             pageOffset = dto.num ?: 0,
             unificationId = UnificationId.calculateFromTitle(title, year),
             historyGroupKey = UnificationId.calculateFromTitle(title, year).ifEmpty { "$ratingKey$serverId" },
+            metadataScore = computeMetadataScore(
+                summary = dto.plot, thumbUrl = dto.cover, imdbId = null, tmdbId = null,
+                year = year, genres = dto.genre, serverId = serverId,
+                rating = rating.takeIf { it > 0.0 },
+            ),
         )
     }
 
@@ -108,6 +119,11 @@ class XtreamMediaMapper @Inject constructor() {
             filter = "all",
             sortOrder = "default",
             displayRating = parseRating(episode.info?.rating),
+            metadataScore = computeMetadataScore(
+                summary = episode.info?.plot, thumbUrl = episode.info?.movieImage,
+                imdbId = null, tmdbId = null, year = null, genres = null, serverId = serverId,
+                rating = parseRating(episode.info?.rating).takeIf { it > 0.0 },
+            ),
         )
     }
 

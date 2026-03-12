@@ -100,6 +100,13 @@ class HubsRepositoryImpl
                                         }
                                     } catch (e: Exception) {
                                         Timber.e(e, "REPO [Hubs] SERVER FAILED: server=${client.server.name}")
+                                        // Invalidate stale cached connection on SSL/timeout errors
+                                        // so the next hub refresh re-tests all connection candidates
+                                        if (e is java.net.SocketTimeoutException ||
+                                            e is javax.net.ssl.SSLException ||
+                                            e is java.net.UnknownHostException) {
+                                            connectionManager.invalidateConnection(client.server.clientIdentifier)
+                                        }
                                         emptyList()
                                     }
                                 }
@@ -278,6 +285,7 @@ class HubsRepositoryImpl
                                 dto,
                                 client.server.clientIdentifier,
                                 dto.librarySectionID ?: "0",
+                                isOwned = client.server.isOwned,
                             )
                             entity.copy(
                                 filter = "hub",

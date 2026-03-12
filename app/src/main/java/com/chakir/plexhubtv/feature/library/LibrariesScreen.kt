@@ -94,7 +94,6 @@ import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.zIndex
 
 // ... (Rest of imports likely preserved by smart apply, but I should be careful)
 
@@ -165,6 +164,8 @@ fun LibraryRoute(
         isServerFiltered = isServerFiltered,
         genreLabel = genreLabel,
         isGenreFiltered = isGenreFiltered,
+        showYear = state.display.showYearOnCards,
+        gridColumnsCount = state.display.gridColumnsCount,
     )
 }
 
@@ -184,6 +185,8 @@ fun LibrariesScreen(
     isServerFiltered: Boolean = false,
     genreLabel: String = "Genre: All",
     isGenreFiltered: Boolean = false,
+    showYear: Boolean = false,
+    gridColumnsCount: Int = 6,
 ) {
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
@@ -204,6 +207,18 @@ fun LibrariesScreen(
             listState.scrollToItem(scrollRequest)
             onScrollConsumed()
         }
+    }
+
+    // Scroll to top when sort, genre, or server filter changes
+    var isFirstComposition by rememberSaveable { mutableStateOf(true) }
+    val sortKey = "${state.filter.currentSort}_${state.filter.isSortDescending}_${state.filter.selectedGenre}_${state.filter.selectedServerFilter}"
+    LaunchedEffect(sortKey) {
+        if (isFirstComposition) {
+            isFirstComposition = false
+            return@LaunchedEffect
+        }
+        gridState.scrollToItem(0)
+        listState.scrollToItem(0)
     }
     Scaffold(
         containerColor = NetflixBlack, // Set Scaffold background
@@ -406,34 +421,41 @@ fun LibrariesScreen(
             }
             // ...
 
-            when {
-                // Loading state (only for INITIAL load)
-                pagedItems.loadState.refresh is androidx.paging.LoadState.Loading && pagedItems.itemCount == 0 -> {
-                    LibraryGridSkeleton(
-                        modifier = Modifier.fillMaxSize()
-                    )
+            // Isolate loadState read to prevent recomposition cascade:
+            // Reading loadState.refresh registers a Compose snapshot dependency.
+            // Using derivedStateOf limits recomposition to only this boolean check,
+            // not the entire parent composable tree.
+            val showSkeleton by remember {
+                derivedStateOf {
+                    pagedItems.loadState.refresh is androidx.paging.LoadState.Loading && pagedItems.itemCount == 0
                 }
-                // Content
-                else -> {
-                    if (state.display.selectedTab == LibraryTab.Recommended) {
-                        RecommendedContent(
-                            hubs = state.display.hubs,
-                            onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
-                        )
-                    } else {
-                        LibraryContent(
-                            pagedItems = pagedItems,
-                            viewMode = state.display.viewMode,
-                            onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
-                            onAction = onAction,
-                            gridState = gridState,
-                            listState = listState,
-                            showSidebar = showSidebar,
-                            scrollRequest = scrollRequest,
-                            onScrollConsumed = onScrollConsumed,
-                            lastFocusedId = state.scroll.lastFocusedId,
-                        )
-                    }
+            }
+
+            if (showSkeleton) {
+                LibraryGridSkeleton(
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                if (state.display.selectedTab == LibraryTab.Recommended) {
+                    RecommendedContent(
+                        hubs = state.display.hubs,
+                        onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
+                    )
+                } else {
+                    LibraryContent(
+                        pagedItems = pagedItems,
+                        viewMode = state.display.viewMode,
+                        onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
+                        onAction = onAction,
+                        gridState = gridState,
+                        listState = listState,
+                        showSidebar = showSidebar,
+                        scrollRequest = scrollRequest,
+                        onScrollConsumed = onScrollConsumed,
+                        lastFocusedId = state.scroll.lastFocusedId,
+                        showYear = showYear,
+                        gridColumnsCount = gridColumnsCount,
+                    )
                 }
             }
         }
@@ -489,6 +511,8 @@ fun LibraryContent(
     scrollRequest: Int? = null,
     onScrollConsumed: () -> Unit = {},
     lastFocusedId: String? = null,
+    showYear: Boolean = false,
+    gridColumnsCount: Int = 6,
 ) {
     // Focus restoration: request focus on the item that was previously focused
     val focusRestorationRequester = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -500,7 +524,7 @@ fun LibraryContent(
                 LibraryViewMode.Grid, LibraryViewMode.Compact -> {
                     val isCompact = viewMode == LibraryViewMode.Compact
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = if (isCompact) 90.dp else 140.dp),
+                        columns = if (isCompact) GridCells.Adaptive(minSize = 90.dp) else GridCells.Fixed(gridColumnsCount),
                         state = gridState,
                         contentPadding = PaddingValues(
                             start = if (isCompact) 40.dp else 58.dp,
@@ -523,7 +547,6 @@ fun LibraryContent(
                             val item = pagedItems[index]
                             if (item != null) {
                                 val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
-                                var isFocused by remember { mutableStateOf(false) }
 
                                 if (shouldRestoreFocus) {
                                     LaunchedEffect(Unit) {
@@ -534,25 +557,23 @@ fun LibraryContent(
                                     }
                                 }
 
-                                Box(modifier = Modifier.zIndex(if (isFocused) 1f else 0f)) {
-                                    NetflixMediaCard(
-                                        media = item,
-                                        onClick = { onItemClick(item) },
-                                        onPlay = { },
-                                        onFocus = { focused ->
-                                            isFocused = focused
-                                            if (focused) {
-                                                onAction(LibraryAction.OnItemFocused(item))
-                                            }
-                                        },
-                                        compact = isCompact,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .then(
-                                                if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
-                                            )
-                                    )
+                                val itemOnClick = remember(item.ratingKey, item.serverId) { { onItemClick(item) } }
+                                val itemOnFocus = remember(item.ratingKey, item.serverId) {
+                                    { focused: Boolean -> if (focused) onAction(LibraryAction.OnItemFocused(item)) }
                                 }
+                                NetflixMediaCard(
+                                    media = item,
+                                    onClick = itemOnClick,
+                                    onPlay = { },
+                                    onFocus = itemOnFocus,
+                                    compact = isCompact,
+                                    showYear = showYear,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .then(
+                                            if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
+                                        )
+                                )
                             } else {
                                 // Placeholder
                                 Box(

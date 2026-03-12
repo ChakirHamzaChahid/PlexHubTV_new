@@ -4,10 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
 import com.chakir.plexhubtv.feature.player.url.DirectStreamUrlBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -19,9 +23,13 @@ class PlayerControlViewModel @Inject constructor(
     val chapterMarkerManager: ChapterMarkerManager,
     private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
     private val directStreamUrlBuilder: DirectStreamUrlBuilder,
+    settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     val uiState = playerController.uiState
+
+    val autoPlayNextEnabled: StateFlow<Boolean> = settingsRepository.autoPlayNextEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     init {
         val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -49,21 +57,37 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.Pause -> playerController.pause()
             is PlayerAction.SeekTo -> playerController.seekTo(action.position)
             is PlayerAction.Next -> {
-                playbackManager.next()
-                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
+                val nextMedia = playbackManager.getNextMedia()
+                Timber.d("[Player] Next pressed: nextMedia=${nextMedia?.title} (rk=${nextMedia?.ratingKey}, sid=${nextMedia?.serverId})")
+                if (nextMedia != null) {
+                    playbackManager.next()
+                    loadOrPlayMedia(nextMedia)
+                } else {
+                    Timber.w("[Player] Next pressed but NO next media in queue → closing dialogs only")
+                    onAction(PlayerAction.Close)
+                }
             }
             is PlayerAction.Previous -> {
-                playbackManager.previous()
-                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
+                val prevMedia = playbackManager.getPreviousMedia()
+                if (prevMedia != null) {
+                    playbackManager.previous()
+                    loadOrPlayMedia(prevMedia)
+                }
             }
             is PlayerAction.SkipMarker -> {
                  val position = action.marker.endTime
                  playerController.seekTo(position)
             }
             is PlayerAction.PlayNext -> {
-                playerController.updateState { it.copy(showAutoNextPopup = false) }
-                playbackManager.next()
-                playbackManager.currentMedia.value?.let { loadOrPlayMedia(it) }
+                val nextMedia = playbackManager.getNextMedia()
+                Timber.d("[Player] PlayNext (auto): nextMedia=${nextMedia?.title} (rk=${nextMedia?.ratingKey}, sid=${nextMedia?.serverId})")
+                if (nextMedia != null) {
+                    playbackManager.next()
+                    loadOrPlayMedia(nextMedia)
+                } else {
+                    Timber.w("[Player] PlayNext (auto) but NO next media in queue")
+                    onAction(PlayerAction.Close)
+                }
             }
             is PlayerAction.CancelAutoNext -> {
                 playerController.updateState { it.copy(showAutoNextPopup = false) }
@@ -156,15 +180,28 @@ class PlayerControlViewModel @Inject constructor(
     }
 
     /**
-     * Load or play media, handling Plex (loadMedia), Xtream, and Backend (direct URL) paths.
+     * Switch to next/previous episode, reusing the existing player instance.
+     * Resets per-episode state (startOffset, resume toast) via PlayerController.playNext*().
      */
     private fun loadOrPlayMedia(media: MediaItem) {
-        if (directStreamUrlBuilder.isDirectStream(media.serverId)) {
-            resolveAndPlayDirectStream(
-                media.ratingKey, media.serverId, 0L, media,
-            ) { directStreamUrlBuilder.buildUrl(media.ratingKey, media.serverId) }
+        val isDirectStream = directStreamUrlBuilder.isDirectStream(media.serverId)
+        Timber.d("[Player] loadOrPlayMedia: '${media.title}' (rk=${media.ratingKey}, sid=${media.serverId}, isDirectStream=$isDirectStream)")
+        if (isDirectStream) {
+            viewModelScope.launch {
+                val url = directStreamUrlBuilder.buildUrl(media.ratingKey, media.serverId)
+                if (url != null) {
+                    Timber.d("[Player] loadOrPlayMedia: Direct stream URL resolved, calling playNextDirectStream")
+                    playerController.playNextDirectStream(url, media)
+                } else {
+                    Timber.e("[Player] Failed to resolve stream URL for ${media.ratingKey} on ${media.serverId}")
+                    playerController.updateState {
+                        it.copy(error = "Failed to get stream URL", isBuffering = false)
+                    }
+                }
+            }
         } else {
-            playerController.loadMedia(media.ratingKey, media.serverId)
+            Timber.d("[Player] loadOrPlayMedia: Plex path, calling playNext(${media.ratingKey}, ${media.serverId})")
+            playerController.playNext(media.ratingKey, media.serverId)
         }
     }
 
@@ -183,7 +220,7 @@ class PlayerControlViewModel @Inject constructor(
         viewModelScope.launch {
             val url = urlBuilder()
             if (url != null) {
-                val media = cachedMedia ?: playbackManager.currentMedia.value?.takeIf {
+                val media = cachedMedia ?: playbackManager.state.value.currentMedia?.takeIf {
                     it.ratingKey == ratingKey && it.serverId == serverId
                 }
                 playerController.playDirectStream(url, media)

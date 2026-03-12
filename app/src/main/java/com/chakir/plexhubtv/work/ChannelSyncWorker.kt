@@ -5,6 +5,8 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.model.isRetryable
+import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.service.TvChannelManager
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -41,8 +43,8 @@ class ChannelSyncWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             Timber.e(e, "TV Channel: Periodic sync failed")
-            // Return success to avoid WorkManager retry spam
-            Result.success()
+            val appError = e.toAppError()
+            if (appError.isRetryable()) Result.retry() else Result.failure()
         }
     }
 }

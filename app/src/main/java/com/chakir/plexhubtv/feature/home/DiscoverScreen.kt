@@ -52,12 +52,14 @@ fun MediaCard(
     height: androidx.compose.ui.unit.Dp = 210.dp,
     titleStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
     subtitleStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodySmall,
+    showYear: Boolean = false,
 ) {
     NetflixMediaCard(
         media = media,
         onClick = onClick,
         onPlay = onPlay,
         onFocus = { isFocused -> if (isFocused) onFocus() },
+        showYear = showYear,
         modifier = modifier
     )
 }

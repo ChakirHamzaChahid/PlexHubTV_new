@@ -1,11 +1,14 @@
 package com.chakir.plexhubtv.data.repository
 
+import androidx.room.withTransaction
 import com.chakir.plexhubtv.core.database.IdBridgeDao
 import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.XtreamCategory
+import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.core.network.xtream.XtreamApiClient
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.data.mapper.XtreamMediaMapper
@@ -27,14 +30,15 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
     private val accountRepo: XtreamAccountRepository,
     private val mediaDao: MediaDao,
     private val idBridgeDao: IdBridgeDao,
+    private val database: PlexDatabase,
     private val xtreamMapper: XtreamMediaMapper,
     private val mediaMapper: MediaMapper,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : XtreamSeriesRepository {
 
     override suspend fun getCategories(accountId: String): Result<List<XtreamCategory>> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("XtreamSeriesRepository.getCategories") {
+            withContext(ioDispatcher) {
                 val (service, username, password) = getServiceCredentials(accountId)
                 val dtos = service.getSeriesCategories(username, password)
                 dtos.mapNotNull { xtreamMapper.mapCategoryDto(it) }
@@ -42,8 +46,8 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
         }
 
     override suspend fun syncSeries(accountId: String, categoryId: Int?): Result<Int> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("XtreamSeriesRepository.syncSeries") {
+            withContext(ioDispatcher) {
                 val (service, username, password) = getServiceCredentials(accountId)
                 val dtos = service.getSeries(username, password, categoryId = categoryId)
 
@@ -52,14 +56,33 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
                     xtreamMapper.mapSeriesToEntity(dto, accountId)
                 }
 
+                val serverId = "xtream_$accountId"
+                val syncedRatingKeys = entities.map { it.ratingKey }.toSet()
+
                 if (entities.isNotEmpty()) {
-                    mediaDao.upsertMedia(entities)
-                    val bridgeEntries = entities.mapNotNull { entity ->
-                        val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
-                        val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
-                        if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                    database.withTransaction {
+                        mediaDao.upsertMedia(entities)
+                        val bridgeEntries = entities.mapNotNull { entity ->
+                            val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+                            val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+                            if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                        }
+                        if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
                     }
-                    if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
+                }
+
+                // Differential cleanup: only for full sync (no category filter)
+                if (categoryId == null && syncedRatingKeys.isNotEmpty()) {
+                    val existingKeys = mediaDao.getRatingKeysByServerAndType(serverId, "show")
+                    val staleKeys = existingKeys.filter { it !in syncedRatingKeys }
+                    if (staleKeys.isNotEmpty()) {
+                        database.withTransaction {
+                            staleKeys.chunked(500).forEach { chunk ->
+                                mediaDao.deleteMediaByKeys(serverId, chunk)
+                            }
+                        }
+                        Timber.i("XTREAM [Series] Cleanup: Removed ${staleKeys.size} stale series for account $accountId")
+                    }
                 }
 
                 Timber.i("XTREAM [Series] Synced ${entities.size} series for account $accountId")
@@ -77,8 +100,8 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
         }.flowOn(ioDispatcher)
 
     override suspend fun getSeriesDetail(accountId: String, seriesId: Int): Result<MediaDetail> =
-        withContext(ioDispatcher) {
-            runCatching {
+        safeApiCall("XtreamSeriesRepository.getSeriesDetail") {
+            withContext(ioDispatcher) {
                 val (service, username, password) = getServiceCredentials(accountId)
                 val response = service.getSeriesInfo(username, password, seriesId = seriesId)
                 // Patch seriesId: the "info" object from get_series_info doesn't include series_id,
@@ -117,13 +140,15 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
                 } ?: emptyList()
 
                 if (episodeEntities.isNotEmpty()) {
-                    mediaDao.upsertMedia(episodeEntities)
-                    val bridgeEntries = episodeEntities.mapNotNull { entity ->
-                        val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
-                        val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
-                        if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                    database.withTransaction {
+                        mediaDao.upsertMedia(episodeEntities)
+                        val bridgeEntries = episodeEntities.mapNotNull { entity ->
+                            val imdb = entity.imdbId?.takeIf { it.isNotBlank() }
+                            val tmdb = entity.tmdbId?.takeIf { it.isNotBlank() }
+                            if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
+                        }
+                        if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
                     }
-                    if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
                 }
 
                 MediaDetail(
@@ -133,15 +158,11 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
             }
         }
 
-    override fun buildEpisodeUrl(accountId: String, episodeId: String, extension: String): String {
-        val account = runCatching {
-            kotlinx.coroutines.runBlocking { accountRepo.getAccount(accountId) }
-        }.getOrNull() ?: throw IllegalStateException("Account $accountId not found")
-
-        val password = runCatching {
-            kotlinx.coroutines.runBlocking { accountRepo.getDecryptedPassword(accountId) }
-        }.getOrNull() ?: throw IllegalStateException("Password not found for account $accountId")
-
+    override suspend fun buildEpisodeUrl(accountId: String, episodeId: String, extension: String): String {
+        val account = accountRepo.getAccount(accountId)
+            ?: throw IllegalStateException("Account $accountId not found")
+        val password = accountRepo.getDecryptedPassword(accountId)
+            ?: throw IllegalStateException("Password not found for account $accountId")
         return apiClient.buildEpisodeUrl(account, account.username, password, episodeId, extension)
     }
 

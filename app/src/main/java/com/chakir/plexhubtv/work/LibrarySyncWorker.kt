@@ -82,10 +82,8 @@ class LibrarySyncWorker
 
                     if (token == null || clientId == null) {
                         Timber.w("✗ Authentication timeout - Token: ${token != null}, ClientId: ${clientId != null}")
-                        // If we timeout, we might be on a fresh install waiting for bypass.
-                        // Don't mark as complete yet, just return success and let periodic sync try later
-                        // OR return failure and let WorkManager retry
-                        return@withContext Result.success()
+                        // Transient: auth not ready yet — retry with backoff
+                        return@withContext Result.retry()
                     }
 
                     Timber.d("✓ Authenticated, proceeding with sync")
@@ -227,6 +225,7 @@ class LibrarySyncWorker
                             Timber.d("→ Triggering Collection Sync after successful library sync")
                             val collectionSyncRequest =
                                 androidx.work.OneTimeWorkRequestBuilder<CollectionSyncWorker>()
+                                    .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, java.util.concurrent.TimeUnit.SECONDS)
                                     .build()
                             androidx.work.WorkManager.getInstance(applicationContext).enqueueUniqueWork(
                                 "CollectionSync_Initial",
