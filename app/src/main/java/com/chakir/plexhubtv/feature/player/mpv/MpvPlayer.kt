@@ -43,4 +43,7 @@ interface MpvPlayer {
     fun release()
 
     fun getStats(): PlayerStats
+
+    /** Enable/disable stats property observation to reduce JNI overhead when overlay is hidden. */
+    fun setStatsObserving(enabled: Boolean) {}
 }

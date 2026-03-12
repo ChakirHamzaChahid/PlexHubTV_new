@@ -72,6 +72,9 @@ class MpvPlayerWrapper(
     @Volatile private var pendingPosition: Long? = null
     @Volatile private var attachedLifecycleOwner: LifecycleOwner? = null
 
+    /** When false, stats property callbacks skip StateFlow updates to reduce JNI/CPU overhead. */
+    @Volatile var statsObservingEnabled: Boolean = false
+
     override fun initialize(viewGroup: ViewGroup) {
         if (isInitialized) return
         Timber.d("Initializing MPV...")
@@ -263,6 +266,10 @@ class MpvPlayerWrapper(
         )
     }
 
+    override fun setStatsObserving(enabled: Boolean) {
+        statsObservingEnabled = enabled
+    }
+
     // SurfaceHolder.Callback
     override fun surfaceCreated(holder: SurfaceHolder) {
         if (isInitialized) {
@@ -301,22 +308,17 @@ class MpvPlayerWrapper(
         property: String,
         value: Double,
     ) {
-        if (property == "time-pos") {
-            _position.update { (value * 1000).toLong() }
-        } else if (property == "duration") {
-            _duration.update { (value * 1000).toLong() }
-        } else if (property == "video-bitrate") {
-            _videoBitrate.update { value }
-        } else if (property == "estimated-vf-fps") {
-            _fps.update { value }
-        } else if (property == "demuxer-cache-duration") {
-            _cacheDuration.update { value }
-        } else if (property == "drop-frame-count") {
-            _droppedFrames.update { value.toLong() }
-        } else if (property == "video-w") {
-            _videoWidth.update { value.toLong() }
-        } else if (property == "video-h") {
-            _videoHeight.update { value.toLong() }
+        when (property) {
+            // Critical playback properties — always observe
+            "time-pos" -> _position.update { (value * 1000).toLong() }
+            "duration" -> _duration.update { (value * 1000).toLong() }
+            // Stats properties — skip updates when debug overlay is hidden to reduce CPU/JNI overhead
+            "video-bitrate" -> if (statsObservingEnabled) _videoBitrate.update { value }
+            "estimated-vf-fps" -> if (statsObservingEnabled) _fps.update { value }
+            "demuxer-cache-duration" -> if (statsObservingEnabled) _cacheDuration.update { value }
+            "drop-frame-count" -> if (statsObservingEnabled) _droppedFrames.update { value.toLong() }
+            "video-w" -> if (statsObservingEnabled) _videoWidth.update { value.toLong() }
+            "video-h" -> if (statsObservingEnabled) _videoHeight.update { value.toLong() }
         }
     }
 
@@ -324,10 +326,10 @@ class MpvPlayerWrapper(
         property: String,
         value: String,
     ) {
-        if (property == "video-format") {
-            _videoCodec.update { value }
-        } else if (property == "audio-codec-name") {
-            _audioCodec.update { value }
+        if (!statsObservingEnabled) return
+        when (property) {
+            "video-format" -> _videoCodec.update { value }
+            "audio-codec-name" -> _audioCodec.update { value }
         }
     }
 
