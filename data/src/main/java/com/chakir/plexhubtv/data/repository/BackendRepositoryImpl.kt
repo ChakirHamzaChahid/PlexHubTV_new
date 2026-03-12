@@ -1,10 +1,12 @@
 package com.chakir.plexhubtv.data.repository
 
+import androidx.room.withTransaction
 import com.chakir.plexhubtv.core.database.BackendServerDao
 import com.chakir.plexhubtv.core.database.BackendServerEntity
 import com.chakir.plexhubtv.core.database.IdBridgeDao
 import com.chakir.plexhubtv.core.database.IdBridgeEntity
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.BackendConnectionInfo
 import com.chakir.plexhubtv.core.model.BackendServer
@@ -36,6 +38,7 @@ class BackendRepositoryImpl @Inject constructor(
     private val backendServerDao: BackendServerDao,
     private val mediaDao: MediaDao,
     private val idBridgeDao: IdBridgeDao,
+    private val database: PlexDatabase,
     private val mapper: BackendMediaMapper,
     private val mediaMapper: MediaMapper,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -80,9 +83,32 @@ class BackendRepositoryImpl @Inject constructor(
                 val service = backendApiClient.getService(baseUrl)
                 val health = service.getHealth()
                 BackendConnectionInfo(
+                    status = health.status,
                     totalMedia = health.totalMedia,
                     enrichedMedia = health.enrichedMedia,
+                    brokenStreams = health.brokenStreams,
+                    accounts = health.accounts,
                     version = health.version,
+                    lastSyncAt = health.lastSyncAt,
+                )
+            }
+        }
+
+    override suspend fun getHealthInfo(backendId: String): Result<BackendConnectionInfo> =
+        safeApiCall("BackendRepository.getHealthInfo") {
+            withContext(ioDispatcher) {
+                val backend = backendServerDao.getById(backendId)
+                    ?: throw IllegalStateException("Backend server $backendId not found")
+                val service = backendApiClient.getService(backend.baseUrl)
+                val health = service.getHealth()
+                BackendConnectionInfo(
+                    status = health.status,
+                    totalMedia = health.totalMedia,
+                    enrichedMedia = health.enrichedMedia,
+                    brokenStreams = health.brokenStreams,
+                    accounts = health.accounts,
+                    version = health.version,
+                    lastSyncAt = health.lastSyncAt,
                 )
             }
         }
@@ -99,28 +125,32 @@ class BackendRepositoryImpl @Inject constructor(
                 // Collect all synced ratingKeys for differential cleanup
                 val syncedRatingKeys = mutableSetOf<String>()
 
-                // Sync movies (paginated)
+                // Sync movies (paginated) — single transaction per page
                 var offset = 0
                 do {
                     val response = service.getMovies(limit = 500, offset = offset)
                     val entities = response.items.map { mapper.mapDtoToEntity(it, backendId) }
                     if (entities.isNotEmpty()) {
-                        mediaDao.upsertMedia(entities)
-                        populateIdBridge(entities)
+                        database.withTransaction {
+                            mediaDao.upsertMedia(entities)
+                            populateIdBridge(entities)
+                        }
                         entities.forEach { syncedRatingKeys.add(it.ratingKey) }
                         totalSynced += entities.size
                     }
                     offset += 500
                 } while (response.hasMore)
 
-                // Sync shows (paginated)
+                // Sync shows (paginated) — single transaction per page
                 offset = 0
                 do {
                     val response = service.getShows(limit = 500, offset = offset)
                     val entities = response.items.map { mapper.mapDtoToEntity(it, backendId) }
                     if (entities.isNotEmpty()) {
-                        mediaDao.upsertMedia(entities)
-                        populateIdBridge(entities)
+                        database.withTransaction {
+                            mediaDao.upsertMedia(entities)
+                            populateIdBridge(entities)
+                        }
                         entities.forEach { syncedRatingKeys.add(it.ratingKey) }
                         totalSynced += entities.size
                     }
@@ -128,7 +158,10 @@ class BackendRepositoryImpl @Inject constructor(
                 } while (response.hasMore)
 
                 // Sync episodes for each show (needed for unified seasons query)
+                // Accumulate across shows and flush every 2000 episodes to balance
+                // memory usage vs InvalidationTracker notifications
                 val syncedShows = mediaDao.getMediaByServerTypeFilter(serverId, "show", "all")
+                val pendingEpisodes = mutableListOf<com.chakir.plexhubtv.core.database.MediaEntity>()
                 for (showEntity in syncedShows) {
                     try {
                         var epOffset = 0
@@ -140,8 +173,7 @@ class BackendRepositoryImpl @Inject constructor(
                             )
                             val epEntities = epResponse.items.map { mapper.mapDtoToEntity(it, backendId) }
                             if (epEntities.isNotEmpty()) {
-                                mediaDao.upsertMedia(epEntities)
-                                populateIdBridge(epEntities)
+                                pendingEpisodes.addAll(epEntities)
                                 totalSynced += epEntities.size
                             }
                             epOffset += 500
@@ -149,13 +181,34 @@ class BackendRepositoryImpl @Inject constructor(
                     } catch (e: Exception) {
                         Timber.w(e, "Failed to sync episodes for show ${showEntity.title}")
                     }
+
+                    // Flush every 2000 episodes to limit memory (~2KB per entity = ~4MB)
+                    if (pendingEpisodes.size >= 2000) {
+                        database.withTransaction {
+                            mediaDao.upsertMedia(pendingEpisodes)
+                            populateIdBridge(pendingEpisodes)
+                        }
+                        pendingEpisodes.clear()
+                    }
+                }
+                // Final flush
+                if (pendingEpisodes.isNotEmpty()) {
+                    database.withTransaction {
+                        mediaDao.upsertMedia(pendingEpisodes)
+                        populateIdBridge(pendingEpisodes)
+                    }
+                    pendingEpisodes.clear()
                 }
 
-                // Differential cleanup: remove items no longer in backend
+                // Differential cleanup: batch all deletes in a single transaction
                 val existingMovies = mediaDao.getMediaByServerTypeFilter(serverId, "movie", "all")
                 val existingShows = syncedShows
                 val staleItems = (existingMovies + existingShows).filter { it.ratingKey !in syncedRatingKeys }
-                staleItems.forEach { mediaDao.deleteMedia(it.ratingKey, serverId) }
+                if (staleItems.isNotEmpty()) {
+                    database.withTransaction {
+                        staleItems.forEach { mediaDao.deleteMedia(it.ratingKey, serverId) }
+                    }
+                }
 
                 if (staleItems.isNotEmpty()) {
                     Timber.d("Cleaned up ${staleItems.size} stale backend items")
@@ -208,8 +261,10 @@ class BackendRepositoryImpl @Inject constructor(
                     )
                     val entities = response.items.map { mapper.mapDtoToEntity(it, backendId) }
                     if (entities.isNotEmpty()) {
-                        mediaDao.upsertMedia(entities)
-                        populateIdBridge(entities)
+                        database.withTransaction {
+                            mediaDao.upsertMedia(entities)
+                            populateIdBridge(entities)
+                        }
                         allEpisodes.addAll(entities.map { mediaMapper.mapEntityToDomain(it) })
                     }
                     offset += 500

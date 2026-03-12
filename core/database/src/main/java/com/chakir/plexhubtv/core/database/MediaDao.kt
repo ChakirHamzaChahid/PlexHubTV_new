@@ -38,9 +38,10 @@ interface MediaDao {
     suspend fun getAllMediaByGuids(guids: List<String>): List<MediaEntity>
 
     // ISSUE #113 FIX: Batch fetch media entities to prevent N+1 in FavoritesRepository
-    // Uses composite key concatenation since SQLite doesn't support tuple IN syntax
-    @Query("SELECT * FROM media WHERE (ratingKey || '|' || serverId) IN (:compositeKeys)")
-    suspend fun getBatchByCompositeKeys(compositeKeys: List<String>): List<MediaEntity>
+    // Grouped by serverId so the primary key prefix (ratingKey, serverId) is used for index lookup.
+    // Old approach: composite key concatenation forced full table scan.
+    @Query("SELECT * FROM media WHERE serverId = :serverId AND ratingKey IN (:ratingKeys)")
+    suspend fun getMediaByServerAndKeys(serverId: String, ratingKeys: List<String>): List<MediaEntity>
 
     @Query("DELETE FROM media WHERE librarySectionId = :libraryId AND filter = :filter AND sortOrder = :sortOrder")
     suspend fun clearByLibraryFilterSort(
@@ -63,6 +64,15 @@ interface MediaDao {
 
     @Query("SELECT * FROM media WHERE serverId = :serverId AND type = :type AND filter = :filter ORDER BY titleSortable ASC")
     suspend fun getMediaByServerTypeFilter(serverId: String, type: String, filter: String): List<MediaEntity>
+
+    @Query("SELECT ratingKey FROM media WHERE serverId = :serverId AND librarySectionId = :libraryKey")
+    suspend fun getRatingKeysByLibrary(serverId: String, libraryKey: String): List<String>
+
+    @Query("SELECT ratingKey FROM media WHERE serverId = :serverId AND type = :type")
+    suspend fun getRatingKeysByServerAndType(serverId: String, type: String): List<String>
+
+    @Query("DELETE FROM media WHERE serverId = :serverId AND ratingKey IN (:ratingKeys)")
+    suspend fun deleteMediaByKeys(serverId: String, ratingKeys: List<String>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMedia(media: MediaEntity)
