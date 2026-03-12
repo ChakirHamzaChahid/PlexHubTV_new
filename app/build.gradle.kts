@@ -213,6 +213,7 @@ dependencies {
 
     // WorkManager
     implementation(libs.androidx.work.runtime)
+    debugImplementation(libs.androidx.work.multiprocess)
 
     // --- HILT (Injection de dépendance) ---
     implementation(libs.hilt.android)

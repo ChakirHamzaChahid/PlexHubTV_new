@@ -75,6 +75,7 @@ fun NetflixSearchScreen(
                 .weight(0.35f)
                 .fillMaxHeight()
         ) {
+
             val queryDesc = stringResource(R.string.search_query_description, state.query.ifEmpty { searchEmpty })
             Text(
                 text = if (state.query.isEmpty()) searchTitle else state.query,

@@ -473,6 +473,10 @@
     <string name="settings_backend_sync">Sync from Backend</string>
     <string name="settings_backend_sync_subtitle">Fetch enriched media from backend</string>
     <string name="settings_backend_remove_confirm">Remove this backend server?</string>
+    <string name="settings_backend_trigger_sync">Trigger Xtream Sync</string>
+    <string name="settings_backend_trigger_sync_subtitle">Update backend DB with new Xtream content</string>
+    <string name="settings_backend_health">Backend Status</string>
+    <string name="settings_backend_health_subtitle">Check backend server health</string>
 
     <!-- IPTV (Settings) -->
     <string name="settings_section_iptv">IPTV</string>

@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.appprofile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
+import com.chakir.plexhubtv.core.model.AgeRating
 import com.chakir.plexhubtv.core.model.Profile
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
@@ -191,6 +192,7 @@ class AppProfileViewModel @Inject constructor(
                 name = action.name.trim(),
                 avatarEmoji = action.avatarEmoji,
                 isKidsProfile = action.isKidsProfile,
+                ageRating = if (action.isKidsProfile) AgeRating.PARENTAL_7 else AgeRating.ADULT,
             )
             val result = profileRepository.createProfile(profile)
             if (result.isFailure) {
