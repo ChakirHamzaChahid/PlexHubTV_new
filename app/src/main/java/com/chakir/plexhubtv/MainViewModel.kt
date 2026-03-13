@@ -3,12 +3,15 @@ package com.chakir.plexhubtv
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
+import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.auth.AuthEvent
 import com.chakir.plexhubtv.core.network.auth.AuthEventBus
 import com.chakir.plexhubtv.core.update.UpdateChecker
 import com.chakir.plexhubtv.core.update.UpdateInfo
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.firstOrNull
 import com.google.firebase.Firebase
 import com.google.firebase.analytics.analytics
@@ -31,6 +34,7 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val authEventBus: AuthEventBus,
     private val authRepository: AuthRepository,
+    private val connectionManager: ConnectionManager,
     private val updateChecker: UpdateChecker,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
@@ -51,6 +55,33 @@ class MainViewModel @Inject constructor(
         ) { event ->
             when (event) {
                 AuthEvent.TokenInvalid -> handleTokenInvalid()
+            }
+        }
+
+        // Re-discover server connections after network change so images load with fresh URLs
+        connectionManager.connectionRefreshNeeded.safeCollectIn(
+            scope = viewModelScope,
+            onError = { e ->
+                Timber.e(e, "MainViewModel: connection refresh collection failed")
+            }
+        ) {
+            refreshServerConnections()
+        }
+    }
+
+    private fun refreshServerConnections() {
+        viewModelScope.launch {
+            try {
+                val servers = authRepository.getServers(forceRefresh = false).getOrNull()
+                if (servers.isNullOrEmpty()) return@launch
+
+                Timber.i("MainViewModel: Re-discovering connections for ${servers.size} servers after network change")
+                servers.map { server ->
+                    async { connectionManager.findBestConnection(server) }
+                }.awaitAll()
+                Timber.i("MainViewModel: Connection re-discovery complete")
+            } catch (e: Exception) {
+                Timber.w(e, "MainViewModel: Connection re-discovery failed")
             }
         }
     }

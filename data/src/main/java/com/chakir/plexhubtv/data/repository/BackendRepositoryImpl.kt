@@ -114,7 +114,7 @@ class BackendRepositoryImpl @Inject constructor(
         }
 
     override suspend fun syncMedia(backendId: String): Result<Int> =
-        safeApiCall("BackendRepository.syncMedia") {
+        safeApiCall("BackendRepository.syncMedia", timeoutMs = 300_000L) {
             withContext(ioDispatcher) {
                 val backend = backendServerDao.getById(backendId)
                     ?: throw IllegalStateException("Backend server $backendId not found")
@@ -134,6 +134,8 @@ class BackendRepositoryImpl @Inject constructor(
                         database.withTransaction {
                             mediaDao.upsertMedia(entities)
                             populateIdBridge(entities)
+                            // Solution C: compute groupKey post-bridge
+                            mediaDao.updateGroupKeys(serverId, entities.map { it.ratingKey })
                         }
                         entities.forEach { syncedRatingKeys.add(it.ratingKey) }
                         totalSynced += entities.size
@@ -150,6 +152,8 @@ class BackendRepositoryImpl @Inject constructor(
                         database.withTransaction {
                             mediaDao.upsertMedia(entities)
                             populateIdBridge(entities)
+                            // Solution C: compute groupKey post-bridge
+                            mediaDao.updateGroupKeys(serverId, entities.map { it.ratingKey })
                         }
                         entities.forEach { syncedRatingKeys.add(it.ratingKey) }
                         totalSynced += entities.size
@@ -295,6 +299,7 @@ class BackendRepositoryImpl @Inject constructor(
                 val dto = service.getMediaDetail(ratingKey, originalServerId)
                 val mappedEntity = mapper.mapDtoToEntity(dto, backendId)
                 mediaDao.insertMedia(mappedEntity)
+                mediaDao.updateGroupKeys("backend_$backendId", listOf(mappedEntity.ratingKey))
                 mediaMapper.mapEntityToDomain(mappedEntity)
             }
         }

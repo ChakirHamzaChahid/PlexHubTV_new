@@ -50,6 +50,8 @@ import androidx.room.Entity
         androidx.room.Index(value = ["type", "imdbId"]),
         androidx.room.Index(value = ["type", "tmdbId"]),
         androidx.room.Index(value = ["type", "titleSortable"]),
+        // Solution C: Materialized aggregation key for media_unified GROUP BY + rebuild
+        androidx.room.Index(value = ["type", "groupKey"]),
     ],
 )
 data class MediaEntity(
@@ -121,6 +123,10 @@ data class MediaEntity(
     val metadataScore: Int = 0,
     // Whether this media comes from a server owned by the authenticated user (vs shared)
     val isOwned: Boolean = false,
+    // Solution C: Materialized aggregation key computed post-bridge by SQL.
+    // = COALESCE(imdbId, bridged_imdbId, 'tmdb_'||tmdbId, ratingKey||serverId)
+    // Used as PK in media_unified table and GROUP BY key in rebuild queries.
+    val groupKey: String = "",
 )
 
 /** Computes metadata quality score matching the SQL backfill formula in MIGRATION_37_38. */

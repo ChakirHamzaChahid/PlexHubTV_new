@@ -177,7 +177,7 @@ interface MediaDao {
         "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
         "parentThumb, grandparentThumb, displayRating, " +
         "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
-        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned " +
+        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned, groupKey " +
         "FROM media WHERE lastViewedAt > 0 " +
         "GROUP BY historyGroupKey " +
         "ORDER BY MAX(lastViewedAt) DESC LIMIT :limit OFFSET :offset"
@@ -196,7 +196,7 @@ interface MediaDao {
         "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
         "parentThumb, grandparentThumb, displayRating, " +
         "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
-        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned " +
+        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned, groupKey " +
         "FROM media WHERE lastViewedAt > 0 " +
         "GROUP BY historyGroupKey " +
         "ORDER BY MAX(lastViewedAt) DESC"
@@ -398,4 +398,23 @@ interface MediaDao {
         ratingKeys: List<String>,
         serverId: String,
     ): Map<@androidx.room.MapColumn(columnName = "ratingKey") String, @androidx.room.MapColumn(columnName = "scrapedRating") Double?>
+
+    // ========================================
+    // Solution C: groupKey computation (post-bridge)
+    // ========================================
+
+    /**
+     * Computes groupKey for a batch of media items AFTER id_bridge has been populated.
+     * Uses COALESCE chain: imdbId -> bridged imdbId (via tmdbId) -> 'tmdb_'||tmdbId -> ratingKey||serverId.
+     * Must be called within the same transaction as upsertMedia + idBridgeDao.upsertAll.
+     */
+    @Query("""
+        UPDATE media SET groupKey = COALESCE(
+            imdbId,
+            (SELECT id_bridge.imdbId FROM id_bridge WHERE id_bridge.tmdbId = media.tmdbId),
+            CASE WHEN tmdbId IS NOT NULL AND tmdbId != '' THEN 'tmdb_' || tmdbId ELSE NULL END,
+            ratingKey || serverId
+        ) WHERE serverId = :serverId AND ratingKey IN (:ratingKeys)
+    """)
+    suspend fun updateGroupKeys(serverId: String, ratingKeys: List<String>)
 }

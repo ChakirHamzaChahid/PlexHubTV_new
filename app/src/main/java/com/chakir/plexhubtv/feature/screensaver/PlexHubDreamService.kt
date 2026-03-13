@@ -8,16 +8,35 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
-import dagger.hilt.android.AndroidEntryPoint
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import timber.log.Timber
 
-@AndroidEntryPoint
+/**
+ * DreamService (screensaver) for PlexHubTV.
+ *
+ * Uses manual Hilt EntryPoint instead of @AndroidEntryPoint because
+ * DreamService has a non-standard lifecycle that causes silent injection
+ * failures on some devices/Hilt versions.
+ */
 class PlexHubDreamService : DreamService(), LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface DreamServiceEntryPoint {
+        fun mediaDao(): MediaDao
+        fun settingsRepository(): SettingsRepository
+    }
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
@@ -29,39 +48,60 @@ class PlexHubDreamService : DreamService(), LifecycleOwner, SavedStateRegistryOw
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        isInteractive = false
-        isFullscreen = true
+        Timber.i("[Screensaver] onAttachedToWindow — setting up DreamService")
 
-        savedStateRegistryController.performRestore(null)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        try {
+            isInteractive = false
+            isFullscreen = true
 
-        val composeView = ComposeView(this).apply {
-            setViewTreeLifecycleOwner(this@PlexHubDreamService)
-            setViewTreeSavedStateRegistryOwner(this@PlexHubDreamService)
-            setContent {
-                PlexHubTheme(appTheme = "OLEDBlack") {
-                    val viewModel: ScreensaverViewModel = viewModel()
-                    ScreensaverContent(viewModel = viewModel)
+            // Resolve dependencies from Hilt manually
+            val entryPoint = EntryPointAccessors.fromApplication(
+                applicationContext,
+                DreamServiceEntryPoint::class.java,
+            )
+            val mediaDao = entryPoint.mediaDao()
+            val settingsRepository = entryPoint.settingsRepository()
+
+            savedStateRegistryController.performRestore(null)
+            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+
+            val viewModel = ScreensaverViewModel(mediaDao, settingsRepository)
+
+            val composeView = ComposeView(this).apply {
+                setViewTreeLifecycleOwner(this@PlexHubDreamService)
+                setViewTreeViewModelStoreOwner(this@PlexHubDreamService)
+                setViewTreeSavedStateRegistryOwner(this@PlexHubDreamService)
+                setContent {
+                    PlexHubTheme(appTheme = "OLEDBlack") {
+                        ScreensaverContent(viewModel = viewModel)
+                    }
                 }
             }
-        }
-        setContentView(composeView)
+            setContentView(composeView)
 
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+            Timber.i("[Screensaver] DreamService setup complete")
+        } catch (e: Exception) {
+            Timber.e(e, "[Screensaver] Failed to set up DreamService")
+            finish()
+        }
     }
 
     override fun onDreamingStarted() {
         super.onDreamingStarted()
+        Timber.i("[Screensaver] onDreamingStarted")
     }
 
     override fun onDreamingStopped() {
         super.onDreamingStopped()
+        Timber.i("[Screensaver] onDreamingStopped")
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        Timber.i("[Screensaver] onDetachedFromWindow — cleaning up")
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         store.clear()

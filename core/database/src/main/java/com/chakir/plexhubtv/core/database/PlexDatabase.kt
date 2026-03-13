@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 /**
  * Définition principale de la base de données Room.
- * Version 39 : Composite indexes for unified query performance (type+imdbId, type+tmdbId, type+titleSortable)
+ * Version 40 : Solution C — media_unified materialized table + groupKey column on media
  */
 @TypeConverters(Converters::class)
 @Database(
@@ -30,8 +30,9 @@ import androidx.room.TypeConverters
         XtreamAccountEntity::class,
         BackendServerEntity::class,
         IdBridgeEntity::class,
+        MediaUnifiedEntity::class,
     ],
-    version = 39,
+    version = 40,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -68,4 +69,6 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun backendServerDao(): BackendServerDao
 
     abstract fun idBridgeDao(): IdBridgeDao
+
+    abstract fun mediaUnifiedDao(): MediaUnifiedDao
 }

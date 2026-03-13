@@ -53,7 +53,9 @@ import com.chakir.plexhubtv.feature.home.HomeRoute
 import com.chakir.plexhubtv.feature.hub.HubRoute
 import com.chakir.plexhubtv.feature.library.LibraryRoute
 import com.chakir.plexhubtv.feature.search.SearchRoute
+import com.chakir.plexhubtv.feature.settings.SettingsCategory
 import com.chakir.plexhubtv.feature.settings.SettingsRoute
+import com.chakir.plexhubtv.feature.settings.categories.*
 
 /**
  * Écran principal contenant le NavHost et la Sidebar.
@@ -227,7 +229,74 @@ fun MainScreen(
                     onNavigateToXtreamSetup = { onNavigateToXtreamSetup() },
                     onNavigateToXtreamCategorySelection = { accountId -> onNavigateToXtreamCategorySelection(accountId) },
                     onNavigateToSubtitleStyle = { navController.navigate(Screen.SubtitleStyle.route) },
+                    onNavigateToSettingsCategory = { category ->
+                        navController.navigate(Screen.SettingsCategoryScreen.createRoute(category.name))
+                    },
                 )
+            }
+            composable(
+                route = Screen.SettingsCategoryScreen.route,
+                arguments = listOf(navArgument(Screen.SettingsCategoryScreen.ARG_CATEGORY) { defaultValue = "" }),
+            ) { backStackEntry ->
+                val categoryName = backStackEntry.arguments?.getString(Screen.SettingsCategoryScreen.ARG_CATEGORY) ?: ""
+                val settingsViewModel: com.chakir.plexhubtv.feature.settings.SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val settingsState by settingsViewModel.uiState.collectAsState()
+                val isTvChannelsEnabled by settingsViewModel.isTvChannelsEnabled.collectAsState()
+                val events = settingsViewModel.navigationEvents
+
+                // Handle navigation events from sub-screens
+                LaunchedEffect(events) {
+                    events.collect { event ->
+                        when (event) {
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateBack -> navController.popBackStack()
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToLogin -> onLogout()
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToServerStatus -> navController.navigate(Screen.ServerStatus.route)
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToPlexHomeSwitch -> onNavigateToPlexHomeSwitch()
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToAppProfiles -> onNavigateToProfiles()
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToXtreamSetup -> onNavigateToXtreamSetup()
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToXtreamCategorySelection -> onNavigateToXtreamCategorySelection(event.accountId)
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToSubtitleStyle -> navController.navigate(Screen.SubtitleStyle.route)
+                        }
+                    }
+                }
+
+                when (SettingsCategory.fromRoute(categoryName)) {
+                    SettingsCategory.General -> GeneralSettingsScreen(
+                        state = settingsState,
+                        onAction = settingsViewModel::onAction,
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                    SettingsCategory.Playback -> PlaybackSettingsScreen(
+                        state = settingsState,
+                        onAction = settingsViewModel::onAction,
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                    SettingsCategory.Server -> ServerSettingsScreen(
+                        state = settingsState,
+                        onAction = settingsViewModel::onAction,
+                        onNavigateBack = { navController.popBackStack() },
+                        isTvChannelsEnabled = isTvChannelsEnabled,
+                        onTvChannelsEnabledChange = settingsViewModel::setTvChannelsEnabled,
+                    )
+                    SettingsCategory.DataSync -> DataSyncSettingsScreen(
+                        state = settingsState,
+                        onAction = settingsViewModel::onAction,
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                    SettingsCategory.Services -> ServicesSettingsScreen(
+                        state = settingsState,
+                        onAction = settingsViewModel::onAction,
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                    SettingsCategory.System -> SystemSettingsScreen(
+                        state = settingsState,
+                        onAction = settingsViewModel::onAction,
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToDebug = { navController.navigate(Screen.Debug.route) },
+                    )
+                    else -> navController.popBackStack()
+                }
             }
             composable(Screen.ServerStatus.route) {
                 com.chakir.plexhubtv.feature.settings.serverstatus.ServerStatusRoute(

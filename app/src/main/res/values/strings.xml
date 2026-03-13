@@ -390,6 +390,8 @@
     <string name="settings_skip_mode_auto">Auto-skip</string>
     <string name="settings_skip_mode_ask">Show button</string>
     <string name="settings_skip_mode_off">Disabled</string>
+    <string name="settings_theme_song">Theme Song</string>
+    <string name="settings_theme_song_subtitle">Play TV show theme music on detail screens</string>
 
     <!-- Subtitle Style -->
     <string name="settings_subtitle_style">Subtitle Style</string>
@@ -562,6 +564,24 @@
     <string name="settings_section_tv_channels">TV Channels</string>
     <string name="settings_tv_channels_title">TV Channels</string>
     <string name="settings_tv_channels_summary">Show Continue Watching channel in Android TV launcher</string>
+
+    <!-- Settings Category Cards -->
+    <string name="settings_category_general">General</string>
+    <string name="settings_category_general_subtitle">Theme, Profiles, Parental</string>
+    <string name="settings_category_playback">Playback</string>
+    <string name="settings_category_playback_subtitle">Quality, Engine, Languages</string>
+    <string name="settings_category_server">Server</string>
+    <string name="settings_category_server_subtitle">Default, Visibility, Channels</string>
+    <string name="settings_category_data_sync">Data &amp; Sync</string>
+    <string name="settings_category_data_sync_subtitle">Library, Ratings, Cache</string>
+    <string name="settings_category_services">Services</string>
+    <string name="settings_category_services_subtitle">Backend, IPTV, API Keys</string>
+    <string name="settings_category_system">System</string>
+    <string name="settings_category_system_subtitle">Screensaver, Updates, Legal</string>
+    <string name="settings_category_account">Account</string>
+    <string name="settings_category_account_subtitle">Logout</string>
+    <string name="settings_synced_libraries">Synced Libraries</string>
+    <string name="settings_synced_libraries_subtitle">Choose which libraries to sync</string>
 
     <!-- Account -->
     <string name="settings_section_account">Account</string>

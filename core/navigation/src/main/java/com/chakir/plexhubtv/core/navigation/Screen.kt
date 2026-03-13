@@ -45,6 +45,11 @@ sealed class Screen(val route: String) {
 
     data object SubtitleStyle : Screen("subtitle_style")
 
+    data object SettingsCategoryScreen : Screen("settings_category/{category}") {
+        const val ARG_CATEGORY = "category"
+        fun createRoute(category: String) = "settings_category/$category"
+    }
+
     data object PersonDetail : Screen("person_detail/{personName}") {
         const val ARG_PERSON_NAME = "personName"
         fun createRoute(personName: String) =

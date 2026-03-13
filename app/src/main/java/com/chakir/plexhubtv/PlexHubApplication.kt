@@ -223,6 +223,11 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
      * Contraintes : Nécessite une connexion réseau active.
      */
     private fun setupBackgroundSync() {
+        // Cancel any stale RatingSyncWorker left over from old PostSyncChain.
+        // RatingSync is now manual-only (triggered from Settings).
+        WorkManager.getInstance(this)
+            .cancelAllWorkByTag("com.chakir.plexhubtv.work.RatingSyncWorker")
+
         val constraints =
             Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -243,6 +248,14 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
                     "LibrarySync_Initial",
                     androidx.work.ExistingWorkPolicy.KEEP,
                     immediateSyncRequest,
+                )
+            } else if (isFirstSyncComplete) {
+                // Ensure media_unified is populated (may be empty after schema upgrade)
+                WorkManager.getInstance(this@PlexHubApplication).enqueueUniqueWork(
+                    "UnifiedRebuild_Startup",
+                    androidx.work.ExistingWorkPolicy.KEEP,
+                    androidx.work.OneTimeWorkRequestBuilder<com.chakir.plexhubtv.work.UnifiedRebuildWorker>()
+                        .build(),
                 )
             }
         }

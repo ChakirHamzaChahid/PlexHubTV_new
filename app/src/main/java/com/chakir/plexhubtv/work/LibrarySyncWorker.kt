@@ -220,21 +220,30 @@ class LibrarySyncWorker
                         settingsDataStore.saveFirstSyncComplete(true)
                         Timber.i("✓ Sync complete! ${servers.size - failureCount}/${servers.size} servers OK [$serverNames]")
 
-                        // TRIGGER COLLECTION SYNC NOW THAT WE HAVE DATA
+                        // TRIGGER POST-SYNC CHAIN: CollectionSync → UnifiedRebuildWorker
+                        // Note: RatingSyncWorker is manual-only (triggered from Settings)
                         try {
-                            Timber.d("→ Triggering Collection Sync after successful library sync")
+                            Timber.d("→ Triggering post-sync chain: CollectionSync → UnifiedRebuild")
                             val collectionSyncRequest =
                                 androidx.work.OneTimeWorkRequestBuilder<CollectionSyncWorker>()
                                     .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, java.util.concurrent.TimeUnit.SECONDS)
                                     .build()
-                            androidx.work.WorkManager.getInstance(applicationContext).enqueueUniqueWork(
-                                "CollectionSync_Initial",
-                                androidx.work.ExistingWorkPolicy.REPLACE,
-                                collectionSyncRequest,
-                            )
-                            Timber.i("✓ CollectionSyncWorker ENQUEUED successfully")
+                            val unifiedRebuildRequest =
+                                androidx.work.OneTimeWorkRequestBuilder<UnifiedRebuildWorker>()
+                                    .build()
+
+                            // CollectionSync runs first, then UnifiedRebuild
+                            androidx.work.WorkManager.getInstance(applicationContext)
+                                .beginUniqueWork(
+                                    "PostSyncChain",
+                                    androidx.work.ExistingWorkPolicy.REPLACE,
+                                    collectionSyncRequest,
+                                )
+                                .then(unifiedRebuildRequest)
+                                .enqueue()
+                            Timber.i("✓ Post-sync chain ENQUEUED: CollectionSync → UnifiedRebuild")
                         } catch (e: Exception) {
-                            Timber.e("Failed to trigger collection sync: ${e.message}")
+                            Timber.e("Failed to trigger post-sync chain: ${e.message}")
                         }
 
                         Result.success()

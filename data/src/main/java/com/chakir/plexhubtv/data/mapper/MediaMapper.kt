@@ -438,6 +438,54 @@ class MediaMapper
             }
         }
 
+        /**
+         * Maps a pre-aggregated MediaUnifiedEntity to the domain MediaItem.
+         * No mediaParts — fetched from `media` table on detail click.
+         */
+        fun mapUnifiedEntityToDomain(entity: com.chakir.plexhubtv.core.database.MediaUnifiedEntity): MediaItem {
+            val finalRating = entity.displayRating.takeIf { it > 0.0 }
+
+            return MediaItem(
+                id = "${entity.bestServerId}_${entity.bestRatingKey}",
+                ratingKey = entity.bestRatingKey,
+                serverId = entity.bestServerId,
+                unificationId = entity.unificationId,
+                title = entity.title,
+                guid = entity.guid,
+                type = mapType(entity.type),
+                imdbId = entity.imdbId,
+                tmdbId = entity.tmdbId,
+                thumbUrl = entity.thumbUrl,
+                artUrl = entity.artUrl,
+                alternativeThumbUrls = entity.alternativeThumbUrls?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
+                summary = entity.summary,
+                year = entity.year,
+                durationMs = entity.duration,
+                viewOffset = entity.viewOffset,
+                viewCount = entity.viewCount,
+                isWatched = entity.viewCount > 0 || run {
+                    val dur = entity.duration ?: 0L
+                    entity.viewOffset > 0 && dur > 0 && entity.viewOffset.toFloat() / dur.toFloat() >= 0.9f
+                },
+                lastViewedAt = entity.lastViewedAt,
+                parentTitle = entity.parentTitle,
+                parentRatingKey = entity.parentRatingKey,
+                parentIndex = entity.parentIndex,
+                grandparentTitle = entity.grandparentTitle,
+                grandparentRatingKey = entity.grandparentRatingKey,
+                episodeIndex = null, // Unified only contains movies/shows
+                seasonIndex = null,
+                mediaParts = emptyList(), // Fetched from media table on detail click
+                rating = finalRating,
+                audienceRating = entity.audienceRating,
+                contentRating = ContentRatingHelper.normalize(entity.contentRating),
+                genres = entity.genres?.split(",") ?: emptyList(),
+                updatedAt = entity.updatedAt,
+                parentThumb = entity.parentThumb,
+                grandparentThumb = entity.grandparentThumb,
+            )
+        }
+
         private fun mapTypeToString(type: MediaType): String {
             return when (type) {
                 MediaType.Movie -> "movie"

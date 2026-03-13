@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -12,10 +11,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import javax.inject.Inject
 
-@HiltViewModel
-class ScreensaverViewModel @Inject constructor(
+/**
+ * ViewModel for the screensaver. Constructed manually in [PlexHubDreamService]
+ * because Hilt's ViewModelFactory is not available in DreamService context.
+ */
+class ScreensaverViewModel(
     private val mediaDao: MediaDao,
     settingsRepository: SettingsRepository,
 ) : ViewModel() {

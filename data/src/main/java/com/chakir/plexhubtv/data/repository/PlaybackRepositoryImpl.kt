@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.data.repository
 
 import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.database.MediaUnifiedDao
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
@@ -30,6 +31,7 @@ class PlaybackRepositoryImpl
         private val connectionManager: ConnectionManager,
         private val api: PlexApiService,
         private val mediaDao: MediaDao,
+        private val mediaUnifiedDao: MediaUnifiedDao,
         private val apiCache: ApiCache,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
@@ -109,6 +111,13 @@ class PlaybackRepositoryImpl
             for (entry in entries) {
                 try {
                     mediaDao.updateProgress(
+                        ratingKey = entry.ratingKey,
+                        serverId = entry.serverId,
+                        viewOffset = entry.viewOffset,
+                        lastViewedAt = entry.lastViewedAt,
+                    )
+                    // Surgical update: mirror progress into media_unified (only if bestRatingKey matches)
+                    mediaUnifiedDao.updateProgress(
                         ratingKey = entry.ratingKey,
                         serverId = entry.serverId,
                         viewOffset = entry.viewOffset,

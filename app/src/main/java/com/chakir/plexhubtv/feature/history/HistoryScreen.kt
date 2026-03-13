@@ -16,7 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -79,14 +81,19 @@ fun HistoryScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (pagedItems.loadState.refresh is LoadState.Loading) {
+        // Only show skeleton on INITIAL load (no data yet).
+        // Once data exists, keep showing the grid during background refreshes
+        // to prevent unmount/remount which causes focus loss and visual flicker.
+        val isInitialLoading = pagedItems.loadState.refresh is LoadState.Loading && pagedItems.itemCount == 0
+
+        if (isInitialLoading) {
             LibraryGridSkeleton(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("history_loading")
                     .semantics { contentDescription = loadingDescription },
             )
-        } else if (pagedItems.itemCount == 0) {
+        } else if (pagedItems.itemCount == 0 && pagedItems.loadState.refresh is LoadState.NotLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -117,12 +124,18 @@ fun HistoryScreen(
             }
         } else {
             val gridState = rememberLazyGridState()
-            val gridFocusRequester = remember { FocusRequester() }
+            val firstItemFocusRequester = remember { FocusRequester() }
+            var hasRequestedInitialFocus by remember { mutableStateOf(false) }
 
-            // NAV-07: Request focus on first grid item when content loads
-            LaunchedEffect(pagedItems.itemSnapshotList) {
-                if (pagedItems.itemCount > 0) {
-                    try { gridFocusRequester.requestFocus() } catch (_: Exception) { }
+            // NAV-07: Request focus ONCE on first item when content first loads
+            LaunchedEffect(Unit) {
+                // Small delay to let the grid compose its first items
+                kotlinx.coroutines.delay(100)
+                if (!hasRequestedInitialFocus && pagedItems.itemCount > 0) {
+                    try {
+                        firstItemFocusRequester.requestFocus()
+                        hasRequestedInitialFocus = true
+                    } catch (_: Exception) { }
                 }
             }
 
@@ -132,13 +145,13 @@ fun HistoryScreen(
                 contentPadding = PaddingValues(top = 56.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize().focusRequester(gridFocusRequester),
+                modifier = Modifier.fillMaxSize(),
             ) {
                 items(
                     count = pagedItems.itemCount,
-                    key = { index -> 
+                    key = { index ->
                         val item = pagedItems[index]
-                        if (item != null) "${item.serverId}_${item.ratingKey}_$index" else "placeholder_$index" 
+                        if (item != null) "${item.serverId}_${item.ratingKey}" else "placeholder_$index"
                     }
                 ) { index ->
                     val media = pagedItems[index]
@@ -152,6 +165,7 @@ fun HistoryScreen(
                             height = 150.dp,
                             titleStyle = MaterialTheme.typography.labelMedium,
                             subtitleStyle = MaterialTheme.typography.labelSmall,
+                            modifier = if (index == 0) Modifier.focusRequester(firstItemFocusRequester) else Modifier,
                         )
                     }
                 }

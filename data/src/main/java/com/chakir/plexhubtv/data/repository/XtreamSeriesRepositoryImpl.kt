@@ -68,6 +68,8 @@ class XtreamSeriesRepositoryImpl @Inject constructor(
                             if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
                         }
                         if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
+                        // Solution C: compute groupKey post-bridge
+                        mediaDao.updateGroupKeys(serverId, entities.map { it.ratingKey })
                     }
                 }
 

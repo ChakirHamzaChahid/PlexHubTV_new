@@ -190,6 +190,8 @@ class SyncRepositoryImpl
                                             if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
                                         }
                                         if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
+                                        // Solution C: compute groupKey post-bridge
+                                        mediaDao.updateGroupKeys(server.clientIdentifier, entities.map { it.ratingKey })
                                     }
                                 }
                                 val dbDuration = System.currentTimeMillis() - dbStartTime
