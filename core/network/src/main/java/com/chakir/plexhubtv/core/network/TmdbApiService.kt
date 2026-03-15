@@ -24,6 +24,7 @@ interface TmdbApiService {
     suspend fun getTvDetails(
         @Path("tv_id") tmdbId: String,
         @Query("api_key") apiKey: String,
+        @Query("language") language: String? = null,
     ): TmdbTvResponse
 
     /**
@@ -36,6 +37,7 @@ interface TmdbApiService {
     suspend fun getMovieDetails(
         @Path("movie_id") tmdbId: String,
         @Query("api_key") apiKey: String,
+        @Query("language") language: String? = null,
     ): TmdbMovieResponse
 
     /**
@@ -47,6 +49,7 @@ interface TmdbApiService {
     suspend fun searchPerson(
         @Query("api_key") apiKey: String,
         @Query("query") name: String,
+        @Query("language") language: String? = null,
     ): TmdbPersonSearchResponse
 
     /**
@@ -59,6 +62,7 @@ interface TmdbApiService {
         @Path("person_id") personId: Int,
         @Query("api_key") apiKey: String,
         @Query("append_to_response") appendToResponse: String = "combined_credits",
+        @Query("language") language: String? = null,
     ): TmdbPersonDetailResponse
 }
 

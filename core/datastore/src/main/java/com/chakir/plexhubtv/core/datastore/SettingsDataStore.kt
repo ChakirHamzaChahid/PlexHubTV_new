@@ -511,6 +511,7 @@ class SettingsDataStore
 
         private val PREF_AUDIO_LANG = stringPreferencesKey("pref_audio_lang")
         private val PREF_SUBTITLE_LANG = stringPreferencesKey("pref_subtitle_lang")
+        private val PREF_METADATA_LANG = stringPreferencesKey("pref_metadata_lang")
 
         val preferredAudioLanguage: Flow<String?> =
             dataStore.data
@@ -538,6 +539,13 @@ class SettingsDataStore
                     preferences.remove(PREF_SUBTITLE_LANG)
                 }
             }
+        }
+
+        val metadataLanguage: Flow<String> =
+            dataStore.data.map { preferences -> preferences[PREF_METADATA_LANG] ?: "fr" }
+
+        suspend fun saveMetadataLanguage(lang: String) {
+            dataStore.edit { preferences -> preferences[PREF_METADATA_LANG] = lang }
         }
 
         suspend fun saveSelectedLibraryIds(ids: Set<String>) {

@@ -8,6 +8,7 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.UnifiedEpisode
 import com.chakir.plexhubtv.core.model.UnifiedSeason
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.network.ApiKeyManager
 import com.chakir.plexhubtv.core.network.OmdbApiService
 import com.chakir.plexhubtv.core.network.TmdbApiService
@@ -40,6 +41,7 @@ class MediaDetailRepositoryImpl
         private val omdbApiService: OmdbApiService,
         private val apiKeyManager: ApiKeyManager,
         private val aggregationService: AggregationService,
+        private val settingsDataStore: SettingsDataStore,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MediaDetailRepository {
         override suspend fun getMediaDetail(
@@ -386,20 +388,33 @@ class MediaDetailRepositoryImpl
                 runCatching {
                     val tmdbId = media.tmdbId
                     val imdbId = media.imdbId
+                    Timber.d("REFRESH_REPO: Start — title='${media.title}' tmdbId=$tmdbId imdbId=$imdbId type=${media.type}")
 
                     if (tmdbId != null) {
                         val tmdbKey = apiKeyManager.getTmdbApiKey()
-                            ?: throw IllegalStateException("TMDB API key not configured")
+                        Timber.d("REFRESH_REPO: TMDB key configured=${tmdbKey != null}")
+                        if (tmdbKey == null) throw IllegalStateException("TMDB API key not configured")
+
+                        // Read metadata language preference
+                        val langCode = settingsDataStore.metadataLanguage.first()
+                        val tmdbLang = when (langCode) {
+                            "fr" -> "fr-FR"
+                            "en" -> "en-US"
+                            else -> "fr-FR"
+                        }
 
                         // Fetch from TMDB: rating + overview + poster
+                        Timber.d("REFRESH_REPO: Calling TMDB API for ${media.type} tmdbId=$tmdbId lang=$tmdbLang...")
                         val (rating, overview, posterPath) = when (media.type) {
                             MediaType.Movie -> {
-                                val r = tmdbApiService.getMovieDetails(tmdbId, tmdbKey)
+                                val r = tmdbApiService.getMovieDetails(tmdbId, tmdbKey, language = tmdbLang)
+                                Timber.d("REFRESH_REPO: TMDB movie response — success=${r.success} voteAvg=${r.voteAverage} overview=${r.overview?.take(80)}... poster=${r.posterPath}")
                                 if (r.success == false) throw RuntimeException("TMDB error: ${r.statusMessage}")
                                 Triple(r.voteAverage, r.overview, r.posterPath)
                             }
                             MediaType.Show -> {
-                                val r = tmdbApiService.getTvDetails(tmdbId, tmdbKey)
+                                val r = tmdbApiService.getTvDetails(tmdbId, tmdbKey, language = tmdbLang)
+                                Timber.d("REFRESH_REPO: TMDB TV response — success=${r.success} voteAvg=${r.voteAverage} overview=${r.overview?.take(80)}... poster=${r.posterPath}")
                                 if (r.success == false) throw RuntimeException("TMDB error: ${r.statusMessage}")
                                 Triple(r.voteAverage, r.overview, r.posterPath)
                             }
@@ -408,24 +423,31 @@ class MediaDetailRepositoryImpl
 
                         val finalRating = rating ?: throw RuntimeException("No rating from TMDB")
                         val posterUrl = posterPath?.let { "https://image.tmdb.org/t/p/w780$it" }
+                        Timber.d("REFRESH_REPO: Writing to DB — rating=$finalRating overview=${overview?.take(50)}... posterUrl=$posterUrl")
 
                         // Write to BOTH persistence + display columns (cross-server via tmdbId)
                         val updated = mediaDao.updateMetadataByTmdbId(tmdbId, finalRating, overview, posterUrl)
-                        Timber.i("TMDB refresh: updated $updated rows for tmdbId=$tmdbId (rating=$finalRating)")
+                        Timber.i("REFRESH_REPO: DAO updated $updated rows for tmdbId=$tmdbId")
 
                         // Rebuild affected media_unified groups
                         val groupKeys = mediaDao.getGroupKeysByTmdbId(tmdbId)
+                        Timber.d("REFRESH_REPO: Rebuilding ${groupKeys.size} media_unified groups: $groupKeys")
                         groupKeys.forEach { aggregationService.rebuildGroup(it) }
+                        Timber.d("REFRESH_REPO: Done — $updated rows updated, ${groupKeys.size} groups rebuilt")
 
                     } else if (imdbId != null) {
                         // OMDB fallback: rating only (no overview/poster)
                         val omdbKey = apiKeyManager.getOmdbApiKey()
-                            ?: throw IllegalStateException("OMDB API key not configured")
+                        Timber.d("REFRESH_REPO: OMDB fallback — key configured=${omdbKey != null}")
+                        if (omdbKey == null) throw IllegalStateException("OMDB API key not configured")
+
+                        Timber.d("REFRESH_REPO: Calling OMDB API for imdbId=$imdbId...")
                         val omdbResponse = omdbApiService.getRating(imdbId, omdbKey)
+                        Timber.d("REFRESH_REPO: OMDB response — rating='${omdbResponse.imdbRating}' response='${omdbResponse.response}' error=${omdbResponse.error}")
                         val omdbRating = omdbResponse.imdbRating?.toDoubleOrNull()
                             ?: throw RuntimeException("Invalid OMDB rating: ${omdbResponse.imdbRating}")
                         val updated = mediaDao.updateRatingByImdbId(imdbId, omdbRating)
-                        Timber.i("OMDB refresh: updated $updated rows for imdbId=$imdbId (rating=$omdbRating)")
+                        Timber.i("REFRESH_REPO: OMDB updated $updated rows for imdbId=$imdbId (rating=$omdbRating)")
                     } else {
                         throw IllegalStateException("No external ID (tmdbId or imdbId)")
                     }

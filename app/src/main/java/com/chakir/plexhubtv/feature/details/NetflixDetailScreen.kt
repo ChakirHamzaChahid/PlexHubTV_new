@@ -166,7 +166,7 @@ fun NetflixDetailScreen(
             DetailFixedHeader(
                 media = media,
                 seasons = seasons,
-                modifier = Modifier.fillMaxHeight(0.38f),
+                modifier = Modifier.padding(top = 24.dp),
             )
 
             // ── SCROLLABLE BODY: Buttons, tech info, summary, tabs, content ──
@@ -178,55 +178,6 @@ fun NetflixDetailScreen(
                 // Action Buttons
                 item(key = "detail_buttons") {
                     Column(modifier = Modifier.fillMaxWidth().padding(end = 50.dp)) {
-                        // Technical badges row
-                        val streams = media.mediaParts.firstOrNull()?.streams ?: emptyList()
-                        val videoStreams = streams.filterIsInstance<VideoStream>()
-                        val audioStreams = streams.filterIsInstance<AudioStream>()
-                        val subtitleStreams = streams.filterIsInstance<SubtitleStream>()
-
-                        if (videoStreams.isNotEmpty() || audioStreams.isNotEmpty() || subtitleStreams.isNotEmpty()) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                videoStreams.firstOrNull()?.let { video ->
-                                    val resolution = when {
-                                        (video.height ?: 0) >= 2160 -> "4K"
-                                        (video.height ?: 0) >= 1080 -> "1080p"
-                                        (video.height ?: 0) >= 720 -> "720p"
-                                        (video.height ?: 0) >= 480 -> "480p"
-                                        else -> "${video.height}p"
-                                    }
-                                    val hdrSuffix = if (video.hasHDR) " HDR" else ""
-                                    val altCount = videoStreams.size - 1
-                                    TechBadge(text = "$resolution$hdrSuffix${if (altCount > 0) " (+$altCount)" else ""}")
-                                }
-                                videoStreams.firstOrNull()?.codec?.uppercase()?.let { codec ->
-                                    TechBadge(text = codec)
-                                }
-                                audioStreams.firstOrNull()?.let { audio ->
-                                    val channelLabel = when (audio.channels) {
-                                        1 -> "Mono"; 2 -> "Stereo"; 6 -> "5.1"; 8 -> "7.1"
-                                        else -> audio.channels?.toString() ?: ""
-                                    }
-                                    val lang = audio.language ?: audio.languageCode ?: ""
-                                    val codec = audio.codec?.uppercase() ?: ""
-                                    val altCount = audioStreams.size - 1
-                                    val label = listOfNotNull(
-                                        lang.ifEmpty { null }, codec.ifEmpty { null }, channelLabel.ifEmpty { null },
-                                    ).joinToString(" ")
-                                    TechBadge(text = "\uD83D\uDD0A $label${if (altCount > 0) " (+$altCount)" else ""}")
-                                }
-                                if (subtitleStreams.isNotEmpty()) {
-                                    val firstSub = subtitleStreams.firstOrNull()
-                                    val lang = firstSub?.language ?: firstSub?.languageCode ?: "CC"
-                                    val altCount = subtitleStreams.size - 1
-                                    TechBadge(text = "CC $lang${if (altCount > 0) " (+$altCount)" else ""}")
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-
                         // Available on
                         if (!state.isEnriching && media.remoteSources.isNotEmpty()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -422,7 +373,7 @@ private fun DetailFixedHeader(
 ) {
     Box(
         modifier = modifier.fillMaxWidth().padding(start = 50.dp, end = 50.dp, bottom = 8.dp),
-        contentAlignment = Alignment.BottomStart,
+        contentAlignment = Alignment.TopStart,
     ) {
         Column {
             Text(
@@ -503,6 +454,45 @@ private fun DetailFixedHeader(
                             )
                         }
                         Text(text = "Ends at $endsAt", style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
+                    }
+                }
+
+                // Tech badges inline
+                val streams = media.mediaParts.firstOrNull()?.streams ?: emptyList()
+                val videoStreams = streams.filterIsInstance<VideoStream>()
+                val audioStreams = streams.filterIsInstance<AudioStream>()
+                val subtitleStreams = streams.filterIsInstance<SubtitleStream>()
+
+                if (videoStreams.isNotEmpty() || audioStreams.isNotEmpty() || subtitleStreams.isNotEmpty()) {
+                    MetaDot()
+                    videoStreams.firstOrNull()?.let { video ->
+                        val resolution = when {
+                            (video.height ?: 0) >= 2160 -> "4K"
+                            (video.height ?: 0) >= 1080 -> "1080p"
+                            (video.height ?: 0) >= 720 -> "720p"
+                            (video.height ?: 0) >= 480 -> "480p"
+                            else -> "${video.height}p"
+                        }
+                        val hdrSuffix = if (video.hasHDR) " HDR" else ""
+                        TechBadge(text = "$resolution$hdrSuffix")
+                    }
+                    videoStreams.firstOrNull()?.codec?.uppercase()?.let { codec ->
+                        TechBadge(text = codec)
+                    }
+                    audioStreams.firstOrNull()?.let { audio ->
+                        val channelLabel = when (audio.channels) {
+                            1 -> "Mono"; 2 -> "Stereo"; 6 -> "5.1"; 8 -> "7.1"
+                            else -> audio.channels?.toString() ?: ""
+                        }
+                        val codec = audio.codec?.uppercase() ?: ""
+                        val label = listOfNotNull(
+                            codec.ifEmpty { null }, channelLabel.ifEmpty { null },
+                        ).joinToString(" ")
+                        TechBadge(text = "\uD83D\uDD0A $label")
+                    }
+                    if (subtitleStreams.isNotEmpty()) {
+                        val count = subtitleStreams.size
+                        TechBadge(text = "CC ($count)")
                     }
                 }
             }

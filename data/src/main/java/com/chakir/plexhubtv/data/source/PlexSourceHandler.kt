@@ -131,8 +131,16 @@ class PlexSourceHandler @Inject constructor(
      * ~1ms Room lookup by primary key. No-op if no overrides exist.
      */
     private suspend fun mergeOverrides(item: MediaItem, ratingKey: String, serverId: String): MediaItem {
-        val entity = mediaDao.getMedia(ratingKey, serverId) ?: return item
-        if (entity.overriddenSummary == null && entity.overriddenThumbUrl == null) return item
+        val entity = mediaDao.getMedia(ratingKey, serverId)
+        if (entity == null) {
+            Timber.d("MERGE_OVERRIDE: No entity in Room for rk=$ratingKey sid=$serverId — skip")
+            return item
+        }
+        if (entity.overriddenSummary == null && entity.overriddenThumbUrl == null) {
+            Timber.d("MERGE_OVERRIDE: No overrides for '${item.title}' rk=$ratingKey — skip")
+            return item
+        }
+        Timber.d("MERGE_OVERRIDE: Applying overrides for '${item.title}' rk=$ratingKey — summary=${entity.overriddenSummary?.take(50)}... thumb=${entity.overriddenThumbUrl?.take(60)}...")
         return item.copy(
             summary = entity.overriddenSummary ?: item.summary,
             thumbUrl = entity.overriddenThumbUrl ?: item.thumbUrl,

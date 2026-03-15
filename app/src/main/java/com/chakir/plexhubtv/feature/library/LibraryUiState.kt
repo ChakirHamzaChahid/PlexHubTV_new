@@ -70,6 +70,7 @@ data class LibraryScrollState(
     val endOfReached: Boolean = false,
     val initialScrollIndex: Int? = null,
     val lastFocusedId: String? = null,
+    val pendingScrollRestore: Int? = null,
 )
 
 /**
@@ -94,7 +95,7 @@ sealed interface LibraryAction {
 
     object Refresh : LibraryAction
 
-    data class OpenMedia(val media: MediaItem) : LibraryAction
+    data class OpenMedia(val media: MediaItem, val firstVisibleItemIndex: Int = 0) : LibraryAction
 
     data class SelectLibrary(val libraryId: String) : LibraryAction
 

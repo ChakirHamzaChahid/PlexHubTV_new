@@ -75,6 +75,10 @@ interface SettingsRepository {
 
     suspend fun setPreferredSubtitleLanguage(lang: String?)
 
+    val metadataLanguage: Flow<String> // "fr" or "en" — language for TMDB API calls
+
+    suspend fun setMetadataLanguage(lang: String)
+
     // --- System ---
     val isCacheEnabled: Flow<Boolean>
 

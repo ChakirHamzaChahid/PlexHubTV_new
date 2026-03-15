@@ -279,6 +279,10 @@ class SettingsViewModel
                     _uiState.update { it.copy(preferredSubtitleLanguage = action.language) }
                     viewModelScope.launch { settingsRepository.setPreferredSubtitleLanguage(action.language) }
                 }
+                is SettingsAction.ChangeMetadataLanguage -> {
+                    _uiState.update { it.copy(metadataLanguage = action.language) }
+                    viewModelScope.launch { settingsRepository.setMetadataLanguage(action.language) }
+                }
                 is SettingsAction.ToggleServerExclusion -> {
                     viewModelScope.launch { settingsRepository.toggleServerExclusion(action.serverId) }
                 }
@@ -666,17 +670,19 @@ class SettingsViewModel
                 }
             }
 
-            // Group 2: Language & exclusion preferences (3 flows)
+            // Group 2: Language & exclusion preferences (4 flows)
             val prefs = combine(
                 settingsRepository.preferredAudioLanguage,
                 settingsRepository.preferredSubtitleLanguage,
                 settingsRepository.excludedServerIds,
-            ) { audio, subtitle, excluded ->
+                settingsRepository.metadataLanguage,
+            ) { audio, subtitle, excluded, metaLang ->
                 { s: SettingsUiState ->
                     s.copy(
                         preferredAudioLanguage = audio,
                         preferredSubtitleLanguage = subtitle,
                         excludedServerIds = excluded,
+                        metadataLanguage = metaLang,
                     )
                 }
             }

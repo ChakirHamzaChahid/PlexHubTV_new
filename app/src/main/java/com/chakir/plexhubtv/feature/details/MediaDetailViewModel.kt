@@ -337,17 +337,21 @@ class MediaDetailViewModel
 
         private fun refreshMetadata() {
             val media = _uiState.value.media ?: return
+            Timber.d("REFRESH_META: Starting for '${media.title}' type=${media.type} tmdbId=${media.tmdbId} imdbId=${media.imdbId} rk=${media.ratingKey} sid=${media.serverId}")
             viewModelScope.launch {
                 _uiState.update { it.copy(isRefreshingMetadata = true) }
+                val startTime = System.currentTimeMillis()
                 mediaDetailRepository.refreshMetadataFromTmdb(media)
                     .onSuccess {
+                        Timber.d("REFRESH_META: Success in ${System.currentTimeMillis() - startTime}ms, reloading detail...")
                         loadDetail() // Reload from Room/API with merged overrides
                     }
                     .onFailure { e ->
-                        Timber.e(e, "TMDB refresh failed")
+                        Timber.e(e, "REFRESH_META: Failed in ${System.currentTimeMillis() - startTime}ms")
                         emitError(AppError.Media.LoadFailed(e.message, e))
                     }
                 _uiState.update { it.copy(isRefreshingMetadata = false) }
+                Timber.d("REFRESH_META: Done, isRefreshingMetadata=false")
             }
         }
 

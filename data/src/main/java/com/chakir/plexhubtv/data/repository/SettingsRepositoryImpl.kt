@@ -128,6 +128,12 @@ class SettingsRepositoryImpl
             settingsDataStore.savePreferredSubtitleLanguage(lang)
         }
 
+        override val metadataLanguage: Flow<String> = settingsDataStore.metadataLanguage
+
+        override suspend fun setMetadataLanguage(lang: String) {
+            settingsDataStore.saveMetadataLanguage(lang)
+        }
+
         override suspend fun clearSession() {
             settingsDataStore.clearAll()
         }

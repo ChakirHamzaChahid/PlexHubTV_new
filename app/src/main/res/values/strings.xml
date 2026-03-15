@@ -517,6 +517,10 @@
     <string name="settings_lang_russian">Russian</string>
     <string name="settings_lang_portuguese">Portuguese</string>
 
+    <!-- Metadata Language -->
+    <string name="settings_metadata_language">Metadata Language</string>
+    <string name="settings_metadata_language_subtitle">Language for actor details and metadata refresh</string>
+
     <!-- Server -->
     <string name="settings_section_server">Server</string>
     <string name="settings_default_server">Default Server</string>

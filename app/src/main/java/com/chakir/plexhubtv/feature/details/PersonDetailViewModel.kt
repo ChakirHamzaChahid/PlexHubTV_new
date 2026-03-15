@@ -9,7 +9,9 @@ import com.chakir.plexhubtv.core.network.ApiKeyManager
 import com.chakir.plexhubtv.core.network.TmdbApiService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.chakir.plexhubtv.domain.repository.PersonFavoriteRepository
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -32,6 +34,7 @@ class PersonDetailViewModel @Inject constructor(
     private val tmdbApiService: TmdbApiService,
     private val apiKeyManager: ApiKeyManager,
     private val personFavoriteRepository: PersonFavoriteRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PersonDetailUiState())
@@ -57,8 +60,16 @@ class PersonDetailViewModel @Inject constructor(
             }
 
             try {
+                // Read metadata language preference (e.g. "fr" → "fr-FR", "en" → "en-US")
+                val langCode = settingsRepository.metadataLanguage.first()
+                val tmdbLang = when (langCode) {
+                    "fr" -> "fr-FR"
+                    "en" -> "en-US"
+                    else -> "fr-FR"
+                }
+
                 // Search for the person by name
-                val searchResponse = tmdbApiService.searchPerson(apiKey, personName)
+                val searchResponse = tmdbApiService.searchPerson(apiKey, personName, language = tmdbLang)
                 val firstResult = searchResponse.results.firstOrNull()
 
                 if (firstResult == null) {
@@ -70,7 +81,7 @@ class PersonDetailViewModel @Inject constructor(
                 }
 
                 // Get full details with combined credits
-                val detail = tmdbApiService.getPersonDetails(firstResult.id, apiKey)
+                val detail = tmdbApiService.getPersonDetails(firstResult.id, apiKey, language = tmdbLang)
 
                 val castCredits = detail.combinedCredits?.cast
                     ?.filter { !it.character.isNullOrBlank() }

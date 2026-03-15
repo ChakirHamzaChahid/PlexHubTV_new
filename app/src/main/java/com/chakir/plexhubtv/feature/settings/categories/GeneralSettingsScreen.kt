@@ -32,6 +32,7 @@ fun GeneralSettingsScreen(
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
     var showParentalPinDialog by remember { mutableStateOf(false) }
+    var showMetadataLangDialog by remember { mutableStateOf(false) }
     val listFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -103,6 +104,22 @@ fun GeneralSettingsScreen(
                             val newCount = if (state.gridColumnsCount == 6) 7 else 6
                             onAction(SettingsAction.ChangeGridColumnsCount(newCount))
                         },
+                    )
+                }
+            }
+
+            // --- Language ---
+            item {
+                SettingsSection(stringResource(R.string.settings_section_languages)) {
+                    val metaLangDisplay = when (state.metadataLanguage) {
+                        "fr" -> stringResource(R.string.settings_lang_french)
+                        "en" -> stringResource(R.string.settings_lang_english)
+                        else -> state.metadataLanguage
+                    }
+                    SettingsTile(
+                        title = stringResource(R.string.settings_metadata_language),
+                        subtitle = metaLangDisplay,
+                        onClick = { showMetadataLangDialog = true },
                     )
                 }
             }
@@ -195,6 +212,29 @@ fun GeneralSettingsScreen(
                 showParentalPinDialog = false
             },
             onDismiss = { showParentalPinDialog = false },
+        )
+    }
+
+    if (showMetadataLangDialog) {
+        val options = listOf(
+            stringResource(R.string.settings_lang_french),
+            stringResource(R.string.settings_lang_english),
+        )
+        val codes = listOf("fr", "en")
+        SettingsDialog(
+            title = stringResource(R.string.settings_metadata_language),
+            options = options,
+            currentValue = when (state.metadataLanguage) {
+                "fr" -> options[0]
+                "en" -> options[1]
+                else -> options[0]
+            },
+            onDismissRequest = { showMetadataLangDialog = false },
+            onOptionSelected = { selected ->
+                val code = codes[options.indexOf(selected)]
+                onAction(SettingsAction.ChangeMetadataLanguage(code))
+                showMetadataLangDialog = false
+            },
         )
     }
 }

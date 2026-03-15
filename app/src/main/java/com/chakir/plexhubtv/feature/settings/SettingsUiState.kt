@@ -26,6 +26,7 @@ data class SettingsUiState(
     val excludedServerIds: Set<String> = emptySet(),
     val preferredAudioLanguage: String? = null,
     val preferredSubtitleLanguage: String? = null,
+    val metadataLanguage: String = "fr",
     val tmdbApiKey: String = "",
     val omdbApiKey: String = "",
     val isSyncingRatings: Boolean = false,
@@ -111,6 +112,8 @@ sealed interface SettingsAction {
     data class ChangePreferredAudioLanguage(val language: String?) : SettingsAction
 
     data class ChangePreferredSubtitleLanguage(val language: String?) : SettingsAction
+
+    data class ChangeMetadataLanguage(val language: String) : SettingsAction
 
     data class ToggleServerExclusion(val serverId: String) : SettingsAction
 

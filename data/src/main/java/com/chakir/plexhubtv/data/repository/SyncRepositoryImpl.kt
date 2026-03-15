@@ -156,6 +156,9 @@ class SyncRepositoryImpl
                                 // PERSISTENCE: Preserve TMDB manual overrides (summary + poster)
                                 val overriddenMap = mediaDao.getOverriddenMetadata(ratingKeys, server.clientIdentifier)
                                     .associateBy { it.ratingKey }
+                                if (overriddenMap.isNotEmpty()) {
+                                    Timber.d("SYNC_OVERRIDE: Restoring ${overriddenMap.size} TMDB overrides for ${server.name}: ${overriddenMap.keys}")
+                                }
 
                                 val accessToken = server.accessToken ?: ""
                                 val entities =
