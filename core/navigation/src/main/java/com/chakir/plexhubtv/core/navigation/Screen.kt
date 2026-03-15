@@ -43,6 +43,19 @@ sealed class Screen(val route: String) {
 
     data object AppProfileSwitch : Screen("app_profile_switch")
 
+    data object SubtitleStyle : Screen("subtitle_style")
+
+    data object SettingsCategoryScreen : Screen("settings_category/{category}") {
+        const val ARG_CATEGORY = "category"
+        fun createRoute(category: String) = "settings_category/$category"
+    }
+
+    data object PersonDetail : Screen("person_detail/{personName}") {
+        const val ARG_PERSON_NAME = "personName"
+        fun createRoute(personName: String) =
+            "person_detail/${java.net.URLEncoder.encode(personName, "UTF-8")}"
+    }
+
     // --- Media Graph ---
     data object MediaDetail : Screen("media_detail/{ratingKey}?serverId={serverId}") {
         fun createRoute(
@@ -63,6 +76,15 @@ sealed class Screen(val route: String) {
             collectionId: String,
             serverId: String,
         ) = "collection_detail/$collectionId?serverId=$serverId"
+    }
+
+    data object Playlists : Screen("playlists")
+
+    data object PlaylistDetail : Screen("playlist_detail/{playlistId}?serverId={serverId}") {
+        fun createRoute(
+            playlistId: String,
+            serverId: String,
+        ) = "playlist_detail/$playlistId?serverId=$serverId"
     }
 
     data object Iptv : Screen("iptv")

@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Build
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaPart
+import com.chakir.plexhubtv.feature.player.profile.DeviceProfileService
 import timber.log.Timber
 import java.net.URLEncoder
 import java.util.UUID
@@ -15,7 +16,9 @@ import javax.inject.Inject
 @javax.inject.Singleton
 class TranscodeUrlBuilder
     @Inject
-    constructor() {
+    constructor(
+        private val deviceProfileService: DeviceProfileService,
+    ) {
         fun buildUrl(
             media: MediaItem,
             part: MediaPart,
@@ -102,6 +105,16 @@ class TranscodeUrlBuilder
                 if (subtitleIndex >= 0) {
                     transcodeUrlBuilder.append("&subtitleIndex=$subtitleIndex")
                 }
+            }
+
+            // Device profile: inform Plex of supported codecs and resolution
+            val dp = deviceProfileService.profile
+            transcodeUrlBuilder.append("&videoResolution=${dp.maxWidth}x${dp.maxHeight}")
+            if (dp.videoCodecs.isNotEmpty()) {
+                transcodeUrlBuilder.append("&videoCodecs=${dp.videoCodecs.joinToString(",")}")
+            }
+            if (dp.audioCodecs.isNotEmpty()) {
+                transcodeUrlBuilder.append("&audioCodecs=${dp.audioCodecs.joinToString(",")}")
             }
 
             transcodeUrlBuilder.append("&X-Plex-Token=$token")

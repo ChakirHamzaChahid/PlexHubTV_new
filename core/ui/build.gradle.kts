@@ -72,5 +72,6 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.palette)
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
 }

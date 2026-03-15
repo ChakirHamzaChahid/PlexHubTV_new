@@ -26,7 +26,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.VolumeUp
@@ -68,6 +68,7 @@ fun NetflixPlayerControls(
     isPlaying: Boolean,
     currentTimeMs: Long,
     durationMs: Long,
+    bufferedPositionMs: Long = 0L,
     onPlayPauseToggle: () -> Unit,
     onSeek: (Long) -> Unit,
     onSkipForward: () -> Unit,
@@ -82,10 +83,11 @@ fun NetflixPlayerControls(
     onSkipMarker: (Marker) -> Unit = {},
     onShowSubtitles: () -> Unit = {},
     onShowAudio: () -> Unit = {},
-    onShowSettings: () -> Unit = {},
+    onShowMore: () -> Unit = {},
     onPreviousChapter: () -> Unit = {},
     onNextChapter: () -> Unit = {},
-    playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null
+    playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
+    getFrameBitmap: ((Long) -> android.graphics.Bitmap?)? = null,
 ) {
     val prevChapterDesc = stringResource(R.string.player_previous_chapter)
     val nextChapterDesc = stringResource(R.string.player_next_chapter)
@@ -101,7 +103,7 @@ fun NetflixPlayerControls(
     val stopDesc = stringResource(R.string.player_stop)
     val subtitlesDesc = stringResource(R.string.player_subtitles)
     val audioDesc = stringResource(R.string.player_audio)
-    val settingsDesc = stringResource(R.string.player_settings)
+    val moreDesc = stringResource(R.string.player_more)
 
     AnimatedVisibility(
         visible = isVisible,
@@ -210,11 +212,13 @@ fun NetflixPlayerControls(
                 EnhancedSeekBar(
                     currentPosition = currentTimeMs,
                     duration = durationMs,
+                    bufferedPosition = bufferedPositionMs,
                     chapters = chapters,
                     markers = markers,
                     onSeek = onSeek,
                     playedColor = NetflixRed,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    getFrameBitmap = getFrameBitmap,
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -307,10 +311,10 @@ fun NetflixPlayerControls(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     IconButton(
-                        onClick = onShowSettings,
-                        modifier = Modifier.testTag("player_settings_button")
+                        onClick = onShowMore,
+                        modifier = Modifier.testTag("player_more_button")
                     ) {
-                        Icon(Icons.Default.Settings, settingsDesc, tint = Color.White)
+                        Icon(Icons.Default.MoreVert, moreDesc, tint = Color.White)
                     }
                 }
             }

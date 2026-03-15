@@ -39,6 +39,7 @@ fun NetflixContentRow(
     onItemClick: (MediaItem) -> Unit,
     onItemPlay: (MediaItem) -> Unit,
     onItemLongPress: ((MediaItem) -> Unit)? = null,
+    onItemFocused: ((MediaItem) -> Unit)? = null,
     rowId: String = title.lowercase().replace(" ", "_"),
     leftExitFocusRequester: FocusRequester? = null,
     showYear: Boolean = false,
@@ -52,7 +53,7 @@ fun NetflixContentRow(
             .fillMaxWidth()
             .testTag("hub_row_$rowId")
             .semantics { contentDescription = "Catégorie: $title" }
-            .padding(bottom = 24.dp)
+            .padding(bottom = 12.dp)
     ) {
         // Row Title
         Text(
@@ -97,6 +98,9 @@ fun NetflixContentRow(
                     onClick = onClick,
                     onPlay = onPlay,
                     onLongPress = longPress,
+                    onFocus = { isFocused ->
+                        if (isFocused) onItemFocused?.invoke(item)
+                    },
                     showYear = showYear,
                 )
             }

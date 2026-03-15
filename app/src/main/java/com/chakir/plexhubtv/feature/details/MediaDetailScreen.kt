@@ -15,6 +15,9 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.Composable
@@ -67,6 +70,7 @@ fun MediaDetailRoute(
     onNavigateToDetail: (String, String) -> Unit,
     onNavigateToSeason: (String, String) -> Unit,
     onNavigateToCollection: (String, String) -> Unit,
+    onNavigateToPersonDetail: (String) -> Unit = {},
     onNavigateBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -85,6 +89,7 @@ fun MediaDetailRoute(
                 is MediaDetailNavigationEvent.NavigateToMediaDetail -> onNavigateToDetail(event.ratingKey, event.serverId)
                 is MediaDetailNavigationEvent.NavigateToSeason -> onNavigateToSeason(event.ratingKey, event.serverId)
                 is MediaDetailNavigationEvent.NavigateToCollection -> onNavigateToCollection(event.collectionId, event.serverId)
+                is MediaDetailNavigationEvent.NavigateToPersonDetail -> onNavigateToPersonDetail(event.personName)
                 is MediaDetailNavigationEvent.NavigateBack -> onNavigateBack()
             }
         }
@@ -92,6 +97,21 @@ fun MediaDetailRoute(
 
     HandleErrors(errorEvents, snackbarHostState) {
         viewModel.onEvent(MediaDetailEvent.Retry)
+    }
+
+    // Theme song playback
+    val themeSongService = viewModel.themeSongService
+    val themeSongEnabled by viewModel.themeSongEnabled.collectAsState()
+    val themeUrl = uiState.media?.themeUrl
+    val scope = rememberCoroutineScope()
+
+    DisposableEffect(themeUrl, themeSongEnabled) {
+        if (themeSongEnabled && themeUrl != null) {
+            themeSongService.play(themeUrl, scope = scope)
+        }
+        onDispose {
+            themeSongService.stop() // no scope = immediate release (scope is already cancelled here)
+        }
     }
 
     MediaDetailScreen(
@@ -144,6 +164,45 @@ fun MediaDetailScreen(
                 onDismiss = { onAction(MediaDetailEvent.DismissSourceSelection) },
                 onSourceSelected = { source ->
                     onAction(MediaDetailEvent.PlaySource(source))
+                },
+            )
+        }
+
+        if (state.showDeleteConfirmation && state.media != null) {
+            AlertDialog(
+                onDismissRequest = { onAction(MediaDetailEvent.DismissDeleteDialog) },
+                title = { Text(stringResource(R.string.detail_delete_confirm_title)) },
+                text = {
+                    Text(stringResource(R.string.detail_delete_confirm_message, state.media.title))
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { onAction(MediaDetailEvent.ConfirmDelete) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) {
+                        Text(stringResource(R.string.detail_delete_confirm))
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { onAction(MediaDetailEvent.DismissDeleteDialog) }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                },
+            )
+        }
+
+        if (state.showAddToPlaylist) {
+            com.chakir.plexhubtv.feature.playlist.AddToPlaylistDialog(
+                playlists = state.availablePlaylists,
+                isLoading = state.isLoadingPlaylists,
+                onDismiss = { onAction(MediaDetailEvent.DismissAddToPlaylist) },
+                onAddToPlaylist = { playlistId, serverId ->
+                    onAction(MediaDetailEvent.AddToPlaylist(playlistId, serverId))
+                },
+                onCreateNewPlaylist = { title ->
+                    onAction(MediaDetailEvent.CreatePlaylistAndAdd(title))
                 },
             )
         }
@@ -261,6 +320,100 @@ fun ActionButtonsRow(
                 },
                 modifier = Modifier.size(20.dp),
             )
+        }
+
+        // Add to Playlist
+        var playlistFocused by remember { mutableStateOf(false) }
+        IconButton(
+            onClick = { onAction(MediaDetailEvent.AddToPlaylistClicked) },
+            modifier = Modifier
+                .size(40.dp)
+                .testTag("add_to_playlist_button")
+                .onFocusChanged { playlistFocused = it.isFocused }
+                .background(
+                    if (playlistFocused) Color.White else Color.White.copy(alpha = 0.1f),
+                    CircleShape,
+                )
+                .scale(if (playlistFocused) 1.1f else 1f),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+                contentDescription = stringResource(R.string.playlist_add_to_title),
+                tint = if (playlistFocused) Color.Black else Color.White,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        // Refresh metadata from TMDB
+        val canRefresh = state.media?.type in listOf(
+            com.chakir.plexhubtv.core.model.MediaType.Movie,
+            com.chakir.plexhubtv.core.model.MediaType.Show,
+        ) && (state.media?.tmdbId != null || state.media?.imdbId != null)
+        if (canRefresh) {
+            var refreshFocused by remember { mutableStateOf(false) }
+            IconButton(
+                onClick = { onAction(MediaDetailEvent.RefreshMetadata) },
+                enabled = !state.isRefreshingMetadata,
+                modifier = Modifier
+                    .size(40.dp)
+                    .testTag("refresh_metadata_button")
+                    .onFocusChanged { refreshFocused = it.isFocused }
+                    .background(
+                        if (refreshFocused) Color.White else Color.White.copy(alpha = 0.1f),
+                        CircleShape,
+                    )
+                    .scale(if (refreshFocused) 1.1f else 1f),
+            ) {
+                if (state.isRefreshingMetadata) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.refresh_metadata),
+                        tint = if (refreshFocused) Color.Black else Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
+
+        // Hide from hub (soft-hide — available for all users)
+        run {
+            val deleteDesc = stringResource(R.string.detail_delete_description)
+            var deleteFocused by remember { mutableStateOf(false) }
+            IconButton(
+                onClick = { onAction(MediaDetailEvent.DeleteClicked) },
+                enabled = !state.isDeleting,
+                modifier = Modifier
+                    .size(40.dp)
+                    .testTag("delete_button")
+                    .semantics { contentDescription = deleteDesc }
+                    .onFocusChanged { deleteFocused = it.isFocused }
+                    .background(
+                        if (deleteFocused) MaterialTheme.colorScheme.error else Color.White.copy(alpha = 0.1f),
+                        CircleShape,
+                    )
+                    .scale(if (deleteFocused) 1.1f else 1f),
+            ) {
+                if (state.isDeleting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = null,
+                        tint = if (deleteFocused) Color.White else Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
         }
     }
 }

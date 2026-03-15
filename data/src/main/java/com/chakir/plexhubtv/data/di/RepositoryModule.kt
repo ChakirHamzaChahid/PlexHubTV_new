@@ -106,6 +106,12 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindPersonFavoriteRepository(
+        impl: com.chakir.plexhubtv.data.repository.PersonFavoriteRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.PersonFavoriteRepository
+
+    @Binds
+    @Singleton
     abstract fun bindMediaDetailRepository(
         impl: com.chakir.plexhubtv.data.repository.MediaDetailRepositoryImpl,
     ): com.chakir.plexhubtv.domain.repository.MediaDetailRepository
@@ -169,6 +175,12 @@ abstract class RepositoryModule {
     abstract fun bindBackendRepository(
         impl: com.chakir.plexhubtv.data.repository.BackendRepositoryImpl,
     ): com.chakir.plexhubtv.domain.repository.BackendRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPlaylistRepository(
+        impl: com.chakir.plexhubtv.data.repository.PlaylistRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.PlaylistRepository
 
     @Binds
     @Singleton

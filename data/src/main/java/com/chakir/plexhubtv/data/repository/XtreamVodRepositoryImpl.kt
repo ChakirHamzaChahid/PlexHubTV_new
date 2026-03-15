@@ -32,6 +32,7 @@ class XtreamVodRepositoryImpl @Inject constructor(
     private val database: PlexDatabase,
     private val xtreamMapper: XtreamMediaMapper,
     private val mediaMapper: MediaMapper,
+    private val aggregationService: AggregationService,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : XtreamVodRepository {
 
@@ -67,6 +68,8 @@ class XtreamVodRepositoryImpl @Inject constructor(
                             if (imdb != null && tmdb != null) IdBridgeEntity(imdb, tmdb) else null
                         }
                         if (bridgeEntries.isNotEmpty()) idBridgeDao.upsertAll(bridgeEntries)
+                        // Solution C: compute groupKey post-bridge
+                        mediaDao.updateGroupKeys(serverId, entities.map { it.ratingKey })
                     }
                 }
 
@@ -108,6 +111,7 @@ class XtreamVodRepositoryImpl @Inject constructor(
 
                 val serverId = "xtream_$accountId"
                 val existing = mediaDao.getMedia(ratingKey, serverId) ?: return@withContext Unit
+                val oldGroupKey = existing.groupKey
 
                 val updated = existing.copy(
                     summary = info.plot ?: info.description ?: existing.summary,
@@ -117,6 +121,15 @@ class XtreamVodRepositoryImpl @Inject constructor(
                     duration = info.durationSecs?.takeIf { it > 0 }?.toLong()?.times(1000) ?: existing.duration,
                 )
                 mediaDao.insertMedia(updated)
+
+                // Solution C: Recalculate groupKey (tmdbId may have changed)
+                mediaDao.updateGroupKeys(serverId, listOf(ratingKey))
+                val newEntity = mediaDao.getMedia(ratingKey, serverId)
+                val newGroupKey = newEntity?.groupKey ?: oldGroupKey
+                if (oldGroupKey.isNotEmpty() && oldGroupKey != newGroupKey) {
+                    aggregationService.handleGroupKeyMutation(oldGroupKey, newGroupKey)
+                }
+
                 Timber.d("XTREAM [VOD] Enriched detail for ${existing.title} (vod_id=$vodId)")
             }
         }

@@ -9,6 +9,8 @@ import com.chakir.plexhubtv.feature.common.launchLoading
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.domain.repository.PlaylistRepository
+import com.chakir.plexhubtv.domain.usecase.DeleteMediaUseCase
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -51,6 +54,11 @@ class MediaDetailViewModel
         private val filterContentByAgeUseCase: com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
+        val themeSongService: com.chakir.plexhubtv.core.ui.ThemeSongService,
+        private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
+        private val deleteMediaUseCase: DeleteMediaUseCase,
+        private val playlistRepository: PlaylistRepository,
+        private val mediaDetailRepository: com.chakir.plexhubtv.domain.repository.MediaDetailRepository,
         savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -61,6 +69,9 @@ class MediaDetailViewModel
 
         private val _navigationEvents = Channel<MediaDetailNavigationEvent>(Channel.BUFFERED)
         val navigationEvents = _navigationEvents.receiveAsFlow()
+
+        val themeSongEnabled: StateFlow<Boolean> = settingsRepository.themeSongEnabled
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
 
         init {
             if (ratingKey == null || serverId == null) {
@@ -258,6 +269,89 @@ class MediaDetailViewModel
                     loadDetail()
                     checkFavoriteStatus()
                 }
+                is MediaDetailEvent.OpenPerson -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(MediaDetailNavigationEvent.NavigateToPersonDetail(event.personName))
+                    }
+                }
+                is MediaDetailEvent.DeleteClicked -> {
+                    _uiState.update { it.copy(showDeleteConfirmation = true) }
+                }
+                is MediaDetailEvent.DismissDeleteDialog -> {
+                    _uiState.update { it.copy(showDeleteConfirmation = false) }
+                }
+                is MediaDetailEvent.ConfirmDelete -> {
+                    val media = _uiState.value.media ?: return
+                    _uiState.update { it.copy(showDeleteConfirmation = false, isDeleting = true) }
+                    viewModelScope.launch {
+                        deleteMediaUseCase(media.ratingKey, media.serverId)
+                            .onSuccess {
+                                _navigationEvents.send(MediaDetailNavigationEvent.NavigateBack)
+                            }
+                            .onFailure { error ->
+                                _uiState.update { it.copy(isDeleting = false) }
+                                emitError(AppError.Media.LoadFailed(error.message, error))
+                            }
+                    }
+                }
+                is MediaDetailEvent.AddToPlaylistClicked -> {
+                    _uiState.update { it.copy(showAddToPlaylist = true, isLoadingPlaylists = true) }
+                    viewModelScope.launch {
+                        try {
+                            playlistRepository.refreshPlaylists()
+                            // Collect current playlists snapshot
+                            val playlists = playlistRepository.getPlaylists().first()
+                            _uiState.update { it.copy(availablePlaylists = playlists, isLoadingPlaylists = false) }
+                        } catch (e: Exception) {
+                            Timber.e(e, "VM: Failed to load playlists")
+                            _uiState.update { it.copy(isLoadingPlaylists = false) }
+                        }
+                    }
+                }
+                is MediaDetailEvent.DismissAddToPlaylist -> {
+                    _uiState.update { it.copy(showAddToPlaylist = false) }
+                }
+                is MediaDetailEvent.AddToPlaylist -> {
+                    val media = _uiState.value.media ?: return
+                    _uiState.update { it.copy(showAddToPlaylist = false) }
+                    viewModelScope.launch {
+                        playlistRepository.addToPlaylist(event.playlistId, media.ratingKey, event.serverId)
+                            .onFailure { error ->
+                                Timber.e(error, "VM: addToPlaylist failed")
+                            }
+                    }
+                }
+                is MediaDetailEvent.CreatePlaylistAndAdd -> {
+                    val media = _uiState.value.media ?: return
+                    _uiState.update { it.copy(showAddToPlaylist = false) }
+                    viewModelScope.launch {
+                        playlistRepository.createPlaylist(event.title, media.ratingKey, media.serverId)
+                            .onFailure { error ->
+                                Timber.e(error, "VM: createPlaylist failed")
+                            }
+                    }
+                }
+                is MediaDetailEvent.RefreshMetadata -> refreshMetadata()
+            }
+        }
+
+        private fun refreshMetadata() {
+            val media = _uiState.value.media ?: return
+            Timber.d("REFRESH_META: Starting for '${media.title}' type=${media.type} tmdbId=${media.tmdbId} imdbId=${media.imdbId} rk=${media.ratingKey} sid=${media.serverId}")
+            viewModelScope.launch {
+                _uiState.update { it.copy(isRefreshingMetadata = true) }
+                val startTime = System.currentTimeMillis()
+                mediaDetailRepository.refreshMetadataFromTmdb(media)
+                    .onSuccess {
+                        Timber.d("REFRESH_META: Success in ${System.currentTimeMillis() - startTime}ms, reloading detail...")
+                        loadDetail() // Reload from Room/API with merged overrides
+                    }
+                    .onFailure { e ->
+                        Timber.e(e, "REFRESH_META: Failed in ${System.currentTimeMillis() - startTime}ms")
+                        emitError(AppError.Media.LoadFailed(e.message, e))
+                    }
+                _uiState.update { it.copy(isRefreshingMetadata = false) }
+                Timber.d("REFRESH_META: Done, isRefreshingMetadata=false")
             }
         }
 
@@ -490,7 +584,9 @@ class MediaDetailViewModel
                             }
                         val mergedSeasons = if (supplementary.isNotEmpty()) {
                             Timber.i("VM: Merged ${supplementary.size} extra seasons from other servers")
-                            (currentState.seasons + supplementary).sortedBy { it.parentIndex }
+                            (currentState.seasons + supplementary)
+                                .distinctBy { "${it.ratingKey}_${it.serverId}" }
+                                .sortedBy { it.parentIndex }
                         } else {
                             currentState.seasons
                         }
@@ -574,4 +670,6 @@ sealed interface MediaDetailNavigationEvent {
     data class NavigateToCollection(val collectionId: String, val serverId: String) : MediaDetailNavigationEvent
 
     data object NavigateBack : MediaDetailNavigationEvent
+
+    data class NavigateToPersonDetail(val personName: String) : MediaDetailNavigationEvent
 }

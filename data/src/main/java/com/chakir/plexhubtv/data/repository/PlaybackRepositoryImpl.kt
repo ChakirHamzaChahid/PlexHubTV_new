@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.data.repository
 
 import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.core.database.MediaDao
+import com.chakir.plexhubtv.core.database.MediaUnifiedDao
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
@@ -30,6 +31,7 @@ class PlaybackRepositoryImpl
         private val connectionManager: ConnectionManager,
         private val api: PlexApiService,
         private val mediaDao: MediaDao,
+        private val mediaUnifiedDao: MediaUnifiedDao,
         private val apiCache: ApiCache,
         private val mapper: MediaMapper,
         private val mediaUrlResolver: MediaUrlResolver,
@@ -103,12 +105,40 @@ class PlaybackRepositoryImpl
             return result
         }
 
+        override suspend fun sendStoppedTimeline(
+            media: MediaItem,
+            positionMs: Long,
+        ): Result<Unit> {
+            val client = serverClientResolver.getClient(media.serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server ${media.serverId} unavailable"))
+
+            return safeApiCall("sendStoppedTimeline") {
+                val response = client.updateTimeline(
+                    ratingKey = media.ratingKey,
+                    state = "stopped",
+                    timeMs = positionMs,
+                    durationMs = media.durationMs ?: 0L,
+                )
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("API Error: ${response.code()}")
+                }
+                apiCache.evict("${media.serverId}:/library/metadata/${media.ratingKey}")
+            }
+        }
+
         override suspend fun flushLocalProgress() {
             val entries = progressCache.values.toList()
             progressCache.clear()
             for (entry in entries) {
                 try {
                     mediaDao.updateProgress(
+                        ratingKey = entry.ratingKey,
+                        serverId = entry.serverId,
+                        viewOffset = entry.viewOffset,
+                        lastViewedAt = entry.lastViewedAt,
+                    )
+                    // Surgical update: mirror progress into media_unified (only if bestRatingKey matches)
+                    mediaUnifiedDao.updateProgress(
                         ratingKey = entry.ratingKey,
                         serverId = entry.serverId,
                         viewOffset = entry.viewOffset,

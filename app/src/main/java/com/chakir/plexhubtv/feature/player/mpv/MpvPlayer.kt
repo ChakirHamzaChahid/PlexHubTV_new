@@ -15,6 +15,7 @@ interface MpvPlayer {
     val position: StateFlow<Long>
     val duration: StateFlow<Long>
     val error: StateFlow<String?>
+    val endOfFile: StateFlow<Boolean>
 
     fun initialize(viewGroup: ViewGroup)
 
@@ -37,6 +38,8 @@ interface MpvPlayer {
     fun setAudioDelay(delayMs: Long)
 
     fun setSubtitleDelay(delayMs: Long)
+
+    fun loadExternalSubtitle(filePath: String)
 
     fun attach(lifecycleOwner: LifecycleOwner)
 

@@ -374,4 +374,26 @@ object NetworkModule {
     ): OmdbApiService {
         return retrofit.create(OmdbApiService::class.java)
     }
+
+    @Provides
+    @Singleton
+    @Named("opensubtitles")
+    fun provideOpenSubtitlesRetrofit(
+        @Named("public") okHttpClient: OkHttpClient,
+        gson: Gson,
+    ): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl("https://api.opensubtitles.com/api/v1/")
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOpenSubtitlesApiService(
+        @Named("opensubtitles") retrofit: Retrofit,
+    ): OpenSubtitlesApiService {
+        return retrofit.create(OpenSubtitlesApiService::class.java)
+    }
 }

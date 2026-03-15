@@ -35,6 +35,7 @@ data class LibraryDisplayState(
     val selectedTab: LibraryTab = LibraryTab.Browse,
     val showYearOnCards: Boolean = false,
     val gridColumnsCount: Int = 6,
+    val isRefreshing: Boolean = false,
 )
 
 data class LibraryFilterState(
@@ -69,6 +70,7 @@ data class LibraryScrollState(
     val endOfReached: Boolean = false,
     val initialScrollIndex: Int? = null,
     val lastFocusedId: String? = null,
+    val pendingScrollRestore: Int? = null,
 )
 
 /**
@@ -93,7 +95,7 @@ sealed interface LibraryAction {
 
     object Refresh : LibraryAction
 
-    data class OpenMedia(val media: MediaItem) : LibraryAction
+    data class OpenMedia(val media: MediaItem, val firstVisibleItemIndex: Int = 0) : LibraryAction
 
     data class SelectLibrary(val libraryId: String) : LibraryAction
 

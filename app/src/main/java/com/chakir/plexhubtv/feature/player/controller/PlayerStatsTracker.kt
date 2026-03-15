@@ -17,6 +17,9 @@ class PlayerStatsTracker
         val stats: StateFlow<PlayerStats?> = _stats.asStateFlow()
 
         private var trackingJob: Job? = null
+        private var peakBitrateKbps: Long = 0
+        private var bitrateSum: Long = 0
+        private var bitrateSamples: Long = 0
 
         /**
          * Starts periodically updating the [stats] flow.
@@ -24,23 +27,37 @@ class PlayerStatsTracker
         fun startTracking(
             scope: CoroutineScope,
             isMpvMode: () -> Boolean,
+            @Suppress("UNUSED_PARAMETER") isMpvModeProvider: () -> Boolean = isMpvMode,
             exoMetadata: () -> StreamMetadata?,
             exoPosition: () -> Long,
             exoBuffered: () -> Long,
             mpvStats: () -> PlayerStats?,
         ) {
             stopTracking()
+            peakBitrateKbps = 0
+            bitrateSum = 0
+            bitrateSamples = 0
+
             trackingJob =
                 scope.launch {
                     while (true) {
                         if (isMpvMode()) {
-                            _stats.value = mpvStats()
+                            val mpv = mpvStats()
+                            _stats.value = mpv?.copy(playerBackend = "MPV")
                         } else {
                             val metadata = exoMetadata()
                             val rawBitrate = metadata?.bitrate ?: -1
-                            val bitrateKbps = if (rawBitrate > 0) (rawBitrate / 1000) else -1
+                            val bitrateKbps = if (rawBitrate > 0) (rawBitrate / 1000).toLong() else -1L
 
-                            // Extract codec name from MIME type (e.g., "video/hevc" -> "HEVC")
+                            // Track peak and average bitrate
+                            if (bitrateKbps > 0) {
+                                if (bitrateKbps > peakBitrateKbps) peakBitrateKbps = bitrateKbps
+                                bitrateSum += bitrateKbps
+                                bitrateSamples++
+                            }
+                            val avgKbps = if (bitrateSamples > 0) bitrateSum / bitrateSamples else 0L
+
+                            // Extract video codec from MIME type
                             val videoCodec = metadata?.sampleMimeType?.let { mimeType ->
                                 when {
                                     mimeType.contains("hevc", ignoreCase = true) -> "HEVC (H.265)"
@@ -52,14 +69,63 @@ class PlayerStatsTracker
                                 }
                             } ?: "Unknown"
 
+                            // Extract audio codec from MIME type
+                            val audioCodec = metadata?.audioMimeType?.let { mimeType ->
+                                when {
+                                    mimeType.contains("eac3", ignoreCase = true) || mimeType.contains("e-ac3", ignoreCase = true) -> "EAC3 (Dolby Digital+)"
+                                    mimeType.contains("ac3", ignoreCase = true) -> "AC3 (Dolby Digital)"
+                                    mimeType.contains("aac", ignoreCase = true) -> "AAC"
+                                    mimeType.contains("opus", ignoreCase = true) -> "Opus"
+                                    mimeType.contains("vorbis", ignoreCase = true) -> "Vorbis"
+                                    mimeType.contains("flac", ignoreCase = true) -> "FLAC"
+                                    mimeType.contains("truehd", ignoreCase = true) -> "TrueHD (Atmos)"
+                                    mimeType.contains("dts", ignoreCase = true) -> "DTS"
+                                    mimeType.contains("mp3", ignoreCase = true) -> "MP3"
+                                    mimeType.contains("pcm", ignoreCase = true) -> "PCM"
+                                    else -> mimeType.substringAfter("/").uppercase()
+                                }
+                            } ?: "Unknown"
+
+                            // Audio channels layout
+                            val channels = when (metadata?.audioChannelCount ?: 0) {
+                                1 -> "Mono (1.0)"
+                                2 -> "Stereo (2.0)"
+                                6 -> "5.1"
+                                8 -> "7.1"
+                                else -> if ((metadata?.audioChannelCount ?: 0) > 0) "${metadata?.audioChannelCount}ch" else "Unknown"
+                            }
+
+                            // Decoder type (HW vs SW)
+                            val decoderType = metadata?.decoderName?.let { name ->
+                                when {
+                                    name.startsWith("c2.", ignoreCase = true) -> "HW (C2)"
+                                    name.startsWith("OMX.", ignoreCase = true) -> "HW (OMX)"
+                                    name.contains("MediaCodec", ignoreCase = true) -> "HW"
+                                    else -> "SW"
+                                }
+                            } ?: "Unknown"
+
+                            val cacheDuration = (exoBuffered() - exoPosition()).coerceAtLeast(0)
+
+                            // Audio bitrate
+                            val audioBitrateKbps = metadata?.audioBitrate ?: 0
+                            val audioBitrateStr = if (audioBitrateKbps > 0) "${audioBitrateKbps / 1000} kbps" else "N/A"
+
                             _stats.update {
                                 PlayerStats(
                                     bitrate = if (bitrateKbps > 0) "$bitrateKbps kbps" else "N/A",
                                     videoCodec = videoCodec,
-                                    audioCodec = "Unknown", // TODO: Extract from ExoPlayer audio format
+                                    audioCodec = audioCodec,
                                     resolution = "${metadata?.width ?: 0}x${metadata?.height ?: 0}",
                                     fps = if (metadata?.frameRate != null && metadata.frameRate > 0) metadata.frameRate.toDouble() else -1.0,
-                                    cacheDuration = (exoBuffered() - exoPosition()).coerceAtLeast(0),
+                                    cacheDuration = cacheDuration,
+                                    decoderType = decoderType,
+                                    peakBitrateKbps = peakBitrateKbps,
+                                    avgBitrateKbps = avgKbps,
+                                    bufferBytes = cacheDuration,
+                                    playerBackend = "ExoPlayer",
+                                    audioChannels = channels,
+                                    audioBitrate = audioBitrateStr,
                                 )
                             }
                         }

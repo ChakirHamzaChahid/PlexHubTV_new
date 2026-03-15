@@ -43,6 +43,9 @@ class MpvPlayerWrapper(
     private val _error = MutableStateFlow<String?>(null)
     override val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _endOfFile = MutableStateFlow(false)
+    override val endOfFile: StateFlow<Boolean> = _endOfFile.asStateFlow()
+
     // Stats Flows
     private val _videoBitrate = MutableStateFlow(0.0)
     val videoBitrate: StateFlow<Double> = _videoBitrate.asStateFlow()
@@ -173,6 +176,7 @@ class MpvPlayerWrapper(
             pendingUrl = url
             return
         }
+        _endOfFile.update { false }
         MPVLib.command(arrayOf("loadfile", url))
         MPVLib.setPropertyBoolean("pause", false)
     }
@@ -230,6 +234,12 @@ class MpvPlayerWrapper(
         if (!isInitialized) return
         // MPV sub-delay is in seconds
         MPVLib.setPropertyDouble("sub-delay", delayMs / 1000.0)
+    }
+
+    override fun loadExternalSubtitle(filePath: String) {
+        if (!isInitialized) return
+        Timber.d("Loading external subtitle: $filePath")
+        MPVLib.command(arrayOf("sub-add", filePath, "select"))
     }
 
     override fun attach(lifecycleOwner: LifecycleOwner) {
@@ -351,7 +361,7 @@ class MpvPlayerWrapper(
                 _isBuffering.update { false }
             }
             MPVLib.MPV_EVENT_END_FILE -> {
-                // Finished
+                _endOfFile.update { true }
             }
         }
     }

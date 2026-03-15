@@ -8,15 +8,22 @@ import androidx.work.workDataOf
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SyncRepository
+import com.chakir.plexhubtv.core.database.LibrarySectionDao
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.isRetryable
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.feature.loading.LibraryStatus
+import com.chakir.plexhubtv.feature.loading.ServerStatus
+import com.chakir.plexhubtv.feature.loading.SyncLibraryState
+import com.chakir.plexhubtv.feature.loading.SyncServerState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import timber.log.Timber
 
 /**
@@ -28,6 +35,7 @@ import timber.log.Timber
  * - Synchronise également la Watchlist Plex (Cloud) vers les Favoris locaux.
  * - S'exécute en mode Foreground Service pour éviter les limitations Android (10 min).
  * - Notifie l'utilisateur de la progression via des notifications.
+ * - Expose un état granulaire par serveur/bibliothèque via WorkManager Data.
  *
  * Planification :
  * - Synchronisation initiale : Au premier démarrage de l'app.
@@ -46,24 +54,12 @@ class LibrarySyncWorker
         private val syncXtreamLibraryUseCase: com.chakir.plexhubtv.domain.usecase.SyncXtreamLibraryUseCase,
         private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
+        private val librarySectionDao: LibrarySectionDao,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : CoroutineWorker(appContext, workerParams) {
         private val notificationManager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         private val channelId = "library_sync"
 
-        /**
-         * Logique principale du Worker.
-         *
-         * Étapes :
-         * 1. Attend l'authentification (token + clientId).
-         * 2. Passe en mode Foreground pour éviter les timeouts.
-         * 3. Récupère la liste des serveurs.
-         * 4. Synchronise chaque serveur (appel à SyncRepository).
-         * 5. Synchronise la Watchlist Plex vers Favoris.
-         * 6. Marque la synchronisation comme complète.
-         *
-         * Gestion des erreurs : Retourne toujours Success pour éviter de bloquer l'app.
-         */
         override suspend fun doWork(): Result =
             withContext(ioDispatcher) {
                 Timber.d("→ doWork() STARTED")
@@ -82,7 +78,6 @@ class LibrarySyncWorker
 
                     if (token == null || clientId == null) {
                         Timber.w("✗ Authentication timeout - Token: ${token != null}, ClientId: ${clientId != null}")
-                        // Transient: auth not ready yet — retry with backoff
                         return@withContext Result.retry()
                     }
 
@@ -96,32 +91,17 @@ class LibrarySyncWorker
                         Timber.e(e, "✗ Failed to set foreground: ${e.message}")
                     }
 
-                    // Set up progress callback
+                    // Set up progress tracking variables
                     var lastNotificationTime = 0L
-                    syncRepository.onProgressUpdate = { current, total, libraryName ->
-                        val now = System.currentTimeMillis()
-                        // Throttle: Update only if 1 second has passed OR if finished
-                        if (now - lastNotificationTime >= 1000 || current == total) {
-                            lastNotificationTime = now
-                            try {
-                                updateNotification("Syncing $libraryName: $current / $total")
-                            } catch (e: Exception) {
-                                Timber.e("Failed to update notification: ${e.message}")
-                            }
+                    var completedLibraries = 0
+                    var totalLibraries = 0
 
-                            // Report progress to UI
-                            try {
-                                setProgressAsync(
-                                    workDataOf(
-                                        "progress" to (if (total > 0) (current.toFloat() / total) * 100 else 0f),
-                                        "message" to "Syncing $libraryName ($current/$total)",
-                                    ),
-                                )
-                            } catch (e: Exception) {
-                                Timber.e("Failed to set progress: ${e.message}")
-                            }
-                        }
-                    }
+                    // Phase: discovering
+                    setProgressAsync(workDataOf(
+                        "progress" to 0f,
+                        "message" to "Discovering servers...",
+                        "phase" to "discovering",
+                    ))
 
                     Timber.d("→ Fetching servers...")
                     val serversResult = authRepository.getServers()
@@ -137,23 +117,154 @@ class LibrarySyncWorker
                     val serverNames = servers.joinToString { it.name }
                     Timber.d("→ Syncing ${servers.size} server(s): [$serverNames]")
 
+                    // Initialize per-server state tracking
+                    val selectedIds = settingsDataStore.selectedLibraryIds.first()
+                    val serverStates = Array(servers.size) { i ->
+                        val server = servers[i]
+                        // Pre-fill libraries from cached Room data (local read, no network)
+                        val cachedLibs = try {
+                            librarySectionDao.getLibrarySections(server.clientIdentifier).first()
+                                .filter { it.type == "movie" || it.type == "show" }
+                                .filter { selectedIds.contains("${server.clientIdentifier}:${it.libraryKey}") }
+                                .map { SyncLibraryState(key = it.libraryKey, name = it.title) }
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+                        SyncServerState(
+                            serverId = server.clientIdentifier,
+                            serverName = server.name,
+                            status = ServerStatus.Pending,
+                            libraries = cachedLibs,
+                        )
+                    }
+                    totalLibraries = serverStates.sumOf { it.libraries.size }
+                        .coerceAtLeast(servers.size * 2) // Fallback estimate
+                    var currentServerIdx = -1
+
+                    // Set up enriched progress callback
+                    syncRepository.onProgressUpdate = { current, total, libraryName ->
+                        val now = System.currentTimeMillis()
+                        // Throttle: Update only if 1 second has passed OR if finished
+                        if (now - lastNotificationTime >= 1000 || current == total) {
+                            lastNotificationTime = now
+                            try {
+                                updateNotification("Syncing $libraryName: $current / $total")
+                            } catch (e: Exception) {
+                                Timber.e("Failed to update notification: ${e.message}")
+                            }
+
+                            // Track per-library completion
+                            if (current == total && total > 0) {
+                                completedLibraries++
+                            }
+
+                            // Update library state in serverStates
+                            val idx = currentServerIdx
+                            if (idx >= 0) {
+                                val serverState = serverStates[idx]
+                                val libs = serverState.libraries.toMutableList()
+                                val libIdx = libs.indexOfFirst { it.name == libraryName }
+                                if (libIdx >= 0) {
+                                    libs[libIdx] = libs[libIdx].copy(
+                                        status = if (current >= total && total > 0)
+                                            LibraryStatus.Success else LibraryStatus.Running,
+                                        itemsSynced = current,
+                                        itemsTotal = total,
+                                    )
+                                } else {
+                                    // Library wasn't in the pre-filled list (cache miss) — add dynamically
+                                    libs.add(SyncLibraryState(
+                                        key = libraryName, // Fallback: use name as key
+                                        name = libraryName,
+                                        status = if (current >= total && total > 0)
+                                            LibraryStatus.Success else LibraryStatus.Running,
+                                        itemsSynced = current,
+                                        itemsTotal = total,
+                                    ))
+                                }
+                                serverStates[idx] = serverState.copy(libraries = libs)
+                            }
+
+                            // Global progress: weight library sync at 80% of total, remaining 20% for extras
+                            val libraryFraction = if (totalLibraries > 0) {
+                                val completedFraction = completedLibraries.toFloat() / totalLibraries
+                                val currentLibFraction = if (total > 0) current.toFloat() / total else 0f
+                                val inProgressFraction = currentLibFraction / totalLibraries
+                                completedFraction + inProgressFraction
+                            } else {
+                                if (total > 0) current.toFloat() / total else 0f
+                            }
+                            val globalProgress = libraryFraction * 80f // 0-80% range
+
+                            // Report enriched progress to UI
+                            emitSyncProgress(
+                                serverStates, currentServerIdx, globalProgress,
+                                "library_sync", libraryName, completedLibraries, totalLibraries,
+                            )
+                        }
+                    }
+
                     var failureCount = 0
-                    servers.forEach { server ->
+                    servers.forEachIndexed { index, server ->
+                        currentServerIdx = index
+                        serverStates[index] = serverStates[index].copy(status = ServerStatus.Running)
+                        emitSyncProgress(
+                            serverStates, index, 0f,
+                            "library_sync", "", completedLibraries, totalLibraries,
+                        )
+
                         try {
                             Timber.d("→ [${server.name}] Starting sync (relay=${server.relay}, candidates=${server.connectionCandidates.size}, urls=${server.connectionCandidates.map { it.uri }})")
                             updateNotification("Syncing ${server.name}...")
                             val syncResult = syncRepository.syncServer(server)
                             if (syncResult.isFailure) {
                                 Timber.w("✗ [${server.name}] Sync failed: ${syncResult.exceptionOrNull()?.message}")
+                                val errorMsg = syncResult.exceptionOrNull()?.message ?: "Unknown error"
+                                serverStates[index] = serverStates[index].copy(
+                                    status = ServerStatus.Error,
+                                    errorMessage = errorMsg.take(80),
+                                )
                                 failureCount++
                             } else {
                                 Timber.d("✓ [${server.name}] Sync complete")
+                                // Mark remaining Pending/Running libraries as Success
+                                val libs = serverStates[index].libraries.map { lib ->
+                                    if (lib.status == LibraryStatus.Running || lib.status == LibraryStatus.Pending)
+                                        lib.copy(status = LibraryStatus.Success)
+                                    else lib
+                                }
+                                val hasErrors = libs.any { it.status == LibraryStatus.Error }
+                                serverStates[index] = serverStates[index].copy(
+                                    libraries = libs,
+                                    status = if (hasErrors) ServerStatus.PartialSuccess else ServerStatus.Success,
+                                )
                             }
                         } catch (e: Exception) {
                             Timber.e("✗ [${server.name}] Exception: ${e.javaClass.simpleName} - ${e.message}")
+                            serverStates[index] = serverStates[index].copy(
+                                status = ServerStatus.Error,
+                                errorMessage = e.message?.take(80),
+                            )
                             failureCount++
                         }
+
+                        // Emit after each server completes
+                        emitSyncProgress(
+                            serverStates, index, 0f,
+                            "library_sync", "", completedLibraries, totalLibraries,
+                        )
                     }
+
+                    // Phase: extras (Xtream, Backend, Watchlist)
+                    try {
+                        setProgressAsync(workDataOf(
+                            "progress" to 80f,
+                            "message" to "Syncing extras...",
+                            "phase" to "extras",
+                            "serverStates" to Json.encodeToString(serverStates.toList()),
+                            "currentServerIdx" to currentServerIdx,
+                        ))
+                    } catch (_: Exception) {}
 
                     // SYNC XTREAM ACCOUNTS (VOD + Series)
                     try {
@@ -210,6 +321,17 @@ class LibrarySyncWorker
                     // Clear callback
                     syncRepository.onProgressUpdate = null
 
+                    // Phase: finalizing
+                    try {
+                        setProgressAsync(workDataOf(
+                            "progress" to 95f,
+                            "message" to "Finalizing...",
+                            "phase" to "finalizing",
+                            "serverStates" to Json.encodeToString(serverStates.toList()),
+                            "currentServerIdx" to currentServerIdx,
+                        ))
+                    } catch (_: Exception) {}
+
                     if (failureCount == servers.size && servers.isNotEmpty()) {
                         Timber.w("✗ All ${servers.size} servers failed — scheduling retry: [$serverNames]")
                         settingsDataStore.saveFirstSyncComplete(true)
@@ -220,21 +342,28 @@ class LibrarySyncWorker
                         settingsDataStore.saveFirstSyncComplete(true)
                         Timber.i("✓ Sync complete! ${servers.size - failureCount}/${servers.size} servers OK [$serverNames]")
 
-                        // TRIGGER COLLECTION SYNC NOW THAT WE HAVE DATA
+                        // TRIGGER POST-SYNC CHAIN: CollectionSync → UnifiedRebuildWorker
                         try {
-                            Timber.d("→ Triggering Collection Sync after successful library sync")
+                            Timber.d("→ Triggering post-sync chain: CollectionSync → UnifiedRebuild")
                             val collectionSyncRequest =
                                 androidx.work.OneTimeWorkRequestBuilder<CollectionSyncWorker>()
                                     .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, java.util.concurrent.TimeUnit.SECONDS)
                                     .build()
-                            androidx.work.WorkManager.getInstance(applicationContext).enqueueUniqueWork(
-                                "CollectionSync_Initial",
-                                androidx.work.ExistingWorkPolicy.REPLACE,
-                                collectionSyncRequest,
-                            )
-                            Timber.i("✓ CollectionSyncWorker ENQUEUED successfully")
+                            val unifiedRebuildRequest =
+                                androidx.work.OneTimeWorkRequestBuilder<UnifiedRebuildWorker>()
+                                    .build()
+
+                            androidx.work.WorkManager.getInstance(applicationContext)
+                                .beginUniqueWork(
+                                    "PostSyncChain",
+                                    androidx.work.ExistingWorkPolicy.REPLACE,
+                                    collectionSyncRequest,
+                                )
+                                .then(unifiedRebuildRequest)
+                                .enqueue()
+                            Timber.i("✓ Post-sync chain ENQUEUED: CollectionSync → UnifiedRebuild")
                         } catch (e: Exception) {
-                            Timber.e("Failed to trigger collection sync: ${e.message}")
+                            Timber.e("Failed to trigger post-sync chain: ${e.message}")
                         }
 
                         Result.success()
@@ -257,11 +386,50 @@ class LibrarySyncWorker
                         Timber.e("Failed to mark sync complete: ${ex.message}")
                     }
 
-                    // S-10: Retry on transient errors, fail on permanent
                     val appError = e.toAppError()
                     if (appError.isRetryable()) Result.retry() else Result.failure()
                 }
             }
+
+        private fun emitSyncProgress(
+            states: Array<SyncServerState>,
+            currentIdx: Int,
+            progress: Float,
+            phase: String,
+            libraryName: String,
+            completedLibs: Int,
+            totalLibs: Int,
+        ) {
+            try {
+                // Compute global progress from server states if not provided
+                val effectiveProgress = if (progress > 0f) progress else {
+                    if (states.isEmpty()) 0f
+                    else states.sumOf { it.progress.toDouble() }.toFloat() / states.size * 80f
+                }
+
+                val currentServer = states.getOrNull(currentIdx)
+                val currentLib = currentServer?.libraries?.firstOrNull { it.status == LibraryStatus.Running }
+                val message = when {
+                    currentServer != null && currentLib != null ->
+                        "${currentServer.serverName} - ${currentLib.name} (${currentLib.itemsSynced}/${currentLib.itemsTotal})"
+                    currentServer != null -> "Syncing ${currentServer.serverName}..."
+                    else -> "Syncing..."
+                }
+
+                setProgressAsync(workDataOf(
+                    "progress" to effectiveProgress,
+                    "phase" to phase,
+                    "message" to message,
+                    "libraryName" to libraryName,
+                    "serverStates" to Json.encodeToString(states.toList()),
+                    "currentServerIdx" to currentIdx,
+                    "completedLibs" to completedLibs,
+                    "totalLibs" to totalLibs,
+                ))
+            } catch (e: Exception) {
+                Timber.e("Failed to emit sync progress: ${e.message}")
+            }
+        }
 
         private fun updateNotification(text: String) {
             val notification =
@@ -275,10 +443,6 @@ class LibrarySyncWorker
             notificationManager.notify(1, notification)
         }
 
-        /**
-         * Crée les informations pour le service Foreground.
-         * Affiche une notification permanente pendant la synchronisation.
-         */
         override suspend fun getForegroundInfo(): androidx.work.ForegroundInfo {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 val channel =

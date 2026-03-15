@@ -26,8 +26,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -43,8 +51,12 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
+import android.graphics.Typeface
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import com.chakir.plexhubtv.core.model.SubtitlePreferences
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -67,11 +79,25 @@ fun VideoPlayerRoute(
 ) {
     val uiState by controlViewModel.uiState.collectAsState()
     val autoPlayEnabled by controlViewModel.autoPlayNextEnabled.collectAsState()
+    val skipIntroMode by controlViewModel.skipIntroMode.collectAsState()
+    val skipCreditsMode by controlViewModel.skipCreditsMode.collectAsState()
+    val subtitlePrefs by controlViewModel.subtitlePrefs.collectAsState()
 
     // Collecte des Chapitres et Marqueurs
     val chapters by controlViewModel.chapterMarkerManager.chapters.collectAsState()
     val markers by controlViewModel.chapterMarkerManager.markers.collectAsState()
-    val visibleMarkers by controlViewModel.chapterMarkerManager.visibleMarkers.collectAsState()
+    val allVisibleMarkers by controlViewModel.chapterMarkerManager.visibleMarkers.collectAsState()
+
+    // Filter visible markers: only show button when mode is "ask"
+    val visibleMarkers = remember(allVisibleMarkers, skipIntroMode, skipCreditsMode) {
+        allVisibleMarkers.filter { marker ->
+            when (marker.type) {
+                "intro" -> skipIntroMode == "ask"
+                "credits" -> skipCreditsMode == "ask"
+                else -> true
+            }
+        }
+    }
 
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -81,10 +107,24 @@ fun VideoPlayerRoute(
         controlViewModel.mpvPlayer?.attach(lifecycleOwner)
     }
 
+    // Match display refresh rate to video frame rate (eliminates judder)
+    val activity = context as? android.app.Activity
+    LaunchedEffect(uiState.isPlaying, uiState.isBuffering) {
+        if (uiState.isPlaying && !uiState.isBuffering && activity != null) {
+            val frameRate = (controlViewModel.player as? ExoPlayer)?.videoFormat?.frameRate ?: 0f
+            if (frameRate > 0f) {
+                controlViewModel.refreshRateManager.matchRefreshRate(activity, frameRate)
+            }
+        }
+    }
+
     // Gestion du PIP ou de l'orientation ici si nécessaire
     DisposableEffect(Unit) {
         onDispose {
-            // Nettoyage sortie écran plein
+            // Restore original refresh rate when leaving player
+            if (activity != null) {
+                controlViewModel.refreshRateManager.restoreOriginalRate(activity)
+            }
         }
     }
 
@@ -100,19 +140,23 @@ fun VideoPlayerRoute(
         markers = markers,
         visibleMarkers = visibleMarkers,
         autoPlayEnabled = autoPlayEnabled,
+        subtitlePrefs = subtitlePrefs,
+        subtitleSearchService = controlViewModel.subtitleSearchService,
+        audioEqualizerManager = controlViewModel.audioEqualizerManager,
+        getFrameBitmap = { controlViewModel.trickplayManager.getFrameBitmap(it) },
         onAction = { action ->
             if (action is PlayerAction.Close) {
                 onClose()
             } else {
                 // Route actions to appropriate VM
                 when (action) {
-                    is PlayerAction.SelectAudioTrack, 
+                    is PlayerAction.SelectAudioTrack,
                     is PlayerAction.SelectSubtitleTrack,
                     is PlayerAction.ShowAudioSelector,
                     is PlayerAction.ShowSubtitleSelector -> trackViewModel.onAction(action)
-                    
+
                     is PlayerAction.TogglePerformanceOverlay -> statsViewModel.onAction(action)
-                    
+
                     else -> controlViewModel.onAction(action)
                 }
             }
@@ -139,6 +183,10 @@ fun VideoPlayerScreen(
     markers: List<com.chakir.plexhubtv.core.model.Marker> = emptyList(),
     visibleMarkers: List<com.chakir.plexhubtv.core.model.Marker> = emptyList(),
     autoPlayEnabled: Boolean = true,
+    subtitlePrefs: SubtitlePreferences = SubtitlePreferences(),
+    subtitleSearchService: com.chakir.plexhubtv.feature.player.controller.SubtitleSearchService? = null,
+    audioEqualizerManager: com.chakir.plexhubtv.feature.player.controller.AudioEqualizerManager? = null,
+    getFrameBitmap: ((Long) -> android.graphics.Bitmap?)? = null,
     onAction: (PlayerAction) -> Unit,
 ) {
     var controlsVisible by remember { mutableStateOf(false) }
@@ -167,7 +215,21 @@ fun VideoPlayerScreen(
     }
 
     // Unified Back Handler
-    val isDialogVisible = uiState.showSettings || uiState.showAudioSelection || uiState.showSubtitleSelection || uiState.showSpeedSelection || uiState.showAudioSyncDialog || uiState.showSubtitleSyncDialog || uiState.showAutoNextPopup
+    val isDialogVisible = uiState.showSettings || uiState.showAudioSelection || uiState.showSubtitleSelection || uiState.showSpeedSelection || uiState.showAudioSyncDialog || uiState.showSubtitleSyncDialog || uiState.showAutoNextPopup || uiState.showSubtitleDownload || uiState.showEqualizer || uiState.showMoreMenu || uiState.showChapterOverlay || uiState.showQueueOverlay
+
+    // Restore focus to player controls after dialog dismissal
+    var wasDialogVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(isDialogVisible) {
+        if (wasDialogVisible && !isDialogVisible) {
+            controlsVisible = true
+            lastInteractionTime = System.currentTimeMillis()
+            delay(350) // Wait for dialog exit animation + composition
+            try {
+                focusRequester.requestFocus()
+            } catch (_: Exception) { }
+        }
+        wasDialogVisible = isDialogVisible
+    }
 
     BackHandler(enabled = true) {
         if (uiState.error != null) {
@@ -256,39 +318,86 @@ fun VideoPlayerScreen(
                     if (controlsVisible) lastInteractionTime = System.currentTimeMillis()
                 },
     ) {
+        // Feature C: Scale player when NextUp popup is visible
+        val shouldScale = uiState.showAutoNextPopup
+            && uiState.nextItem != null
+            && uiState.error == null
+
+        val playerScale by animateFloatAsState(
+            targetValue = if (shouldScale) 0.75f else 1.0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow,
+            ),
+            label = "playerScale",
+        )
+
         // Hybrid Player Rendering
-        if (uiState.isMpvMode && mpvPlayer != null) {
-            AndroidView(
-                factory = { context ->
-                    FrameLayout(context).apply {
-                        layoutParams =
-                            ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                            )
-                        keepScreenOn = true // Prevent sleep mode during MPV playback
-                        mpvPlayer.initialize(this)
-                    }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = playerScale
+                    scaleY = playerScale
                 },
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else if (exoPlayer != null) {
-            AndroidView(
-                factory = { context ->
-                    PlayerView(context).apply {
-                        this.player = exoPlayer
-                        useController = false // Use our custom controls
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                        keepScreenOn = true
-                        layoutParams =
-                            FrameLayout.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT,
+        ) {
+            if (uiState.isMpvMode && mpvPlayer != null) {
+                AndroidView(
+                    factory = { context ->
+                        FrameLayout(context).apply {
+                            layoutParams =
+                                ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                )
+                            keepScreenOn = true // Prevent sleep mode during MPV playback
+                            mpvPlayer.initialize(this)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else if (exoPlayer != null) {
+                AndroidView(
+                    factory = { context ->
+                        PlayerView(context).apply {
+                            this.player = exoPlayer
+                            useController = false // Use our custom controls
+                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            keepScreenOn = true
+                            layoutParams =
+                                FrameLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                )
+                            subtitleView?.setStyle(
+                                CaptionStyleCompat(
+                                    subtitlePrefs.fontColor.toInt(),
+                                    subtitlePrefs.backgroundColor.toInt(),
+                                    android.graphics.Color.TRANSPARENT,
+                                    subtitlePrefs.edgeType,
+                                    subtitlePrefs.edgeColor.toInt(),
+                                    Typeface.DEFAULT,
+                                )
                             )
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
+                            subtitleView?.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, subtitlePrefs.fontSize.toFloat())
+                        }
+                    },
+                    update = { playerView ->
+                        playerView.subtitleView?.setStyle(
+                            CaptionStyleCompat(
+                                subtitlePrefs.fontColor.toInt(),
+                                subtitlePrefs.backgroundColor.toInt(),
+                                android.graphics.Color.TRANSPARENT,
+                                subtitlePrefs.edgeType,
+                                subtitlePrefs.edgeColor.toInt(),
+                                Typeface.DEFAULT,
+                            )
+                        )
+                        playerView.subtitleView?.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, subtitlePrefs.fontSize.toFloat())
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
 
         // Overlay Controls (Plezy Style)
@@ -306,6 +415,7 @@ fun VideoPlayerScreen(
                 isPlaying = uiState.isPlaying,
                 currentTimeMs = uiState.currentPosition,
                 durationMs = uiState.duration,
+                bufferedPositionMs = uiState.bufferedPosition,
                 onPlayPauseToggle = {
                     if (uiState.isPlaying) onAction(PlayerAction.Pause) else onAction(PlayerAction.Play)
                 },
@@ -321,11 +431,12 @@ fun VideoPlayerScreen(
                 onSkipMarker = { onAction(PlayerAction.SkipMarker(it)) },
                 onShowSubtitles = { onAction(PlayerAction.ShowSubtitleSelector) },
                 onShowAudio = { onAction(PlayerAction.ShowAudioSelector) },
-                onShowSettings = { onAction(PlayerAction.ToggleSettings) },
+                onShowMore = { onAction(PlayerAction.ToggleMoreMenu) },
                 onPreviousChapter = { onAction(PlayerAction.SeekToPreviousChapter) },
                 onNextChapter = { onAction(PlayerAction.SeekToNextChapter) },
                 modifier = Modifier,
-                playPauseFocusRequester = focusRequester
+                playPauseFocusRequester = focusRequester,
+                getFrameBitmap = getFrameBitmap,
             )
         }
 
@@ -415,6 +526,11 @@ fun VideoPlayerScreen(
                 uiState = uiState,
                 onSelectQuality = { onAction(PlayerAction.SelectQuality(it)) },
                 onToggleStats = { onAction(PlayerAction.TogglePerformanceOverlay) },
+                onShowSubtitleSync = { onAction(PlayerAction.ShowSubtitleSyncSelector) },
+                onShowAudioSync = { onAction(PlayerAction.ShowAudioSyncSelector) },
+                onShowSubtitleDownload = { onAction(PlayerAction.ShowSubtitleDownload) },
+                onShowEqualizer = { onAction(PlayerAction.ShowEqualizer) },
+                onSelectSpeed = { onAction(PlayerAction.SetPlaybackSpeed(it)) },
                 onDismiss = { onAction(PlayerAction.ToggleSettings) },
             )
         }
@@ -463,6 +579,86 @@ fun VideoPlayerScreen(
                 title = "Subtitle Sync",
                 currentDelayMs = uiState.subtitleDelay,
                 onDelayChanged = { onAction(PlayerAction.SetSubtitleDelay(it)) },
+                onDismiss = { onAction(PlayerAction.DismissDialog) },
+            )
+        }
+
+        // Subtitle Download Dialog
+        if (uiState.showSubtitleDownload && subtitleSearchService != null) {
+            com.chakir.plexhubtv.feature.player.ui.components.DownloadSubtitlesDialog(
+                subtitleSearchService = subtitleSearchService,
+                mediaTitle = uiState.currentItem?.title ?: "",
+                seasonNumber = uiState.currentItem?.parentIndex,
+                episodeNumber = uiState.currentItem?.episodeIndex,
+                onSubtitleDownloaded = { filePath ->
+                    onAction(PlayerAction.ApplyDownloadedSubtitle(filePath))
+                },
+                onDismiss = { onAction(PlayerAction.DismissDialog) },
+            )
+        }
+
+        // Audio Equalizer Dialog
+        if (uiState.showEqualizer && audioEqualizerManager != null) {
+            com.chakir.plexhubtv.feature.player.ui.components.AudioEqualizerDialog(
+                state = audioEqualizerManager.state,
+                onPresetSelected = { onAction(PlayerAction.SelectEqualizerPreset(it)) },
+                onBandChanged = { bandIndex, level -> onAction(PlayerAction.SetEqualizerBand(bandIndex, level)) },
+                onEnabledChanged = { onAction(PlayerAction.SetEqualizerEnabled(it)) },
+                onDismiss = { onAction(PlayerAction.DismissDialog) },
+            )
+        }
+
+        // More Menu (Feature D)
+        AnimatedVisibility(
+            visible = uiState.showMoreMenu,
+            enter = fadeIn() + slideInHorizontally { it },
+            exit = fadeOut() + slideOutHorizontally { it },
+        ) {
+            com.chakir.plexhubtv.feature.player.ui.components.PlayerMoreMenu(
+                hasChapters = chapters.isNotEmpty(),
+                hasQueue = uiState.playQueue.size > 1,
+                showPerformanceOverlay = uiState.showPerformanceOverlay,
+                onShowSettings = { onAction(PlayerAction.ToggleSettings) },
+                onShowSpeed = { onAction(PlayerAction.ToggleSpeedSelection) },
+                onShowSubtitleSync = { onAction(PlayerAction.ShowSubtitleSyncSelector) },
+                onShowAudioSync = { onAction(PlayerAction.ShowAudioSyncSelector) },
+                onShowSubtitleDownload = { onAction(PlayerAction.ShowSubtitleDownload) },
+                onShowEqualizer = { onAction(PlayerAction.ShowEqualizer) },
+                onToggleStats = { onAction(PlayerAction.TogglePerformanceOverlay) },
+                onShowChapters = { onAction(PlayerAction.ShowChapterOverlay) },
+                onShowQueue = { onAction(PlayerAction.ShowQueueOverlay) },
+                onDismiss = { onAction(PlayerAction.DismissDialog) },
+            )
+        }
+
+        // Chapter Overlay (Feature A)
+        AnimatedVisibility(
+            visible = uiState.showChapterOverlay && chapters.isNotEmpty(),
+            enter = fadeIn() + slideInVertically { it },
+            exit = fadeOut() + slideOutVertically { it },
+        ) {
+            val currentChapter = remember(chapters, uiState.currentPosition) {
+                chapters.find { uiState.currentPosition >= it.startTime && uiState.currentPosition < it.endTime }
+            }
+            com.chakir.plexhubtv.feature.player.ui.components.ChapterOverlay(
+                chapters = chapters,
+                currentChapter = currentChapter,
+                currentPosition = uiState.currentPosition,
+                onSelectChapter = { onAction(PlayerAction.SeekToChapter(it)) },
+                onDismiss = { onAction(PlayerAction.DismissDialog) },
+            )
+        }
+
+        // Queue Overlay (Feature B)
+        AnimatedVisibility(
+            visible = uiState.showQueueOverlay && uiState.playQueue.size > 1,
+            enter = fadeIn() + slideInHorizontally { it },
+            exit = fadeOut() + slideOutHorizontally { it },
+        ) {
+            com.chakir.plexhubtv.feature.player.ui.components.QueueOverlay(
+                queue = uiState.playQueue,
+                currentIndex = uiState.currentQueueIndex,
+                onSelectItem = { onAction(PlayerAction.PlayQueueItem(it)) },
                 onDismiss = { onAction(PlayerAction.DismissDialog) },
             )
         }

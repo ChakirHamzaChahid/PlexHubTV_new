@@ -57,6 +57,7 @@ data class MediaItem(
     val grandparentTitle: String? = null,
     val grandparentThumb: String? = null,
     val grandparentRatingKey: String? = null,
+    val themeUrl: String? = null,
     val parentRatingKey: String? = null,
     val parentTitle: String? = null,
     val parentThumb: String? = null,
@@ -72,6 +73,7 @@ data class MediaItem(
     val mediaParts: List<MediaPart> = emptyList(),
     // Extra
     val tagline: String? = null,
+    val directors: List<String> = emptyList(),
     val role: List<CastMember>? = null,
     val baseUrl: String? = null,
     val accessToken: String? = null,

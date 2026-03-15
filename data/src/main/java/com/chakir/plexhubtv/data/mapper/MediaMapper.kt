@@ -73,6 +73,7 @@ class MediaMapper
                 childCount = dto.childCount,
                 // Grandparent
                 grandparentRatingKey = dto.grandparentRatingKey,
+                themeUrl = (dto.theme ?: dto.grandparentTheme)?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
                 // Parts & Streams
                 mediaParts =
                     dto.media?.flatMap { mediaDto ->
@@ -91,6 +92,8 @@ class MediaMapper
                             )
                         } ?: emptyList()
                     } ?: emptyList(),
+                // Directors
+                directors = dto.directors?.mapNotNull { it.tag } ?: emptyList(),
                 // Cast
                 role =
                     dto.roles?.map { roleDto ->
@@ -99,7 +102,10 @@ class MediaMapper
                             filter = roleDto.filter,
                             role = roleDto.role,
                             tag = roleDto.tag,
-                            thumb = roleDto.thumb?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
+                            thumb = roleDto.thumb?.let { thumb ->
+                                if (thumb.startsWith("http")) "$thumb?X-Plex-Token=$accessToken"
+                                else "$baseUrl$thumb?X-Plex-Token=$accessToken"
+                            },
                         )
                     } ?: emptyList(),
                 baseUrl = baseUrl,
@@ -430,6 +436,54 @@ class MediaMapper
                 "season" -> MediaType.Season
                 else -> MediaType.Unknown
             }
+        }
+
+        /**
+         * Maps a pre-aggregated MediaUnifiedEntity to the domain MediaItem.
+         * No mediaParts — fetched from `media` table on detail click.
+         */
+        fun mapUnifiedEntityToDomain(entity: com.chakir.plexhubtv.core.database.MediaUnifiedEntity): MediaItem {
+            val finalRating = entity.displayRating.takeIf { it > 0.0 }
+
+            return MediaItem(
+                id = "${entity.bestServerId}_${entity.bestRatingKey}",
+                ratingKey = entity.bestRatingKey,
+                serverId = entity.bestServerId,
+                unificationId = entity.unificationId,
+                title = entity.title,
+                guid = entity.guid,
+                type = mapType(entity.type),
+                imdbId = entity.imdbId,
+                tmdbId = entity.tmdbId,
+                thumbUrl = entity.thumbUrl,
+                artUrl = entity.artUrl,
+                alternativeThumbUrls = entity.alternativeThumbUrls?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
+                summary = entity.summary,
+                year = entity.year,
+                durationMs = entity.duration,
+                viewOffset = entity.viewOffset,
+                viewCount = entity.viewCount,
+                isWatched = entity.viewCount > 0 || run {
+                    val dur = entity.duration ?: 0L
+                    entity.viewOffset > 0 && dur > 0 && entity.viewOffset.toFloat() / dur.toFloat() >= 0.9f
+                },
+                lastViewedAt = entity.lastViewedAt,
+                parentTitle = entity.parentTitle,
+                parentRatingKey = entity.parentRatingKey,
+                parentIndex = entity.parentIndex,
+                grandparentTitle = entity.grandparentTitle,
+                grandparentRatingKey = entity.grandparentRatingKey,
+                episodeIndex = null, // Unified only contains movies/shows
+                seasonIndex = null,
+                mediaParts = emptyList(), // Fetched from media table on detail click
+                rating = finalRating,
+                audienceRating = entity.audienceRating,
+                contentRating = ContentRatingHelper.normalize(entity.contentRating),
+                genres = entity.genres?.split(",") ?: emptyList(),
+                updatedAt = entity.updatedAt,
+                parentThumb = entity.parentThumb,
+                grandparentThumb = entity.grandparentThumb,
+            )
         }
 
         private fun mapTypeToString(type: MediaType): String {

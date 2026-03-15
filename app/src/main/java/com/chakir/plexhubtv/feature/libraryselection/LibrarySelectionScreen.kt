@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
@@ -38,16 +40,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun LibrarySelectionRoute(
@@ -152,36 +161,64 @@ fun LibrarySelectionScreen(
                 }
 
                 else -> {
-                    // Server/Library list
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
+                    val lazyListState = rememberLazyListState()
+                    val coroutineScope = rememberCoroutineScope()
+
+                    // Pre-compute header indices for jump-to-server
+                    val serverHeaderIndices = remember(state.servers) {
+                        val indices = mutableMapOf<String, Int>()
+                        var idx = 0
                         state.servers.forEach { server ->
-                            // Server header
-                            item(key = "header_${server.serverId}") {
-                                ServerHeader(
-                                    server = server,
-                                    onToggleAll = { onAction(LibrarySelectionAction.ToggleServer(server.serverId)) },
-                                )
+                            indices[server.serverId] = idx
+                            idx += 1 + server.libraries.size // 1 header + N libraries
+                        }
+                        indices
+                    }
+
+                    // Server/Library list + optional sidebar
+                    Row(modifier = Modifier.weight(1f)) {
+                        LazyColumn(
+                            state = lazyListState,
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            state.servers.forEach { server ->
+                                // Server header
+                                item(key = "header_${server.serverId}") {
+                                    ServerHeader(
+                                        server = server,
+                                        onToggleAll = { onAction(LibrarySelectionAction.ToggleServer(server.serverId)) },
+                                    )
+                                }
+
+                                // Libraries
+                                items(
+                                    items = server.libraries,
+                                    key = { "${server.serverId}:${it.key}" },
+                                ) { library ->
+                                    LibraryItem(
+                                        library = library,
+                                        onClick = {
+                                            onAction(LibrarySelectionAction.ToggleLibrary(server.serverId, library.key))
+                                        },
+                                    )
+                                }
                             }
 
-                            // Libraries
-                            items(
-                                items = server.libraries,
-                                key = { "${server.serverId}:${it.key}" },
-                            ) { library ->
-                                LibraryItem(
-                                    library = library,
-                                    onClick = {
-                                        onAction(LibrarySelectionAction.ToggleLibrary(server.serverId, library.key))
-                                    },
-                                )
-                            }
+                            // Bottom spacing for the confirm button
+                            item { Spacer(modifier = Modifier.height(8.dp)) }
                         }
 
-                        // Bottom spacing for the confirm button
-                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        // Jump-to-server sidebar (only when 2+ servers)
+                        if (state.servers.size >= 2) {
+                            ServerSidebar(
+                                servers = state.servers,
+                                onServerSelected = { serverId ->
+                                    val idx = serverHeaderIndices[serverId] ?: 0
+                                    coroutineScope.launch { lazyListState.animateScrollToItem(idx) }
+                                },
+                            )
+                        }
                     }
 
                     // Confirm button
@@ -304,6 +341,58 @@ private fun LibraryItem(
             colors = CheckboxDefaults.colors(
                 checkedColor = MaterialTheme.colorScheme.primary,
             ),
+        )
+    }
+}
+
+/**
+ * Sidebar for quick jump-to-server navigation (similar to AlphabetSidebar).
+ * Shows abbreviated server names; clicking scrolls the list to that server's section.
+ */
+@Composable
+private fun ServerSidebar(
+    servers: List<ServerWithLibraries>,
+    onServerSelected: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(48.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        servers.forEach { server ->
+            ServerSidebarItem(
+                label = server.serverName.take(3).uppercase(),
+                onClick = { onServerSelected(server.serverId) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ServerSidebarItem(label: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    Box(
+        modifier = Modifier
+            .width(40.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent)
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
+            color = if (isFocused) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
         )
     }
 }

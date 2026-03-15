@@ -25,7 +25,7 @@ android {
         minSdk = 27
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0.12"
+        versionName = "1.0.15"
     }
 
     signingConfigs {
@@ -172,6 +172,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.palette)
 
     // --- Networking & Data ---
     implementation(libs.kotlinx.serialization.json)

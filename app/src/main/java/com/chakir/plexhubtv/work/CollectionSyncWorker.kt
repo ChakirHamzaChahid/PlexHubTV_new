@@ -193,6 +193,8 @@ class CollectionSyncWorker
                                         database.withTransaction {
                                             pendingMedia.chunked(500).forEach { batch ->
                                                 mediaDao.upsertMedia(batch)
+                                                // Solution C: compute groupKey post-upsert
+                                                mediaDao.updateGroupKeys(server.clientIdentifier, batch.map { it.ratingKey })
                                             }
                                             pendingCollectionData.forEach { (entity, refs) ->
                                                 collectionDao.upsertCollectionWithItems(entity, refs)

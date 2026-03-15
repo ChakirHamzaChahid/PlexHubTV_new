@@ -65,4 +65,17 @@ interface MediaDetailRepository {
         collectionId: String,
         serverId: String,
     ): Flow<Collection?>
+
+    /**
+     * Soft-hide : masque le média du hub localement (toutes les instances cross-serveur via unificationId).
+     * Ne supprime PAS du serveur Plex — voir MediaDetailRepositoryImpl pour le code de suppression serveur
+     * conservé en commentaire.
+     */
+    suspend fun deleteMedia(ratingKey: String, serverId: String): Result<Unit>
+
+    /** Checks whether the given server is owned by the current user. */
+    suspend fun isServerOwned(serverId: String): Boolean
+
+    /** Refreshes metadata (rating, synopsis, poster) from TMDB/OMDB for the given media. */
+    suspend fun refreshMetadataFromTmdb(media: MediaItem): Result<Unit>
 }

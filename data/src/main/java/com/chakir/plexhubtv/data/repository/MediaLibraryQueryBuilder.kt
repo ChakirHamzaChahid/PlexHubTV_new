@@ -39,12 +39,12 @@ object MediaLibraryQueryBuilder {
         if (config.isUnified) {
             sql.append(UNIFIED_SELECT)
             sql.append(UNIFIED_FROM)
-            sql.append("WHERE media.type = ? ")
+            sql.append("WHERE media.type = ? AND media.isHidden = 0 ")
             args.add(config.mediaTypeStr)
         } else {
             sql.append(NON_UNIFIED_SELECT)
             sql.append("FROM media ")
-            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? AND media.isHidden = 0 ")
             args.add(config.mediaTypeStr)
             args.add(config.libraryKey)
             args.add(config.filter)
@@ -96,11 +96,11 @@ object MediaLibraryQueryBuilder {
         if (config.isUnified) {
             sql.append(UNIFIED_COUNT_SELECT)
             sql.append(UNIFIED_COUNT_FROM)
-            sql.append("WHERE media.type = ? ")
+            sql.append("WHERE media.type = ? AND media.isHidden = 0 ")
             args.add(config.mediaTypeStr)
         } else {
             sql.append("SELECT COUNT(*) FROM media ")
-            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? AND media.isHidden = 0 ")
             args.add(config.mediaTypeStr)
             args.add(config.libraryKey)
             args.add(config.filter)
@@ -214,6 +214,8 @@ object MediaLibraryQueryBuilder {
                         media.parentThumb, media.grandparentThumb,
                         media.displayRating,
                         media.scrapedRating,
+                        media.overriddenSummary,
+                        media.overriddenThumbUrl,
                         media.historyGroupKey,
                         media.viewCount,
                         media.sourceServerId,
@@ -248,6 +250,7 @@ object MediaLibraryQueryBuilder {
                         media.displayRating,
                         media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
                         media.scrapedRating,
+                        media.overriddenSummary, media.overriddenThumbUrl,
                         media.historyGroupKey,
                         media.viewCount,
                         media.sourceServerId,
@@ -292,4 +295,102 @@ object MediaLibraryQueryBuilder {
 
     private const val UNIFIED_COUNT_FROM =
         "FROM media LEFT JOIN id_bridge ON media.tmdbId = id_bridge.tmdbId AND media.imdbId IS NULL "
+
+    // ═══════════════════════════════════════════════════════════════
+    // Solution C: Queries targeting the pre-aggregated media_unified table.
+    // No GROUP BY, no bestRowField, no LEFT JOIN — simple flat SELECT.
+    // ═══════════════════════════════════════════════════════════════
+
+    fun buildMaterializedPagedQuery(config: QueryConfig): BuiltQuery {
+        val sql = StringBuilder()
+        val args = mutableListOf<Any>()
+
+        sql.append("SELECT * FROM media_unified WHERE type = ? ")
+        args.add(config.mediaTypeStr)
+
+        appendMaterializedWhereFilters(sql, args, config)
+
+        val safeDirection = if (config.isDescending) "DESC" else "ASC"
+        val orderBy = when (config.baseSort) {
+            "title" -> "titleSortable $safeDirection"
+            "year" -> "year $safeDirection, titleSortable ASC"
+            "rating" -> "displayRating $safeDirection, titleSortable ASC"
+            "addedAt" -> "addedAt $safeDirection, titleSortable ASC"
+            else -> "addedAt $safeDirection, titleSortable ASC"
+        }
+        sql.append("ORDER BY $orderBy")
+
+        return BuiltQuery(sql.toString(), args)
+    }
+
+    fun buildMaterializedCountQuery(config: QueryConfig): BuiltQuery {
+        val sql = StringBuilder()
+        val args = mutableListOf<Any>()
+
+        sql.append("SELECT COUNT(*) FROM media_unified WHERE type = ? ")
+        args.add(config.mediaTypeStr)
+
+        appendMaterializedWhereFilters(sql, args, config)
+
+        return BuiltQuery(sql.toString(), args)
+    }
+
+    fun buildMaterializedIndexQuery(config: QueryConfig, letter: String): BuiltQuery {
+        val countQuery = buildMaterializedCountQuery(config)
+        val indexSql = StringBuilder(countQuery.sql)
+        val indexArgs = countQuery.args.toMutableList()
+        indexSql.append("AND UPPER(titleSortable) < UPPER(?) ")
+        indexArgs.add(letter)
+        return BuiltQuery(indexSql.toString(), indexArgs)
+    }
+
+    private fun appendMaterializedWhereFilters(
+        sql: StringBuilder,
+        args: MutableList<Any>,
+        config: QueryConfig,
+    ) {
+        // Genre filter
+        if (!config.genre.isNullOrEmpty()) {
+            sql.append("AND (")
+            config.genre.forEachIndexed { index, keyword ->
+                if (index > 0) sql.append(" OR ")
+                sql.append("genres LIKE ?")
+                args.add("%$keyword%")
+            }
+            sql.append(") ")
+        }
+
+        // Server filter (uses LIKE on serverIds "server1=rk1,server2=rk2")
+        if (config.selectedServerId != null) {
+            sql.append("AND serverIds LIKE ? ")
+            args.add("%${config.selectedServerId}=%")
+        }
+
+        // Exclude servers
+        if (config.excludedServerIds.isNotEmpty()) {
+            for (excludedId in config.excludedServerIds) {
+                sql.append("AND (serverIds IS NULL OR serverIds NOT LIKE ?) ")
+                args.add("%${excludedId}=%")
+            }
+        }
+
+        // Text search (LIKE fallback — no FTS on media_unified)
+        if (config.query != null) {
+            sql.append("AND (title LIKE ? OR summary LIKE ?) ")
+            args.add("%${config.query}%")
+            args.add("%${config.query}%")
+        }
+
+        // Age-based content filtering (parental controls)
+        if (config.maxAgeRating != null && config.maxAgeRating < 99) {
+            sql.append(
+                "AND (contentRating IS NULL OR contentRating = '' " +
+                "OR contentRating IN ('TP','NR') " +
+                "OR (contentRating NOT IN ('TP','NR','XXX') " +
+                    "AND CAST(REPLACE(contentRating, '+', '') AS INTEGER) <= ?) " +
+                ") "
+            )
+            args.add(config.maxAgeRating)
+        }
+    }
 }

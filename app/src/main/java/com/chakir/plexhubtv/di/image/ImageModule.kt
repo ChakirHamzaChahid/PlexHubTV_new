@@ -31,7 +31,7 @@ object ImageModule {
     ): ImageLoader {
         // Dedicated OkHttpClient for images with shorter timeouts to prevent blocking on slow/offline servers
         val imageOkHttpClient = okHttpClient.newBuilder()
-            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)  // 5s instead of 10s
+            .connectTimeout(2, java.util.concurrent.TimeUnit.SECONDS)  // 2s: fail fast on stale URLs, FallbackAsyncImage handles retries
             .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)    // 10s instead of 30s
             .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)   // 10s instead of 30s
             .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)    // 15s total max (prevents 60s hangs)

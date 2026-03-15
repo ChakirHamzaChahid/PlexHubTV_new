@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,6 +57,7 @@ import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -64,6 +66,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,7 +92,7 @@ import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.feature.home.MediaCard
-import timber.log.Timber
+
 
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
@@ -209,8 +214,23 @@ fun LibrariesScreen(
         }
     }
 
+    // Restore scroll position after back-navigation (wait for paging data to load)
+    val pendingScrollRestore = state.scroll.pendingScrollRestore
+    LaunchedEffect(pendingScrollRestore) {
+        if (pendingScrollRestore != null && pendingScrollRestore > 0) {
+            val loaded = withTimeoutOrNull(3000L) {
+                snapshotFlow { pagedItems.itemCount }.first { it > pendingScrollRestore }
+            }
+            if (pagedItems.itemCount > 0) {
+                val target = pendingScrollRestore.coerceAtMost(pagedItems.itemCount - 1)
+                gridState.scrollToItem(target)
+                listState.scrollToItem(target)
+            }
+        }
+    }
+
     // Scroll to top when sort, genre, or server filter changes
-    var isFirstComposition by rememberSaveable { mutableStateOf(true) }
+    var isFirstComposition by remember { mutableStateOf(true) }
     val sortKey = "${state.filter.currentSort}_${state.filter.isSortDescending}_${state.filter.selectedGenre}_${state.filter.selectedServerFilter}"
     LaunchedEffect(sortKey) {
         if (isFirstComposition) {
@@ -295,19 +315,28 @@ fun LibrariesScreen(
                                 testTag = "library_sort_button"
                             )
 
-                            // Refresh Button
+                            // Refresh Button (10s cooldown to prevent flooding)
                             IconButton(
                                 onClick = {
-                                    pagedItems.refresh() // Force network refresh
+                                    pagedItems.refresh()
                                     onAction(LibraryAction.Refresh)
                                 },
+                                enabled = !state.display.isRefreshing,
                                 modifier = Modifier.testTag("library_refresh_button")
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = stringResource(R.string.library_refresh_description),
-                                    tint = Color.White
-                                )
+                                if (state.display.isRefreshing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color.White.copy(alpha = 0.5f),
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = stringResource(R.string.library_refresh_description),
+                                        tint = Color.White
+                                    )
+                                }
                             }
 
                             // View Mode Switch (Grid → Compact → List → Grid)
@@ -445,7 +474,13 @@ fun LibrariesScreen(
                     LibraryContent(
                         pagedItems = pagedItems,
                         viewMode = state.display.viewMode,
-                        onItemClick = { onAction(LibraryAction.OpenMedia(it)) },
+                        onItemClick = { item ->
+                            val scrollIndex = when (state.display.viewMode) {
+                                LibraryViewMode.Grid, LibraryViewMode.Compact -> gridState.firstVisibleItemIndex
+                                LibraryViewMode.List -> listState.firstVisibleItemIndex
+                            }
+                            onAction(LibraryAction.OpenMedia(item, scrollIndex))
+                        },
                         onAction = onAction,
                         gridState = gridState,
                         listState = listState,
@@ -517,7 +552,6 @@ fun LibraryContent(
     // Focus restoration: request focus on the item that was previously focused
     val focusRestorationRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     var hasRestoredFocus by remember { mutableStateOf(false) }
-
     Row(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             when (viewMode) {
@@ -548,8 +582,9 @@ fun LibraryContent(
                             if (item != null) {
                                 val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
 
-                                if (shouldRestoreFocus) {
-                                    LaunchedEffect(Unit) {
+                                LaunchedEffect(shouldRestoreFocus) {
+                                    if (shouldRestoreFocus) {
+                                        delay(100) // Wait for layout stabilization
                                         try {
                                             focusRestorationRequester.requestFocus()
                                             hasRestoredFocus = true
@@ -608,10 +643,25 @@ fun LibraryContent(
                         ) { index ->
                             val item = pagedItems[index]
                             if (item != null) {
+                                val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
+
+                                LaunchedEffect(shouldRestoreFocus) {
+                                    if (shouldRestoreFocus) {
+                                        delay(150)
+                                        try {
+                                            focusRestorationRequester.requestFocus()
+                                            hasRestoredFocus = true
+                                        } catch (_: Exception) { }
+                                    }
+                                }
+
                                 Row(
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
+                                            .then(
+                                                if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
+                                            )
                                             .clickable { onItemClick(item) }
                                             .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
                                             .padding(8.dp),

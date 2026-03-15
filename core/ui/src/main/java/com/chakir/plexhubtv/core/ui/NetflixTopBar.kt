@@ -41,9 +41,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,7 +86,6 @@ fun NetflixTopBar(
 
     // Individual focus requesters for each navigation item
     val homeFocusRequester = remember { FocusRequester() }
-    val hubFocusRequester = remember { FocusRequester() }
     val tvShowsFocusRequester = remember { FocusRequester() }
     val moviesFocusRequester = remember { FocusRequester() }
     val favoritesFocusRequester = remember { FocusRequester() }
@@ -94,7 +98,6 @@ fun NetflixTopBar(
             try {
                 when (selectedItem) {
                     NavigationItem.Home -> homeFocusRequester.requestFocus()
-                    NavigationItem.Hub -> hubFocusRequester.requestFocus()
                     NavigationItem.TVShows -> tvShowsFocusRequester.requestFocus()
                     NavigationItem.Movies -> moviesFocusRequester.requestFocus()
                     NavigationItem.Favorites -> favoritesFocusRequester.requestFocus()
@@ -209,12 +212,6 @@ fun NetflixTopBar(
                     focusRequester = homeFocusRequester
                 )
                 NetflixNavItem(
-                    item = NavigationItem.Hub,
-                    isSelected = selectedItem == NavigationItem.Hub,
-                    onSelected = { onItemSelected(NavigationItem.Hub) },
-                    focusRequester = hubFocusRequester
-                )
-                NetflixNavItem(
                     item = NavigationItem.TVShows,
                     isSelected = selectedItem == NavigationItem.TVShows,
                     onSelected = { onItemSelected(NavigationItem.TVShows) },
@@ -257,6 +254,7 @@ fun NetflixTopBar(
                 NetflixSettingsIcon(
                     onClick = onSettingsClick
                 )
+                TopBarClock()
                 NetflixProfileAvatar(
                     onClick = onProfileClick
                 )
@@ -422,4 +420,24 @@ private fun NetflixProfileAvatar(
             modifier = Modifier.size(20.dp)
         )
     }
+}
+
+@Composable
+private fun TopBarClock() {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(30_000L) // update every 30s
+        }
+    }
+    val timeText = remember(now) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now))
+    }
+    Text(
+        text = timeText,
+        style = MaterialTheme.typography.titleMedium,
+        color = Color.White.copy(alpha = 0.9f),
+        fontWeight = FontWeight.Medium,
+    )
 }

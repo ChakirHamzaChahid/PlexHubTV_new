@@ -79,6 +79,7 @@ fun NetflixHeroBillboard(
     onNavigateDown: (() -> Unit)? = null,
     onNavigateUp: (() -> Unit)? = null,
     buttonsFocusRequester: FocusRequester? = null, // For UP navigation from first hub
+    backdropColors: BackdropColors = BackdropColors(),
 ) {
     if (items.isEmpty()) return
 
@@ -138,7 +139,8 @@ fun NetflixHeroBillboard(
         // LazyColumn scroll conflicts when recycled off-screen.
         // Initial focus now goes directly to the Play button (like Netflix).
 
-        // Gradient Overlay (Scrims)
+        // Gradient Overlay (Scrims) — uses dynamic backdrop colors when available
+        val gradientBase = if (backdropColors.isDefault) NetflixBlack else backdropColors.secondary
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -146,8 +148,8 @@ fun NetflixHeroBillboard(
                     Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            NetflixBlack.copy(alpha = 0.3f),
-                            NetflixBlack
+                            gradientBase.copy(alpha = 0.3f),
+                            gradientBase
                         ),
                         startY = 0f,
                         endY = Float.POSITIVE_INFINITY
@@ -160,8 +162,8 @@ fun NetflixHeroBillboard(
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
-                            NetflixBlack.copy(alpha = 0.9f),
-                            Color.Transparent,
+                            gradientBase.copy(alpha = 0.9f),
+                            if (backdropColors.isDefault) Color.Transparent else backdropColors.primary,
                         ),
                         startX = 0f,
                         endX = 2000f

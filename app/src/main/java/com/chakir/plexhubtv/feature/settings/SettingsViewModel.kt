@@ -51,7 +51,12 @@ class SettingsViewModel
         private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
+        private val updateChecker: com.chakir.plexhubtv.core.update.UpdateChecker,
     ) : ViewModel() {
+        companion object {
+            const val ALL_SERVERS_SENTINEL = "all"
+        }
+
         private val _uiState = MutableStateFlow(SettingsUiState())
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -115,6 +120,60 @@ class SettingsViewModel
                 is SettingsAction.ToggleAutoPlayNext -> {
                     _uiState.update { it.copy(autoPlayNextEnabled = action.enabled) }
                     viewModelScope.launch { settingsRepository.setAutoPlayNext(action.enabled) }
+                }
+                is SettingsAction.ChangeSkipIntroMode -> {
+                    _uiState.update { it.copy(skipIntroMode = action.mode) }
+                    viewModelScope.launch { settingsRepository.setSkipIntroMode(action.mode) }
+                }
+                is SettingsAction.ChangeSkipCreditsMode -> {
+                    _uiState.update { it.copy(skipCreditsMode = action.mode) }
+                    viewModelScope.launch { settingsRepository.setSkipCreditsMode(action.mode) }
+                }
+                is SettingsAction.ToggleThemeSong -> {
+                    _uiState.update { it.copy(themeSongEnabled = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setThemeSongEnabled(action.enabled) }
+                }
+                is SettingsAction.ToggleScreensaver -> {
+                    _uiState.update { it.copy(screensaverEnabled = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setScreensaverEnabled(action.enabled) }
+                }
+                is SettingsAction.ChangeScreensaverInterval -> {
+                    _uiState.update { it.copy(screensaverIntervalSeconds = action.seconds) }
+                    viewModelScope.launch { settingsRepository.setScreensaverIntervalSeconds(action.seconds) }
+                }
+                is SettingsAction.ToggleScreensaverClock -> {
+                    _uiState.update { it.copy(screensaverShowClock = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setScreensaverShowClock(action.enabled) }
+                }
+                is SettingsAction.ToggleShowContinueWatching -> {
+                    _uiState.update { it.copy(showContinueWatching = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setShowContinueWatching(action.enabled) }
+                }
+                is SettingsAction.ToggleShowMyList -> {
+                    _uiState.update { it.copy(showMyList = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setShowMyList(action.enabled) }
+                }
+                is SettingsAction.ToggleShowSuggestions -> {
+                    _uiState.update { it.copy(showSuggestions = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setShowSuggestions(action.enabled) }
+                }
+                is SettingsAction.MoveHomeRowUp -> {
+                    val current = _uiState.value.homeRowOrder.toMutableList()
+                    val idx = current.indexOf(action.rowId)
+                    if (idx > 0) {
+                        current[idx] = current[idx - 1].also { current[idx - 1] = current[idx] }
+                        _uiState.update { it.copy(homeRowOrder = current) }
+                        viewModelScope.launch { settingsRepository.saveHomeRowOrder(current) }
+                    }
+                }
+                is SettingsAction.MoveHomeRowDown -> {
+                    val current = _uiState.value.homeRowOrder.toMutableList()
+                    val idx = current.indexOf(action.rowId)
+                    if (idx >= 0 && idx < current.size - 1) {
+                        current[idx] = current[idx + 1].also { current[idx + 1] = current[idx] }
+                        _uiState.update { it.copy(homeRowOrder = current) }
+                        viewModelScope.launch { settingsRepository.saveHomeRowOrder(current) }
+                    }
                 }
                 is SettingsAction.ToggleShowYearOnCards -> {
                     _uiState.update { it.copy(showYearOnCards = action.enabled) }
@@ -219,6 +278,10 @@ class SettingsViewModel
                 is SettingsAction.ChangePreferredSubtitleLanguage -> {
                     _uiState.update { it.copy(preferredSubtitleLanguage = action.language) }
                     viewModelScope.launch { settingsRepository.setPreferredSubtitleLanguage(action.language) }
+                }
+                is SettingsAction.ChangeMetadataLanguage -> {
+                    _uiState.update { it.copy(metadataLanguage = action.language) }
+                    viewModelScope.launch { settingsRepository.setMetadataLanguage(action.language) }
                 }
                 is SettingsAction.ToggleServerExclusion -> {
                     viewModelScope.launch { settingsRepository.toggleServerExclusion(action.serverId) }
@@ -411,6 +474,32 @@ class SettingsViewModel
                     settingsRepository.setParentalPin(null)
                     _uiState.update { it.copy(hasParentalPin = false) }
                 }
+                is SettingsAction.ToggleAutoCheckUpdates -> {
+                    _uiState.update { it.copy(autoCheckUpdates = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setAutoCheckUpdates(action.enabled) }
+                }
+                is SettingsAction.CheckForUpdates -> {
+                    _uiState.update { it.copy(isCheckingForUpdate = true, updateCheckMessage = null) }
+                    viewModelScope.launch {
+                        val update = updateChecker.checkForUpdate(com.chakir.plexhubtv.BuildConfig.VERSION_NAME)
+                        if (update != null) {
+                            _uiState.update {
+                                it.copy(isCheckingForUpdate = false, updateCheckMessage = "Update available: v${update.versionName}")
+                            }
+                        } else {
+                            _uiState.update {
+                                it.copy(isCheckingForUpdate = false, updateCheckMessage = "You're up to date!")
+                            }
+                        }
+                        kotlinx.coroutines.delay(5000)
+                        _uiState.update { it.copy(updateCheckMessage = null) }
+                    }
+                }
+                is SettingsAction.NavigateToSubtitleStyle -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToSubtitleStyle)
+                    }
+                }
                 is SettingsAction.SyncBackend -> {
                     _uiState.update { it.copy(isSyncingBackend = true, backendSyncMessage = null) }
                     viewModelScope.launch {
@@ -551,7 +640,7 @@ class SettingsViewModel
                 val duration = System.currentTimeMillis() - serverStart
                 serversResult.getOrNull()?.let { servers ->
                     Timber.i("SCREEN [Settings] SUCCESS: Servers loaded in ${duration}ms | Count=${servers.size}")
-                    val serverNames = servers.map { it.name }
+                    val serverNames = listOf(ALL_SERVERS_SENTINEL) + servers.map { it.name }
                     val serverMap = servers.associate { it.name to it.clientIdentifier }
                     _uiState.update { it.copy(availableServers = serverNames, availableServersMap = serverMap) }
                 }
@@ -581,17 +670,19 @@ class SettingsViewModel
                 }
             }
 
-            // Group 2: Language & exclusion preferences (3 flows)
+            // Group 2: Language & exclusion preferences (4 flows)
             val prefs = combine(
                 settingsRepository.preferredAudioLanguage,
                 settingsRepository.preferredSubtitleLanguage,
                 settingsRepository.excludedServerIds,
-            ) { audio, subtitle, excluded ->
+                settingsRepository.metadataLanguage,
+            ) { audio, subtitle, excluded, metaLang ->
                 { s: SettingsUiState ->
                     s.copy(
                         preferredAudioLanguage = audio,
                         preferredSubtitleLanguage = subtitle,
                         excludedServerIds = excluded,
+                        metadataLanguage = metaLang,
                     )
                 }
             }
@@ -638,6 +729,28 @@ class SettingsViewModel
                 }
             }
 
+            // Collect home row visibility preferences
+            viewModelScope.launch {
+                settingsRepository.showContinueWatching.collect { show ->
+                    _uiState.update { it.copy(showContinueWatching = show) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.showMyList.collect { show ->
+                    _uiState.update { it.copy(showMyList = show) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.showSuggestions.collect { show ->
+                    _uiState.update { it.copy(showSuggestions = show) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.homeRowOrder.collect { order ->
+                    _uiState.update { it.copy(homeRowOrder = order) }
+                }
+            }
+
             // Collect showYearOnCards separately (single flow, simpler than creating a group)
             viewModelScope.launch {
                 settingsRepository.showYearOnCards.collect { showYear ->
@@ -663,6 +776,47 @@ class SettingsViewModel
             viewModelScope.launch {
                 settingsRepository.autoPlayNextEnabled.collect { enabled ->
                     _uiState.update { it.copy(autoPlayNextEnabled = enabled) }
+                }
+            }
+
+            // Collect skip intro/credits modes separately
+            viewModelScope.launch {
+                settingsRepository.skipIntroMode.collect { mode ->
+                    _uiState.update { it.copy(skipIntroMode = mode) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.skipCreditsMode.collect { mode ->
+                    _uiState.update { it.copy(skipCreditsMode = mode) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.themeSongEnabled.collect { enabled ->
+                    _uiState.update { it.copy(themeSongEnabled = enabled) }
+                }
+            }
+
+            // Collect screensaver settings separately
+            viewModelScope.launch {
+                settingsRepository.screensaverEnabled.collect { enabled ->
+                    _uiState.update { it.copy(screensaverEnabled = enabled) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.screensaverIntervalSeconds.collect { seconds ->
+                    _uiState.update { it.copy(screensaverIntervalSeconds = seconds) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.screensaverShowClock.collect { show ->
+                    _uiState.update { it.copy(screensaverShowClock = show) }
+                }
+            }
+
+            // Collect autoCheckUpdates separately
+            viewModelScope.launch {
+                settingsRepository.autoCheckUpdates.collect { enabled ->
+                    _uiState.update { it.copy(autoCheckUpdates = enabled) }
                 }
             }
 
@@ -701,4 +855,6 @@ sealed interface SettingsNavigationEvent {
     data object NavigateToXtreamSetup : SettingsNavigationEvent
 
     data class NavigateToXtreamCategorySelection(val accountId: String) : SettingsNavigationEvent
+
+    data object NavigateToSubtitleStyle : SettingsNavigationEvent
 }

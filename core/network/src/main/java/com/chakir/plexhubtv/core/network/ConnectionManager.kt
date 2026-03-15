@@ -1,12 +1,19 @@
 package com.chakir.plexhubtv.core.network
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
 import com.chakir.plexhubtv.core.model.Server
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -34,6 +41,7 @@ class ConnectionManager
         private val connectionTester: ServerConnectionTester,
         private val connectionCacheStore: ConnectionCacheStore,
         @com.chakir.plexhubtv.core.di.ApplicationScope private val scope: CoroutineScope,
+        @ApplicationContext context: Context,
     ) {
         // Map of Server MachineID -> Active (Best) Base URL
         private val _activeConnections = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -42,6 +50,11 @@ class ConnectionManager
         // Global Offline State
         private val _isOffline = MutableStateFlow(false)
         val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
+
+        // Emits when network changes and connections have been invalidated.
+        // Observers should re-discover connections for all servers.
+        private val _connectionRefreshNeeded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val connectionRefreshNeeded: SharedFlow<Unit> = _connectionRefreshNeeded.asSharedFlow()
 
         // Failed servers cache (serverId -> timestamp when it failed)
         // Skip retrying failed servers for 5 minutes to prevent UI blocking
@@ -61,6 +74,19 @@ class ConnectionManager
                 } catch (e: Exception) {
                     Timber.w(e, "ConnectionManager: Failed to restore cached connections")
                 }
+            }
+
+            // Monitor network changes and invalidate stale connections
+            try {
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) {
+                        Timber.i("ConnectionManager: Network changed, invalidating all cached connections")
+                        invalidateAllConnections()
+                    }
+                })
+            } catch (e: Exception) {
+                Timber.w(e, "ConnectionManager: Failed to register network callback")
             }
         }
 
@@ -207,6 +233,24 @@ class ConnectionManager
                     Timber.w(e, "ConnectionManager: Failed to persist after invalidation")
                 }
             }
+        }
+
+        /**
+         * Invalidates ALL cached connections and clears failed servers.
+         * Called on network change so stale local IPs are not reused on a different network.
+         * Emits [connectionRefreshNeeded] so observers can proactively re-discover connections.
+         */
+        fun invalidateAllConnections() {
+            _activeConnections.update { emptyMap() }
+            failedServers.clear()
+            scope.launch {
+                try {
+                    connectionCacheStore.saveCachedConnections(emptyMap())
+                } catch (e: Exception) {
+                    Timber.w(e, "ConnectionManager: Failed to clear persisted cache")
+                }
+            }
+            _connectionRefreshNeeded.tryEmit(Unit)
         }
 
         fun setOfflineMode(isOffline: Boolean) {

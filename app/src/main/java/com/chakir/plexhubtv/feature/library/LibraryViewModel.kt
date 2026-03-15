@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
@@ -204,12 +205,17 @@ class LibraryViewModel
             val restoredLibraryId = savedStateHandle.get<String>("selectedLibraryId")
             val restoredItemIndex = savedStateHandle.get<Int>("initialScrollIndex")
             val restoredFocusId = savedStateHandle.get<String>("lastFocusedId")
+            val restoredPendingScroll = savedStateHandle.get<Int>("pendingScrollRestore")
 
             _uiState.update {
                 it.copy(
                     display = it.display.copy(mediaType = initialMediaType, isLoading = true),
                     selection = it.selection.copy(selectedLibraryId = restoredLibraryId),
-                    scroll = it.scroll.copy(initialScrollIndex = restoredItemIndex, lastFocusedId = restoredFocusId),
+                    scroll = it.scroll.copy(
+                        initialScrollIndex = restoredItemIndex,
+                        lastFocusedId = restoredFocusId,
+                        pendingScrollRestore = restoredPendingScroll,
+                    ),
                 )
             }
 
@@ -449,27 +455,49 @@ class LibraryViewModel
                     // Handled by Paging 3 automatically
                 }
                 is LibraryAction.Refresh -> {
-                    // Handled by PagingAdapter.refresh() in UI
+                    if (_uiState.value.display.isRefreshing) return
+                    _uiState.update { it.copy(display = it.display.copy(isRefreshing = true)) }
+                    triggerBackgroundSync()
+                    viewModelScope.launch {
+                        delay(10_000) // 10s cooldown to prevent flooding
+                        _uiState.update { it.copy(display = it.display.copy(isRefreshing = false)) }
+                    }
                 }
                 is LibraryAction.OpenMedia -> {
-                    // Sync lastFocusedId to UiState before navigation so focus can be restored on back
-                    _uiState.update { it.copy(scroll = it.scroll.copy(lastFocusedId = action.media.ratingKey)) }
+                    // Save focus + scroll position for restoration on back-navigation
+                    _uiState.update {
+                        it.copy(scroll = it.scroll.copy(
+                            lastFocusedId = action.media.ratingKey,
+                            pendingScrollRestore = action.firstVisibleItemIndex,
+                        ))
+                    }
+                    savedStateHandle["lastFocusedId"] = action.media.ratingKey
+                    savedStateHandle["initialScrollIndex"] = action.firstVisibleItemIndex
+                    savedStateHandle["pendingScrollRestore"] = action.firstVisibleItemIndex
                     viewModelScope.launch {
                         _navigationEvents.send(LibraryNavigationEvent.NavigateToDetail(action.media.ratingKey, action.media.serverId))
                     }
                 }
                 is LibraryAction.SelectLibrary -> {
+                    savedStateHandle.remove<Int>("pendingScrollRestore")
                     savedStateHandle["selectedLibraryId"] = action.libraryId
-                    _uiState.update { it.copy(selection = it.selection.copy(selectedLibraryId = action.libraryId)) }
+                    _uiState.update {
+                        it.copy(
+                            selection = it.selection.copy(selectedLibraryId = action.libraryId),
+                            scroll = it.scroll.copy(pendingScrollRestore = null),
+                        )
+                    }
                 }
                 is LibraryAction.ApplyFilter -> {
                     _uiState.update { it.copy(filter = it.filter.copy(currentFilter = action.filter)) }
                 }
                 is LibraryAction.ApplySort -> {
+                    savedStateHandle.remove<Int>("pendingScrollRestore")
                     _uiState.update {
                         it.copy(
                             filter = it.filter.copy(currentSort = action.sort, isSortDescending = action.isDescending),
                             dialog = it.dialog.copy(isSortDialogOpen = false),
+                            scroll = it.scroll.copy(pendingScrollRestore = null),
                         )
                     }
                     viewModelScope.launch { settingsRepository.saveLibrarySort(action.sort, action.isDescending) }
@@ -494,20 +522,24 @@ class LibraryViewModel
                     _uiState.update { it.copy(filter = it.filter.copy(searchQuery = action.query)) }
                 }
                 is LibraryAction.SelectGenre -> {
-                    _uiState.update { it.copy(filter = it.filter.copy(selectedGenre = action.genre)) }
+                    savedStateHandle.remove<Int>("pendingScrollRestore")
+                    _uiState.update { it.copy(filter = it.filter.copy(selectedGenre = action.genre), scroll = it.scroll.copy(pendingScrollRestore = null)) }
                     viewModelScope.launch { settingsRepository.saveLibraryGenre(action.genre) }
                 }
                 is LibraryAction.SelectServerFilter -> {
-                    _uiState.update { it.copy(filter = it.filter.copy(selectedServerFilter = action.serverId)) }
+                    savedStateHandle.remove<Int>("pendingScrollRestore")
+                    _uiState.update { it.copy(filter = it.filter.copy(selectedServerFilter = action.serverId), scroll = it.scroll.copy(pendingScrollRestore = null)) }
                     viewModelScope.launch { settingsRepository.saveLibraryServerFilter(action.serverId) }
                 }
                 is LibraryAction.OnItemFocused -> {
                     // PERFORMANCE FIX: Only update SavedStateHandle, DO NOT update _uiState.
                     // Updating _uiState triggers a full screen recomposition on every D-pad move.
                     savedStateHandle["lastFocusedId"] = action.item.ratingKey
-                    // _uiState.update { it.copy(lastFocusedId = action.item.ratingKey) } 
+                    // _uiState.update { it.copy(lastFocusedId = action.item.ratingKey) }
                 }
                 is LibraryAction.JumpToLetter -> {
+                    savedStateHandle.remove<Int>("pendingScrollRestore")
+                    _uiState.update { it.copy(scroll = it.scroll.copy(pendingScrollRestore = null)) }
                     viewModelScope.launch {
                         val state = _uiState.value
                         Timber.d("JumpToLetter: ${action.letter}")

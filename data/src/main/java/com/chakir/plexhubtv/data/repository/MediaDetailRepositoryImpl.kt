@@ -5,8 +5,13 @@ import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.model.Collection
 import com.chakir.plexhubtv.core.model.EpisodeSource
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.UnifiedEpisode
 import com.chakir.plexhubtv.core.model.UnifiedSeason
+import com.chakir.plexhubtv.core.datastore.SettingsDataStore
+import com.chakir.plexhubtv.core.network.ApiKeyManager
+import com.chakir.plexhubtv.core.network.OmdbApiService
+import com.chakir.plexhubtv.core.network.TmdbApiService
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.data.source.MediaSourceResolver
@@ -16,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,6 +37,11 @@ class MediaDetailRepositoryImpl
         private val mediaUrlResolver: MediaUrlResolver,
         private val mediaSourceResolver: MediaSourceResolver,
         private val serverNameResolver: ServerNameResolver,
+        private val tmdbApiService: TmdbApiService,
+        private val omdbApiService: OmdbApiService,
+        private val apiKeyManager: ApiKeyManager,
+        private val aggregationService: AggregationService,
+        private val settingsDataStore: SettingsDataStore,
         @com.chakir.plexhubtv.core.di.IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     ) : MediaDetailRepository {
         override suspend fun getMediaDetail(
@@ -301,5 +312,146 @@ class MediaDetailRepositoryImpl
                 }
                 .flowOn(ioDispatcher)
         }
+
+        /**
+         * Soft-hide: masque le média du hub localement (toutes les instances cross-serveur).
+         * Ne supprime PAS du serveur Plex — l'ancien code de suppression serveur est conservé
+         * ci-dessous en commentaire pour réactivation future si nécessaire.
+         */
+        override suspend fun deleteMedia(ratingKey: String, serverId: String): Result<Unit> {
+            return try {
+                val entity = mediaDao.getMedia(ratingKey, serverId)
+                Timber.d("hideMedia: entity found=${entity != null}, uid=${entity?.unificationId}, rk=$ratingKey sid=$serverId")
+
+                val count = if (!entity?.unificationId.isNullOrBlank()) {
+                    mediaDao.hideMediaByUnificationId(entity!!.unificationId)
+                } else {
+                    mediaDao.hideMedia(ratingKey, serverId)
+                }
+
+                if (count > 0) {
+                    Timber.i("Soft-hidden $count media rows (rk=$ratingKey sid=$serverId uid=${entity?.unificationId})")
+                } else {
+                    Timber.w("hideMedia: 0 rows affected! rk=$ratingKey sid=$serverId uid=${entity?.unificationId}")
+                    // Fallback: if hideByUnificationId matched 0 rows, try direct ratingKey+serverId
+                    if (!entity?.unificationId.isNullOrBlank()) {
+                        val fallbackCount = mediaDao.hideMedia(ratingKey, serverId)
+                        Timber.d("hideMedia: fallback by rk+sid → $fallbackCount rows")
+                    }
+                }
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Timber.e(e, "hideMedia failed")
+                Result.failure(e)
+            }
+
+            // ══════════════════════════════════════════════════════════════════
+            // ANCIEN CODE — Suppression physique sur le serveur Plex
+            // Conservé pour réactivation future. Pour réactiver :
+            // 1. Décommenter le bloc ci-dessous
+            // 2. Supprimer le bloc soft-hide ci-dessus
+            // 3. Remettre le guard isServerOwned dans le ViewModel/UI
+            // ══════════════════════════════════════════════════════════════════
+            //
+            // return try {
+            //     val client = serverClientResolver.getClient(serverId)
+            //         ?: return Result.failure(Exception("Cannot connect to server"))
+            //     val response = client.deleteMedia(ratingKey)
+            //     if (response.isSuccessful) {
+            //         mediaDao.deleteMedia(ratingKey, serverId)
+            //         Timber.i("Deleted media ratingKey=$ratingKey from server=$serverId")
+            //         Result.success(Unit)
+            //     } else {
+            //         val code = response.code()
+            //         val msg = when (code) {
+            //             401 -> "Unauthorized — you may not have permission to delete"
+            //             403 -> "Forbidden — server owner permission required"
+            //             404 -> "Media not found on server"
+            //             else -> "Server error ($code)"
+            //         }
+            //         Timber.w("Delete failed: $msg (ratingKey=$ratingKey, serverId=$serverId)")
+            //         Result.failure(Exception(msg))
+            //     }
+            // } catch (e: Exception) {
+            //     Timber.e(e, "deleteMedia failed")
+            //     Result.failure(e)
+            // }
+        }
+
+        override suspend fun isServerOwned(serverId: String): Boolean {
+            val client = serverClientResolver.getClient(serverId) ?: return false
+            return client.server.isOwned
+        }
+
+        override suspend fun refreshMetadataFromTmdb(media: MediaItem): Result<Unit> =
+            withContext(ioDispatcher) {
+                runCatching {
+                    val tmdbId = media.tmdbId
+                    val imdbId = media.imdbId
+                    Timber.d("REFRESH_REPO: Start — title='${media.title}' tmdbId=$tmdbId imdbId=$imdbId type=${media.type}")
+
+                    if (tmdbId != null) {
+                        val tmdbKey = apiKeyManager.getTmdbApiKey()
+                        Timber.d("REFRESH_REPO: TMDB key configured=${tmdbKey != null}")
+                        if (tmdbKey == null) throw IllegalStateException("TMDB API key not configured")
+
+                        // Read metadata language preference
+                        val langCode = settingsDataStore.metadataLanguage.first()
+                        val tmdbLang = when (langCode) {
+                            "fr" -> "fr-FR"
+                            "en" -> "en-US"
+                            else -> "fr-FR"
+                        }
+
+                        // Fetch from TMDB: rating + overview + poster
+                        Timber.d("REFRESH_REPO: Calling TMDB API for ${media.type} tmdbId=$tmdbId lang=$tmdbLang...")
+                        val (rating, overview, posterPath) = when (media.type) {
+                            MediaType.Movie -> {
+                                val r = tmdbApiService.getMovieDetails(tmdbId, tmdbKey, language = tmdbLang)
+                                Timber.d("REFRESH_REPO: TMDB movie response — success=${r.success} voteAvg=${r.voteAverage} overview=${r.overview?.take(80)}... poster=${r.posterPath}")
+                                if (r.success == false) throw RuntimeException("TMDB error: ${r.statusMessage}")
+                                Triple(r.voteAverage, r.overview, r.posterPath)
+                            }
+                            MediaType.Show -> {
+                                val r = tmdbApiService.getTvDetails(tmdbId, tmdbKey, language = tmdbLang)
+                                Timber.d("REFRESH_REPO: TMDB TV response — success=${r.success} voteAvg=${r.voteAverage} overview=${r.overview?.take(80)}... poster=${r.posterPath}")
+                                if (r.success == false) throw RuntimeException("TMDB error: ${r.statusMessage}")
+                                Triple(r.voteAverage, r.overview, r.posterPath)
+                            }
+                            else -> throw IllegalArgumentException("Unsupported type: ${media.type}")
+                        }
+
+                        val finalRating = rating ?: throw RuntimeException("No rating from TMDB")
+                        val posterUrl = posterPath?.let { "https://image.tmdb.org/t/p/w780$it" }
+                        Timber.d("REFRESH_REPO: Writing to DB — rating=$finalRating overview=${overview?.take(50)}... posterUrl=$posterUrl")
+
+                        // Write to BOTH persistence + display columns (cross-server via tmdbId)
+                        val updated = mediaDao.updateMetadataByTmdbId(tmdbId, finalRating, overview, posterUrl)
+                        Timber.i("REFRESH_REPO: DAO updated $updated rows for tmdbId=$tmdbId")
+
+                        // Rebuild affected media_unified groups
+                        val groupKeys = mediaDao.getGroupKeysByTmdbId(tmdbId)
+                        Timber.d("REFRESH_REPO: Rebuilding ${groupKeys.size} media_unified groups: $groupKeys")
+                        groupKeys.forEach { aggregationService.rebuildGroup(it) }
+                        Timber.d("REFRESH_REPO: Done — $updated rows updated, ${groupKeys.size} groups rebuilt")
+
+                    } else if (imdbId != null) {
+                        // OMDB fallback: rating only (no overview/poster)
+                        val omdbKey = apiKeyManager.getOmdbApiKey()
+                        Timber.d("REFRESH_REPO: OMDB fallback — key configured=${omdbKey != null}")
+                        if (omdbKey == null) throw IllegalStateException("OMDB API key not configured")
+
+                        Timber.d("REFRESH_REPO: Calling OMDB API for imdbId=$imdbId...")
+                        val omdbResponse = omdbApiService.getRating(imdbId, omdbKey)
+                        Timber.d("REFRESH_REPO: OMDB response — rating='${omdbResponse.imdbRating}' response='${omdbResponse.response}' error=${omdbResponse.error}")
+                        val omdbRating = omdbResponse.imdbRating?.toDoubleOrNull()
+                            ?: throw RuntimeException("Invalid OMDB rating: ${omdbResponse.imdbRating}")
+                        val updated = mediaDao.updateRatingByImdbId(imdbId, omdbRating)
+                        Timber.i("REFRESH_REPO: OMDB updated $updated rows for imdbId=$imdbId (rating=$omdbRating)")
+                    } else {
+                        throw IllegalStateException("No external ID (tmdbId or imdbId)")
+                    }
+                }
+            }
 
     }

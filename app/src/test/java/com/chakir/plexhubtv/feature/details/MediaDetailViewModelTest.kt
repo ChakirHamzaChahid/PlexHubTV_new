@@ -6,6 +6,7 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.domain.service.PlaybackManager
+import com.chakir.plexhubtv.domain.repository.PlaylistRepository
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.usecase.*
 import com.google.common.truth.Truth.assertThat
@@ -78,6 +79,9 @@ class MediaDetailViewModelTest {
         coEvery { isFavoriteUseCase(any(), any()) } returns flowOf(false)
         coEvery { enrichMediaItemUseCase(any()) } returns testMovie
         coEvery { getNextEpisodeUseCase(any()) } returns Result.failure(Exception("No next episode found"))
+        coEvery { getSimilarMediaUseCase(any(), any()) } returns Result.success(emptyList())
+        every { getMediaCollectionsUseCase(any(), any()) } returns flowOf(emptyList())
+        coEvery { getUnifiedSeasonsUseCase(any(), any(), any()) } returns Result.success(emptyList())
 
         mockkStatic("com.google.firebase.analytics.AnalyticsKt")
         val firebaseAnalytics = mockk<FirebaseAnalytics>(relaxed = true)
@@ -115,6 +119,10 @@ class MediaDetailViewModelTest {
             filterContentByAgeUseCase = filterContentByAgeUseCase,
             performanceTracker = performanceTracker,
             mediaSourceResolver = mockk(relaxed = true),
+            themeSongService = mockk(relaxed = true),
+            settingsRepository = mockk(relaxed = true),
+            deleteMediaUseCase = mockk(relaxed = true),
+            playlistRepository = mockk(relaxed = true),
             savedStateHandle = savedStateHandle
         )
     }
@@ -243,5 +251,27 @@ class MediaDetailViewModelTest {
 
         // Verify that loading is false and error occurred
         assertThat(viewModel.uiState.value.isLoading).isFalse()
+    }
+
+    @Test
+    fun `DeleteClicked - shows delete confirmation dialog`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(MediaDetailEvent.DeleteClicked)
+
+        assertThat(viewModel.uiState.value.showDeleteConfirmation).isTrue()
+    }
+
+    @Test
+    fun `DismissDeleteDialog - hides delete confirmation dialog`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(MediaDetailEvent.DeleteClicked)
+        assertThat(viewModel.uiState.value.showDeleteConfirmation).isTrue()
+
+        viewModel.onEvent(MediaDetailEvent.DismissDeleteDialog)
+        assertThat(viewModel.uiState.value.showDeleteConfirmation).isFalse()
     }
 }

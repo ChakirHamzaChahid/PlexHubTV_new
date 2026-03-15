@@ -23,6 +23,19 @@ interface SettingsRepository {
 
     suspend fun setGridColumnsCount(count: Int)
 
+    // --- Home Row Visibility ---
+    val showContinueWatching: Flow<Boolean>
+    val showMyList: Flow<Boolean>
+    val showSuggestions: Flow<Boolean>
+
+    suspend fun setShowContinueWatching(show: Boolean)
+    suspend fun setShowMyList(show: Boolean)
+    suspend fun setShowSuggestions(show: Boolean)
+
+    // Home Row Order
+    val homeRowOrder: Flow<List<String>>
+    suspend fun saveHomeRowOrder(order: List<String>)
+
     // --- Player Preferences ---
     fun getVideoQuality(): Flow<String>
 
@@ -40,6 +53,19 @@ interface SettingsRepository {
 
     suspend fun setAutoPlayNext(enabled: Boolean)
 
+    val skipIntroMode: Flow<String> // "auto", "ask", "off"
+
+    suspend fun setSkipIntroMode(mode: String)
+
+    val skipCreditsMode: Flow<String> // "auto", "ask", "off"
+
+    suspend fun setSkipCreditsMode(mode: String)
+
+    // --- Theme Song ---
+    val themeSongEnabled: Flow<Boolean>
+
+    suspend fun setThemeSongEnabled(enabled: Boolean)
+
     // --- Audio/Subtitle Preferences ---
     val preferredAudioLanguage: Flow<String?> // "fr", "en", etc.
 
@@ -48,6 +74,10 @@ interface SettingsRepository {
     val preferredSubtitleLanguage: Flow<String?> // "fr", "en", or "forced", "none"
 
     suspend fun setPreferredSubtitleLanguage(lang: String?)
+
+    val metadataLanguage: Flow<String> // "fr" or "en" — language for TMDB API calls
+
+    suspend fun setMetadataLanguage(lang: String)
 
     // --- System ---
     val isCacheEnabled: Flow<Boolean>
@@ -135,6 +165,33 @@ interface SettingsRepository {
     suspend fun saveLibraryGenre(genre: String?)
 
     suspend fun saveLibraryServerFilter(serverName: String?)
+
+    // --- Subtitle Style ---
+    val subtitleFontSize: Flow<Int>
+    val subtitleFontColor: Flow<Long>
+    val subtitleBgColor: Flow<Long>
+    val subtitleEdgeType: Flow<Int>
+    val subtitleEdgeColor: Flow<Long>
+
+    suspend fun saveSubtitleFontSize(size: Int)
+    suspend fun saveSubtitleFontColor(color: Long)
+    suspend fun saveSubtitleBgColor(color: Long)
+    suspend fun saveSubtitleEdgeType(type: Int)
+    suspend fun saveSubtitleEdgeColor(color: Long)
+
+    // --- Screensaver ---
+    val screensaverEnabled: Flow<Boolean>
+    val screensaverIntervalSeconds: Flow<Int>
+    val screensaverShowClock: Flow<Boolean>
+
+    suspend fun setScreensaverEnabled(enabled: Boolean)
+    suspend fun setScreensaverIntervalSeconds(seconds: Int)
+    suspend fun setScreensaverShowClock(show: Boolean)
+
+    // --- Auto-Update ---
+    val autoCheckUpdates: Flow<Boolean>
+
+    suspend fun setAutoCheckUpdates(enabled: Boolean)
 
     // --- Parental PIN ---
     fun getParentalPin(): String?

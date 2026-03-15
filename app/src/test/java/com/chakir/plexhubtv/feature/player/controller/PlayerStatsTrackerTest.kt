@@ -26,10 +26,14 @@ class PlayerStatsTrackerTest {
         testScope.runTest {
             val metadata = mockk<StreamMetadata>()
             every { metadata.bitrate } returns 5000_000
-            every { metadata.sampleMimeType } returns "video/h264"
+            every { metadata.sampleMimeType } returns "video/avc"
             every { metadata.width } returns 1920
             every { metadata.height } returns 1080
             every { metadata.frameRate } returns 23.976f
+            every { metadata.audioMimeType } returns null
+            every { metadata.audioChannelCount } returns 0
+            every { metadata.decoderName } returns null
+            every { metadata.audioBitrate } returns 0
 
             tracker.startTracking(
                 scope = backgroundScope,
@@ -45,10 +49,11 @@ class PlayerStatsTrackerTest {
             val stats = tracker.stats.value
             assertThat(stats).isNotNull()
             assertThat(stats?.bitrate).isEqualTo("5000 kbps")
-            assertThat(stats?.videoCodec).isEqualTo("video/h264")
+            assertThat(stats?.videoCodec).isEqualTo("AVC (H.264)")
             assertThat(stats?.resolution).isEqualTo("1920x1080")
             assertThat(stats?.fps).isWithin(0.001).of(23.976)
             assertThat(stats?.cacheDuration).isEqualTo(4000L)
+            assertThat(stats?.playerBackend).isEqualTo("ExoPlayer")
         }
 
     @Test
@@ -61,6 +66,7 @@ class PlayerStatsTrackerTest {
                     resolution = "3840x2160",
                     fps = 60.0,
                     cacheDuration = 2000L,
+                    playerBackend = "MPV",
                 )
 
             tracker.startTracking(

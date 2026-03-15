@@ -44,6 +44,13 @@ val MorocGold = Color(0xFFFDB913) // Royal Gold Accent
 val MorocBackground = Color(0xFF1A0505) // Deep Dark Red/Brown Background (Night in Marrakech)
 val MorocSurface = Color(0xFF2D0A0A) // Slightly lighter for cards
 
+// OLED Black Theme Colors
+val OledBlack = Color(0xFF000000) // True black for AMOLED
+val OledSurface = Color(0xFF0A0A0A) // Near-black for cards — minimal contrast to save pixels
+val OledText = Color(0xFFE0E0E0) // Slightly dimmed white to reduce eye strain
+val OledTextMuted = Color(0xFF808080) // Muted gray for secondary text
+val OledAccent = Color(0xFF6B6B6B) // Subtle gray accent
+
 // Netflix Colors
 val NetflixRed = Color(0xFFE50914)
 val NetflixBlack = Color(0xFF000000)

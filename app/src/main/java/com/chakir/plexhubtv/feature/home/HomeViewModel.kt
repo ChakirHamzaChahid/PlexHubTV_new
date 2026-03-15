@@ -3,8 +3,10 @@ package com.chakir.plexhubtv.feature.home
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.domain.repository.FavoritesRepository
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.usecase.FilterContentByAgeUseCase
+import com.chakir.plexhubtv.domain.usecase.GetSuggestionsUseCase
 import com.chakir.plexhubtv.domain.usecase.GetUnifiedHomeContentUseCase
 import com.chakir.plexhubtv.feature.common.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,6 +14,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.launchIn
@@ -34,6 +37,8 @@ class HomeViewModel
         private val getUnifiedHomeContentUseCase: GetUnifiedHomeContentUseCase,
         private val profileRepository: ProfileRepository,
         private val filterContentByAgeUseCase: FilterContentByAgeUseCase,
+        private val favoritesRepository: FavoritesRepository,
+        private val getSuggestionsUseCase: GetSuggestionsUseCase,
         private val workManager: androidx.work.WorkManager,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
     ) : BaseViewModel() {
@@ -45,7 +50,10 @@ class HomeViewModel
 
         init {
             collectSharedContent()
+            collectFavorites()
+            loadSuggestions()
             checkInitialSync()
+            observeHomeRowPreferences()
         }
 
         private fun checkInitialSync() {
@@ -66,12 +74,20 @@ class HomeViewModel
                             if (initialSyncWork != null) {
                                 val progress = initialSyncWork.progress.getFloat("progress", 0f)
                                 val message = initialSyncWork.progress.getString("message") ?: "Initializing..."
+                                val phase = initialSyncWork.progress.getString("phase") ?: "discovering"
+                                val libraryName = initialSyncWork.progress.getString("libraryName") ?: ""
+                                val completedLibs = initialSyncWork.progress.getInt("completedLibs", 0)
+                                val totalLibs = initialSyncWork.progress.getInt("totalLibs", 0)
                                 val state = initialSyncWork.state
 
                                 _uiState.update {
                                     it.copy(
                                         syncProgress = progress,
                                         syncMessage = message,
+                                        syncPhase = phase,
+                                        syncLibraryName = libraryName,
+                                        syncCompletedLibraries = completedLibs,
+                                        syncTotalLibraries = totalLibs,
                                     )
                                 }
 
@@ -92,6 +108,7 @@ class HomeViewModel
                 is HomeAction.Refresh -> {
                     _uiState.update { it.copy(isLoading = it.onDeck.isEmpty()) }
                     getUnifiedHomeContentUseCase.refresh()
+                    loadSuggestions()
                 }
                 is HomeAction.OpenMedia -> {
                     viewModelScope.launch {
@@ -102,6 +119,9 @@ class HomeViewModel
                     viewModelScope.launch {
                         _navigationEvents.send(HomeNavigationEvent.NavigateToPlayer(action.media.ratingKey, action.media.serverId))
                     }
+                }
+                is HomeAction.FocusMedia -> {
+                    _uiState.update { it.copy(focusedItem = action.media) }
                 }
             }
         }
@@ -118,10 +138,18 @@ class HomeViewModel
                             } else {
                                 content.onDeck
                             }
-                            _uiState.update {
-                                it.copy(
+                            _uiState.update { state ->
+                                val initialFocused = if (state.focusedItem == null) {
+                                    filtered.firstOrNull()
+                                        ?: content.hubs.firstOrNull()?.items?.firstOrNull()
+                                } else {
+                                    state.focusedItem
+                                }
+                                state.copy(
                                     isLoading = false,
                                     onDeck = filtered.toImmutableList(),
+                                    hubs = content.hubs.toImmutableList(),
+                                    focusedItem = initialFocused,
                                 )
                             }
                         },
@@ -132,6 +160,37 @@ class HomeViewModel
                         },
                     )
                 }
+                .launchIn(viewModelScope)
+        }
+
+        private fun collectFavorites() {
+            favoritesRepository.getFavorites()
+                .catch { e -> Timber.e(e, "HomeViewModel: favorites collection failed") }
+                .onEach { favorites ->
+                    _uiState.update { it.copy(favorites = favorites.toImmutableList()) }
+                }
+                .launchIn(viewModelScope)
+        }
+
+        private fun loadSuggestions() {
+            viewModelScope.launch {
+                val suggestions = getSuggestionsUseCase()
+                _uiState.update { it.copy(suggestions = suggestions.toImmutableList()) }
+            }
+        }
+
+        private fun observeHomeRowPreferences() {
+            settingsDataStore.showContinueWatching
+                .onEach { show -> _uiState.update { it.copy(showContinueWatching = show) } }
+                .launchIn(viewModelScope)
+            settingsDataStore.showMyList
+                .onEach { show -> _uiState.update { it.copy(showMyList = show) } }
+                .launchIn(viewModelScope)
+            settingsDataStore.showSuggestions
+                .onEach { show -> _uiState.update { it.copy(showSuggestions = show) } }
+                .launchIn(viewModelScope)
+            settingsDataStore.homeRowOrder
+                .onEach { order -> _uiState.update { it.copy(homeRowOrder = order) } }
                 .launchIn(viewModelScope)
         }
     }

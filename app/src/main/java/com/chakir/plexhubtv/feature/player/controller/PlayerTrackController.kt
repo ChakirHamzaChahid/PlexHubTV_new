@@ -39,6 +39,17 @@ class PlayerTrackController
             var finalAudioStreamId: String? = argAudioStreamId
             var finalSubtitleStreamId: String? = argSubtitleStreamId
 
+            // Diagnostic: log available streams
+            val audioStreamsAll = part?.streams?.filterIsInstance<AudioStream>() ?: emptyList()
+            val subtitleStreamsAll = part?.streams?.filterIsInstance<SubtitleStream>() ?: emptyList()
+            Timber.d("TrackResolver: START rk=$ratingKey args=(audio=$argAudioStreamId, sub=$argSubtitleStreamId)")
+            audioStreamsAll.forEach { s ->
+                Timber.d("TrackResolver:   audio [${s.id}] lang='${s.language}' code='${s.languageCode}' codec=${s.codec} ch=${s.channels} selected=${s.selected} original=${s.isOriginal}")
+            }
+            subtitleStreamsAll.forEach { s ->
+                Timber.d("TrackResolver:   sub   [${s.id}] lang='${s.language}' code='${s.languageCode}' codec=${s.codec} forced=${s.forced} selected=${s.selected} ext=${s.isExternal}")
+            }
+
             if (finalAudioStreamId == null || finalSubtitleStreamId == null) {
                 // Level 2: DB
                 val dbPref = trackPreferenceRepository.getPreference(ratingKey, serverId)
@@ -53,22 +64,28 @@ class PlayerTrackController
                     finalSubtitleStreamId = dbPref?.subtitleStreamId
                 }
 
+                if (dbPref != null) {
+                    Timber.d("TrackResolver:   LEVEL=db audio=${dbPref.audioStreamId} sub=${dbPref.subtitleStreamId}")
+                }
+
                 // Level 3 & 4: Settings preferences / smart defaults
                 val audioStreams = part?.streams?.filterIsInstance<AudioStream>() ?: emptyList()
                 val subtitleStreams = part?.streams?.filterIsInstance<SubtitleStream>() ?: emptyList()
 
                 if (finalAudioStreamId == null) {
                     val preferredAudioLang = settingsRepository.preferredAudioLanguage.first()
+                    Timber.d("TrackResolver:   settings preferredAudio='$preferredAudioLang'")
                     val bestAudio =
                         if (preferredAudioLang != null) {
-                            // Explicit language preference: match by language, fallback to Plex selected
-                            audioStreams.find { areLanguagesEqual(it.language, preferredAudioLang) }
+                            // Explicit language preference: match by languageCode first (ISO→ISO), fallback to language name
+                            audioStreams.find { areLanguagesEqual(it.languageCode, preferredAudioLang) }
+                                ?: audioStreams.find { areLanguagesEqual(it.language, preferredAudioLang) }
                                 ?: audioStreams.find { it.selected }
                         } else {
                             // User wants "Original" → detect via metadata
-                            val originalStream = audioStreams.find { it.isOriginal }  // NEW: Explicit original flag
-                                ?: audioStreams.find { it.selected }                   // Heuristic: Plex pre-selected
-                                ?: audioStreams.firstOrNull()                          // Last resort fallback
+                            val originalStream = audioStreams.find { it.isOriginal }
+                                ?: audioStreams.find { it.selected }
+                                ?: audioStreams.firstOrNull()
 
                             Timber.d("PlayerTrackController: Original audio detection → found=${originalStream?.language}, isOriginal=${originalStream?.isOriginal}")
                             originalStream
@@ -77,20 +94,25 @@ class PlayerTrackController
 
                     // Anti-inversion validation: detect when user preference doesn't match selected track
                     if (preferredAudioLang != null && bestAudio != null) {
-                        if (!areLanguagesEqual(bestAudio.language, preferredAudioLang)) {
-                            Timber.w("PlayerTrackController: INVERSION DETECTED - User wants '$preferredAudioLang' but got '${bestAudio.language}' (available streams: ${audioStreams.map { it.language }})")
+                        val matched = areLanguagesEqual(bestAudio.languageCode, preferredAudioLang) ||
+                            areLanguagesEqual(bestAudio.language, preferredAudioLang)
+                        if (!matched) {
+                            Timber.w("PlayerTrackController: INVERSION DETECTED - User wants '$preferredAudioLang' but got '${bestAudio.language}' (code=${bestAudio.languageCode}) (available: ${audioStreams.map { "${it.language}(${it.languageCode})" }})")
                         } else {
-                            Timber.d("PlayerTrackController: Audio preference matched successfully - selected '${bestAudio.language}'")
+                            Timber.d("PlayerTrackController: Audio preference matched - selected '${bestAudio.language}' (code=${bestAudio.languageCode})")
                         }
                     }
                 }
 
                 if (finalSubtitleStreamId == null) {
                     val preferredSubLang = settingsRepository.preferredSubtitleLanguage.first()
+                    Timber.d("TrackResolver:   settings preferredSub='$preferredSubLang'")
                     val bestSub =
                         if (preferredSubLang != null) {
-                            // Explicit subtitle preference: prefer non-forced, then forced, then Plex selected
-                            subtitleStreams.find { areLanguagesEqual(it.language, preferredSubLang) && !it.forced }
+                            // Explicit subtitle preference: match by languageCode first, prefer non-forced
+                            subtitleStreams.find { areLanguagesEqual(it.languageCode, preferredSubLang) && !it.forced }
+                                ?: subtitleStreams.find { areLanguagesEqual(it.languageCode, preferredSubLang) }
+                                ?: subtitleStreams.find { areLanguagesEqual(it.language, preferredSubLang) && !it.forced }
                                 ?: subtitleStreams.find { areLanguagesEqual(it.language, preferredSubLang) }
                                 ?: subtitleStreams.find { it.selected }
                         } else {
@@ -98,12 +120,16 @@ class PlayerTrackController
                             // when the selected audio is in a different language
                             val chosenAudio = audioStreams.find { it.id == finalAudioStreamId }
                             val deviceLang = java.util.Locale.getDefault().language // e.g. "fr"
-                            val audioMatchesDevice = chosenAudio?.language != null &&
-                                areLanguagesEqual(chosenAudio.language, deviceLang)
+                            val audioMatchesDevice = chosenAudio != null && (
+                                areLanguagesEqual(chosenAudio.languageCode, deviceLang) ||
+                                    areLanguagesEqual(chosenAudio.language, deviceLang)
+                                )
 
                             if (!audioMatchesDevice) {
                                 // Audio is foreign → auto-enable subtitles in device language (prefer non-forced)
-                                subtitleStreams.find { areLanguagesEqual(it.language, deviceLang) && !it.forced }
+                                subtitleStreams.find { areLanguagesEqual(it.languageCode, deviceLang) && !it.forced }
+                                    ?: subtitleStreams.find { areLanguagesEqual(it.languageCode, deviceLang) }
+                                    ?: subtitleStreams.find { areLanguagesEqual(it.language, deviceLang) && !it.forced }
                                     ?: subtitleStreams.find { areLanguagesEqual(it.language, deviceLang) }
                             } else {
                                 // Audio matches device locale → no subtitles needed
@@ -113,6 +139,7 @@ class PlayerTrackController
                     finalSubtitleStreamId = bestSub?.id
                 }
             }
+            Timber.d("TrackResolver: RESULT audio=$finalAudioStreamId, sub=$finalSubtitleStreamId")
             return Pair(finalAudioStreamId, finalSubtitleStreamId)
         }
 
@@ -184,13 +211,15 @@ class PlayerTrackController
                 var selectedGroupIndex = -1
                 var selectedTrackIndex = -1
 
-                // Strategy 1: Match by Language
+                // Strategy 1: Match by Language (try languageCode first for ISO→ISO match)
                 for (i in 0 until groups.size) {
                     val group = groups[i]
                     if (group.type == androidx.media3.common.C.TRACK_TYPE_AUDIO) {
                         for (j in 0 until group.length) {
                             val format = group.getTrackFormat(j)
-                            if (areLanguagesEqual(format.language, track.language)) {
+                            if (areLanguagesEqual(format.language, track.languageCode) ||
+                                areLanguagesEqual(format.language, track.language)
+                            ) {
                                 selectedGroupIndex = i
                                 selectedTrackIndex = j
                                 break
@@ -228,8 +257,9 @@ class PlayerTrackController
                 // Update ExoPlayer preferences first (CRITICAL for HLS multi-track)
                 exoPlayer?.let { p ->
                     val builder = p.trackSelectionParameters.buildUpon()
-                    if (track.language != null) {
-                        builder.setPreferredAudioLanguage(track.language)
+                    val audioLangHint = track.languageCode ?: track.language
+                    if (audioLangHint != null) {
+                        builder.setPreferredAudioLanguage(audioLangHint)
                     }
                     p.trackSelectionParameters = builder.build()
                 }
@@ -354,14 +384,16 @@ class PlayerTrackController
                         }
                     }
 
-                    // Strategy 3: Match by language
+                    // Strategy 3: Match by language (try languageCode first for ISO→ISO match)
                     if (selectedGroupIndex == -1) {
                         for (i in 0 until groups.size) {
                             val group = groups[i]
                             if (group.type == androidx.media3.common.C.TRACK_TYPE_TEXT) {
                                 for (j in 0 until group.length) {
                                     val format = group.getTrackFormat(j)
-                                    if (areLanguagesEqual(format.language, track.language)) {
+                                    if (areLanguagesEqual(format.language, track.languageCode) ||
+                                        areLanguagesEqual(format.language, track.language)
+                                    ) {
                                         selectedGroupIndex = i
                                         selectedTrackIndex = j
                                         break
@@ -437,8 +469,9 @@ class PlayerTrackController
                         builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
                     } else {
                         builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
-                        if (track.language != null) {
-                            builder.setPreferredTextLanguage(track.language)
+                        val subLangHint = track.languageCode ?: track.language
+                        if (subLangHint != null) {
+                            builder.setPreferredTextLanguage(subLangHint)
                         }
                     }
                     p.trackSelectionParameters = builder.build()
@@ -455,6 +488,7 @@ class PlayerTrackController
                         id = "plex-${stream.index}",
                         title = stream.displayTitle ?: stream.title ?: "Audio",
                         language = stream.language,
+                        languageCode = stream.languageCode,
                         codec = stream.codec,
                         channels = stream.channels,
                         index = stream.index,
@@ -471,6 +505,7 @@ class PlayerTrackController
                         id = "plex-${stream.index}",
                         title = stream.displayTitle ?: stream.title ?: "Subtitle",
                         language = stream.language,
+                        languageCode = stream.languageCode,
                         codec = stream.codec,
                         index = stream.index,
                         isForced = stream.forced,
@@ -505,9 +540,11 @@ class PlayerTrackController
                     if (isSelected) {
                         when (type) {
                             androidx.media3.common.C.TRACK_TYPE_AUDIO -> {
-                                // Find matching UI track by language
+                                // Find matching UI track by languageCode first, then language name
                                 val matchingTrack =
                                     currentAudioTracks.find { uiTrack ->
+                                        areLanguagesEqual(uiTrack.languageCode, language)
+                                    } ?: currentAudioTracks.find { uiTrack ->
                                         areLanguagesEqual(uiTrack.language, language)
                                     } ?: newSelectedAudio
 
@@ -516,6 +553,8 @@ class PlayerTrackController
                             androidx.media3.common.C.TRACK_TYPE_TEXT -> {
                                 val matchingTrack =
                                     currentSubtitleTracks.find { uiTrack ->
+                                        areLanguagesEqual(uiTrack.languageCode, language)
+                                    } ?: currentSubtitleTracks.find { uiTrack ->
                                         areLanguagesEqual(uiTrack.language, language)
                                     } ?: newSelectedSubtitle
                                 newSelectedSubtitle = matchingTrack
@@ -542,18 +581,53 @@ class PlayerTrackController
 
             if (normalized1 == normalized2) return true
 
+            // Fast path: ISO 639-2 B/T variant normalization (e.g. "fre"↔"fra", "ger"↔"deu")
+            val canonical1 = normalizeIso639(normalized1)
+            val canonical2 = normalizeIso639(normalized2)
+            if (canonical1 != null && canonical2 != null && canonical1 == canonical2) return true
+
+            // Locale-based comparison (handles 2-letter ↔ 3-letter like "en"↔"eng")
             return try {
-                val l1 = if (normalized1.length == 3) java.util.Locale.forLanguageTag(normalized1) else java.util.Locale(normalized1)
-                val l2 = if (normalized2.length == 3) java.util.Locale.forLanguageTag(normalized2) else java.util.Locale(normalized2)
+                val l1 = toLocale(normalized1)
+                val l2 = toLocale(normalized2)
                 l1.isO3Language.equals(l2.isO3Language, ignoreCase = true)
-            } catch (e: Exception) {
-                try {
-                    val l1 = java.util.Locale(normalized1)
-                    val l2 = java.util.Locale(normalized2)
-                    l1.isO3Language.equals(l2.isO3Language, ignoreCase = true)
-                } catch (e2: Exception) {
-                    normalized1 == normalized2
-                }
+            } catch (_: Exception) {
+                false
             }
+        }
+
+        /**
+         * Normalizes an ISO 639 code to its canonical 3-letter T-form.
+         * Handles: B→T mapping (fre→fra), 2→3 letter (en→eng), and passthrough for 3-letter codes.
+         */
+        private fun normalizeIso639(code: String): String? {
+            // B-code → T-form (fre→fra, ger→deu, etc.)
+            ISO_639_2_BT_MAP[code]?.let { return it }
+            // 2-letter ISO 639-1 → 3-letter via Locale (en→eng, fr→fra)
+            if (code.length == 2) {
+                return try { java.util.Locale(code).isO3Language } catch (_: Exception) { null }
+            }
+            // Already a 3-letter code (T-form or self-mapping like eng, spa, ita)
+            if (code.length == 3) return code
+            // Full language names etc. → can't normalize here
+            return null
+        }
+
+        private fun toLocale(lang: String): java.util.Locale =
+            when {
+                lang.length == 2 -> java.util.Locale(lang)
+                lang.length == 3 -> java.util.Locale.forLanguageTag(lang)
+                else -> java.util.Locale(lang)
+            }
+
+        companion object {
+            /** ISO 639-2/B (bibliographic) → ISO 639-2/T (terminology) mapping. */
+            private val ISO_639_2_BT_MAP = mapOf(
+                "fre" to "fra", "ger" to "deu", "chi" to "zho", "cze" to "ces",
+                "dut" to "nld", "gre" to "ell", "baq" to "eus", "per" to "fas",
+                "arm" to "hye", "bur" to "mya", "geo" to "kat", "ice" to "isl",
+                "mac" to "mkd", "mao" to "mri", "may" to "msa", "rum" to "ron",
+                "slo" to "slk", "tib" to "bod", "wel" to "cym", "alb" to "sqi",
+            )
         }
     }

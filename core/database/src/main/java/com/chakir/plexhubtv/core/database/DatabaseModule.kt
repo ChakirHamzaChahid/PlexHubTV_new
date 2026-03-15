@@ -556,6 +556,152 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_39_40 =
+        object : androidx.room.migration.Migration(39, 40) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Solution C: Add groupKey column to media table
+                database.execSQL("ALTER TABLE media ADD COLUMN groupKey TEXT NOT NULL DEFAULT ''")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_type_groupKey` ON `media` (`type`, `groupKey`)")
+
+                // Backfill groupKey using the COALESCE chain (without id_bridge for simplicity;
+                // next sync will recalculate with bridge data)
+                database.execSQL(
+                    """UPDATE media SET groupKey = COALESCE(
+                        imdbId,
+                        CASE WHEN tmdbId IS NOT NULL AND tmdbId != '' THEN 'tmdb_' || tmdbId ELSE NULL END,
+                        ratingKey || serverId
+                    )"""
+                )
+
+                // Solution C: Create media_unified materialized table
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `media_unified` (
+                        `groupKey` TEXT NOT NULL PRIMARY KEY,
+                        `bestRatingKey` TEXT NOT NULL,
+                        `bestServerId` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `titleSortable` TEXT NOT NULL DEFAULT '',
+                        `year` INTEGER,
+                        `summary` TEXT,
+                        `duration` INTEGER,
+                        `resolvedThumbUrl` TEXT,
+                        `resolvedArtUrl` TEXT,
+                        `resolvedBaseUrl` TEXT,
+                        `imdbId` TEXT,
+                        `tmdbId` TEXT,
+                        `guid` TEXT,
+                        `serverIds` TEXT,
+                        `alternativeThumbUrls` TEXT,
+                        `serverCount` INTEGER NOT NULL DEFAULT 1,
+                        `genres` TEXT,
+                        `contentRating` TEXT,
+                        `displayRating` REAL NOT NULL DEFAULT 0.0,
+                        `avgDisplayRating` REAL NOT NULL DEFAULT 0.0,
+                        `addedAt` INTEGER NOT NULL DEFAULT 0,
+                        `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                        `viewOffset` INTEGER NOT NULL DEFAULT 0,
+                        `viewCount` INTEGER NOT NULL DEFAULT 0,
+                        `lastViewedAt` INTEGER NOT NULL DEFAULT 0,
+                        `historyGroupKey` TEXT NOT NULL DEFAULT '',
+                        `metadataScore` INTEGER NOT NULL DEFAULT 0,
+                        `isOwned` INTEGER NOT NULL DEFAULT 0,
+                        `unificationId` TEXT NOT NULL DEFAULT '',
+                        `scrapedRating` REAL,
+                        `rating` REAL,
+                        `audienceRating` REAL,
+                        `librarySectionId` TEXT,
+                        `parentTitle` TEXT,
+                        `parentRatingKey` TEXT,
+                        `parentIndex` INTEGER,
+                        `grandparentTitle` TEXT,
+                        `grandparentRatingKey` TEXT,
+                        `index` INTEGER,
+                        `thumbUrl` TEXT,
+                        `artUrl` TEXT,
+                        `parentThumb` TEXT,
+                        `grandparentThumb` TEXT,
+                        `sourceServerId` TEXT
+                    )
+                    """
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_unified_type_titleSortable` ON `media_unified` (`type`, `titleSortable`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_unified_type_displayRating` ON `media_unified` (`type`, `displayRating`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_unified_type_addedAt` ON `media_unified` (`type`, `addedAt`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_unified_type_year` ON `media_unified` (`type`, `year`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_unified_type_genres` ON `media_unified` (`type`, `genres`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_unified_type_contentRating` ON `media_unified` (`type`, `contentRating`)")
+            }
+        }
+
+    private val MIGRATION_40_41 =
+        object : androidx.room.migration.Migration(40, 41) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `person_favorites` (
+                        `tmdbId` INTEGER NOT NULL PRIMARY KEY,
+                        `name` TEXT NOT NULL,
+                        `profilePath` TEXT,
+                        `knownFor` TEXT,
+                        `addedAt` INTEGER NOT NULL
+                    )"""
+                )
+            }
+        }
+
+    private val MIGRATION_41_42 =
+        object : androidx.room.migration.Migration(41, 42) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `playlists` (
+                        `id` TEXT NOT NULL,
+                        `serverId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `summary` TEXT,
+                        `thumbUrl` TEXT,
+                        `playlistType` TEXT NOT NULL DEFAULT 'video',
+                        `itemCount` INTEGER NOT NULL DEFAULT 0,
+                        `durationMs` INTEGER NOT NULL DEFAULT 0,
+                        `lastSync` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`, `serverId`)
+                    )"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `playlist_items` (
+                        `playlistId` TEXT NOT NULL,
+                        `serverId` TEXT NOT NULL,
+                        `itemRatingKey` TEXT NOT NULL,
+                        `orderIndex` INTEGER NOT NULL,
+                        `playlistItemId` TEXT NOT NULL,
+                        PRIMARY KEY(`playlistId`, `serverId`, `itemRatingKey`)
+                    )"""
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_playlist_items_playlistId_serverId` ON `playlist_items` (`playlistId`, `serverId`)"
+                )
+            }
+        }
+
+    private val MIGRATION_42_43 =
+        object : androidx.room.migration.Migration(42, 43) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Soft delete: add isHidden + hiddenAt columns for "hide from hub" feature
+                database.execSQL("ALTER TABLE media ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE media ADD COLUMN hiddenAt INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_isHidden` ON `media` (`isHidden`)")
+            }
+        }
+
+    private val MIGRATION_43_44 =
+        object : androidx.room.migration.Migration(43, 44) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // TMDB manual refresh: persistence columns for summary + poster override
+                database.execSQL("ALTER TABLE media ADD COLUMN overriddenSummary TEXT DEFAULT NULL")
+                database.execSQL("ALTER TABLE media ADD COLUMN overriddenThumbUrl TEXT DEFAULT NULL")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -609,6 +755,11 @@ object DatabaseModule {
                 MIGRATION_36_37,
                 MIGRATION_37_38,
                 MIGRATION_38_39,
+                MIGRATION_39_40,
+                MIGRATION_40_41,
+                MIGRATION_41_42,
+                MIGRATION_42_43,
+                MIGRATION_43_44,
             )
             .build()
     }
@@ -682,5 +833,25 @@ object DatabaseModule {
     @Provides
     fun provideIdBridgeDao(database: PlexDatabase): IdBridgeDao {
         return database.idBridgeDao()
+    }
+
+    @Provides
+    fun provideMediaUnifiedDao(database: PlexDatabase): MediaUnifiedDao {
+        return database.mediaUnifiedDao()
+    }
+
+    @Provides
+    fun providePersonFavoriteDao(database: PlexDatabase): PersonFavoriteDao {
+        return database.personFavoriteDao()
+    }
+
+    @Provides
+    fun providePlaylistDao(database: PlexDatabase): PlaylistDao {
+        return database.playlistDao()
+    }
+
+    @Provides
+    fun provideLibrarySectionDao(database: PlexDatabase): LibrarySectionDao {
+        return database.librarySectionDao()
     }
 }

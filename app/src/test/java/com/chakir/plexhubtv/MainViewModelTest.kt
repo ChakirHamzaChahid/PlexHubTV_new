@@ -1,7 +1,11 @@
 package com.chakir.plexhubtv
 
+import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.auth.AuthEventBus
+import com.chakir.plexhubtv.core.update.ApkInstaller
+import com.chakir.plexhubtv.core.update.UpdateChecker
 import com.chakir.plexhubtv.domain.repository.AuthRepository
+import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +40,7 @@ class MainViewModelTest {
     fun `handleTokenInvalid clears token and shows dialog`() = runTest(testDispatcher) {
         val mockAuthRepository = mockk<AuthRepository>(relaxed = true)
         val eventBus = AuthEventBus()
-        val viewModel = MainViewModel(eventBus, mockAuthRepository)
+        val viewModel = MainViewModel(eventBus, mockAuthRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true))
 
         // Let the ViewModel's init collector coroutine start and suspend on collect
         advanceUntilIdle()
@@ -52,7 +56,7 @@ class MainViewModelTest {
     fun `multiple TokenInvalid events only clear token once`() = runTest(testDispatcher) {
         val mockAuthRepository = mockk<AuthRepository>(relaxed = true)
         val eventBus = AuthEventBus()
-        val viewModel = MainViewModel(eventBus, mockAuthRepository)
+        val viewModel = MainViewModel(eventBus, mockAuthRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true))
 
         // Let the ViewModel's init collector coroutine start and suspend on collect
         advanceUntilIdle()
@@ -72,7 +76,7 @@ class MainViewModelTest {
     fun `onSessionExpiredDialogDismissed hides dialog and triggers navigation`() = runTest(testDispatcher) {
         val mockAuthRepository = mockk<AuthRepository>(relaxed = true)
         val eventBus = AuthEventBus()
-        val viewModel = MainViewModel(eventBus, mockAuthRepository)
+        val viewModel = MainViewModel(eventBus, mockAuthRepository, mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true))
 
         // Let the ViewModel's init collector coroutine start and suspend on collect
         advanceUntilIdle()

@@ -74,6 +74,7 @@ data class MetadataDTO(
     val grandparentArt: String? = null,
     val grandparentTheme: String? = null,
     val grandparentRatingKey: String? = null,
+    val theme: String? = null,
     val parentTitle: String? = null,
     val parentThumb: String? = null,
     val parentRatingKey: String? = null,
@@ -85,6 +86,7 @@ data class MetadataDTO(
     // Playback info
     @SerializedName("Media") val media: List<MediaDTO>? = null,
     @SerializedName("Role") val roles: List<RoleDTO>? = null,
+    @SerializedName("Director") val directors: List<RoleDTO>? = null,
     @SerializedName("Chapter") val chapters: List<ChapterDTO>? = null,
     @SerializedName("Marker") val markers: List<MarkerDTO>? = null,
     @SerializedName("Genre") val genres: List<GenreDTO>? = null,

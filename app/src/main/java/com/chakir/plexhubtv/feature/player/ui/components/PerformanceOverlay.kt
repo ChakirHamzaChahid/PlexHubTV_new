@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.player.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,11 +34,11 @@ fun PerformanceOverlay(
                 .testTag("player_performance_overlay")
                 .semantics { contentDescription = statsDesc }
                 .padding(16.dp)
-                .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
                 .padding(12.dp),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
                 text = stringResource(R.string.player_nerd_stats),
@@ -46,16 +47,59 @@ fun PerformanceOverlay(
                 color = MaterialTheme.colorScheme.primary,
             )
 
-            StatRow(stringResource(R.string.player_stat_bitrate), stats.bitrate)
-            StatRow(stringResource(R.string.player_stat_resolution), stats.resolution)
+            Spacer(modifier = Modifier.height(2.dp))
+
+            // Video section
+            StatSectionHeader(stringResource(R.string.player_stat_section_video))
             StatRow(stringResource(R.string.player_stat_video_codec), stats.videoCodec)
-            StatRow(stringResource(R.string.player_stat_audio_codec), stats.audioCodec)
-            StatRow(stringResource(R.string.player_stat_dropped_frames), stats.droppedFrames.toString())
+            StatRow(stringResource(R.string.player_stat_resolution), stats.resolution)
             StatRow(stringResource(R.string.player_stat_fps), if (stats.fps > 0) String.format("%.2f", stats.fps) else "N/A")
-            // Convert cache duration from milliseconds to seconds with 2 decimals
+            StatRow(stringResource(R.string.player_stat_decoder), stats.decoderType)
+            StatRow(stringResource(R.string.player_stat_dropped_frames), stats.droppedFrames.toString())
+
+            DividerLine()
+
+            // Audio section
+            StatSectionHeader(stringResource(R.string.player_stat_section_audio))
+            StatRow(stringResource(R.string.player_stat_audio_codec), stats.audioCodec)
+            StatRow(stringResource(R.string.player_stat_audio_channels), stats.audioChannels)
+            StatRow(stringResource(R.string.player_stat_audio_bitrate), stats.audioBitrate)
+
+            DividerLine()
+
+            // Network section
+            StatSectionHeader(stringResource(R.string.player_stat_section_network))
+            StatRow(stringResource(R.string.player_stat_bitrate), stats.bitrate)
+            StatRow(stringResource(R.string.player_stat_peak_bitrate), if (stats.peakBitrateKbps > 0) "${stats.peakBitrateKbps} kbps" else "N/A")
+            StatRow(stringResource(R.string.player_stat_avg_bitrate), if (stats.avgBitrateKbps > 0) "${stats.avgBitrateKbps} kbps" else "N/A")
             StatRow(stringResource(R.string.player_stat_cache), if (stats.cacheDuration > 0) String.format("%.2fs", stats.cacheDuration / 1000.0) else "0s")
+
+            DividerLine()
+
+            // Player info
+            StatRow(stringResource(R.string.player_stat_backend), stats.playerBackend)
         }
     }
+}
+
+@Composable
+private fun StatSectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+        fontWeight = FontWeight.SemiBold,
+        color = Color.Cyan.copy(alpha = 0.7f),
+        fontFamily = FontFamily.Monospace,
+    )
+}
+
+@Composable
+private fun DividerLine() {
+    HorizontalDivider(
+        color = Color.White.copy(alpha = 0.15f),
+        thickness = 0.5.dp,
+        modifier = Modifier.padding(vertical = 2.dp),
+    )
 }
 
 @Composable
@@ -68,13 +112,13 @@ private fun StatRow(
     ) {
         Text(
             text = "$label: ",
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), // Increased from 11sp for TV readability
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
             color = Color.White.copy(alpha = 0.7f),
             fontFamily = FontFamily.Monospace,
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), // Increased from 11sp for TV readability
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
             color = Color.Green,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
