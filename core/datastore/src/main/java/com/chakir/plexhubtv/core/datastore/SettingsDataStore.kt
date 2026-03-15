@@ -99,6 +99,12 @@ class SettingsDataStore
         private val SCREENSAVER_INTERVAL_SECONDS = stringPreferencesKey("screensaver_interval_seconds")
         private val SCREENSAVER_SHOW_CLOCK = stringPreferencesKey("screensaver_show_clock")
 
+        // Home Row Visibility & Order
+        private val SHOW_CONTINUE_WATCHING = stringPreferencesKey("show_continue_watching")
+        private val SHOW_MY_LIST = stringPreferencesKey("show_my_list")
+        private val SHOW_SUGGESTIONS = stringPreferencesKey("show_suggestions")
+        private val HOME_ROW_ORDER = stringPreferencesKey("home_row_order")
+
         // Library Filter Preferences
         private val LIBRARY_SORT = stringPreferencesKey("library_sort")
         private val LIBRARY_SORT_DESCENDING = stringPreferencesKey("library_sort_descending")
@@ -259,6 +265,8 @@ class SettingsDataStore
 
         val omdbApiKey: Flow<String?> = securePrefs.omdbApiKey
 
+        val openSubtitlesApiKey: Flow<String?> = securePrefs.openSubtitlesApiKey
+
         // Rating Sync Configuration Flows
         val ratingSyncSource: Flow<String> =
             dataStore.data
@@ -312,6 +320,43 @@ class SettingsDataStore
         // Auto-Update Preferences Flow
         val autoCheckUpdates: Flow<Boolean> =
             dataStore.data.map { it[AUTO_CHECK_UPDATES]?.toBoolean() ?: true }
+
+        // Home Row Visibility Flows
+        val showContinueWatching: Flow<Boolean> =
+            dataStore.data.map { it[SHOW_CONTINUE_WATCHING]?.toBoolean() ?: true }
+
+        val showMyList: Flow<Boolean> =
+            dataStore.data.map { it[SHOW_MY_LIST]?.toBoolean() ?: true }
+
+        val showSuggestions: Flow<Boolean> =
+            dataStore.data.map { it[SHOW_SUGGESTIONS]?.toBoolean() ?: true }
+
+        suspend fun saveShowContinueWatching(show: Boolean) {
+            dataStore.edit { it[SHOW_CONTINUE_WATCHING] = show.toString() }
+        }
+
+        suspend fun saveShowMyList(show: Boolean) {
+            dataStore.edit { it[SHOW_MY_LIST] = show.toString() }
+        }
+
+        suspend fun saveShowSuggestions(show: Boolean) {
+            dataStore.edit { it[SHOW_SUGGESTIONS] = show.toString() }
+        }
+
+        // Home Row Order
+        companion object {
+            const val DEFAULT_HOME_ROW_ORDER = "continue_watching,my_list,suggestions"
+        }
+
+        val homeRowOrder: Flow<List<String>> =
+            dataStore.data.map { prefs ->
+                val raw = prefs[HOME_ROW_ORDER] ?: DEFAULT_HOME_ROW_ORDER
+                raw.split(",").filter { it.isNotBlank() }
+            }
+
+        suspend fun saveHomeRowOrder(order: List<String>) {
+            dataStore.edit { it[HOME_ROW_ORDER] = order.joinToString(",") }
+        }
 
         suspend fun saveAutoCheckUpdates(enabled: Boolean) {
             dataStore.edit { it[AUTO_CHECK_UPDATES] = enabled.toString() }

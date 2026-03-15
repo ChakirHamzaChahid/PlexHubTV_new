@@ -171,6 +171,51 @@ interface PlexApiService {
         @Header("X-Plex-Token") token: String,
     ): Response<Unit>
 
+    // --- Media Management ---
+
+    @DELETE
+    suspend fun deleteMedia(
+        @Url url: String,
+    ): Response<Unit>
+
+    // --- Playlists ---
+
+    @GET
+    suspend fun getPlaylists(
+        @Url url: String,
+        @Query("playlistType") playlistType: String = "video",
+    ): Response<PlexResponse>
+
+    @GET
+    suspend fun getPlaylistItems(
+        @Url url: String,
+    ): Response<PlexResponse>
+
+    @POST
+    suspend fun createPlaylist(
+        @Url url: String,
+        @Query("title") title: String,
+        @Query("type") type: String = "video",
+        @Query("smart") smart: Int = 0,
+        @Query("uri") uri: String,
+    ): Response<PlexResponse>
+
+    @PUT
+    suspend fun addToPlaylist(
+        @Url url: String,
+        @Query("uri") uri: String,
+    ): Response<Unit>
+
+    @DELETE
+    suspend fun removeFromPlaylist(
+        @Url url: String,
+    ): Response<Unit>
+
+    @DELETE
+    suspend fun deletePlaylist(
+        @Url url: String,
+    ): Response<Unit>
+
     // --- Plex Home / Users ---
 
     @GET("https://plex.tv/api/v2/home/users")

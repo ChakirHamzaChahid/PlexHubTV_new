@@ -30,6 +30,12 @@ interface PlaybackRepository {
 
     fun getWatchHistoryPaged(): Flow<androidx.paging.PagingData<MediaItem>>
 
+    /** Envoie un timeline "stopped" au serveur Plex (appelé à la fermeture du player). */
+    suspend fun sendStoppedTimeline(
+        media: MediaItem,
+        positionMs: Long,
+    ): Result<Unit>
+
     /** Écrit le cache de progression local en BDD (appelé au stop du player). */
     suspend fun flushLocalProgress()
 

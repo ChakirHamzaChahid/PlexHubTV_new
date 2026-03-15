@@ -28,11 +28,13 @@ android {
 
     val tmdbApiKey = localProperties.getProperty("TMDB_API_KEY") ?: ""
     val omdbApiKey = localProperties.getProperty("OMDB_API_KEY") ?: ""
+    val openSubtitlesApiKey = localProperties.getProperty("OPENSUBTITLES_API_KEY") ?: ""
 
     android {
         defaultConfig {
             buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
             buildConfigField("String", "OMDB_API_KEY", "\"$omdbApiKey\"")
+            buildConfigField("String", "OPENSUBTITLES_API_KEY", "\"$openSubtitlesApiKey\"")
         }
     }
     buildFeatures {

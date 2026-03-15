@@ -34,6 +34,7 @@ class SecurePreferencesManager
             const val KEY_CLIENT_ID = "client_id"
             const val KEY_TMDB_API_KEY = "tmdb_api_key"
             const val KEY_OMDB_API_KEY = "omdb_api_key"
+        const val KEY_OPENSUBTITLES_API_KEY = "opensubtitles_api_key"
         const val KEY_PARENTAL_PIN = "parental_pin"
         }
 
@@ -103,12 +104,16 @@ class SecurePreferencesManager
         private val _omdbApiKey = MutableStateFlow<String?>(null)
         val omdbApiKey: Flow<String?> = _omdbApiKey.asStateFlow()
 
+        private val _openSubtitlesApiKey = MutableStateFlow<String?>(null)
+        val openSubtitlesApiKey: Flow<String?> = _openSubtitlesApiKey.asStateFlow()
+
         init {
             // Load initial values (null-safe: returns null when degraded)
             _plexToken.value = encryptedPrefs?.getString(KEY_PLEX_TOKEN, null)
             _clientId.value = encryptedPrefs?.getString(KEY_CLIENT_ID, null)
             _tmdbApiKey.value = encryptedPrefs?.getString(KEY_TMDB_API_KEY, null)
             _omdbApiKey.value = encryptedPrefs?.getString(KEY_OMDB_API_KEY, null)
+            _openSubtitlesApiKey.value = encryptedPrefs?.getString(KEY_OPENSUBTITLES_API_KEY, null)
         }
 
         fun savePlexToken(token: String) {
@@ -172,6 +177,22 @@ class SecurePreferencesManager
         fun getOmdbApiKey(): String? =
             encryptedPrefs?.getString(KEY_OMDB_API_KEY, null)
 
+        fun saveOpenSubtitlesApiKey(key: String) {
+            synchronized(this) {
+                if (key.isBlank()) {
+                    encryptedPrefs?.edit()?.remove(KEY_OPENSUBTITLES_API_KEY)?.apply()
+                    _openSubtitlesApiKey.value = null
+                } else {
+                    encryptedPrefs?.edit()?.putString(KEY_OPENSUBTITLES_API_KEY, key)?.apply()
+                        ?: Timber.w("Cannot save OpenSubtitles key: encryption unavailable")
+                    _openSubtitlesApiKey.value = key
+                }
+            }
+        }
+
+        fun getOpenSubtitlesApiKey(): String? =
+            encryptedPrefs?.getString(KEY_OPENSUBTITLES_API_KEY, null)
+
         fun saveParentalPin(pin: String) {
             synchronized(this) {
                 encryptedPrefs?.edit()?.putString(KEY_PARENTAL_PIN, pin)?.apply()
@@ -211,6 +232,7 @@ class SecurePreferencesManager
                 _clientId.value = null
                 _tmdbApiKey.value = null
                 _omdbApiKey.value = null
+                _openSubtitlesApiKey.value = null
                 Timber.d("All secure preferences cleared")
             }
         }

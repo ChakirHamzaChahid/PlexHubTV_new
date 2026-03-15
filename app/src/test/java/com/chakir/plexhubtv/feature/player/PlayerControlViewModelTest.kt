@@ -1,8 +1,10 @@
 package com.chakir.plexhubtv.feature.player
 
 import androidx.lifecycle.SavedStateHandle
+import com.chakir.plexhubtv.feature.player.controller.AudioEqualizerManager
 import com.chakir.plexhubtv.feature.player.controller.ChapterMarkerManager
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
+import com.chakir.plexhubtv.feature.player.controller.SubtitleSearchService
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.service.PlaybackManager
 import com.chakir.plexhubtv.domain.service.PlaybackState
@@ -30,6 +32,8 @@ class PlayerControlViewModelTest {
     private lateinit var chapterMarkerManager: ChapterMarkerManager
     private lateinit var playbackManager: PlaybackManager
     private lateinit var settingsRepository: SettingsRepository
+    private lateinit var subtitleSearchService: SubtitleSearchService
+    private lateinit var audioEqualizerManager: AudioEqualizerManager
 
     private val testDispatcher = StandardTestDispatcher()
     private val testUiState = MutableStateFlow(PlayerUiState())
@@ -48,6 +52,8 @@ class PlayerControlViewModelTest {
             every { state } returns testPlaybackState
         }
         settingsRepository = mockk(relaxed = true)
+        subtitleSearchService = mockk(relaxed = true)
+        audioEqualizerManager = mockk(relaxed = true)
 
         // Setup SavedStateHandle with test data
         savedStateHandle = SavedStateHandle(
@@ -62,9 +68,12 @@ class PlayerControlViewModelTest {
             playerController = playerController,
             savedStateHandle = savedStateHandle,
             chapterMarkerManager = chapterMarkerManager,
+            trickplayManager = mockk(relaxed = true),
             playbackManager = playbackManager,
-            settingsRepository = settingsRepository,
             directStreamUrlBuilder = mockk(relaxed = true),
+            subtitleSearchService = subtitleSearchService,
+            audioEqualizerManager = audioEqualizerManager,
+            settingsRepository = settingsRepository,
         )
     }
 

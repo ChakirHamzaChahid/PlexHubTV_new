@@ -105,6 +105,27 @@ class PlaybackRepositoryImpl
             return result
         }
 
+        override suspend fun sendStoppedTimeline(
+            media: MediaItem,
+            positionMs: Long,
+        ): Result<Unit> {
+            val client = serverClientResolver.getClient(media.serverId)
+                ?: return Result.failure(AppError.Network.ServerError("Server ${media.serverId} unavailable"))
+
+            return safeApiCall("sendStoppedTimeline") {
+                val response = client.updateTimeline(
+                    ratingKey = media.ratingKey,
+                    state = "stopped",
+                    timeMs = positionMs,
+                    durationMs = media.durationMs ?: 0L,
+                )
+                if (!response.isSuccessful) {
+                    throw AppError.Network.ServerError("API Error: ${response.code()}")
+                }
+                apiCache.evict("${media.serverId}:/library/metadata/${media.ratingKey}")
+            }
+        }
+
         override suspend fun flushLocalProgress() {
             val entries = progressCache.values.toList()
             progressCache.clear()

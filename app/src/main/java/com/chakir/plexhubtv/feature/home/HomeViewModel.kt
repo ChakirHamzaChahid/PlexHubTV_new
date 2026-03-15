@@ -53,6 +53,7 @@ class HomeViewModel
             collectFavorites()
             loadSuggestions()
             checkInitialSync()
+            observeHomeRowPreferences()
         }
 
         private fun checkInitialSync() {
@@ -73,12 +74,20 @@ class HomeViewModel
                             if (initialSyncWork != null) {
                                 val progress = initialSyncWork.progress.getFloat("progress", 0f)
                                 val message = initialSyncWork.progress.getString("message") ?: "Initializing..."
+                                val phase = initialSyncWork.progress.getString("phase") ?: "discovering"
+                                val libraryName = initialSyncWork.progress.getString("libraryName") ?: ""
+                                val completedLibs = initialSyncWork.progress.getInt("completedLibs", 0)
+                                val totalLibs = initialSyncWork.progress.getInt("totalLibs", 0)
                                 val state = initialSyncWork.state
 
                                 _uiState.update {
                                     it.copy(
                                         syncProgress = progress,
                                         syncMessage = message,
+                                        syncPhase = phase,
+                                        syncLibraryName = libraryName,
+                                        syncCompletedLibraries = completedLibs,
+                                        syncTotalLibraries = totalLibs,
                                     )
                                 }
 
@@ -168,6 +177,21 @@ class HomeViewModel
                 val suggestions = getSuggestionsUseCase()
                 _uiState.update { it.copy(suggestions = suggestions.toImmutableList()) }
             }
+        }
+
+        private fun observeHomeRowPreferences() {
+            settingsDataStore.showContinueWatching
+                .onEach { show -> _uiState.update { it.copy(showContinueWatching = show) } }
+                .launchIn(viewModelScope)
+            settingsDataStore.showMyList
+                .onEach { show -> _uiState.update { it.copy(showMyList = show) } }
+                .launchIn(viewModelScope)
+            settingsDataStore.showSuggestions
+                .onEach { show -> _uiState.update { it.copy(showSuggestions = show) } }
+                .launchIn(viewModelScope)
+            settingsDataStore.homeRowOrder
+                .onEach { order -> _uiState.update { it.copy(homeRowOrder = order) } }
+                .launchIn(viewModelScope)
         }
     }
 

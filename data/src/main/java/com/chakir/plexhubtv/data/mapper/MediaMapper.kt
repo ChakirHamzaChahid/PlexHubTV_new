@@ -73,7 +73,7 @@ class MediaMapper
                 childCount = dto.childCount,
                 // Grandparent
                 grandparentRatingKey = dto.grandparentRatingKey,
-                themeUrl = dto.grandparentTheme?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
+                themeUrl = (dto.theme ?: dto.grandparentTheme)?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
                 // Parts & Streams
                 mediaParts =
                     dto.media?.flatMap { mediaDto ->

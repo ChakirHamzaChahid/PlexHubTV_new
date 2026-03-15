@@ -27,6 +27,8 @@ class PlayerControlViewModel @Inject constructor(
     val trickplayManager: TrickplayManager,
     private val playbackManager: com.chakir.plexhubtv.domain.service.PlaybackManager,
     private val directStreamUrlBuilder: DirectStreamUrlBuilder,
+    val subtitleSearchService: com.chakir.plexhubtv.feature.player.controller.SubtitleSearchService,
+    val audioEqualizerManager: com.chakir.plexhubtv.feature.player.controller.AudioEqualizerManager,
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
@@ -52,6 +54,18 @@ class PlayerControlViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SubtitlePreferences())
 
     init {
+        // Collect playback queue state into UI state
+        viewModelScope.launch {
+            playbackManager.state.collect { pbState ->
+                playerController.updateState {
+                    it.copy(
+                        playQueue = pbState.playQueue,
+                        currentQueueIndex = pbState.currentIndex,
+                    )
+                }
+            }
+        }
+
         val ratingKey: String? = savedStateHandle["ratingKey"]
         val serverId: String? = savedStateHandle["serverId"]
         val directUrl: String? = savedStateHandle["url"]
@@ -173,8 +187,30 @@ class PlayerControlViewModel @Inject constructor(
                     }
                 }
             }
+            is PlayerAction.ToggleMoreMenu -> {
+                playerController.updateState { it.copy(showMoreMenu = !it.showMoreMenu, showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showSpeedSelection = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSubtitleDownload = false, showEqualizer = false, showChapterOverlay = false, showQueueOverlay = false) }
+            }
+            is PlayerAction.ShowChapterOverlay -> {
+                playerController.updateState { it.copy(showChapterOverlay = true, showMoreMenu = false) }
+            }
+            is PlayerAction.ShowQueueOverlay -> {
+                playerController.updateState { it.copy(showQueueOverlay = true, showMoreMenu = false) }
+            }
+            is PlayerAction.SeekToChapter -> {
+                playerController.seekTo(action.chapter.startTime)
+                playerController.updateState { it.copy(showChapterOverlay = false) }
+            }
+            is PlayerAction.PlayQueueItem -> {
+                val state = playbackManager.state.value
+                if (action.index in state.playQueue.indices && action.index != state.currentIndex) {
+                    val target = state.playQueue[action.index]
+                    playbackManager.play(target, state.playQueue)
+                    loadOrPlayMedia(target)
+                }
+                playerController.updateState { it.copy(showQueueOverlay = false) }
+            }
             is PlayerAction.DismissDialog -> {
-                playerController.updateState { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false) }
+                playerController.updateState { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false, showSubtitleDownload = false, showEqualizer = false, showMoreMenu = false, showChapterOverlay = false, showQueueOverlay = false) }
             }
             is PlayerAction.RetryPlayback -> {
                 playerController.retryPlayback()
@@ -185,13 +221,37 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.ClearResumeMessage -> {
                 playerController.clearResumeMessage()
             }
+            is PlayerAction.ShowSubtitleDownload -> {
+                playerController.updateState { it.copy(showSubtitleDownload = true, showSettings = false) }
+            }
+            is PlayerAction.ApplyDownloadedSubtitle -> {
+                playerController.updateState { it.copy(showSubtitleDownload = false) }
+                playerController.applyExternalSubtitle(action.filePath)
+            }
+            is PlayerAction.ShowEqualizer -> {
+                // Attach equalizer to ExoPlayer audio session if not MPV
+                val exo = playerController.player as? androidx.media3.exoplayer.ExoPlayer
+                if (exo != null) {
+                    audioEqualizerManager.attachToAudioSession(exo.audioSessionId)
+                }
+                playerController.updateState { it.copy(showEqualizer = true, showSettings = false) }
+            }
+            is PlayerAction.SelectEqualizerPreset -> {
+                audioEqualizerManager.selectPreset(action.presetIndex)
+            }
+            is PlayerAction.SetEqualizerBand -> {
+                audioEqualizerManager.setBandLevel(action.bandIndex, action.level)
+            }
+            is PlayerAction.SetEqualizerEnabled -> {
+                audioEqualizerManager.setEnabled(action.enabled)
+            }
             is PlayerAction.TogglePerformanceOverlay -> {
                 playerController.updateState { it.copy(showPerformanceOverlay = !it.showPerformanceOverlay) }
             }
             is PlayerAction.Close -> {
                 val state = uiState.value
-                if (state.showSettings || state.showAudioSelection || state.showSubtitleSelection || state.showAutoNextPopup || state.showAudioSyncDialog || state.showSubtitleSyncDialog || state.showSpeedSelection) {
-                    playerController.updateState { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false) }
+                if (state.showSettings || state.showAudioSelection || state.showSubtitleSelection || state.showAutoNextPopup || state.showAudioSyncDialog || state.showSubtitleSyncDialog || state.showSpeedSelection || state.showSubtitleDownload || state.showEqualizer || state.showMoreMenu || state.showChapterOverlay || state.showQueueOverlay) {
+                    playerController.updateState { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false, showSubtitleDownload = false, showEqualizer = false, showMoreMenu = false, showChapterOverlay = false, showQueueOverlay = false) }
                 }
                 // Navigation is handled by UI callback usually
             }
@@ -255,6 +315,7 @@ class PlayerControlViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        audioEqualizerManager.release()
         trickplayManager.clear()
         playerController.release()
     }
@@ -262,4 +323,5 @@ class PlayerControlViewModel @Inject constructor(
     // Helper accessors for UI
     val mpvPlayer get() = playerController.mpvPlayer
     val player get() = playerController.player
+    val refreshRateManager get() = playerController.refreshRateManager
 }

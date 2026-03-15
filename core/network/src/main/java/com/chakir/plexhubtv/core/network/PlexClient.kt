@@ -178,4 +178,38 @@ class PlexClient(
             token = token,
         )
     }
+
+    suspend fun deleteMedia(ratingKey: String): Response<Unit> {
+        return api.deleteMedia(buildUrl("/library/metadata/$ratingKey"))
+    }
+
+    // --- Playlists ---
+
+    suspend fun getPlaylists(): Response<PlexResponse> {
+        return api.getPlaylists(buildUrl("/playlists"))
+    }
+
+    suspend fun getPlaylistItems(playlistId: String): Response<PlexResponse> {
+        return api.getPlaylistItems(buildUrl("/playlists/$playlistId/items?includeGuids=1&includeMeta=1"))
+    }
+
+    suspend fun createPlaylist(title: String, ratingKey: String): Response<PlexResponse> {
+        val machineId = server.clientIdentifier
+        val uri = "server://$machineId/com.plexapp.plugins.library/library/metadata/$ratingKey"
+        return api.createPlaylist(buildUrl("/playlists"), title = title, uri = uri)
+    }
+
+    suspend fun addToPlaylist(playlistId: String, ratingKey: String): Response<Unit> {
+        val machineId = server.clientIdentifier
+        val uri = "server://$machineId/com.plexapp.plugins.library/library/metadata/$ratingKey"
+        return api.addToPlaylist(buildUrl("/playlists/$playlistId/items"), uri = uri)
+    }
+
+    suspend fun removeFromPlaylist(playlistId: String, playlistItemId: String): Response<Unit> {
+        return api.removeFromPlaylist(buildUrl("/playlists/$playlistId/items/$playlistItemId"))
+    }
+
+    suspend fun deletePlaylist(playlistId: String): Response<Unit> {
+        return api.deletePlaylist(buildUrl("/playlists/$playlistId"))
+    }
 }

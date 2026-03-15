@@ -38,8 +38,16 @@ class ScreensaverViewModel(
         viewModelScope.launch {
             try {
                 val urls = mediaDao.getRandomArtworkUrls(30)
-                _artworkUrls.value = urls
-                Timber.d("[Screensaver] Loaded ${urls.size} artwork URLs")
+                if (urls.isNotEmpty()) {
+                    _artworkUrls.value = urls
+                    Timber.d("[Screensaver] Loaded ${urls.size} artwork URLs")
+                } else {
+                    // Fallback: use resolved thumb URLs when artwork (resolvedArtUrl) is empty
+                    // This handles fresh installs or servers that don't provide art backgrounds
+                    val thumbUrls = mediaDao.getRandomThumbUrls(30)
+                    _artworkUrls.value = thumbUrls
+                    Timber.w("[Screensaver] No artwork URLs found, using ${thumbUrls.size} fallback thumbs")
+                }
             } catch (e: Exception) {
                 Timber.e(e, "[Screensaver] Failed to load artwork")
             }

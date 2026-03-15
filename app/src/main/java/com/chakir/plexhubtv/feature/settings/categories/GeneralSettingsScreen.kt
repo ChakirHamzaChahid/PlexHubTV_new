@@ -4,11 +4,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -104,6 +107,45 @@ fun GeneralSettingsScreen(
                 }
             }
 
+            // --- Home Layout (reorderable rows with visibility toggles) ---
+            item {
+                SettingsSection(stringResource(R.string.settings_section_home_layout)) {
+                    state.homeRowOrder.forEachIndexed { index, rowId ->
+                        val (title, subtitle, isChecked, onToggle) = when (rowId) {
+                            "continue_watching" -> HomeRowUiConfig(
+                                title = stringResource(R.string.settings_home_row_continue_watching),
+                                subtitle = stringResource(R.string.settings_show_continue_watching_subtitle),
+                                isChecked = state.showContinueWatching,
+                                onToggle = { onAction(SettingsAction.ToggleShowContinueWatching(it)) },
+                            )
+                            "my_list" -> HomeRowUiConfig(
+                                title = stringResource(R.string.settings_home_row_my_list),
+                                subtitle = stringResource(R.string.settings_show_my_list_subtitle),
+                                isChecked = state.showMyList,
+                                onToggle = { onAction(SettingsAction.ToggleShowMyList(it)) },
+                            )
+                            "suggestions" -> HomeRowUiConfig(
+                                title = stringResource(R.string.settings_home_row_suggestions),
+                                subtitle = stringResource(R.string.settings_show_suggestions_subtitle),
+                                isChecked = state.showSuggestions,
+                                onToggle = { onAction(SettingsAction.ToggleShowSuggestions(it)) },
+                            )
+                            else -> return@forEachIndexed
+                        }
+                        HomeRowSettingsItem(
+                            title = title,
+                            subtitle = subtitle,
+                            isChecked = isChecked,
+                            onCheckedChange = onToggle,
+                            canMoveUp = index > 0,
+                            canMoveDown = index < state.homeRowOrder.size - 1,
+                            onMoveUp = { onAction(SettingsAction.MoveHomeRowUp(rowId)) },
+                            onMoveDown = { onAction(SettingsAction.MoveHomeRowDown(rowId)) },
+                        )
+                    }
+                }
+            }
+
             // --- Parental Controls ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_parental)) {
@@ -155,4 +197,76 @@ fun GeneralSettingsScreen(
             onDismiss = { showParentalPinDialog = false },
         )
     }
+}
+
+private data class HomeRowUiConfig(
+    val title: String,
+    val subtitle: String,
+    val isChecked: Boolean,
+    val onToggle: (Boolean) -> Unit,
+)
+
+@Composable
+private fun HomeRowSettingsItem(
+    title: String,
+    subtitle: String,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Move up / down buttons
+        Column {
+            IconButton(onClick = onMoveUp, enabled = canMoveUp) {
+                Icon(
+                    Icons.Default.KeyboardArrowUp,
+                    contentDescription = stringResource(R.string.settings_home_row_move_up),
+                    tint = if (canMoveUp) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                )
+            }
+            IconButton(onClick = onMoveDown, enabled = canMoveDown) {
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = stringResource(R.string.settings_home_row_move_down),
+                    tint = if (canMoveDown) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Title + subtitle
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        // Visibility toggle
+        Switch(
+            checked = isChecked,
+            onCheckedChange = onCheckedChange,
+        )
+    }
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
 }

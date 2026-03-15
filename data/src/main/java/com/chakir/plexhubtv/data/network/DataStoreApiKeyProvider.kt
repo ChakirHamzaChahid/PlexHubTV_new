@@ -14,4 +14,5 @@ class DataStoreApiKeyProvider
     ) : ApiKeyProvider {
         override val tmdbApiKey: Flow<String?> = settingsDataStore.tmdbApiKey
         override val omdbApiKey: Flow<String?> = settingsDataStore.omdbApiKey
+        override val openSubtitlesApiKey: Flow<String?> = settingsDataStore.openSubtitlesApiKey
     }

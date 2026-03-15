@@ -115,6 +115,10 @@ data class MediaEntity(
     val historyGroupKey: String = "",
     // PERSISTENCE: Rating fetched from external sources (TMDb/OMDb) - Preserved during sync
     val scrapedRating: Double? = null,
+    // PERSISTENCE: TMDB overrides — survived sync via SyncRepositoryImpl restoration.
+    // Written to display columns (summary, resolvedThumbUrl) AND these persistence columns simultaneously.
+    val overriddenSummary: String? = null,
+    val overriddenThumbUrl: String? = null,
     // Original serverId from backend (e.g. "xtream_05fd75e9"), used for backend API calls
     // Only populated for media synced from a PlexHub Backend server
     val sourceServerId: String? = null,
@@ -127,6 +131,9 @@ data class MediaEntity(
     // = COALESCE(imdbId, bridged_imdbId, 'tmdb_'||tmdbId, ratingKey||serverId)
     // Used as PK in media_unified table and GROUP BY key in rebuild queries.
     val groupKey: String = "",
+    // Soft delete: user chose to hide this media from the hub (not deleted on server)
+    val isHidden: Boolean = false,
+    val hiddenAt: Long = 0,
 )
 
 /** Computes metadata quality score matching the SQL backfill formula in MIGRATION_37_38. */

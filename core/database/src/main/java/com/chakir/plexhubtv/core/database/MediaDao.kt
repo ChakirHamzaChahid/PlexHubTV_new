@@ -86,6 +86,26 @@ interface MediaDao {
         serverId: String,
     )
 
+    // ========================================
+    // Soft Delete (Hide from Hub)
+    // ========================================
+
+    /** Soft-hides all instances of a media across all servers via unificationId. Returns affected row count. */
+    @Query("UPDATE media SET isHidden = 1, hiddenAt = :timestamp WHERE unificationId = :unificationId AND unificationId != ''")
+    suspend fun hideMediaByUnificationId(unificationId: String, timestamp: Long = System.currentTimeMillis()): Int
+
+    /** Fallback: hide a single instance when no unificationId is available. Returns affected row count. */
+    @Query("UPDATE media SET isHidden = 1, hiddenAt = :timestamp WHERE ratingKey = :ratingKey AND serverId = :serverId")
+    suspend fun hideMedia(ratingKey: String, serverId: String, timestamp: Long = System.currentTimeMillis()): Int
+
+    /** Restore a hidden media (undo). */
+    @Query("UPDATE media SET isHidden = 0, hiddenAt = 0 WHERE unificationId = :unificationId AND unificationId != ''")
+    suspend fun unhideMediaByUnificationId(unificationId: String)
+
+    /** Get all hidden ratingKeys for a server (used to preserve isHidden during sync upsert). */
+    @Query("SELECT ratingKey FROM media WHERE serverId = :serverId AND isHidden = 1")
+    suspend fun getHiddenRatingKeys(serverId: String): List<String>
+
     @Query("DELETE FROM media WHERE serverId = :serverId AND librarySectionId = :libraryKey")
     suspend fun deleteMediaByLibrary(serverId: String, libraryKey: String)
 
@@ -177,8 +197,9 @@ interface MediaDao {
         "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
         "parentThumb, grandparentThumb, displayRating, " +
         "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
-        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned, groupKey " +
-        "FROM media WHERE lastViewedAt > 0 " +
+        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned, groupKey, " +
+        "isHidden, hiddenAt " +
+        "FROM media WHERE lastViewedAt > 0 AND isHidden = 0 " +
         "GROUP BY historyGroupKey " +
         "ORDER BY MAX(lastViewedAt) DESC LIMIT :limit OFFSET :offset"
     )
@@ -196,8 +217,9 @@ interface MediaDao {
         "genres, unificationId, addedAt, updatedAt, serverIds, ratingKeys, " +
         "parentThumb, grandparentThumb, displayRating, " +
         "resolvedThumbUrl, resolvedArtUrl, resolvedBaseUrl, alternativeThumbUrls, " +
-        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned, groupKey " +
-        "FROM media WHERE lastViewedAt > 0 " +
+        "historyGroupKey, scrapedRating, sourceServerId, metadataScore, isOwned, groupKey, " +
+        "isHidden, hiddenAt " +
+        "FROM media WHERE lastViewedAt > 0 AND isHidden = 0 " +
         "GROUP BY historyGroupKey " +
         "ORDER BY MAX(lastViewedAt) DESC"
     )
@@ -343,10 +365,21 @@ interface MediaDao {
         SELECT resolvedArtUrl FROM media
         WHERE type IN ('movie', 'show')
         AND resolvedArtUrl IS NOT NULL AND resolvedArtUrl != ''
+        AND isHidden = 0
         ORDER BY RANDOM()
         LIMIT :limit
     """)
     suspend fun getRandomArtworkUrls(limit: Int = 20): List<String>
+
+    @Query("""
+        SELECT resolvedThumbUrl FROM media
+        WHERE type IN ('movie', 'show')
+        AND resolvedThumbUrl IS NOT NULL AND resolvedThumbUrl != ''
+        AND isHidden = 0
+        ORDER BY RANDOM()
+        LIMIT :limit
+    """)
+    suspend fun getRandomThumbUrls(limit: Int = 20): List<String>
 
     // --- Suggestions queries ---
 
@@ -366,6 +399,7 @@ interface MediaDao {
         AND (viewCount IS NULL OR viewCount = 0)
         AND (lastViewedAt IS NULL OR lastViewedAt = 0)
         AND genres LIKE '%' || :genre || '%'
+        AND isHidden = 0
         ORDER BY RANDOM()
         LIMIT :limit
     """)
@@ -376,6 +410,7 @@ interface MediaDao {
         WHERE type IN ('movie', 'show')
         AND (viewCount IS NULL OR viewCount = 0)
         AND (lastViewedAt IS NULL OR lastViewedAt = 0)
+        AND isHidden = 0
         ORDER BY RANDOM()
         LIMIT :limit
     """)
@@ -387,6 +422,7 @@ interface MediaDao {
         AND (viewCount IS NULL OR viewCount = 0)
         AND (lastViewedAt IS NULL OR lastViewedAt = 0)
         AND addedAt > :sinceTimestamp
+        AND isHidden = 0
         ORDER BY addedAt DESC
         LIMIT :limit
     """)
@@ -417,4 +453,48 @@ interface MediaDao {
         ) WHERE serverId = :serverId AND ratingKey IN (:ratingKeys)
     """)
     suspend fun updateGroupKeys(serverId: String, ratingKeys: List<String>)
+
+    // ========================================
+    // TMDB manual refresh: cross-server metadata update
+    // ========================================
+
+    /**
+     * Writes TMDB data to BOTH persistence columns (overriddenSummary, overriddenThumbUrl)
+     * AND display columns (summary, resolvedThumbUrl) simultaneously.
+     * COALESCE preserves existing value if TMDB returns null for that field.
+     */
+    @Query("""
+        UPDATE media SET
+            scrapedRating = :rating,
+            displayRating = :rating,
+            overriddenSummary = :summary,
+            overriddenThumbUrl = :thumbUrl,
+            summary = COALESCE(:summary, summary),
+            resolvedThumbUrl = COALESCE(:thumbUrl, resolvedThumbUrl)
+        WHERE tmdbId = :tmdbId
+    """)
+    suspend fun updateMetadataByTmdbId(
+        tmdbId: String, rating: Double, summary: String?, thumbUrl: String?
+    ): Int
+
+    /** Returns distinct groupKeys for media_unified rebuild after TMDB refresh. */
+    @Query("SELECT DISTINCT groupKey FROM media WHERE tmdbId = :tmdbId AND groupKey != ''")
+    suspend fun getGroupKeysByTmdbId(tmdbId: String): List<String>
+
+    /** Persistence helper: retrieves overridden metadata to survive library sync. */
+    @Query("""
+        SELECT ratingKey, overriddenSummary, overriddenThumbUrl FROM media
+        WHERE ratingKey IN (:ratingKeys) AND serverId = :serverId
+        AND (overriddenSummary IS NOT NULL OR overriddenThumbUrl IS NOT NULL)
+    """)
+    suspend fun getOverriddenMetadata(
+        ratingKeys: List<String>, serverId: String
+    ): List<OverriddenMetadata>
 }
+
+/** Room projection class for TMDB override sync preservation. */
+data class OverriddenMetadata(
+    val ratingKey: String,
+    val overriddenSummary: String?,
+    val overriddenThumbUrl: String?,
+)

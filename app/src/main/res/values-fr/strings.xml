@@ -72,6 +72,9 @@
     <string name="loading_error_icon_description">Erreur</string>
     <string name="loading_completed_description">Chargement terminé</string>
     <string name="loading_exit_button">Quitter</string>
+    <string name="sync_server_recap_title_count">Serveurs (%1$d/%2$d)</string>
+    <string name="sync_library_progress_title">Bibliothèques (%1$d/%2$d)</string>
+    <string name="sync_server_label">Serveur\u00a0: %1$s</string>
 
     <!-- ══════════════════════════════════════════════
          Workers / Synchronisation en arrière-plan
@@ -199,6 +202,11 @@
     <string name="detail_extra_interview">Interview</string>
     <string name="detail_extra_featurette">Featurette</string>
     <string name="detail_extra_unknown">Extra</string>
+    <string name="refresh_metadata">Actualiser depuis TMDB</string>
+    <string name="detail_delete_description">Masquer du hub</string>
+    <string name="detail_delete_confirm_title">Masquer le média</string>
+    <string name="detail_delete_confirm_message">Masquer « %1$s » de votre bibliothèque ? Ce média n\u2019apparaîtra plus, même après une resynchronisation.</string>
+    <string name="detail_delete_confirm">Masquer</string>
     <string name="detail_screen_description">Écran de détails</string>
     <string name="detail_collection_fallback">Collection</string>
     <string name="collection_title">Collection</string>
@@ -211,6 +219,36 @@
     <string name="detail_collection_items_description">Liste des éléments de la collection</string>
     <string name="collection_items_description">Liste des éléments de la collection</string>
     <string name="collection_empty">Aucun élément dans cette collection</string>
+
+    <!-- ══════════════════════════════════════════════
+         Détails personne
+         ══════════════════════════════════════════════ -->
+    <string name="person_known_for">Connu(e) pour</string>
+    <string name="person_behind_camera">Derrière la caméra</string>
+    <string name="person_add_favorite">Ajouter aux favoris</string>
+    <string name="person_remove_favorite">Retirer des favoris</string>
+    <string name="person_born">Né(e) le : %1$s</string>
+
+    <!-- ══════════════════════════════════════════════
+         Playlists
+         ══════════════════════════════════════════════ -->
+    <string name="playlist_title">Playlist</string>
+    <string name="playlist_title_with_count">Playlists (%1$d)</string>
+    <string name="playlist_screen_description">Écran des playlists</string>
+    <string name="playlist_detail_screen_description">Détails de la playlist</string>
+    <string name="playlist_empty">Aucune playlist</string>
+    <string name="playlist_empty_hint">Créez des playlists depuis l\'écran de détails</string>
+    <string name="playlist_detail_empty">Aucun élément dans cette playlist</string>
+    <string name="playlist_item_count">%1$d éléments</string>
+    <string name="playlist_add_to_title">Ajouter à une playlist</string>
+    <string name="playlist_create_new">Créer une nouvelle playlist</string>
+    <string name="playlist_create_title">Nouvelle playlist</string>
+    <string name="playlist_name_label">Nom de la playlist</string>
+    <string name="playlist_create_button">Créer</string>
+    <string name="playlist_delete">Supprimer la playlist</string>
+    <string name="playlist_delete_confirm_title">Supprimer la playlist</string>
+    <string name="playlist_delete_confirm_message">« %1$s » sera définitivement supprimée.</string>
+    <string name="playlist_delete_confirm">Supprimer</string>
 
     <!-- ══════════════════════════════════════════════
          Écran de détails de saison
@@ -310,6 +348,11 @@
     <string name="player_settings_description">Paramètres</string>
 
     <!-- Paramètres du lecteur -->
+    <string name="player_settings_title">Paramètres</string>
+    <string name="player_settings_tab_video">Vidéo</string>
+    <string name="player_settings_tab_subtitles">Sous-titres</string>
+    <string name="player_settings_tab_audio">Audio</string>
+    <string name="player_settings_tab_advanced">Avancé</string>
     <string name="player_settings_quality">Paramètres de qualité</string>
     <string name="player_settings_show_stats">Afficher les statistiques</string>
     <string name="player_settings_select_audio">Sélectionner l\'audio</string>
@@ -320,6 +363,21 @@
     <string name="player_settings_adjust_hint">Utilisez &lt; &gt; pour ajuster, OK pour enregistrer</string>
     <string name="player_settings_edit_hint">Appuyez sur OK pour modifier</string>
     <string name="player_settings_quality_description">Paramètres de qualité</string>
+    <string name="player_subtitle_download">Télécharger des sous-titres</string>
+    <string name="player_subtitle_download_title">Télécharger des sous-titres</string>
+    <string name="player_subtitle_search_hint">Rechercher des sous-titres…</string>
+    <string name="player_subtitle_searching">Recherche en cours…</string>
+    <string name="player_subtitle_no_results">Aucun sous-titre trouvé</string>
+    <string name="player_subtitle_downloading">Téléchargement…</string>
+    <string name="player_subtitle_downloads_label">%1$d téléchargements</string>
+    <string name="player_subtitle_hi_label">SM</string>
+    <string name="player_subtitle_no_api_key">Clé API OpenSubtitles non configurée. Ajoutez-la dans les Paramètres.</string>
+
+    <!-- Égaliseur audio -->
+    <string name="player_equalizer_title">Égaliseur audio</string>
+    <string name="player_equalizer_presets">Préréglages</string>
+    <string name="player_equalizer_bands">Bandes (D-Pad Haut/Bas pour ajuster)</string>
+    <string name="player_equalizer">Égaliseur</string>
 
     <!-- Statistiques de performance -->
     <string name="player_nerd_stats">STATS DÉTAILLÉES</string>
@@ -329,7 +387,16 @@
     <string name="player_stat_audio_codec">Codec audio</string>
     <string name="player_stat_dropped_frames">Images perdues</string>
     <string name="player_stat_fps">IPS</string>
-    <string name="player_stat_cache">Cache</string>
+    <string name="player_stat_cache">Tampon</string>
+    <string name="player_stat_decoder">Décodeur</string>
+    <string name="player_stat_peak_bitrate">Débit max</string>
+    <string name="player_stat_avg_bitrate">Débit moyen</string>
+    <string name="player_stat_backend">Lecteur</string>
+    <string name="player_stat_audio_channels">Canaux</string>
+    <string name="player_stat_audio_bitrate">Débit audio</string>
+    <string name="player_stat_section_video">VIDÉO</string>
+    <string name="player_stat_section_audio">AUDIO</string>
+    <string name="player_stat_section_network">RÉSEAU</string>
     <string name="player_stats_description">Statistiques de performance</string>
 
     <!-- Marqueurs de passage -->
@@ -340,6 +407,26 @@
     <!-- Barre de progression -->
     <string name="player_seekbar_description">Barre de progression</string>
     <string name="player_chapters_count">Chapitres : %1$d</string>
+
+    <!-- Menu Plus -->
+    <string name="player_more">Plus</string>
+    <string name="player_more_quality">Qualité</string>
+    <string name="player_more_speed">Vitesse de lecture</string>
+    <string name="player_more_subtitle_sync">Sync sous-titres</string>
+    <string name="player_more_audio_sync">Sync audio</string>
+    <string name="player_more_download_subs">Télécharger sous-titres</string>
+    <string name="player_more_equalizer">Égaliseur</string>
+    <string name="player_more_stats">Statistiques</string>
+    <string name="player_more_chapters">Chapitres</string>
+    <string name="player_more_queue">File d\'attente</string>
+
+    <!-- Overlay Chapitres -->
+    <string name="player_chapters_title">Chapitres</string>
+
+    <!-- Overlay File d\'attente -->
+    <string name="player_queue_title">File d\'attente</string>
+    <string name="player_queue_count">%1$d éléments</string>
+    <string name="player_queue_now_playing">En cours</string>
 
     <!-- ══════════════════════════════════════════════
          Écran des paramètres
@@ -393,6 +480,7 @@
     <!-- Serveur -->
     <string name="settings_section_server">Serveur</string>
     <string name="settings_default_server">Serveur par défaut</string>
+    <string name="settings_all_servers">Tous les serveurs</string>
     <string name="settings_scanning">Recherche…</string>
     <string name="settings_check_server">Vérifier l\'état du serveur</string>
     <string name="settings_check_server_subtitle">Voir les détails de connexion et la latence</string>
@@ -633,6 +721,22 @@
     <!-- ══════════════════════════════════════════════
          Contrôle parental
          ══════════════════════════════════════════════ -->
+    <!-- ══════════════════════════════════════════════
+         Disposition de l'accueil
+         ══════════════════════════════════════════════ -->
+    <string name="settings_section_home_layout">Disposition de l\'accueil</string>
+    <string name="settings_show_continue_watching">Afficher Continuer à regarder</string>
+    <string name="settings_show_continue_watching_subtitle">Afficher la rangée Continuer à regarder sur l\'écran d\'accueil</string>
+    <string name="settings_show_my_list">Afficher Ma Liste</string>
+    <string name="settings_show_my_list_subtitle">Afficher la rangée Ma Liste (favoris) sur l\'écran d\'accueil</string>
+    <string name="settings_show_suggestions">Afficher les Suggestions</string>
+    <string name="settings_show_suggestions_subtitle">Afficher la rangée Suggestions sur l\'écran d\'accueil</string>
+    <string name="settings_home_row_move_up">Monter</string>
+    <string name="settings_home_row_move_down">Descendre</string>
+    <string name="settings_home_row_continue_watching">Continuer à regarder</string>
+    <string name="settings_home_row_my_list">Ma liste</string>
+    <string name="settings_home_row_suggestions">Suggestions</string>
+
     <string name="settings_section_parental">Contrôle parental</string>
     <string name="settings_parental_pin_set">Définir le code parental</string>
     <string name="settings_parental_pin_change">Modifier le code parental</string>
@@ -645,4 +749,8 @@
     <string name="parental_pin_backspace">&#x232B;</string>
     <string name="parental_pin_ok">OK</string>
     <string name="parental_pin_cancel">Annuler</string>
+
+    <!-- Screensaver -->
+    <string name="settings_screensaver_activate">Activer dans les paramètres système</string>
+    <string name="settings_screensaver_activate_subtitle">Ouvrir le sélecteur d\'écran de veille Android TV pour choisir PlexHubTV</string>
 </resources>

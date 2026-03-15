@@ -78,6 +78,12 @@ data class TmdbTvResponse(
     @SerializedName("vote_count")
     val voteCount: Int?,
 
+    @SerializedName("overview")
+    val overview: String? = null,
+
+    @SerializedName("poster_path")
+    val posterPath: String? = null, // e.g. "/abc123.jpg" → prepend TMDB image base URL
+
     @SerializedName("success")
     val success: Boolean? = null, // false if error
 
@@ -100,6 +106,12 @@ data class TmdbMovieResponse(
 
     @SerializedName("vote_count")
     val voteCount: Int?,
+
+    @SerializedName("overview")
+    val overview: String? = null,
+
+    @SerializedName("poster_path")
+    val posterPath: String? = null,
 
     @SerializedName("success")
     val success: Boolean? = null, // false if error

@@ -102,6 +102,7 @@ fun MainScreen(
                 Screen.Movies.route -> NavigationItem.Movies
                 Screen.TVShows.route -> NavigationItem.TVShows
                 Screen.Favorites.route -> NavigationItem.Favorites
+                Screen.Playlists.route -> NavigationItem.Playlists
                 Screen.History.route -> NavigationItem.History
                 Screen.Settings.route -> NavigationItem.Settings
                 Screen.Search.route -> NavigationItem.Search
@@ -118,6 +119,7 @@ fun MainScreen(
         Screen.Movies.route,
         Screen.TVShows.route,
         Screen.Favorites.route,
+        Screen.Playlists.route,
         Screen.History.route,
         Screen.Iptv.route
     )
@@ -319,6 +321,25 @@ fun MainScreen(
             composable(Screen.Favorites.route) {
                 com.chakir.plexhubtv.feature.favorites.FavoritesRoute(
                     onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                )
+            }
+            composable(Screen.Playlists.route) {
+                com.chakir.plexhubtv.feature.playlist.PlaylistListRoute(
+                    onNavigateToPlaylist = { playlistId, serverId ->
+                        navController.navigate(Screen.PlaylistDetail.createRoute(playlistId, serverId))
+                    },
+                )
+            }
+            composable(
+                route = Screen.PlaylistDetail.route,
+                arguments = listOf(
+                    navArgument("playlistId") { defaultValue = "" },
+                    navArgument("serverId") { defaultValue = "" },
+                ),
+            ) {
+                com.chakir.plexhubtv.feature.playlist.PlaylistDetailRoute(
+                    onNavigateToDetail = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    onNavigateBack = { navController.popBackStack() },
                 )
             }
             composable(Screen.History.route) {

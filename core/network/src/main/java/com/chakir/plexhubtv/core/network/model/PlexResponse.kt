@@ -74,6 +74,7 @@ data class MetadataDTO(
     val grandparentArt: String? = null,
     val grandparentTheme: String? = null,
     val grandparentRatingKey: String? = null,
+    val theme: String? = null,
     val parentTitle: String? = null,
     val parentThumb: String? = null,
     val parentRatingKey: String? = null,

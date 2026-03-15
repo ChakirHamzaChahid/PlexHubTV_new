@@ -6,4 +6,9 @@ interface StreamMetadata {
     val frameRate: Float
     val width: Int
     val height: Int
+    val decoderName: String?
+    val audioMimeType: String?
+    val audioChannelCount: Int
+    val audioBitrate: Int
+    val audioSampleRate: Int
 }

@@ -37,6 +37,10 @@ fun NetflixHomeContent(
     onDeck: List<MediaItem>,
     onAction: (HomeAction) -> Unit,
     modifier: Modifier = Modifier,
+    showContinueWatching: Boolean = true,
+    showMyList: Boolean = true,
+    showSuggestions: Boolean = true,
+    homeRowOrder: List<String> = listOf("continue_watching", "my_list", "suggestions"),
     onNavigateUp: (() -> Unit)? = null,
     onFocusChanged: ((MediaItem?) -> Unit)? = null,
 ) {
@@ -52,16 +56,18 @@ fun NetflixHomeContent(
         }
     }
 
-    val hasContinueWatching = onDeck.isNotEmpty()
-    val hasMyList = favorites.isNotEmpty()
-    val hasSuggestions = suggestions.isNotEmpty()
+    // Determine which special rows are active (visible + have data)
+    data class SpecialRow(val id: String, val hasData: Boolean)
+    val rowAvailability = mapOf(
+        "continue_watching" to (showContinueWatching && onDeck.isNotEmpty()),
+        "my_list" to (showMyList && favorites.isNotEmpty()),
+        "suggestions" to (showSuggestions && suggestions.isNotEmpty()),
+    )
+    val activeSpecialRows = homeRowOrder.filter { rowAvailability[it] == true }
 
     // Pre-compute row indices for snap-to-row scrolling
-    var nextIdx = 0
-    val continueWatchingIdx = if (hasContinueWatching) nextIdx++ else -1
-    val myListIdx = if (hasMyList) nextIdx++ else -1
-    val suggestionsIdx = if (hasSuggestions) nextIdx++ else -1
-    val hubStartIdx = nextIdx
+    val specialRowIndices = activeSpecialRows.mapIndexed { index, id -> id to index }.toMap()
+    val hubStartIdx = activeSpecialRows.size
 
     // Track which row has focus — snap LazyColumn so the focused row is at the top
     var focusedRowIndex by remember { mutableIntStateOf(0) }
@@ -91,70 +97,65 @@ fun NetflixHomeContent(
             contentPadding = PaddingValues(bottom = 50.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Continue Watching Row
-            if (hasContinueWatching) {
-                item(key = "continue_watching") {
-                    NetflixContentRow(
-                        title = "Continue Watching",
-                        items = onDeck,
-                        cardType = CardType.WIDE,
-                        onItemClick = { onAction(HomeAction.OpenMedia(it)) },
-                        onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
-                        onItemFocused = {
-                            onFocusChanged?.invoke(it)
-                            focusedRowIndex = continueWatchingIdx
-                            focusVersion++
-                        },
-                        rowId = "home_on_deck",
-                        modifier = Modifier.focusRequester(firstRowFocusRequester),
-                    )
-                }
-            }
-
-            // My List (Favorites)
-            if (hasMyList) {
-                item(key = "my_list") {
-                    NetflixContentRow(
-                        title = "My List",
-                        items = favorites,
-                        cardType = CardType.POSTER,
-                        onItemClick = { onAction(HomeAction.OpenMedia(it)) },
-                        onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
-                        onItemFocused = {
-                            onFocusChanged?.invoke(it)
-                            focusedRowIndex = myListIdx
-                            focusVersion++
-                        },
-                        rowId = "home_my_list",
-                        modifier = if (!hasContinueWatching) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
-                    )
-                }
-            }
-
-            // Suggestions Row
-            if (hasSuggestions) {
-                item(key = "suggestions") {
-                    NetflixContentRow(
-                        title = "Suggested for You",
-                        items = suggestions,
-                        cardType = CardType.POSTER,
-                        onItemClick = { onAction(HomeAction.OpenMedia(it)) },
-                        onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
-                        onItemFocused = {
-                            onFocusChanged?.invoke(it)
-                            focusedRowIndex = suggestionsIdx
-                            focusVersion++
-                        },
-                        rowId = "home_suggestions",
-                        modifier = if (!hasContinueWatching && !hasMyList) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
-                    )
+            // Special rows in user-configured order
+            activeSpecialRows.forEachIndexed { displayIndex, rowId ->
+                val isFirst = displayIndex == 0
+                when (rowId) {
+                    "continue_watching" -> item(key = "continue_watching") {
+                        NetflixContentRow(
+                            title = "Continue Watching",
+                            items = onDeck,
+                            cardType = CardType.WIDE,
+                            onItemClick = { onAction(HomeAction.OpenMedia(it)) },
+                            onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                            onItemFocused = {
+                                onFocusChanged?.invoke(it)
+                                focusedRowIndex = specialRowIndices["continue_watching"] ?: 0
+                                focusVersion++
+                            },
+                            rowId = "home_on_deck",
+                            modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
+                        )
+                    }
+                    "my_list" -> item(key = "my_list") {
+                        NetflixContentRow(
+                            title = "My List",
+                            items = favorites,
+                            cardType = CardType.POSTER,
+                            onItemClick = { onAction(HomeAction.OpenMedia(it)) },
+                            onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                            onItemFocused = {
+                                onFocusChanged?.invoke(it)
+                                focusedRowIndex = specialRowIndices["my_list"] ?: 0
+                                focusVersion++
+                            },
+                            rowId = "home_my_list",
+                            modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
+                        )
+                    }
+                    "suggestions" -> item(key = "suggestions") {
+                        NetflixContentRow(
+                            title = "Suggested for You",
+                            items = suggestions,
+                            cardType = CardType.POSTER,
+                            onItemClick = { onAction(HomeAction.OpenMedia(it)) },
+                            onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                            onItemFocused = {
+                                onFocusChanged?.invoke(it)
+                                focusedRowIndex = specialRowIndices["suggestions"] ?: 0
+                                focusVersion++
+                            },
+                            rowId = "home_suggestions",
+                            modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
+                        )
+                    }
                 }
             }
 
             // Hub Rows
             hubs.forEachIndexed { index, hub ->
                 item(key = "home_hub_${hub.hubIdentifier ?: hub.title ?: index}") {
-                    val isFirstRow = !hasContinueWatching && !hasMyList && !hasSuggestions && index == 0
+                    val isFirstRow = activeSpecialRows.isEmpty() && index == 0
                     val isEpisodeHub = hub.type == "episode"
                             || hub.items.firstOrNull()?.type == MediaType.Episode
                     val hubIdx = hubStartIdx + index

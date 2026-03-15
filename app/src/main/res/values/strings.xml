@@ -72,6 +72,9 @@
     <string name="loading_error_icon_description">Error</string>
     <string name="loading_completed_description">Loading complete</string>
     <string name="loading_exit_button">Exit</string>
+    <string name="sync_server_recap_title_count">Servers (%1$d/%2$d)</string>
+    <string name="sync_library_progress_title">Libraries (%1$d/%2$d)</string>
+    <string name="sync_server_label">Server: %1$s</string>
 
     <!-- ══════════════════════════════════════════════
          Workers / Background Sync
@@ -199,6 +202,11 @@
     <string name="detail_extra_interview">Interview</string>
     <string name="detail_extra_featurette">Featurette</string>
     <string name="detail_extra_unknown">Extra</string>
+    <string name="refresh_metadata">Refresh from TMDB</string>
+    <string name="detail_delete_description">Hide from hub</string>
+    <string name="detail_delete_confirm_title">Hide Media</string>
+    <string name="detail_delete_confirm_message">Hide \"%1$s\" from your library? This media will no longer appear, even after resync.</string>
+    <string name="detail_delete_confirm">Hide</string>
     <string name="detail_screen_description">Details screen</string>
     <string name="detail_collection_fallback">Collection</string>
     <string name="collection_title">Collection</string>
@@ -211,6 +219,36 @@
     <string name="detail_collection_items_description">Collection items list</string>
     <string name="collection_items_description">Collection items list</string>
     <string name="collection_empty">No items in this collection</string>
+
+    <!-- ══════════════════════════════════════════════
+         Person Detail
+         ══════════════════════════════════════════════ -->
+    <string name="person_known_for">Known For</string>
+    <string name="person_behind_camera">Behind the Camera</string>
+    <string name="person_add_favorite">Add to favorites</string>
+    <string name="person_remove_favorite">Remove from favorites</string>
+    <string name="person_born">Born: %1$s</string>
+
+    <!-- ══════════════════════════════════════════════
+         Playlists
+         ══════════════════════════════════════════════ -->
+    <string name="playlist_title">Playlist</string>
+    <string name="playlist_title_with_count">Playlists (%1$d)</string>
+    <string name="playlist_screen_description">Playlists screen</string>
+    <string name="playlist_detail_screen_description">Playlist details screen</string>
+    <string name="playlist_empty">No playlists yet</string>
+    <string name="playlist_empty_hint">Create playlists from the media detail screen</string>
+    <string name="playlist_detail_empty">No items in this playlist</string>
+    <string name="playlist_item_count">%1$d items</string>
+    <string name="playlist_add_to_title">Add to Playlist</string>
+    <string name="playlist_create_new">Create New Playlist</string>
+    <string name="playlist_create_title">New Playlist</string>
+    <string name="playlist_name_label">Playlist name</string>
+    <string name="playlist_create_button">Create</string>
+    <string name="playlist_delete">Delete playlist</string>
+    <string name="playlist_delete_confirm_title">Delete Playlist</string>
+    <string name="playlist_delete_confirm_message">"%1$s" will be permanently deleted.</string>
+    <string name="playlist_delete_confirm">Delete</string>
 
     <!-- ══════════════════════════════════════════════
          Season Detail Screen
@@ -310,6 +348,11 @@
     <string name="player_settings_description">Settings</string>
 
     <!-- Player Settings Dialog -->
+    <string name="player_settings_title">Settings</string>
+    <string name="player_settings_tab_video">Video</string>
+    <string name="player_settings_tab_subtitles">Subtitles</string>
+    <string name="player_settings_tab_audio">Audio</string>
+    <string name="player_settings_tab_advanced">Advanced</string>
     <string name="player_settings_quality">Quality Settings</string>
     <string name="player_settings_show_stats">Show Performance Stats</string>
     <string name="player_settings_select_audio">Select Audio</string>
@@ -320,6 +363,21 @@
     <string name="player_settings_adjust_hint">Use &lt; &gt; to Adjust, OK to Save</string>
     <string name="player_settings_edit_hint">Press OK to Edit</string>
     <string name="player_settings_quality_description">Quality settings</string>
+    <string name="player_subtitle_download">Download Subtitles</string>
+    <string name="player_subtitle_download_title">Download Subtitles</string>
+    <string name="player_subtitle_search_hint">Search subtitles…</string>
+    <string name="player_subtitle_searching">Searching…</string>
+    <string name="player_subtitle_no_results">No subtitles found</string>
+    <string name="player_subtitle_downloading">Downloading…</string>
+    <string name="player_subtitle_downloads_label">%1$d downloads</string>
+    <string name="player_subtitle_hi_label">HI</string>
+    <string name="player_subtitle_no_api_key">OpenSubtitles API key not configured. Add it in Settings.</string>
+
+    <!-- Audio Equalizer -->
+    <string name="player_equalizer_title">Audio Equalizer</string>
+    <string name="player_equalizer_presets">Presets</string>
+    <string name="player_equalizer_bands">Bands (D-Pad Up/Down to adjust)</string>
+    <string name="player_equalizer">Equalizer</string>
 
     <!-- Performance Overlay -->
     <string name="player_nerd_stats">NERD STATS</string>
@@ -329,7 +387,16 @@
     <string name="player_stat_audio_codec">Audio Codec</string>
     <string name="player_stat_dropped_frames">Dropped Frames</string>
     <string name="player_stat_fps">FPS</string>
-    <string name="player_stat_cache">Cache</string>
+    <string name="player_stat_cache">Buffer</string>
+    <string name="player_stat_decoder">Decoder</string>
+    <string name="player_stat_peak_bitrate">Peak Bitrate</string>
+    <string name="player_stat_avg_bitrate">Avg Bitrate</string>
+    <string name="player_stat_backend">Player</string>
+    <string name="player_stat_audio_channels">Channels</string>
+    <string name="player_stat_audio_bitrate">Audio Bitrate</string>
+    <string name="player_stat_section_video">VIDEO</string>
+    <string name="player_stat_section_audio">AUDIO</string>
+    <string name="player_stat_section_network">NETWORK</string>
     <string name="player_stats_description">Performance statistics</string>
 
     <!-- Skip Markers -->
@@ -340,6 +407,26 @@
     <!-- Seekbar -->
     <string name="player_seekbar_description">Progress bar</string>
     <string name="player_chapters_count">Chapters: %1$d</string>
+
+    <!-- More Menu -->
+    <string name="player_more">More</string>
+    <string name="player_more_quality">Quality</string>
+    <string name="player_more_speed">Playback Speed</string>
+    <string name="player_more_subtitle_sync">Subtitle Sync</string>
+    <string name="player_more_audio_sync">Audio Sync</string>
+    <string name="player_more_download_subs">Download Subtitles</string>
+    <string name="player_more_equalizer">Equalizer</string>
+    <string name="player_more_stats">Performance Stats</string>
+    <string name="player_more_chapters">Chapters</string>
+    <string name="player_more_queue">Queue</string>
+
+    <!-- Chapter Overlay -->
+    <string name="player_chapters_title">Chapters</string>
+
+    <!-- Queue Overlay -->
+    <string name="player_queue_title">Queue</string>
+    <string name="player_queue_count">%1$d items</string>
+    <string name="player_queue_now_playing">Now Playing</string>
 
     <!-- ══════════════════════════════════════════════
          Settings Screen
@@ -433,6 +520,7 @@
     <!-- Server -->
     <string name="settings_section_server">Server</string>
     <string name="settings_default_server">Default Server</string>
+    <string name="settings_all_servers">All servers</string>
     <string name="settings_scanning">Scanning…</string>
     <string name="settings_check_server">Check Server Status</string>
     <string name="settings_check_server_subtitle">View connection details and latency</string>
@@ -547,6 +635,8 @@
     <string name="settings_screensaver_show_clock_subtitle">Display time overlay on screensaver</string>
     <string name="settings_screensaver_interval">Slide Interval</string>
     <string name="settings_screensaver_interval_subtitle">%1$d seconds between slides</string>
+    <string name="settings_screensaver_activate">Activate in System Settings</string>
+    <string name="settings_screensaver_activate_subtitle">Open Android TV screensaver picker to select PlexHubTV</string>
 
     <!-- Updates -->
     <string name="settings_section_updates">Updates</string>
@@ -711,6 +801,22 @@
     <!-- ══════════════════════════════════════════════
          Parental Controls
          ══════════════════════════════════════════════ -->
+    <!-- ══════════════════════════════════════════════
+         Home Layout
+         ══════════════════════════════════════════════ -->
+    <string name="settings_section_home_layout">Home Layout</string>
+    <string name="settings_show_continue_watching">Show Continue Watching</string>
+    <string name="settings_show_continue_watching_subtitle">Display the Continue Watching row on the home screen</string>
+    <string name="settings_show_my_list">Show My List</string>
+    <string name="settings_show_my_list_subtitle">Display the My List (favorites) row on the home screen</string>
+    <string name="settings_show_suggestions">Show Suggestions</string>
+    <string name="settings_show_suggestions_subtitle">Display the Suggested for You row on the home screen</string>
+    <string name="settings_home_row_move_up">Move up</string>
+    <string name="settings_home_row_move_down">Move down</string>
+    <string name="settings_home_row_continue_watching">Continue Watching</string>
+    <string name="settings_home_row_my_list">My List</string>
+    <string name="settings_home_row_suggestions">Suggestions</string>
+
     <string name="settings_section_parental">Parental Controls</string>
     <string name="settings_parental_pin_set">Set Parental PIN</string>
     <string name="settings_parental_pin_change">Change Parental PIN</string>

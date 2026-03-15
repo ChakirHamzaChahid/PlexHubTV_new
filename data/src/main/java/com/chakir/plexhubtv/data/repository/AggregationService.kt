@@ -189,6 +189,7 @@ class AggregationService @Inject constructor(
             FROM media
             WHERE media.type IN ('movie', 'show')
             AND media.groupKey != ''
+            AND media.isHidden = 0
             $whereClause
             GROUP BY media.type, media.groupKey
         """.trimIndent()

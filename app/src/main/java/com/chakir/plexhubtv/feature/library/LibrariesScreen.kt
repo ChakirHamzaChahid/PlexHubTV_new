@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.feature.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -295,19 +296,28 @@ fun LibrariesScreen(
                                 testTag = "library_sort_button"
                             )
 
-                            // Refresh Button
+                            // Refresh Button (10s cooldown to prevent flooding)
                             IconButton(
                                 onClick = {
-                                    pagedItems.refresh() // Force network refresh
+                                    pagedItems.refresh()
                                     onAction(LibraryAction.Refresh)
                                 },
+                                enabled = !state.display.isRefreshing,
                                 modifier = Modifier.testTag("library_refresh_button")
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = stringResource(R.string.library_refresh_description),
-                                    tint = Color.White
-                                )
+                                if (state.display.isRefreshing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color.White.copy(alpha = 0.5f),
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = stringResource(R.string.library_refresh_description),
+                                        tint = Color.White
+                                    )
+                                }
                             }
 
                             // View Mode Switch (Grid → Compact → List → Grid)
@@ -548,8 +558,9 @@ fun LibraryContent(
                             if (item != null) {
                                 val shouldRestoreFocus = !hasRestoredFocus && lastFocusedId != null && item.ratingKey == lastFocusedId
 
-                                if (shouldRestoreFocus) {
-                                    LaunchedEffect(Unit) {
+                                LaunchedEffect(shouldRestoreFocus) {
+                                    if (shouldRestoreFocus) {
+                                        delay(100) // Wait for layout stabilization
                                         try {
                                             focusRestorationRequester.requestFocus()
                                             hasRestoredFocus = true

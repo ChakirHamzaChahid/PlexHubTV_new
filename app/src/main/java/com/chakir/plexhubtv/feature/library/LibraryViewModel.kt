@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
@@ -449,7 +450,13 @@ class LibraryViewModel
                     // Handled by Paging 3 automatically
                 }
                 is LibraryAction.Refresh -> {
-                    // Handled by PagingAdapter.refresh() in UI
+                    if (_uiState.value.display.isRefreshing) return
+                    _uiState.update { it.copy(display = it.display.copy(isRefreshing = true)) }
+                    triggerBackgroundSync()
+                    viewModelScope.launch {
+                        delay(10_000) // 10s cooldown to prevent flooding
+                        _uiState.update { it.copy(display = it.display.copy(isRefreshing = false)) }
+                    }
                 }
                 is LibraryAction.OpenMedia -> {
                     // Sync lastFocusedId to UiState before navigation so focus can be restored on back

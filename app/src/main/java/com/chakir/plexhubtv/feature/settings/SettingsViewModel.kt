@@ -53,6 +53,10 @@ class SettingsViewModel
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
         private val updateChecker: com.chakir.plexhubtv.core.update.UpdateChecker,
     ) : ViewModel() {
+        companion object {
+            const val ALL_SERVERS_SENTINEL = "all"
+        }
+
         private val _uiState = MutableStateFlow(SettingsUiState())
         val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -140,6 +144,36 @@ class SettingsViewModel
                 is SettingsAction.ToggleScreensaverClock -> {
                     _uiState.update { it.copy(screensaverShowClock = action.enabled) }
                     viewModelScope.launch { settingsRepository.setScreensaverShowClock(action.enabled) }
+                }
+                is SettingsAction.ToggleShowContinueWatching -> {
+                    _uiState.update { it.copy(showContinueWatching = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setShowContinueWatching(action.enabled) }
+                }
+                is SettingsAction.ToggleShowMyList -> {
+                    _uiState.update { it.copy(showMyList = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setShowMyList(action.enabled) }
+                }
+                is SettingsAction.ToggleShowSuggestions -> {
+                    _uiState.update { it.copy(showSuggestions = action.enabled) }
+                    viewModelScope.launch { settingsRepository.setShowSuggestions(action.enabled) }
+                }
+                is SettingsAction.MoveHomeRowUp -> {
+                    val current = _uiState.value.homeRowOrder.toMutableList()
+                    val idx = current.indexOf(action.rowId)
+                    if (idx > 0) {
+                        current[idx] = current[idx - 1].also { current[idx - 1] = current[idx] }
+                        _uiState.update { it.copy(homeRowOrder = current) }
+                        viewModelScope.launch { settingsRepository.saveHomeRowOrder(current) }
+                    }
+                }
+                is SettingsAction.MoveHomeRowDown -> {
+                    val current = _uiState.value.homeRowOrder.toMutableList()
+                    val idx = current.indexOf(action.rowId)
+                    if (idx >= 0 && idx < current.size - 1) {
+                        current[idx] = current[idx + 1].also { current[idx + 1] = current[idx] }
+                        _uiState.update { it.copy(homeRowOrder = current) }
+                        viewModelScope.launch { settingsRepository.saveHomeRowOrder(current) }
+                    }
                 }
                 is SettingsAction.ToggleShowYearOnCards -> {
                     _uiState.update { it.copy(showYearOnCards = action.enabled) }
@@ -602,7 +636,7 @@ class SettingsViewModel
                 val duration = System.currentTimeMillis() - serverStart
                 serversResult.getOrNull()?.let { servers ->
                     Timber.i("SCREEN [Settings] SUCCESS: Servers loaded in ${duration}ms | Count=${servers.size}")
-                    val serverNames = servers.map { it.name }
+                    val serverNames = listOf(ALL_SERVERS_SENTINEL) + servers.map { it.name }
                     val serverMap = servers.associate { it.name to it.clientIdentifier }
                     _uiState.update { it.copy(availableServers = serverNames, availableServersMap = serverMap) }
                 }
@@ -686,6 +720,28 @@ class SettingsViewModel
             ) { series, movies ->
                 { s: SettingsUiState ->
                     s.copy(ratingSyncProgressSeries = series, ratingSyncProgressMovies = movies)
+                }
+            }
+
+            // Collect home row visibility preferences
+            viewModelScope.launch {
+                settingsRepository.showContinueWatching.collect { show ->
+                    _uiState.update { it.copy(showContinueWatching = show) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.showMyList.collect { show ->
+                    _uiState.update { it.copy(showMyList = show) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.showSuggestions.collect { show ->
+                    _uiState.update { it.copy(showSuggestions = show) }
+                }
+            }
+            viewModelScope.launch {
+                settingsRepository.homeRowOrder.collect { order ->
+                    _uiState.update { it.copy(homeRowOrder = order) }
                 }
             }
 

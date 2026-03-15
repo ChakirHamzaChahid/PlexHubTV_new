@@ -59,14 +59,21 @@ import com.chakir.plexhubtv.feature.player.VideoQuality
 
 private val DialogBackground = Color(0xFF1A1A1A)
 
+private enum class SettingsTab { Video, Subtitles, Audio, Advanced }
+
 @Composable
 fun PlayerSettingsDialog(
     uiState: PlayerUiState,
     onSelectQuality: (VideoQuality) -> Unit,
     onToggleStats: () -> Unit,
+    onShowSubtitleSync: () -> Unit = {},
+    onShowAudioSync: () -> Unit = {},
+    onShowSubtitleDownload: () -> Unit = {},
+    onShowEqualizer: () -> Unit = {},
+    onSelectSpeed: (Float) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
-    val focusRequester = remember { FocusRequester() }
+    var selectedTab by remember { mutableStateOf(SettingsTab.Video) }
     val qualityDescription = stringResource(R.string.player_settings_quality_description)
 
     Dialog(
@@ -83,47 +90,184 @@ fun PlayerSettingsDialog(
                 shape = RoundedCornerShape(16.dp),
                 color = DialogBackground,
                 modifier = Modifier
-                    .fillMaxWidth(0.35f)
-                    .heightIn(max = 500.dp)
+                    .fillMaxWidth(0.45f)
+                    .heightIn(max = 550.dp)
                     .testTag("dialog_player_settings")
                     .semantics { contentDescription = qualityDescription },
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     DialogHeader(
-                        title = stringResource(R.string.player_settings_quality),
+                        title = stringResource(R.string.player_settings_title),
                         onDismiss = onDismiss,
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    LazyColumn {
-                        uiState.availableQualities.forEachIndexed { index, quality ->
-                            item {
-                                val fr = remember { FocusRequester() }
-                                if (index == 0) {
-                                    LaunchedEffect(Unit) { fr.requestFocus() }
+                    // Tab row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        SettingsTab.entries.forEach { tab ->
+                            val tabLabel = when (tab) {
+                                SettingsTab.Video -> stringResource(R.string.player_settings_tab_video)
+                                SettingsTab.Subtitles -> stringResource(R.string.player_settings_tab_subtitles)
+                                SettingsTab.Audio -> stringResource(R.string.player_settings_tab_audio)
+                                SettingsTab.Advanced -> stringResource(R.string.player_settings_tab_advanced)
+                            }
+                            TabButton(
+                                label = tabLabel,
+                                isSelected = selectedTab == tab,
+                                onClick = { selectedTab = tab },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Tab content
+                    when (selectedTab) {
+                        SettingsTab.Video -> {
+                            LazyColumn {
+                                uiState.availableQualities.forEachIndexed { index, quality ->
+                                    item {
+                                        val fr = remember { FocusRequester() }
+                                        if (index == 0) {
+                                            LaunchedEffect(Unit) { fr.requestFocus() }
+                                        }
+                                        SettingItem(
+                                            text = quality.name,
+                                            isSelected = quality.bitrate == uiState.selectedQuality.bitrate,
+                                            onClick = { onSelectQuality(quality) },
+                                            modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier,
+                                        )
+                                    }
                                 }
-                                SettingItem(
-                                    text = quality.name,
-                                    isSelected = quality.bitrate == uiState.selectedQuality.bitrate,
-                                    onClick = { onSelectQuality(quality) },
-                                    modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier
-                                )
                             }
                         }
-
-                        item {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                            Spacer(modifier = Modifier.height(4.dp))
-                            SettingItem(
-                                text = stringResource(R.string.player_settings_show_stats),
-                                isSelected = uiState.showPerformanceOverlay,
-                                onClick = onToggleStats,
-                            )
+                        SettingsTab.Subtitles -> {
+                            val fr = remember { FocusRequester() }
+                            LaunchedEffect(Unit) { fr.requestFocus() }
+                            LazyColumn {
+                                item {
+                                    SettingItem(
+                                        text = stringResource(R.string.player_subtitle_sync),
+                                        isSelected = false,
+                                        onClick = {
+                                            onDismiss()
+                                            onShowSubtitleSync()
+                                        },
+                                        modifier = Modifier.focusRequester(fr),
+                                    )
+                                }
+                                item {
+                                    SettingItem(
+                                        text = stringResource(R.string.player_subtitle_download),
+                                        isSelected = false,
+                                        onClick = {
+                                            onDismiss()
+                                            onShowSubtitleDownload()
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        SettingsTab.Audio -> {
+                            val fr = remember { FocusRequester() }
+                            LaunchedEffect(Unit) { fr.requestFocus() }
+                            LazyColumn {
+                                item {
+                                    SettingItem(
+                                        text = stringResource(R.string.player_audio_sync),
+                                        isSelected = false,
+                                        onClick = {
+                                            onDismiss()
+                                            onShowAudioSync()
+                                        },
+                                        modifier = Modifier.focusRequester(fr),
+                                    )
+                                }
+                                item {
+                                    SettingItem(
+                                        text = stringResource(R.string.player_equalizer),
+                                        isSelected = false,
+                                        onClick = {
+                                            onDismiss()
+                                            onShowEqualizer()
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        SettingsTab.Advanced -> {
+                            val fr = remember { FocusRequester() }
+                            LaunchedEffect(Unit) { fr.requestFocus() }
+                            LazyColumn {
+                                item {
+                                    // Playback speed
+                                    val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+                                    Text(
+                                        text = stringResource(R.string.player_settings_playback_speed),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    )
+                                    speeds.forEachIndexed { index, speed ->
+                                        SettingItem(
+                                            text = "${speed}x",
+                                            isSelected = uiState.playbackSpeed == speed,
+                                            onClick = { onSelectSpeed(speed) },
+                                            modifier = if (index == 0) Modifier.focusRequester(fr) else Modifier,
+                                        )
+                                    }
+                                }
+                                item {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    SettingItem(
+                                        text = stringResource(R.string.player_settings_show_stats),
+                                        isSelected = uiState.showPerformanceOverlay,
+                                        onClick = onToggleStats,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TabButton(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = when {
+            isFocused -> Color.White
+            isSelected -> Color.White.copy(alpha = 0.15f)
+            else -> Color.Transparent
+        },
+        interactionSource = interactionSource,
+        modifier = modifier.height(36.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = if (isFocused) Color.Black else Color.White,
+            )
         }
     }
 }
@@ -267,7 +411,7 @@ fun SyncSettingsDialog(
                 shape = RoundedCornerShape(16.dp),
                 color = DialogBackground,
                 modifier = Modifier
-                    .fillMaxWidth(0.35f)
+                    .fillMaxWidth(0.45f)
                     .heightIn(max = 400.dp)
                     .testTag("dialog_sync_settings")
                     .semantics { contentDescription = title },
@@ -282,27 +426,66 @@ fun SyncSettingsDialog(
                     )
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    FocusableDelayAdjuster(
-                        currentDelayMs = currentDelayMs,
-                        onDelayChanged = onDelayChanged,
+                    // Current delay display
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White.copy(alpha = 0.05f),
+                        modifier = Modifier.fillMaxWidth().height(64.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "${if (currentDelayMs > 0) "+" else ""}$currentDelayMs ms",
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Granular delay adjustment buttons
+                    val firstFocusRequester = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { firstFocusRequester.requestFocus() }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val delaySteps = listOf(-1000L, -250L, -50L, 0L, 50L, 250L, 1000L)
+                        val delayLabels = listOf("-1s", "-250ms", "-50ms", "Reset", "+50ms", "+250ms", "+1s")
+
+                        delaySteps.forEachIndexed { index, step ->
+                            val isReset = step == 0L
+                            DelayButton(
+                                label = delayLabels[index],
+                                onClick = {
+                                    if (isReset) onDelayChanged(0L) else onDelayChanged(currentDelayMs + step)
+                                },
+                                isHighlighted = isReset,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Fine-tuning hint
+                    Text(
+                        text = stringResource(R.string.player_settings_adjust_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.4f),
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        Button(
-                            onClick = { onDelayChanged(0L) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.15f),
-                                contentColor = Color.White,
-                            ),
-                        ) {
-                            Text(stringResource(R.string.player_settings_reset))
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = onDismiss,
                             colors = ButtonDefaults.buttonColors(
@@ -320,68 +503,32 @@ fun SyncSettingsDialog(
 }
 
 @Composable
-fun FocusableDelayAdjuster(
-    currentDelayMs: Long,
-    onDelayChanged: (Long) -> Unit,
+private fun DelayButton(
+    label: String,
+    onClick: () -> Unit,
+    isHighlighted: Boolean,
+    modifier: Modifier = Modifier,
 ) {
-    var isEditing by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
-    fun handleKeyEvent(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
-        if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return false
-
-        return when (event.nativeKeyEvent.keyCode) {
-            android.view.KeyEvent.KEYCODE_DPAD_CENTER,
-            android.view.KeyEvent.KEYCODE_ENTER,
-            -> {
-                isEditing = !isEditing
-                true
-            }
-            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (isEditing) { onDelayChanged(currentDelayMs - 50); true } else false
-            }
-            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (isEditing) { onDelayChanged(currentDelayMs + 50); true } else false
-            }
-            android.view.KeyEvent.KEYCODE_BACK -> {
-                if (isEditing) { isEditing = false; true } else false
-            }
-            else -> false
-        }
-    }
-
-    val adjustHint = stringResource(R.string.player_settings_adjust_hint)
-    val editHint = stringResource(R.string.player_settings_edit_hint)
-
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(80.dp)
-            .onKeyEvent { handleKeyEvent(it) }
-            .focusable(interactionSource = interactionSource),
-        shape = RoundedCornerShape(12.dp),
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
         color = when {
-            isEditing -> Color.White
-            isFocused -> Color.White.copy(alpha = 0.15f)
-            else -> Color.White.copy(alpha = 0.05f)
+            isFocused -> Color.White
+            isHighlighted -> Color.White.copy(alpha = 0.15f)
+            else -> Color.White.copy(alpha = 0.08f)
         },
+        interactionSource = interactionSource,
+        modifier = modifier.height(44.dp),
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
+        Box(contentAlignment = Alignment.Center) {
             Text(
-                text = "${if (currentDelayMs > 0) "+" else ""}$currentDelayMs ms",
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (isEditing) Color.Black else Color.White,
-            )
-            Text(
-                text = if (isEditing) adjustHint else editHint,
+                text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = if (isEditing) Color.Black.copy(alpha = 0.6f)
-                else Color.White.copy(alpha = 0.6f),
+                fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
+                color = if (isFocused) Color.Black else Color.White,
             )
         }
     }

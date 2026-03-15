@@ -130,8 +130,12 @@ fun DiscoverScreen(
             when {
                 state.isInitialSync && state.onDeck.isEmpty() ->
                     InitialSyncState(
-                        state.syncProgress,
-                        state.syncMessage,
+                        progress = state.syncProgress,
+                        message = state.syncMessage,
+                        phase = state.syncPhase,
+                        libraryName = state.syncLibraryName,
+                        completedLibraries = state.syncCompletedLibraries,
+                        totalLibraries = state.syncTotalLibraries,
                     )
                 state.isLoading -> LoadingState()
                 state.onDeck.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
@@ -143,6 +147,10 @@ fun DiscoverScreen(
                         suggestions = state.suggestions,
                         onDeck = state.onDeck.toList(),
                         onAction = onAction,
+                        showContinueWatching = state.showContinueWatching,
+                        showMyList = state.showMyList,
+                        showSuggestions = state.showSuggestions,
+                        homeRowOrder = state.homeRowOrder,
                         onNavigateUp = onNavigateUp,
                         onFocusChanged = { item -> onAction(HomeAction.FocusMedia(item)) },
                     )
@@ -187,6 +195,10 @@ fun ErrorState(
 fun InitialSyncState(
     progress: Float,
     message: String,
+    phase: String = "discovering",
+    libraryName: String = "",
+    completedLibraries: Int = 0,
+    totalLibraries: Int = 0,
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -203,7 +215,7 @@ fun InitialSyncState(
 
         if (progress > 0) {
             LinearProgressIndicator(
-                progress = progress / 100f,
+                progress = { progress / 100f },
                 modifier = Modifier.width(300.dp).height(8.dp),
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -217,8 +229,23 @@ fun InitialSyncState(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Phase-aware status message
+        val phaseLabel = when (phase) {
+            "discovering" -> "Discovering servers..."
+            "library_sync" -> {
+                if (libraryName.isNotBlank() && totalLibraries > 0) {
+                    "Syncing $libraryName ($completedLibraries/$totalLibraries libraries)"
+                } else {
+                    message.ifBlank { "Syncing libraries..." }
+                }
+            }
+            "extras" -> "Syncing extras..."
+            "finalizing" -> "Finalizing..."
+            else -> message.ifBlank { "Initializing database..." }
+        }
         Text(
-            text = message.ifBlank { "Initializing database..." },
+            text = phaseLabel,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

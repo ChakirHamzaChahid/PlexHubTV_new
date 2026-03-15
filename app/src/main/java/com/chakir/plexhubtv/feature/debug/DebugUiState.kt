@@ -13,6 +13,7 @@ data class DebugUiState(
     val databaseInfo: DatabaseInfo = DatabaseInfo(),
     val networkInfo: NetworkInfo = NetworkInfo(),
     val playbackInfo: PlaybackInfo = PlaybackInfo(),
+    val deviceProfileInfo: DeviceProfileInfo = DeviceProfileInfo(),
 )
 
 /**
@@ -106,6 +107,14 @@ data class PlaybackInfo(
     val bufferHealth: Int = 0,
     val droppedFrames: Int = 0,
     val playbackSessions: Int = 0,
+)
+
+data class DeviceProfileInfo(
+    val videoCodecs: String = "",
+    val audioCodecs: String = "",
+    val maxResolution: String = "",
+    val supportsHDR: Boolean = false,
+    val maxBitDepth: Int = 0,
 )
 
 sealed interface DebugAction {

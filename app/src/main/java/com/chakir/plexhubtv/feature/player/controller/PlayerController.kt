@@ -53,6 +53,8 @@ class PlayerController @Inject constructor(
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
     private val connectionManager: ConnectionManager,
     private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
+    private val mediaSessionManager: MediaSessionManager,
+    val refreshRateManager: RefreshRateManager,
     @ApplicationScope private val applicationScope: CoroutineScope,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     @MainDispatcher private val mainDispatcher: CoroutineDispatcher,
@@ -174,9 +176,15 @@ class PlayerController @Inject constructor(
         playerStatsTracker.startTracking(
             scope = scope,
             isMpvMode = { isMpvMode },
+            isMpvModeProvider = { isMpvMode },
             exoMetadata = {
                 player?.let { p ->
-                    ExoStreamMetadata(p.videoFormat, p.videoSize)
+                    val exo = p as? androidx.media3.exoplayer.ExoPlayer
+                    ExoStreamMetadata(
+                        format = p.videoFormat,
+                        videoSize = p.videoSize,
+                        audioFormat = exo?.audioFormat,
+                    )
                 }
             },
             exoPosition = { player?.currentPosition ?: 0L },
@@ -235,7 +243,11 @@ class PlayerController @Inject constructor(
         positionTrackerJob = null
 
         playerStatsTracker.stopTracking()
-        playerScrobbler.stop()
+        // Capture current state BEFORE reset — needed for stopped-timeline
+        val stoppedItem = _uiState.value.currentItem
+        val stoppedPosition = _uiState.value.currentPosition
+        playerScrobbler.stop(stoppedItem, stoppedPosition)
+        mediaSessionManager.release()
 
         // Release MPV audio focus if in MPV mode
         if (isMpvMode) {
@@ -360,9 +372,15 @@ class PlayerController @Inject constructor(
 
             val streamUri = Uri.parse(url)
             player?.apply {
+                val metadata = androidx.media3.common.MediaMetadata.Builder()
+                    .setTitle(mediaItem.title)
+                    .setArtist(mediaItem.grandparentTitle ?: mediaItem.studio)
+                    .setSubtitle(mediaItem.tagline ?: mediaItem.parentTitle)
+                    .build()
                 val exoItem = ExoMediaItem.Builder()
                     .setUri(streamUri)
                     .setMediaId(mediaItem.ratingKey)
+                    .setMediaMetadata(metadata)
                     .build()
 
                 setMediaItem(exoItem)
@@ -532,6 +550,17 @@ class PlayerController @Inject constructor(
                                 _uiState.update { it.copy(selectedAudio = newAudio, selectedSubtitle = newSub) }
                             }
                         }
+                        Player.STATE_ENDED -> {
+                            _uiState.update { it.copy(isPlaying = false, isBuffering = false) }
+                            // Safety net: scrobble if the 1s check hasn't fired yet (e.g. short video)
+                            val endedItem = _uiState.value.currentItem
+                            val endedDur = _uiState.value.duration
+                            if (endedItem != null && endedDur > 0 && !playerScrobbler.isScrobbled) {
+                                scope.launch {
+                                    runCatching { playbackRepository.toggleWatchStatus(endedItem, isWatched = true) }
+                                }
+                            }
+                        }
                         else -> {}
                     }
                 }
@@ -577,8 +606,10 @@ class PlayerController @Inject constructor(
                 }
             })
         }
+        // Attach MediaSession for system-level controls (notification, Bluetooth, Assistant)
+        player?.let { mediaSessionManager.initialize(it) }
     }
-    
+
     fun switchToMpv(config: MpvConfig = MpvConfig()) {
         Timber.d("SCREEN [Player] switchToMpv() called (deinterlace=${config.deinterlace})")
         if (isMpvMode) return
@@ -611,6 +642,20 @@ class PlayerController @Inject constructor(
                         errorType = com.chakir.plexhubtv.feature.player.PlayerErrorType.Generic,
                         isBuffering = false
                     )
+                }
+            }
+        }
+
+        // Observe MPV end-of-file to trigger auto-scrobble (mirrors ExoPlayer STATE_ENDED)
+        scope.launch {
+            mpvPlayer?.endOfFile?.collect { eof ->
+                if (eof) {
+                    _uiState.update { it.copy(isPlaying = false, isBuffering = false) }
+                    val endedItem = _uiState.value.currentItem
+                    val endedDur = _uiState.value.duration
+                    if (endedItem != null && endedDur > 0 && !playerScrobbler.isScrobbled) {
+                        runCatching { playbackRepository.toggleWatchStatus(endedItem, isWatched = true) }
+                    }
                 }
             }
         }
@@ -812,6 +857,7 @@ class PlayerController @Inject constructor(
 
             chapterMarkerManager.setChapters(media.chapters)
             chapterMarkerManager.setMarkers(media.markers)
+            Timber.d("PlayerController: Loaded ${media.chapters.size} chapters, ${media.markers.size} markers for '${media.title}'")
 
             val part = media.mediaParts.firstOrNull()
 
@@ -1018,7 +1064,12 @@ class PlayerController @Inject constructor(
                 } else emptyList()
 
                 val mediaItemStart = System.currentTimeMillis()
-                val mediaItem = playerFactory.createMediaItem(streamUri, rKey, !isDirectPlay, subtitleConfigs)
+                val metadata = androidx.media3.common.MediaMetadata.Builder()
+                    .setTitle(media.title)
+                    .setArtist(media.grandparentTitle ?: media.studio)
+                    .setSubtitle(media.tagline ?: media.parentTitle)
+                    .build()
+                val mediaItem = playerFactory.createMediaItem(streamUri, rKey, !isDirectPlay, subtitleConfigs, metadata)
                 val mediaItemDuration = System.currentTimeMillis() - mediaItemStart
                 performanceTracker.addCheckpoint(opId, "ExoPlayer MediaItem Created", mapOf("duration" to mediaItemDuration))
 
@@ -1026,15 +1077,15 @@ class PlayerController @Inject constructor(
                     // Apply track preferences BEFORE prepare() so ExoPlayer selects the right tracks
                     if (isDirectPlay) {
                         val builder = trackSelectionParameters.buildUpon()
-                        resolvedAudio?.language?.let { lang ->
+                        (resolvedAudio?.languageCode ?: resolvedAudio?.language)?.let { lang ->
                             builder.setPreferredAudioLanguage(lang)
-                            Timber.d("PlayerController: ExoPlayer preferred audio language set to '$lang'")
+                            Timber.d("PlayerController: ExoPlayer preferred audio language set to '$lang' (code=${resolvedAudio?.languageCode})")
                         }
                         if (resolvedSubtitle != null && resolvedSubtitle.id != "no") {
                             builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
-                            resolvedSubtitle.language?.let { lang ->
+                            (resolvedSubtitle.languageCode ?: resolvedSubtitle.language)?.let { lang ->
                                 builder.setPreferredTextLanguage(lang)
-                                Timber.d("PlayerController: ExoPlayer preferred text language set to '$lang'")
+                                Timber.d("PlayerController: ExoPlayer preferred text language set to '$lang' (code=${resolvedSubtitle.languageCode})")
                             }
                         } else {
                             builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, true)
@@ -1135,6 +1186,9 @@ class PlayerController @Inject constructor(
                             hasNextItem = _uiState.value.nextItem != null,
                             isPopupAlreadyShown = _uiState.value.showAutoNextPopup
                         )
+                        _uiState.value.currentItem?.let { item ->
+                            playerScrobbler.checkAutoScrobble(pos, dur, item)
+                        }
                     }
                 } else {
                     player?.let { p ->
@@ -1151,7 +1205,7 @@ class PlayerController @Inject constructor(
                             chapterMarkerManager.updatePlaybackPosition(pos)
                             checkAutoSkipMarkers(pos, skipIntroMode, skipCreditsMode)
                         }
-                        // Check auto-next even during buffering near end of stream —
+                        // Check auto-next and auto-scrobble even during buffering near end of stream —
                         // ExoPlayer may enter BUFFERING at 95%+ which previously blocked the popup
                         if (pos > 0 && dur > 0) {
                             playerScrobbler.checkAutoNext(
@@ -1160,6 +1214,9 @@ class PlayerController @Inject constructor(
                                 hasNextItem = _uiState.value.nextItem != null,
                                 isPopupAlreadyShown = _uiState.value.showAutoNextPopup
                             )
+                            _uiState.value.currentItem?.let { item ->
+                                playerScrobbler.checkAutoScrobble(pos, dur, item)
+                            }
                         }
                     }
                 }
@@ -1222,6 +1279,52 @@ class PlayerController @Inject constructor(
     
     fun updateState(update: (PlayerUiState) -> PlayerUiState) {
         _uiState.update(update)
+    }
+
+    fun applyExternalSubtitle(filePath: String) {
+        val uri = android.net.Uri.fromFile(java.io.File(filePath))
+        val mimeType = when {
+            filePath.endsWith(".srt", ignoreCase = true) -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+            filePath.endsWith(".ass", ignoreCase = true) || filePath.endsWith(".ssa", ignoreCase = true) -> androidx.media3.common.MimeTypes.TEXT_SSA
+            filePath.endsWith(".vtt", ignoreCase = true) -> androidx.media3.common.MimeTypes.TEXT_VTT
+            else -> androidx.media3.common.MimeTypes.APPLICATION_SUBRIP
+        }
+
+        if (_uiState.value.isMpvMode) {
+            mpvPlayer?.loadExternalSubtitle(filePath)
+            timber.log.Timber.d("Applied external subtitle via MPV: $filePath")
+            return
+        }
+
+        val p = player ?: return
+        val currentItem = p.currentMediaItem ?: return
+        val currentPos = p.currentPosition
+
+        val subtitleConfig = androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(uri)
+            .setMimeType(mimeType)
+            .setLabel("Downloaded")
+            .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
+            .build()
+
+        val newMediaItem = currentItem.buildUpon()
+            .setSubtitleConfigurations(
+                currentItem.localConfiguration?.subtitleConfigurations.orEmpty() + subtitleConfig,
+            )
+            .build()
+
+        p.setMediaItem(newMediaItem, currentPos)
+        p.prepare()
+
+        // Select the new subtitle track after a short delay
+        scope.launch {
+            kotlinx.coroutines.delay(500)
+            val builder = p.trackSelectionParameters.buildUpon()
+            builder.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
+            builder.setPreferredTextLanguage("und")
+            p.trackSelectionParameters = builder.build()
+        }
+
+        timber.log.Timber.d("Applied external subtitle via ExoPlayer: $filePath")
     }
     
     fun selectAudioTrack(track: com.chakir.plexhubtv.core.model.AudioTrack) {

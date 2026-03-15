@@ -635,6 +635,73 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_40_41 =
+        object : androidx.room.migration.Migration(40, 41) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `person_favorites` (
+                        `tmdbId` INTEGER NOT NULL PRIMARY KEY,
+                        `name` TEXT NOT NULL,
+                        `profilePath` TEXT,
+                        `knownFor` TEXT,
+                        `addedAt` INTEGER NOT NULL
+                    )"""
+                )
+            }
+        }
+
+    private val MIGRATION_41_42 =
+        object : androidx.room.migration.Migration(41, 42) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `playlists` (
+                        `id` TEXT NOT NULL,
+                        `serverId` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `summary` TEXT,
+                        `thumbUrl` TEXT,
+                        `playlistType` TEXT NOT NULL DEFAULT 'video',
+                        `itemCount` INTEGER NOT NULL DEFAULT 0,
+                        `durationMs` INTEGER NOT NULL DEFAULT 0,
+                        `lastSync` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`, `serverId`)
+                    )"""
+                )
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `playlist_items` (
+                        `playlistId` TEXT NOT NULL,
+                        `serverId` TEXT NOT NULL,
+                        `itemRatingKey` TEXT NOT NULL,
+                        `orderIndex` INTEGER NOT NULL,
+                        `playlistItemId` TEXT NOT NULL,
+                        PRIMARY KEY(`playlistId`, `serverId`, `itemRatingKey`)
+                    )"""
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_playlist_items_playlistId_serverId` ON `playlist_items` (`playlistId`, `serverId`)"
+                )
+            }
+        }
+
+    private val MIGRATION_42_43 =
+        object : androidx.room.migration.Migration(42, 43) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Soft delete: add isHidden + hiddenAt columns for "hide from hub" feature
+                database.execSQL("ALTER TABLE media ADD COLUMN isHidden INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE media ADD COLUMN hiddenAt INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_media_isHidden` ON `media` (`isHidden`)")
+            }
+        }
+
+    private val MIGRATION_43_44 =
+        object : androidx.room.migration.Migration(43, 44) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // TMDB manual refresh: persistence columns for summary + poster override
+                database.execSQL("ALTER TABLE media ADD COLUMN overriddenSummary TEXT DEFAULT NULL")
+                database.execSQL("ALTER TABLE media ADD COLUMN overriddenThumbUrl TEXT DEFAULT NULL")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -689,6 +756,10 @@ object DatabaseModule {
                 MIGRATION_37_38,
                 MIGRATION_38_39,
                 MIGRATION_39_40,
+                MIGRATION_40_41,
+                MIGRATION_41_42,
+                MIGRATION_42_43,
+                MIGRATION_43_44,
             )
             .build()
     }
@@ -767,5 +838,20 @@ object DatabaseModule {
     @Provides
     fun provideMediaUnifiedDao(database: PlexDatabase): MediaUnifiedDao {
         return database.mediaUnifiedDao()
+    }
+
+    @Provides
+    fun providePersonFavoriteDao(database: PlexDatabase): PersonFavoriteDao {
+        return database.personFavoriteDao()
+    }
+
+    @Provides
+    fun providePlaylistDao(database: PlexDatabase): PlaylistDao {
+        return database.playlistDao()
+    }
+
+    @Provides
+    fun provideLibrarySectionDao(database: PlexDatabase): LibrarySectionDao {
+        return database.librarySectionDao()
     }
 }

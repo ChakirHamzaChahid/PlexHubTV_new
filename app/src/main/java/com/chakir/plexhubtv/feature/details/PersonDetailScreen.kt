@@ -25,7 +25,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,9 +45,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.chakir.plexhubtv.core.designsystem.NetflixBlack
@@ -62,6 +69,7 @@ fun PersonDetailRoute(
     PersonDetailScreen(
         state = uiState,
         onBack = onNavigateBack,
+        onToggleFavorite = viewModel::toggleFavorite,
     )
 }
 
@@ -69,6 +77,7 @@ fun PersonDetailRoute(
 private fun PersonDetailScreen(
     state: PersonDetailUiState,
     onBack: () -> Unit,
+    onToggleFavorite: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -98,6 +107,8 @@ private fun PersonDetailScreen(
                     // ── FIXED HEADER: Photo + Name + Meta + Bio (always visible) ──
                     PersonFixedHeader(
                         person = person,
+                        isFavorite = state.isFavorite,
+                        onToggleFavorite = onToggleFavorite,
                         modifier = Modifier.fillMaxHeight(0.38f),
                     )
 
@@ -110,7 +121,7 @@ private fun PersonDetailScreen(
                         if (person.castCredits.isNotEmpty()) {
                             item(key = "cast_header") {
                                 SectionHeader(
-                                    title = "Known For",
+                                    title = stringResource(R.string.person_known_for),
                                     modifier = Modifier.padding(start = 48.dp, top = 16.dp, bottom = 12.dp),
                                 )
                             }
@@ -123,7 +134,7 @@ private fun PersonDetailScreen(
                         if (person.crewCredits.isNotEmpty()) {
                             item(key = "crew_header") {
                                 SectionHeader(
-                                    title = "Behind the Camera",
+                                    title = stringResource(R.string.person_behind_camera),
                                     modifier = Modifier.padding(start = 48.dp, top = 24.dp, bottom = 12.dp),
                                 )
                             }
@@ -141,8 +152,11 @@ private fun PersonDetailScreen(
 @Composable
 private fun PersonFixedHeader(
     person: Person,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -152,7 +166,7 @@ private fun PersonFixedHeader(
         Row {
             // Photo
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
+                model = ImageRequest.Builder(context)
                     .data(person.photoUrl)
                     .build(),
                 contentDescription = person.name,
@@ -165,21 +179,33 @@ private fun PersonFixedHeader(
             Spacer(modifier = Modifier.width(32.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = person.name,
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = person.name,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    IconButton(onClick = onToggleFavorite) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = stringResource(if (isFavorite) R.string.person_remove_favorite else R.string.person_add_favorite),
+                            tint = if (isFavorite) Color(0xFFE91E63) else Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Metadata row
                 val metaItems = buildList {
                     person.knownFor?.let { add(it) }
-                    person.birthday?.let { add("Born: $it") }
+                    person.birthday?.let { add(context.getString(R.string.person_born, it)) }
                     person.placeOfBirth?.let { add(it) }
                 }
                 if (metaItems.isNotEmpty()) {

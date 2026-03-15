@@ -8,9 +8,11 @@ import com.chakir.plexhubtv.core.model.PersonCredit
 import com.chakir.plexhubtv.core.network.ApiKeyManager
 import com.chakir.plexhubtv.core.network.TmdbApiService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.chakir.plexhubtv.domain.repository.PersonFavoriteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -20,6 +22,7 @@ private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"
 data class PersonDetailUiState(
     val isLoading: Boolean = true,
     val person: Person? = null,
+    val isFavorite: Boolean = false,
     val error: String? = null,
 )
 
@@ -28,6 +31,7 @@ class PersonDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val tmdbApiService: TmdbApiService,
     private val apiKeyManager: ApiKeyManager,
+    private val personFavoriteRepository: PersonFavoriteRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PersonDetailUiState())
@@ -115,6 +119,7 @@ class PersonDetailViewModel @Inject constructor(
                 )
 
                 _uiState.value = PersonDetailUiState(isLoading = false, person = person)
+                observeFavoriteStatus(person.id)
 
                 Timber.d("PersonDetail: Loaded ${person.name} with ${castCredits.size} cast + ${crewCredits.size} crew credits")
             } catch (e: Exception) {
@@ -124,6 +129,21 @@ class PersonDetailViewModel @Inject constructor(
                     error = "Failed to load person details",
                 )
             }
+        }
+    }
+
+    private fun observeFavoriteStatus(tmdbId: Int) {
+        viewModelScope.launch {
+            personFavoriteRepository.isFavorite(tmdbId).collect { isFav ->
+                _uiState.update { it.copy(isFavorite = isFav) }
+            }
+        }
+    }
+
+    fun toggleFavorite() {
+        val person = _uiState.value.person ?: return
+        viewModelScope.launch {
+            personFavoriteRepository.toggleFavorite(person)
         }
     }
 

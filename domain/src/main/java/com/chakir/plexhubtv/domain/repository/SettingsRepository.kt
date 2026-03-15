@@ -23,6 +23,19 @@ interface SettingsRepository {
 
     suspend fun setGridColumnsCount(count: Int)
 
+    // --- Home Row Visibility ---
+    val showContinueWatching: Flow<Boolean>
+    val showMyList: Flow<Boolean>
+    val showSuggestions: Flow<Boolean>
+
+    suspend fun setShowContinueWatching(show: Boolean)
+    suspend fun setShowMyList(show: Boolean)
+    suspend fun setShowSuggestions(show: Boolean)
+
+    // Home Row Order
+    val homeRowOrder: Flow<List<String>>
+    suspend fun saveHomeRowOrder(order: List<String>)
+
     // --- Player Preferences ---
     fun getVideoQuality(): Flow<String>
 

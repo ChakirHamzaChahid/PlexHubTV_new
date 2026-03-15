@@ -88,6 +88,8 @@ class HomeViewModelTest {
             getUnifiedHomeContentUseCase = getUnifiedHomeContentUseCase,
             profileRepository = profileRepository,
             filterContentByAgeUseCase = filterContentByAgeUseCase,
+            favoritesRepository = mockk(relaxed = true),
+            getSuggestionsUseCase = mockk(relaxed = true),
             workManager = workManager,
             settingsDataStore = settingsDataStore,
         )

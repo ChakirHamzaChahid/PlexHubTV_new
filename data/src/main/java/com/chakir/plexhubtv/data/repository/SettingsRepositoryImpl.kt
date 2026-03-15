@@ -23,6 +23,11 @@ class SettingsRepositoryImpl
         override val appTheme: Flow<String> = settingsDataStore.appTheme
         override val showYearOnCards: Flow<Boolean> = settingsDataStore.showYearOnCards
         override val gridColumnsCount: Flow<Int> = settingsDataStore.gridColumnsCount
+        override val showContinueWatching: Flow<Boolean> = settingsDataStore.showContinueWatching
+        override val showMyList: Flow<Boolean> = settingsDataStore.showMyList
+        override val showSuggestions: Flow<Boolean> = settingsDataStore.showSuggestions
+        override val homeRowOrder: Flow<List<String>> = settingsDataStore.homeRowOrder
+
         override val isCacheEnabled: Flow<Boolean> = settingsDataStore.isCacheEnabled
         override val defaultServer: Flow<String> = settingsDataStore.defaultServer
         override val playerEngine: Flow<String> = settingsDataStore.playerEngine
@@ -33,6 +38,22 @@ class SettingsRepositoryImpl
 
         override suspend fun setShowHeroSection(show: Boolean) {
             settingsDataStore.saveShowHeroSection(show)
+        }
+
+        override suspend fun setShowContinueWatching(show: Boolean) {
+            settingsDataStore.saveShowContinueWatching(show)
+        }
+
+        override suspend fun setShowMyList(show: Boolean) {
+            settingsDataStore.saveShowMyList(show)
+        }
+
+        override suspend fun setShowSuggestions(show: Boolean) {
+            settingsDataStore.saveShowSuggestions(show)
+        }
+
+        override suspend fun saveHomeRowOrder(order: List<String>) {
+            settingsDataStore.saveHomeRowOrder(order)
         }
 
         override suspend fun setEpisodePosterMode(mode: String) {

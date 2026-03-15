@@ -61,9 +61,14 @@ fun ServerSettingsScreen(
             // --- Server ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_server)) {
+                    val allServersLabel = stringResource(R.string.settings_all_servers)
                     SettingsTile(
                         title = stringResource(R.string.settings_default_server),
-                        subtitle = state.defaultServer,
+                        subtitle = if (state.defaultServer == SettingsViewModel.ALL_SERVERS_SENTINEL) {
+                            allServersLabel
+                        } else {
+                            state.defaultServer
+                        },
                         onClick = {
                             if (state.availableServers.isNotEmpty()) {
                                 showServerDialog = true
@@ -128,13 +133,30 @@ fun ServerSettingsScreen(
 
     // --- Dialogs ---
     if (showServerDialog) {
+        val allLabel = stringResource(R.string.settings_all_servers)
+        val displayOptions = remember(state.availableServers, allLabel) {
+            state.availableServers.map {
+                if (it == SettingsViewModel.ALL_SERVERS_SENTINEL) allLabel else it
+            }
+        }
+        val displayCurrentValue = if (state.defaultServer == SettingsViewModel.ALL_SERVERS_SENTINEL) {
+            allLabel
+        } else {
+            state.defaultServer
+        }
+
         SettingsDialog(
             title = stringResource(R.string.settings_default_server),
-            options = state.availableServers,
-            currentValue = state.defaultServer,
+            options = displayOptions,
+            currentValue = displayCurrentValue,
             onDismissRequest = { showServerDialog = false },
-            onOptionSelected = {
-                onAction(SettingsAction.SelectDefaultServer(it))
+            onOptionSelected = { displayName ->
+                val value = if (displayName == allLabel) {
+                    SettingsViewModel.ALL_SERVERS_SENTINEL
+                } else {
+                    displayName
+                }
+                onAction(SettingsAction.SelectDefaultServer(value))
                 showServerDialog = false
             },
         )

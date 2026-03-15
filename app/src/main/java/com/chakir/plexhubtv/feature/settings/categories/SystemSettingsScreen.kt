@@ -10,6 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -83,6 +86,21 @@ fun SystemSettingsScreen(
                                 10 -> 15; 15 -> 20; 20 -> 30; 30 -> 45; 45 -> 60; else -> 10
                             }
                             onAction(SettingsAction.ChangeScreensaverInterval(next))
+                        },
+                    )
+                    // Button to open Android TV system screensaver settings
+                    val context = LocalContext.current
+                    SettingsTile(
+                        title = stringResource(R.string.settings_screensaver_activate),
+                        subtitle = stringResource(R.string.settings_screensaver_activate_subtitle),
+                        onClick = {
+                            try {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_DREAM_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            } catch (e: Exception) {
+                                timber.log.Timber.w(e, "ACTION_DREAM_SETTINGS not available on this device")
+                            }
                         },
                     )
                 }

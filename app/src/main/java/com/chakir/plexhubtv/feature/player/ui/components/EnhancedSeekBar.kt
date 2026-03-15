@@ -33,6 +33,7 @@ import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.Chapter
 import com.chakir.plexhubtv.core.model.Marker
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -49,6 +50,7 @@ import android.view.KeyEvent as NativeKeyEvent
 fun EnhancedSeekBar(
     currentPosition: Long,
     duration: Long,
+    bufferedPosition: Long = 0L,
     chapters: List<Chapter> = emptyList(),
     markers: List<Marker> = emptyList(),
     onSeek: (Long) -> Unit,
@@ -61,6 +63,32 @@ fun EnhancedSeekBar(
 
     var isDrag by remember { mutableStateOf(false) }
     var dragPosition by remember { mutableStateOf(currentPosition) }
+
+    // Seek acceleration: progressive step based on content duration
+    // Short (<30min): 5s, Medium (30-90min): 10s, Long (90-150min): 15s, Very long (>150min): 20s
+    val seekStepMs = remember(duration) {
+        val durationMinutes = duration / 60_000
+        when {
+            durationMinutes < 30 -> 5_000L
+            durationMinutes < 90 -> 10_000L
+            durationMinutes < 150 -> 15_000L
+            else -> 20_000L
+        }
+    }
+
+    // Hold-to-accelerate: track consecutive key presses for acceleration multiplier
+    var consecutiveSeeks by remember { mutableIntStateOf(0) }
+    var lastSeekTime by remember { mutableLongStateOf(0L) }
+
+    val acceleratedStep = remember(consecutiveSeeks, seekStepMs) {
+        val multiplier = when {
+            consecutiveSeeks < 3 -> 1
+            consecutiveSeeks < 8 -> 2
+            consecutiveSeeks < 15 -> 4
+            else -> 8
+        }
+        seekStepMs * multiplier
+    }
 
     val displayPosition = if (isDrag) dragPosition else currentPosition
     val progress = if (duration > 0) displayPosition.toFloat() / duration.toFloat() else 0f
@@ -193,16 +221,22 @@ fun EnhancedSeekBar(
                         if (event.type == KeyEventType.KeyDown) {
                             when (event.nativeKeyEvent.keyCode) {
                                 NativeKeyEvent.KEYCODE_DPAD_LEFT -> {
+                                    val now = System.currentTimeMillis()
+                                    consecutiveSeeks = if (now - lastSeekTime < 600) consecutiveSeeks + 1 else 0
+                                    lastSeekTime = now
                                     val current = if (isDrag) dragPosition else currentPosition
-                                    val newPos = max(0L, current - 10000) // -10s
+                                    val newPos = max(0L, current - acceleratedStep)
                                     isDrag = true
                                     dragPosition = newPos
                                     onSeek(newPos)
                                     true
                                 }
                                 NativeKeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                    val now = System.currentTimeMillis()
+                                    consecutiveSeeks = if (now - lastSeekTime < 600) consecutiveSeeks + 1 else 0
+                                    lastSeekTime = now
                                     val current = if (isDrag) dragPosition else currentPosition
-                                    val newPos = min(duration, current + 10000) // +10s
+                                    val newPos = min(duration, current + acceleratedStep)
                                     isDrag = true
                                     dragPosition = newPos
                                     onSeek(newPos)
@@ -213,9 +247,13 @@ fun EnhancedSeekBar(
                                         onSeek(dragPosition)
                                         isDrag = false
                                     }
+                                    consecutiveSeeks = 0
                                     true
                                 }
-                                else -> false
+                                else -> {
+                                    consecutiveSeeks = 0
+                                    false
+                                }
                             }
                         } else if (event.type == KeyEventType.KeyUp) {
                             false
@@ -266,6 +304,17 @@ fun EnhancedSeekBar(
                             shape = RoundedCornerShape(2.dp),
                         ),
             )
+
+            // Buffered progress indicator
+            if (bufferedPosition > 0 && duration > 0) {
+                val bufferedFraction = (bufferedPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+                Box(
+                    modifier = Modifier
+                        .height(if (isFocused) 6.dp else 4.dp)
+                        .fillMaxWidth(bufferedFraction)
+                        .background(Color.White.copy(alpha = 0.3f), shape = RoundedCornerShape(2.dp)),
+                )
+            }
 
             // Chapter boundary separators on the track
             if (chapters.size > 1) {

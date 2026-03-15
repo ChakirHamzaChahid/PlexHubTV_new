@@ -52,6 +52,18 @@ data class PlayerUiState(
     val networkRetryCount: Int = 0,
     // PLY-19: Resume playback indicator
     val resumeMessage: String? = null,
+    // Subtitle download
+    val showSubtitleDownload: Boolean = false,
+    // Audio equalizer
+    val showEqualizer: Boolean = false,
+    // More menu
+    val showMoreMenu: Boolean = false,
+    // Chapter overlay
+    val showChapterOverlay: Boolean = false,
+    // Queue overlay
+    val showQueueOverlay: Boolean = false,
+    val playQueue: List<MediaItem> = emptyList(),
+    val currentQueueIndex: Int = -1,
 )
 
 data class PlayerStats(
@@ -62,6 +74,14 @@ data class PlayerStats(
     val droppedFrames: Long = 0,
     val fps: Double = 0.0,
     val cacheDuration: Long = 0L,
+    // Enhanced metrics (from Wholphin comparison)
+    val decoderType: String = "Unknown",
+    val peakBitrateKbps: Long = 0,
+    val avgBitrateKbps: Long = 0,
+    val bufferBytes: Long = 0,
+    val playerBackend: String = "ExoPlayer",
+    val audioChannels: String = "Unknown",
+    val audioBitrate: String = "N/A",
 )
 
 data class VideoQuality(
@@ -135,4 +155,26 @@ sealed interface PlayerAction {
     data object SwitchToMpv : PlayerAction // Manually switch to MPV player
 
     data object ClearResumeMessage : PlayerAction // PLY-19: Dismiss resume indicator
+
+    data object ShowSubtitleDownload : PlayerAction // Open subtitle download dialog
+
+    data class ApplyDownloadedSubtitle(val filePath: String) : PlayerAction // Apply downloaded subtitle
+
+    data object ShowEqualizer : PlayerAction // Open audio equalizer dialog
+
+    data class SelectEqualizerPreset(val presetIndex: Int) : PlayerAction
+
+    data class SetEqualizerBand(val bandIndex: Int, val level: Int) : PlayerAction
+
+    data class SetEqualizerEnabled(val enabled: Boolean) : PlayerAction
+
+    data object ToggleMoreMenu : PlayerAction
+
+    data object ShowChapterOverlay : PlayerAction
+
+    data object ShowQueueOverlay : PlayerAction
+
+    data class SeekToChapter(val chapter: com.chakir.plexhubtv.core.model.Chapter) : PlayerAction
+
+    data class PlayQueueItem(val index: Int) : PlayerAction
 }

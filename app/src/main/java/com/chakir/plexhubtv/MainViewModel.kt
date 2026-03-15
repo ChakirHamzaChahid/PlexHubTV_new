@@ -6,6 +6,7 @@ import com.chakir.plexhubtv.core.common.safeCollectIn
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.auth.AuthEvent
 import com.chakir.plexhubtv.core.network.auth.AuthEventBus
+import com.chakir.plexhubtv.core.update.ApkInstaller
 import com.chakir.plexhubtv.core.update.UpdateChecker
 import com.chakir.plexhubtv.core.update.UpdateInfo
 import com.chakir.plexhubtv.domain.repository.AuthRepository
@@ -37,6 +38,7 @@ class MainViewModel @Inject constructor(
     private val connectionManager: ConnectionManager,
     private val updateChecker: UpdateChecker,
     private val settingsRepository: SettingsRepository,
+    val apkInstaller: ApkInstaller,
 ) : ViewModel() {
 
     private val _showSessionExpiredDialog = MutableStateFlow(false)
@@ -46,6 +48,7 @@ class MainViewModel @Inject constructor(
     val availableUpdate: StateFlow<UpdateInfo?> = _availableUpdate.asStateFlow()
 
     init {
+        apkInstaller.cleanupOldApks()
         checkForUpdate()
         authEventBus.events.safeCollectIn(
             scope = viewModelScope,

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -27,6 +28,7 @@ interface PlayerFactory {
         mediaId: String,
         isM3u8: Boolean,
         subtitleConfigurations: List<MediaItem.SubtitleConfiguration> = emptyList(),
+        mediaMetadata: MediaMetadata? = null,
     ): MediaItem
 
     fun createMpvPlayer(
@@ -107,6 +109,7 @@ class ExoPlayerFactory
             mediaId: String,
             isM3u8: Boolean,
             subtitleConfigurations: List<MediaItem.SubtitleConfiguration>,
+            mediaMetadata: MediaMetadata?,
         ): MediaItem {
             val builder =
                 MediaItem.Builder()
@@ -119,6 +122,10 @@ class ExoPlayerFactory
 
             if (subtitleConfigurations.isNotEmpty()) {
                 builder.setSubtitleConfigurations(subtitleConfigurations)
+            }
+
+            if (mediaMetadata != null) {
+                builder.setMediaMetadata(mediaMetadata)
             }
 
             return builder.build()

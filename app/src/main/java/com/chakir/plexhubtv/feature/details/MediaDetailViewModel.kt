@@ -9,6 +9,8 @@ import com.chakir.plexhubtv.feature.common.launchLoading
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.model.toAppError
+import com.chakir.plexhubtv.domain.repository.PlaylistRepository
+import com.chakir.plexhubtv.domain.usecase.DeleteMediaUseCase
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.domain.usecase.ToggleWatchStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,6 +56,9 @@ class MediaDetailViewModel
         private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
         val themeSongService: com.chakir.plexhubtv.core.ui.ThemeSongService,
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
+        private val deleteMediaUseCase: DeleteMediaUseCase,
+        private val playlistRepository: PlaylistRepository,
+        private val mediaDetailRepository: com.chakir.plexhubtv.domain.repository.MediaDetailRepository,
         savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -269,6 +274,80 @@ class MediaDetailViewModel
                         _navigationEvents.send(MediaDetailNavigationEvent.NavigateToPersonDetail(event.personName))
                     }
                 }
+                is MediaDetailEvent.DeleteClicked -> {
+                    _uiState.update { it.copy(showDeleteConfirmation = true) }
+                }
+                is MediaDetailEvent.DismissDeleteDialog -> {
+                    _uiState.update { it.copy(showDeleteConfirmation = false) }
+                }
+                is MediaDetailEvent.ConfirmDelete -> {
+                    val media = _uiState.value.media ?: return
+                    _uiState.update { it.copy(showDeleteConfirmation = false, isDeleting = true) }
+                    viewModelScope.launch {
+                        deleteMediaUseCase(media.ratingKey, media.serverId)
+                            .onSuccess {
+                                _navigationEvents.send(MediaDetailNavigationEvent.NavigateBack)
+                            }
+                            .onFailure { error ->
+                                _uiState.update { it.copy(isDeleting = false) }
+                                emitError(AppError.Media.LoadFailed(error.message, error))
+                            }
+                    }
+                }
+                is MediaDetailEvent.AddToPlaylistClicked -> {
+                    _uiState.update { it.copy(showAddToPlaylist = true, isLoadingPlaylists = true) }
+                    viewModelScope.launch {
+                        try {
+                            playlistRepository.refreshPlaylists()
+                            // Collect current playlists snapshot
+                            val playlists = playlistRepository.getPlaylists().first()
+                            _uiState.update { it.copy(availablePlaylists = playlists, isLoadingPlaylists = false) }
+                        } catch (e: Exception) {
+                            Timber.e(e, "VM: Failed to load playlists")
+                            _uiState.update { it.copy(isLoadingPlaylists = false) }
+                        }
+                    }
+                }
+                is MediaDetailEvent.DismissAddToPlaylist -> {
+                    _uiState.update { it.copy(showAddToPlaylist = false) }
+                }
+                is MediaDetailEvent.AddToPlaylist -> {
+                    val media = _uiState.value.media ?: return
+                    _uiState.update { it.copy(showAddToPlaylist = false) }
+                    viewModelScope.launch {
+                        playlistRepository.addToPlaylist(event.playlistId, media.ratingKey, event.serverId)
+                            .onFailure { error ->
+                                Timber.e(error, "VM: addToPlaylist failed")
+                            }
+                    }
+                }
+                is MediaDetailEvent.CreatePlaylistAndAdd -> {
+                    val media = _uiState.value.media ?: return
+                    _uiState.update { it.copy(showAddToPlaylist = false) }
+                    viewModelScope.launch {
+                        playlistRepository.createPlaylist(event.title, media.ratingKey, media.serverId)
+                            .onFailure { error ->
+                                Timber.e(error, "VM: createPlaylist failed")
+                            }
+                    }
+                }
+                is MediaDetailEvent.RefreshMetadata -> refreshMetadata()
+            }
+        }
+
+        private fun refreshMetadata() {
+            val media = _uiState.value.media ?: return
+            viewModelScope.launch {
+                _uiState.update { it.copy(isRefreshingMetadata = true) }
+                mediaDetailRepository.refreshMetadataFromTmdb(media)
+                    .onSuccess {
+                        loadDetail() // Reload from Room/API with merged overrides
+                    }
+                    .onFailure { e ->
+                        Timber.e(e, "TMDB refresh failed")
+                        emitError(AppError.Media.LoadFailed(e.message, e))
+                    }
+                _uiState.update { it.copy(isRefreshingMetadata = false) }
             }
         }
 

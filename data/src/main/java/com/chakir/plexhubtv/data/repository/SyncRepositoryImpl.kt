@@ -150,6 +150,13 @@ class SyncRepositoryImpl
                                 val ratingKeys = validMetadata.map { it.ratingKey }
                                 val existingRatingsMap = mediaDao.getScrapedRatings(ratingKeys, server.clientIdentifier)
 
+                                // PERSISTENCE: Preserve soft-hidden state across upserts (INSERT OR REPLACE resets isHidden)
+                                val hiddenKeys = mediaDao.getHiddenRatingKeys(server.clientIdentifier)
+
+                                // PERSISTENCE: Preserve TMDB manual overrides (summary + poster)
+                                val overriddenMap = mediaDao.getOverriddenMetadata(ratingKeys, server.clientIdentifier)
+                                    .associateBy { it.ratingKey }
+
                                 val accessToken = server.accessToken ?: ""
                                 val entities =
                                     validMetadata.mapIndexed { index, dto ->
@@ -158,6 +165,12 @@ class SyncRepositoryImpl
 
                                         // Restore scrapedRating and recompute displayRating
                                         val restoredScrapedRating = existingRatingsMap[dto.ratingKey]
+                                        val wasHidden = dto.ratingKey in hiddenKeys
+                                        val overrides = overriddenMap[dto.ratingKey]
+                                        val plexThumbUrl = entity.thumbUrl?.let { path ->
+                                            getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 300, 450)
+                                                ?: "$baseUrl$path?X-Plex-Token=$accessToken"
+                                        }
                                         entity.copy(
                                             filter = "all",
                                             sortOrder = "default",
@@ -165,15 +178,17 @@ class SyncRepositoryImpl
                                             scrapedRating = restoredScrapedRating,
                                             displayRating = restoredScrapedRating
                                                 ?: entity.displayRating,
-                                            resolvedThumbUrl = entity.thumbUrl?.let { path ->
-                                                getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 300, 450)
-                                                    ?: "$baseUrl$path?X-Plex-Token=$accessToken"
-                                            },
+                                            resolvedThumbUrl = overrides?.overriddenThumbUrl ?: plexThumbUrl,
                                             resolvedArtUrl = entity.artUrl?.let { path ->
                                                 getOptimizedImageUrl("$baseUrl$path?X-Plex-Token=$accessToken", 1280, 720)
                                                     ?: "$baseUrl$path?X-Plex-Token=$accessToken"
                                             },
                                             resolvedBaseUrl = baseUrl,
+                                            isHidden = wasHidden,
+                                            hiddenAt = if (wasHidden) System.currentTimeMillis() else 0,
+                                            overriddenSummary = overrides?.overriddenSummary,
+                                            overriddenThumbUrl = overrides?.overriddenThumbUrl,
+                                            summary = overrides?.overriddenSummary ?: entity.summary,
                                         )
                                     }
 

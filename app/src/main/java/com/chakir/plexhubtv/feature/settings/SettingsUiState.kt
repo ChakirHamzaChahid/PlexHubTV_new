@@ -31,6 +31,11 @@ data class SettingsUiState(
     val isSyncingRatings: Boolean = false,
     val ratingSyncMessage: String? = null,
     val iptvPlaylistUrl: String = "",
+    // Home Row Visibility & Order
+    val showContinueWatching: Boolean = true,
+    val showMyList: Boolean = true,
+    val showSuggestions: Boolean = true,
+    val homeRowOrder: List<String> = listOf("continue_watching", "my_list", "suggestions"),
     val showYearOnCards: Boolean = false,
     val gridColumnsCount: Int = 6,
     // Xtream sync
@@ -108,6 +113,16 @@ sealed interface SettingsAction {
     data class ChangePreferredSubtitleLanguage(val language: String?) : SettingsAction
 
     data class ToggleServerExclusion(val serverId: String) : SettingsAction
+
+    data class ToggleShowContinueWatching(val enabled: Boolean) : SettingsAction
+
+    data class ToggleShowMyList(val enabled: Boolean) : SettingsAction
+
+    data class ToggleShowSuggestions(val enabled: Boolean) : SettingsAction
+
+    data class MoveHomeRowUp(val rowId: String) : SettingsAction
+
+    data class MoveHomeRowDown(val rowId: String) : SettingsAction
 
     data class ToggleShowYearOnCards(val enabled: Boolean) : SettingsAction
 

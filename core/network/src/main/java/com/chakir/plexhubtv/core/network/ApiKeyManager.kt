@@ -47,6 +47,19 @@ class ApiKeyManager
     }
 
     /**
+     * Get OpenSubtitles API key.
+     * Priority: BuildConfig (local.properties) > DataStore (Settings UI)
+     * Returns null if not configured in either source.
+     */
+    suspend fun getOpenSubtitlesApiKey(): String? {
+        val buildConfigKey = BuildConfig.OPENSUBTITLES_API_KEY
+        if (!buildConfigKey.isNullOrBlank()) {
+            return buildConfigKey
+        }
+        return apiKeyProvider.openSubtitlesApiKey.first()
+    }
+
+    /**
      * Check if both API keys are configured (from either source).
      */
     suspend fun areKeysConfigured(): Boolean {

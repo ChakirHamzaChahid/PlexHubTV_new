@@ -121,6 +121,7 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
     availableUpdate?.let { update ->
         UpdateDialog(
             updateInfo = update,
+            apkInstaller = mainViewModel.apkInstaller,
             onDismiss = { mainViewModel.dismissUpdate() },
         )
     }

@@ -78,6 +78,15 @@ sealed class Screen(val route: String) {
         ) = "collection_detail/$collectionId?serverId=$serverId"
     }
 
+    data object Playlists : Screen("playlists")
+
+    data object PlaylistDetail : Screen("playlist_detail/{playlistId}?serverId={serverId}") {
+        fun createRoute(
+            playlistId: String,
+            serverId: String,
+        ) = "playlist_detail/$playlistId?serverId=$serverId"
+    }
+
     data object Iptv : Screen("iptv")
 
     data object XtreamSetup : Screen("xtream_setup")

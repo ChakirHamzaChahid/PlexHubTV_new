@@ -1,5 +1,7 @@
 package com.chakir.plexhubtv.core.network
 
+import android.content.Context
+import android.net.ConnectivityManager
 import com.chakir.plexhubtv.core.model.ConnectionCandidate
 import com.chakir.plexhubtv.core.model.ConnectionState
 import com.chakir.plexhubtv.core.model.Server
@@ -24,12 +26,17 @@ class ConnectionManagerTest {
     private lateinit var connectionTester: ServerConnectionTester
     private lateinit var connectionCacheStore: ConnectionCacheStore
     private lateinit var connectionManager: ConnectionManager
+    private lateinit var context: Context
     private val testScope = CoroutineScope(SupervisorJob())
 
     @Before
     fun setUp() {
         connectionTester = mockk(relaxed = true)
         connectionCacheStore = mockk(relaxed = true)
+        context = mockk(relaxed = true) {
+            // Return null so registerDefaultNetworkCallback is never called (avoids test interference)
+            every { getSystemService(Context.CONNECTIVITY_SERVICE) } returns null
+        }
 
         // Mock cache store flow
         every { connectionCacheStore.cachedConnections } returns MutableStateFlow(emptyMap())
@@ -37,7 +44,8 @@ class ConnectionManagerTest {
         connectionManager = ConnectionManager(
             connectionTester = connectionTester,
             connectionCacheStore = connectionCacheStore,
-            scope = testScope
+            scope = testScope,
+            context = context
         )
     }
 
@@ -162,7 +170,8 @@ class ConnectionManagerTest {
         coEvery { connectionTester.testConnection(any(), any(), any()) } returns
             ConnectionResult("Failed", false, 0, 503)
 
-        val server = createTestServer(candidates)
+        // relay=false avoids the relay-retry path which would retest all URLs with a longer timeout
+        val server = createTestServer(candidates, relay = false)
 
         // Act: Should complete immediately without hang
         val result = connectionManager.findBestConnection(server)
@@ -227,7 +236,7 @@ class ConnectionManagerTest {
         assertNull("Should still fail but not hang", result)
     }
 
-    private fun createTestServer(candidates: List<ConnectionCandidate>): Server {
+    private fun createTestServer(candidates: List<ConnectionCandidate>, relay: Boolean = true): Server {
         return Server(
             clientIdentifier = "test-server-id",
             name = "Test Server",
@@ -239,7 +248,7 @@ class ConnectionManagerTest {
             isOwned = true,
             publicAddress = null,
             httpsRequired = false,
-            relay = true,
+            relay = relay,
             connectionState = ConnectionState.Unknown
         )
     }

@@ -6,6 +6,7 @@ import com.chakir.plexhubtv.core.model.SubtitleStream
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.service.PlaybackManager
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
+import com.chakir.plexhubtv.feature.player.profile.DeviceProfileService
 import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,7 @@ class PlayerMediaLoader
         private val playerScrobbler: PlayerScrobbler,
         private val playbackManager: PlaybackManager,
         private val trickplayManager: TrickplayManager,
+        private val deviceProfileService: DeviceProfileService,
     ) {
         data class MediaLoadResult(
             val item: MediaItem,
@@ -95,7 +97,7 @@ class PlayerMediaLoader
 
                     val isDirectPlay = bitrate >= 200000 && part?.key != null
 
-                    if (isHevc && !hasHardwareHEVCDecoder() && !isMpvMode) {
+                    if (isHevc && !deviceProfileService.canDirectPlayVideo("hevc") && !isMpvMode) {
                         onMpvSwitchRequired()
                         result = Result.success(MediaLoadResult(media, null, isDirectPlay, audios, subtitles, null, com.chakir.plexhubtv.core.model.SubtitleTrack.OFF, true))
                         return@onSuccess
@@ -104,7 +106,7 @@ class PlayerMediaLoader
                     // Audio codec pre-flight: detect codecs ExoPlayer can't handle
                     val audioStream = part?.streams?.filterIsInstance<com.chakir.plexhubtv.core.model.AudioStream>()?.firstOrNull()
                     val audioCodec = audioStream?.codec?.lowercase()
-                    if (audioCodec != null && isDirectPlay && !isMpvMode && isProblematicAudioCodec(audioCodec)) {
+                    if (audioCodec != null && isDirectPlay && !isMpvMode && !deviceProfileService.canDirectPlayAudio(audioCodec)) {
                         onMpvSwitchRequired()
                         result = Result.success(MediaLoadResult(media, null, isDirectPlay, audios, subtitles, null, com.chakir.plexhubtv.core.model.SubtitleTrack.OFF, true))
                         return@onSuccess
@@ -159,50 +161,4 @@ class PlayerMediaLoader
             return result ?: Result.failure(Exception("Unknown error loading media"))
         }
 
-        private fun hasHardwareHEVCDecoder(): Boolean {
-            return try {
-                val codecList = android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS)
-                codecList.codecInfos.any { info ->
-                    !info.isEncoder && info.supportedTypes.any { it.equals("video/hevc", ignoreCase = true) } &&
-                        !info.name.contains("google", ignoreCase = true) &&
-                        !info.name.contains("sw", ignoreCase = true)
-                }
-            } catch (e: Exception) {
-                false
-            }
-        }
-
-        /**
-         * Checks if the audio codec is known to be problematic for ExoPlayer on most Android TV devices.
-         * TrueHD, DTS-HD MA, and Dolby Atmos (TrueHD-based) frequently cause decoder crashes.
-         * For these codecs, MPV (with ffmpeg software decoding) is more reliable.
-         */
-        private fun isProblematicAudioCodec(codec: String): Boolean {
-            val problematicCodecs = setOf("truehd", "dts-hd ma", "dts-hd", "dtshd")
-            if (codec in problematicCodecs) return true
-
-            // Check if device actually has a hardware decoder for this codec
-            val mimeType = audioCodecToMime(codec) ?: return false
-            return !hasHardwareAudioDecoder(mimeType)
-        }
-
-        private fun audioCodecToMime(codec: String): String? = when (codec) {
-            "truehd" -> "audio/true-hd"
-            "dts-hd ma", "dts-hd", "dtshd" -> "audio/vnd.dts.hd"
-            "dts" -> "audio/vnd.dts"
-            "eac3" -> "audio/eac3"
-            "ac3" -> "audio/ac3"
-            else -> null
-        }
-
-        private fun hasHardwareAudioDecoder(mimeType: String): Boolean {
-            return try {
-                val codecList = android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS)
-                codecList.codecInfos.any { info ->
-                    !info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
-                }
-            } catch (e: Exception) {
-                false
-            }
-        }
     }

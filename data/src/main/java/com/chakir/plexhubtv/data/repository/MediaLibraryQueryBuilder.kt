@@ -39,12 +39,12 @@ object MediaLibraryQueryBuilder {
         if (config.isUnified) {
             sql.append(UNIFIED_SELECT)
             sql.append(UNIFIED_FROM)
-            sql.append("WHERE media.type = ? ")
+            sql.append("WHERE media.type = ? AND media.isHidden = 0 ")
             args.add(config.mediaTypeStr)
         } else {
             sql.append(NON_UNIFIED_SELECT)
             sql.append("FROM media ")
-            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? AND media.isHidden = 0 ")
             args.add(config.mediaTypeStr)
             args.add(config.libraryKey)
             args.add(config.filter)
@@ -96,11 +96,11 @@ object MediaLibraryQueryBuilder {
         if (config.isUnified) {
             sql.append(UNIFIED_COUNT_SELECT)
             sql.append(UNIFIED_COUNT_FROM)
-            sql.append("WHERE media.type = ? ")
+            sql.append("WHERE media.type = ? AND media.isHidden = 0 ")
             args.add(config.mediaTypeStr)
         } else {
             sql.append("SELECT COUNT(*) FROM media ")
-            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? ")
+            sql.append("WHERE type = ? AND librarySectionId = ? AND filter = ? AND sortOrder = ? AND media.isHidden = 0 ")
             args.add(config.mediaTypeStr)
             args.add(config.libraryKey)
             args.add(config.filter)
@@ -214,6 +214,8 @@ object MediaLibraryQueryBuilder {
                         media.parentThumb, media.grandparentThumb,
                         media.displayRating,
                         media.scrapedRating,
+                        media.overriddenSummary,
+                        media.overriddenThumbUrl,
                         media.historyGroupKey,
                         media.viewCount,
                         media.sourceServerId,
@@ -248,6 +250,7 @@ object MediaLibraryQueryBuilder {
                         media.displayRating,
                         media.resolvedThumbUrl, media.resolvedArtUrl, media.resolvedBaseUrl,
                         media.scrapedRating,
+                        media.overriddenSummary, media.overriddenThumbUrl,
                         media.historyGroupKey,
                         media.viewCount,
                         media.sourceServerId,

@@ -123,7 +123,20 @@ class PlexSourceHandler @Inject constructor(
             }
         }
 
-        return result
+        return result.map { mergeOverrides(it, ratingKey, serverId) }
+    }
+
+    /**
+     * Merges TMDB overrides from Room into a domain item loaded via API.
+     * ~1ms Room lookup by primary key. No-op if no overrides exist.
+     */
+    private suspend fun mergeOverrides(item: MediaItem, ratingKey: String, serverId: String): MediaItem {
+        val entity = mediaDao.getMedia(ratingKey, serverId) ?: return item
+        if (entity.overriddenSummary == null && entity.overriddenThumbUrl == null) return item
+        return item.copy(
+            summary = entity.overriddenSummary ?: item.summary,
+            thumbUrl = entity.overriddenThumbUrl ?: item.thumbUrl,
+        )
     }
 
     override suspend fun getSeasons(ratingKey: String, serverId: String): Result<List<MediaItem>> {

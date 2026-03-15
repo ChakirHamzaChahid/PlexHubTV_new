@@ -196,6 +196,21 @@ fun DebugScreen(
                     }
                 }
 
+                // Device Profile
+                item {
+                    DebugSection(title = "Device Profile") {
+                        DebugInfoRow("Video Codecs", state.deviceProfileInfo.videoCodecs.ifEmpty { "N/A" })
+                        DebugInfoRow("Audio Codecs", state.deviceProfileInfo.audioCodecs.ifEmpty { "N/A" })
+                        DebugInfoRow("Max Resolution", state.deviceProfileInfo.maxResolution.ifEmpty { "N/A" })
+                        DebugInfoRow(
+                            "HDR",
+                            if (state.deviceProfileInfo.supportsHDR) "Supported" else "Not supported",
+                            valueColor = if (state.deviceProfileInfo.supportsHDR) Color.Green else MaterialTheme.colorScheme.onSurface,
+                        )
+                        DebugInfoRow("Max Bit Depth", "${state.deviceProfileInfo.maxBitDepth}-bit")
+                    }
+                }
+
                 // Server Information
                 if (state.serverInfo.connectedServers.isNotEmpty()) {
                     item {

@@ -31,8 +31,11 @@ import androidx.room.TypeConverters
         BackendServerEntity::class,
         IdBridgeEntity::class,
         MediaUnifiedEntity::class,
+        PersonFavoriteEntity::class,
+        PlaylistEntity::class,
+        PlaylistItemEntity::class,
     ],
-    version = 40,
+    version = 44,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -71,4 +74,8 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun idBridgeDao(): IdBridgeDao
 
     abstract fun mediaUnifiedDao(): MediaUnifiedDao
+
+    abstract fun personFavoriteDao(): PersonFavoriteDao
+
+    abstract fun playlistDao(): PlaylistDao
 }

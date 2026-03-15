@@ -16,11 +16,19 @@ data class HomeUiState(
     val isInitialSync: Boolean = false,
     val syncProgress: Float = 0f,
     val syncMessage: String = "",
+    val syncPhase: String = "discovering",
+    val syncLibraryName: String = "",
+    val syncCompletedLibraries: Int = 0,
+    val syncTotalLibraries: Int = 0,
     val onDeck: ImmutableList<MediaItem> = persistentListOf(),
     val hubs: ImmutableList<Hub> = persistentListOf(),
     val favorites: ImmutableList<MediaItem> = persistentListOf(),
     val suggestions: ImmutableList<MediaItem> = persistentListOf(),
     val focusedItem: MediaItem? = null,
+    val showContinueWatching: Boolean = true,
+    val showMyList: Boolean = true,
+    val showSuggestions: Boolean = true,
+    val homeRowOrder: List<String> = listOf("continue_watching", "my_list", "suggestions"),
 )
 
 sealed interface HomeAction {

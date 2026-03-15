@@ -14,6 +14,7 @@ import androidx.lifecycle.viewModelScope
 import coil3.ImageLoader
 import com.chakir.plexhubtv.core.database.PlexDatabase
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import com.chakir.plexhubtv.feature.player.profile.DeviceProfileService
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.di.MainDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,6 +38,7 @@ class DebugViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val database: PlexDatabase,
     private val imageLoader: ImageLoader,
+    private val deviceProfileService: DeviceProfileService,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @MainDispatcher private val mainDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -82,6 +84,7 @@ class DebugViewModel @Inject constructor(
                 val databaseInfo = collectDatabaseInfo()
                 val networkInfo = collectNetworkInfo()
                 val playbackInfo = collectPlaybackInfo()
+                val deviceProfileInfo = collectDeviceProfileInfo()
 
                 _uiState.update {
                     it.copy(
@@ -92,7 +95,8 @@ class DebugViewModel @Inject constructor(
                         cacheInfo = cacheInfo,
                         databaseInfo = databaseInfo,
                         networkInfo = networkInfo,
-                        playbackInfo = playbackInfo
+                        playbackInfo = playbackInfo,
+                        deviceProfileInfo = deviceProfileInfo,
                     )
                 }
             } catch (e: Exception) {
@@ -260,6 +264,17 @@ class DebugViewModel @Inject constructor(
             Timber.e(e, "Failed to collect playback info")
             PlaybackInfo()
         }
+    }
+
+    private fun collectDeviceProfileInfo(): DeviceProfileInfo {
+        val dp = deviceProfileService.profile
+        return DeviceProfileInfo(
+            videoCodecs = dp.videoCodecs.sorted().joinToString(", "),
+            audioCodecs = dp.audioCodecs.sorted().joinToString(", "),
+            maxResolution = "${dp.maxWidth}x${dp.maxHeight}",
+            supportsHDR = dp.supportsHDR,
+            maxBitDepth = dp.maxBitDepth,
+        )
     }
 
     private fun getDirectorySize(directory: File): Long {

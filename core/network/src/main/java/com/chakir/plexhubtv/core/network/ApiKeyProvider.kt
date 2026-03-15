@@ -10,4 +10,5 @@ import kotlinx.coroutines.flow.Flow
 interface ApiKeyProvider {
     val tmdbApiKey: Flow<String?>
     val omdbApiKey: Flow<String?>
+    val openSubtitlesApiKey: Flow<String?>
 }
