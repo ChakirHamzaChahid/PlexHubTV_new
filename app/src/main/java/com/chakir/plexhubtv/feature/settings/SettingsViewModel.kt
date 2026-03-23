@@ -51,6 +51,8 @@ class SettingsViewModel
         private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
+        private val jellyfinServerRepository: com.chakir.plexhubtv.domain.repository.JellyfinServerRepository,
+        private val syncJellyfinLibraryUseCase: com.chakir.plexhubtv.domain.usecase.SyncJellyfinLibraryUseCase,
         private val updateChecker: com.chakir.plexhubtv.core.update.UpdateChecker,
     ) : ViewModel() {
         companion object {
@@ -78,6 +80,7 @@ class SettingsViewModel
             observeSettings()
             observeBackendServers()
             observeXtreamAccounts()
+            observeJellyfinServers()
             _uiState.update { it.copy(hasParentalPin = settingsRepository.hasParentalPin()) }
         }
 
@@ -381,6 +384,32 @@ class SettingsViewModel
                         _navigationEvents.send(SettingsNavigationEvent.NavigateToLibrarySelection)
                     }
                 }
+                is SettingsAction.ManageJellyfinServers -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToJellyfinSetup)
+                    }
+                }
+                is SettingsAction.SyncJellyfin -> {
+                    _uiState.update { it.copy(isSyncingJellyfin = true, jellyfinSyncMessage = null) }
+                    viewModelScope.launch {
+                        try {
+                            val result = syncJellyfinLibraryUseCase()
+                            val msg = if (result.isSuccess) {
+                                "Jellyfin sync completed (${result.getOrDefault(0)} items)"
+                            } else {
+                                "Jellyfin sync failed: ${result.exceptionOrNull()?.message}"
+                            }
+                            _uiState.update { it.copy(isSyncingJellyfin = false, jellyfinSyncMessage = msg) }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Jellyfin sync failed")
+                            _uiState.update {
+                                it.copy(isSyncingJellyfin = false, jellyfinSyncMessage = "Sync failed: ${e.message}")
+                            }
+                        }
+                        kotlinx.coroutines.delay(5000)
+                        _uiState.update { it.copy(jellyfinSyncMessage = null) }
+                    }
+                }
                 is SettingsAction.ManageXtreamAccounts -> {
                     viewModelScope.launch {
                         _navigationEvents.send(SettingsNavigationEvent.NavigateToXtreamSetup)
@@ -629,6 +658,13 @@ class SettingsViewModel
                 .launchIn(viewModelScope)
         }
 
+        private fun observeJellyfinServers() {
+            jellyfinServerRepository.observeServers()
+                .onEach { servers -> _uiState.update { it.copy(jellyfinServers = servers) } }
+                .catch { e -> Timber.e(e, "Failed to observe Jellyfin servers") }
+                .launchIn(viewModelScope)
+        }
+
         private fun loadOneTimeData() {
             viewModelScope.launch {
                 val size = settingsRepository.getCacheSize()
@@ -851,6 +887,8 @@ sealed interface SettingsNavigationEvent {
     data object NavigateToAppProfiles : SettingsNavigationEvent
 
     data object NavigateToLibrarySelection : SettingsNavigationEvent
+
+    data object NavigateToJellyfinSetup : SettingsNavigationEvent
 
     data object NavigateToXtreamSetup : SettingsNavigationEvent
 

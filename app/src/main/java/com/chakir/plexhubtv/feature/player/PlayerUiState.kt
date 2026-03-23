@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.feature.player
 
+import androidx.media3.ui.AspectRatioFrameLayout
 import com.chakir.plexhubtv.core.model.AudioTrack
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.SubtitleTrack
@@ -64,6 +65,8 @@ data class PlayerUiState(
     val showQueueOverlay: Boolean = false,
     val playQueue: List<MediaItem> = emptyList(),
     val currentQueueIndex: Int = -1,
+    // Aspect ratio mode
+    val aspectRatioMode: AspectRatioMode = AspectRatioMode.FIT,
 )
 
 data class PlayerStats(
@@ -97,6 +100,15 @@ enum class PlayerErrorType {
     Network,        // Erreur réseau (timeout, host unreachable, etc.)
     Codec,          // Erreur de codec/décodage
     Generic         // Autre erreur
+}
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+enum class AspectRatioMode(val label: String, val exoResizeMode: Int) {
+    FIT("Fit", AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    FILL("Fill", AspectRatioFrameLayout.RESIZE_MODE_FILL),
+    ZOOM("Zoom", AspectRatioFrameLayout.RESIZE_MODE_ZOOM);
+
+    fun next(): AspectRatioMode = entries[(ordinal + 1) % entries.size]
 }
 
 sealed interface PlayerAction {
@@ -150,6 +162,8 @@ sealed interface PlayerAction {
 
     data object DismissDialog : PlayerAction // Close any open dialog without stopping playback
 
+    data object DismissCurrentOverlay : PlayerAction // Close only the topmost overlay (layered back)
+
     data object RetryPlayback : PlayerAction // Retry playback after network error
 
     data object SwitchToMpv : PlayerAction // Manually switch to MPV player
@@ -177,4 +191,6 @@ sealed interface PlayerAction {
     data class SeekToChapter(val chapter: com.chakir.plexhubtv.core.model.Chapter) : PlayerAction
 
     data class PlayQueueItem(val index: Int) : PlayerAction
+
+    data object CycleAspectRatio : PlayerAction
 }

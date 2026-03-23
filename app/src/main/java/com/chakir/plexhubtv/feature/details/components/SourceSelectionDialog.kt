@@ -47,6 +47,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -123,7 +124,7 @@ fun SourceSelectionDialog(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                "Select Server",
+                                "Select Source",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
@@ -181,22 +182,31 @@ fun SourceSelectionDialog(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.weight(1f),
-                                        ) {
-                                            Text(
-                                                source.serverName,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White,
-                                            )
-                                            if (source.viewOffset > 0) {
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                TechBadge(
-                                                    text = "\u25B6 Resume",
-                                                    color = ResumeColor,
-                                                    filled = true,
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    source.serverName,
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                )
+                                                if (source.viewOffset > 0) {
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    TechBadge(
+                                                        text = "\u25B6 Resume",
+                                                        color = ResumeColor,
+                                                        filled = true,
+                                                    )
+                                                }
+                                            }
+                                            // Show media title to differentiate same-server alternatives (e.g. VF/VO)
+                                            source.displayTitle?.let { title ->
+                                                Text(
+                                                    title,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = NetflixLightGray,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
                                                 )
                                             }
                                         }

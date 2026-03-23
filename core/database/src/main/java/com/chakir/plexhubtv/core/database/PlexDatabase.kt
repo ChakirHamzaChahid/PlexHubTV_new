@@ -34,8 +34,10 @@ import androidx.room.TypeConverters
         PersonFavoriteEntity::class,
         PlaylistEntity::class,
         PlaylistItemEntity::class,
+        WatchlistEntity::class,
+        JellyfinServerEntity::class,
     ],
-    version = 44,
+    version = 46,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {
@@ -78,4 +80,8 @@ abstract class PlexDatabase : RoomDatabase() {
     abstract fun personFavoriteDao(): PersonFavoriteDao
 
     abstract fun playlistDao(): PlaylistDao
+
+    abstract fun watchlistDao(): WatchlistDao
+
+    abstract fun jellyfinServerDao(): JellyfinServerDao
 }

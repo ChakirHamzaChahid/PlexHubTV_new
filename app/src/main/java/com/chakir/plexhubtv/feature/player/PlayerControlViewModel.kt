@@ -212,6 +212,25 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.DismissDialog -> {
                 playerController.updateState { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false, showSubtitleDownload = false, showEqualizer = false, showMoreMenu = false, showChapterOverlay = false, showQueueOverlay = false) }
             }
+            is PlayerAction.DismissCurrentOverlay -> {
+                val s = uiState.value
+                playerController.updateState {
+                    when {
+                        s.showSettings -> it.copy(showSettings = false)
+                        s.showSpeedSelection -> it.copy(showSpeedSelection = false)
+                        s.showAudioSyncDialog -> it.copy(showAudioSyncDialog = false)
+                        s.showSubtitleSyncDialog -> it.copy(showSubtitleSyncDialog = false)
+                        s.showSubtitleDownload -> it.copy(showSubtitleDownload = false)
+                        s.showEqualizer -> it.copy(showEqualizer = false)
+                        s.showAudioSelection -> it.copy(showAudioSelection = false)
+                        s.showSubtitleSelection -> it.copy(showSubtitleSelection = false)
+                        s.showChapterOverlay -> it.copy(showChapterOverlay = false)
+                        s.showQueueOverlay -> it.copy(showQueueOverlay = false)
+                        s.showMoreMenu -> it.copy(showMoreMenu = false)
+                        else -> it
+                    }
+                }
+            }
             is PlayerAction.RetryPlayback -> {
                 playerController.retryPlayback()
             }
@@ -247,6 +266,9 @@ class PlayerControlViewModel @Inject constructor(
             }
             is PlayerAction.TogglePerformanceOverlay -> {
                 playerController.updateState { it.copy(showPerformanceOverlay = !it.showPerformanceOverlay) }
+            }
+            is PlayerAction.CycleAspectRatio -> {
+                playerController.updateState { it.copy(aspectRatioMode = it.aspectRatioMode.next()) }
             }
             is PlayerAction.Close -> {
                 val state = uiState.value

@@ -71,6 +71,7 @@ fun MainScreen(
     onNavigateToPlexHomeSwitch: () -> Unit,
     onLogout: () -> Unit,
     onNavigateToLibrarySelection: () -> Unit = {},
+    onNavigateToJellyfinSetup: () -> Unit = {},
     onNavigateToXtreamSetup: () -> Unit = {},
     onNavigateToXtreamCategorySelection: (String) -> Unit = {},
 ) {
@@ -228,6 +229,7 @@ fun MainScreen(
                     onNavigateToPlexHomeSwitch = { onNavigateToPlexHomeSwitch() },
                     onNavigateToAppProfiles = { onNavigateToProfiles() },
                     onNavigateToLibrarySelection = { onNavigateToLibrarySelection() },
+                    onNavigateToJellyfinSetup = { onNavigateToJellyfinSetup() },
                     onNavigateToXtreamSetup = { onNavigateToXtreamSetup() },
                     onNavigateToXtreamCategorySelection = { accountId -> onNavigateToXtreamCategorySelection(accountId) },
                     onNavigateToSubtitleStyle = { navController.navigate(Screen.SubtitleStyle.route) },
@@ -256,6 +258,7 @@ fun MainScreen(
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToPlexHomeSwitch -> onNavigateToPlexHomeSwitch()
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToAppProfiles -> onNavigateToProfiles()
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToJellyfinSetup -> onNavigateToJellyfinSetup()
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToXtreamSetup -> onNavigateToXtreamSetup()
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToXtreamCategorySelection -> onNavigateToXtreamCategorySelection(event.accountId)
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToSubtitleStyle -> navController.navigate(Screen.SubtitleStyle.route)

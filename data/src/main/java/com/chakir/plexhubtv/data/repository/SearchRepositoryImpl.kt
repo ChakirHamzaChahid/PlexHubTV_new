@@ -1,12 +1,15 @@
 package com.chakir.plexhubtv.data.repository
 
+import com.chakir.plexhubtv.core.database.JellyfinServerDao
 import com.chakir.plexhubtv.core.database.SearchCacheDao
 import com.chakir.plexhubtv.core.database.SearchCacheEntity
 import com.chakir.plexhubtv.core.database.ServerDao
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.model.MetadataDTO
+import com.chakir.plexhubtv.data.mapper.JellyfinMapper
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.data.mapper.ServerMapper
 import com.chakir.plexhubtv.domain.repository.SearchRepository
@@ -35,6 +38,9 @@ class SearchRepositoryImpl
         private val mapper: MediaMapper,
         private val searchCacheDao: SearchCacheDao,
         private val gson: Gson,
+        private val jellyfinServerDao: JellyfinServerDao,
+        private val jellyfinClientResolver: JellyfinClientResolver,
+        private val jellyfinMapper: JellyfinMapper,
     ) : SearchRepository {
         override suspend fun searchAllServers(
             query: String,
@@ -75,9 +81,13 @@ class SearchRepositoryImpl
                             }
                         }.awaitAll().flatten()
 
-                    // Deduplicate by ratingKey + serverId or aggregation logic if needed
-                    // For now, simple flatten and sort
-                    val sortedResults = results.sortedByDescending { item -> item.year ?: 0 }
+                    // Merge Jellyfin search results
+                    val jellyfinResults = searchJellyfinServers(query)
+
+                    val allResults = results + jellyfinResults
+
+                    // Deduplicate by ratingKey + serverId, sort by year
+                    val sortedResults = allResults.sortedByDescending { item -> item.year ?: 0 }
 
                     Result.success(sortedResults)
                 } catch (e: Exception) {
@@ -185,5 +195,61 @@ class SearchRepositoryImpl
                     Result.failure(e.toAppError())
                 }
             }
+        }
+
+        /**
+         * Search all active Jellyfin servers in parallel (5s timeout per server).
+         * Returns a flat list of results; errors are logged and skipped.
+         */
+        private suspend fun searchJellyfinServers(query: String): List<MediaItem> = coroutineScope {
+            val servers = try {
+                jellyfinServerDao.getAll().filter { it.isActive }
+            } catch (e: Exception) {
+                Timber.e("Failed to fetch Jellyfin servers for search: ${e.message}")
+                return@coroutineScope emptyList()
+            }
+
+            if (servers.isEmpty()) return@coroutineScope emptyList()
+
+            servers.map { server ->
+                async {
+                    withTimeoutOrNull(5000L) {
+                        try {
+                            val prefixedId = "${SourcePrefix.JELLYFIN}${server.id}"
+                            val client = jellyfinClientResolver.getClient(server.id)
+                                ?: return@withTimeoutOrNull emptyList<MediaItem>()
+
+                            val response = client.search(query)
+                            if (!response.isSuccessful) {
+                                Timber.w("Jellyfin search failed on ${server.name}: HTTP ${response.code()}")
+                                return@withTimeoutOrNull emptyList<MediaItem>()
+                            }
+
+                            val hints = response.body()?.searchHints.orEmpty()
+                            hints.mapNotNull { hint ->
+                                try {
+                                    jellyfinMapper.mapSearchHintToDomain(
+                                        hint = hint,
+                                        serverId = prefixedId,
+                                        baseUrl = server.baseUrl,
+                                        accessToken = client.accessToken,
+                                    )
+                                } catch (e: Exception) {
+                                    Timber.w("Failed to map Jellyfin search hint: ${e.message}")
+                                    null
+                                }
+                            }
+                        } catch (e: Exception) {
+                            if (e !is kotlinx.coroutines.CancellationException) {
+                                Timber.e("Jellyfin search error on ${server.name}: ${e.message}")
+                            }
+                            emptyList()
+                        }
+                    } ?: run {
+                        Timber.w("Jellyfin search timeout on ${server.name} (>5s)")
+                        emptyList()
+                    }
+                }
+            }.awaitAll().flatten()
         }
     }

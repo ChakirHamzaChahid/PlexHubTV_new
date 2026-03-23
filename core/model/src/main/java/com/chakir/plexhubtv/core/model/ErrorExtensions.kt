@@ -17,6 +17,7 @@ fun AppError.toUserMessage(): String {
         is AppError.Auth.SessionExpired -> "Votre session a expiré. Veuillez vous reconnecter."
         is AppError.Auth.NoServersFound -> "Aucun serveur Plex trouvé. Vérifiez votre compte Plex."
         is AppError.Auth.PinGenerationFailed -> "Impossible de générer le code PIN. Veuillez réessayer."
+        is AppError.Auth.InvalidCredentials -> message ?: "Identifiants invalides. Vérifiez votre nom d'utilisateur et mot de passe."
 
         // Erreurs de médias
         is AppError.Media.NotFound -> "Média introuvable."

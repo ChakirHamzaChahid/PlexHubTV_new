@@ -256,6 +256,9 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 onNavigateToLibrarySelection = {
                     navController.navigate(Screen.LibrarySelection.route)
                 },
+                onNavigateToJellyfinSetup = {
+                    navController.navigate(Screen.JellyfinSetup.route)
+                },
                 onNavigateToXtreamSetup = {
                     navController.navigate(Screen.XtreamSetup.route)
                 },
@@ -342,6 +345,16 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
             ),
         ) {
             PersonDetailRoute(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetail = { ratingKey, serverId ->
+                    navController.navigate(Screen.MediaDetail.createRoute(ratingKey, serverId))
+                },
+            )
+        }
+
+        // Jellyfin Setup
+        composable(Screen.JellyfinSetup.route) {
+            com.chakir.plexhubtv.feature.jellyfin.JellyfinSetupRoute(
                 onNavigateBack = { navController.popBackStack() },
             )
         }

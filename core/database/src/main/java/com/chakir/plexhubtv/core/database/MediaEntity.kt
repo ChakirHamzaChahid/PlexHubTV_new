@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.core.database
 
 import androidx.room.Entity
+import com.chakir.plexhubtv.core.model.SourcePrefix
 
 /**
  * Cœur de la persistance locale : Représente un élément Média (Film, Épisode, Série).
@@ -154,6 +155,13 @@ fun computeMetadataScore(
     if (audienceRating != null && audienceRating > 0.0) score += 1
     if (!contentRating.isNullOrBlank()) score += 1
     if (isOwned) score += 50
-    if (!serverId.startsWith("xtream_") && !serverId.startsWith("backend_")) score += 100
+    // Source hierarchy: Plex (+100) > Jellyfin (+80) > Xtream/Backend (+0)
+    // Plex is primary source with richer metadata; Jellyfin has direct ProviderIds
+    // but lower bonus ensures Plex wins in tie-breaks for unified view row selection.
+    if (!SourcePrefix.isNonPlex(serverId)) {
+        score += 100
+    } else if (serverId.startsWith(SourcePrefix.JELLYFIN)) {
+        score += 80
+    }
     return score
 }

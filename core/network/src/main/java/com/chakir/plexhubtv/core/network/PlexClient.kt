@@ -96,8 +96,13 @@ class PlexClient(
         return api.getMetadata(buildUrl(path))
     }
 
-    suspend fun getOnDeck(): Response<PlexResponse> {
-        return api.getMetadata(buildUrl("/library/onDeck?includeGuids=1&includeMeta=1&X-Plex-Container-Size=50"))
+    suspend fun getOnDeck(start: Int = 0, size: Int = 100): Response<PlexResponse> {
+        return api.getMetadata(
+            buildUrl(
+                "/library/onDeck?includeGuids=1&includeMeta=1" +
+                    "&X-Plex-Container-Start=$start&X-Plex-Container-Size=$size",
+            ),
+        )
     }
 
     suspend fun getChildren(ratingKey: String): Response<PlexResponse> {

@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.Flow
 /** Lightweight container for parent show metadata used during episode enrichment. */
 data class ParentShowInfo(val imdbId: String?, val tmdbId: String?, val unificationId: String?)
 
+/** Lightweight container for navigation: ratingKey + serverId. */
+data class MediaNavTarget(val ratingKey: String, val serverId: String)
+
 interface MediaDetailRepository {
     /** Récupère les métadonnées complètes d'un média avec gestion de fallback. */
     suspend fun getMediaDetail(
@@ -78,4 +81,7 @@ interface MediaDetailRepository {
 
     /** Refreshes metadata (rating, synopsis, poster) from TMDB/OMDB for the given media. */
     suspend fun refreshMetadataFromTmdb(media: MediaItem): Result<Unit>
+
+    /** Finds a local media by TMDB ID. Returns navigation target if found, null otherwise. */
+    suspend fun findLocalMediaByTmdbId(tmdbId: Int, mediaType: String): MediaNavTarget?
 }

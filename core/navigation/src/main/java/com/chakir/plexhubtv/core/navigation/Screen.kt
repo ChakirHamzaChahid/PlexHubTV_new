@@ -91,6 +91,8 @@ sealed class Screen(val route: String) {
 
     data object XtreamSetup : Screen("xtream_setup")
 
+    data object JellyfinSetup : Screen("jellyfin_setup")
+
     data object XtreamCategorySelection : Screen("xtream_category_selection/{accountId}") {
         fun createRoute(accountId: String) = "xtream_category_selection/$accountId"
     }

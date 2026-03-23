@@ -4,10 +4,12 @@ import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaSource
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.core.model.VideoStream
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.BackendRepository
+import com.chakir.plexhubtv.domain.repository.JellyfinServerRepository
 import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
@@ -43,6 +45,7 @@ class EnrichMediaItemUseCase
         private val mediaDetailRepository: MediaDetailRepository,
         private val backendRepository: BackendRepository,
         private val xtreamAccountRepository: XtreamAccountRepository,
+        private val jellyfinServerRepository: JellyfinServerRepository,
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         private val getEnabledServerIdsUseCase: GetEnabledServerIdsUseCase,
         @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -123,6 +126,7 @@ class EnrichMediaItemUseCase
             // Build server name map from ALL sources (Plex + Backend + Xtream)
             val serverMap = buildServerNameMap(enabledServerIds)
             val currentSource = buildMediaSource(item, serverMap[item.serverId] ?: "Unknown")
+                .copy(displayTitle = item.title)
 
             // Plex servers for network fallback (search API only works with Plex)
             val allPlexServers = authRepository.getServers().getOrNull() ?: emptyList()
@@ -181,6 +185,7 @@ class EnrichMediaItemUseCase
                                     match
                                 }
                                 buildMediaSource(enrichedMatch, serverMap[match.serverId] ?: match.serverId)
+                                    .copy(displayTitle = enrichedMatch.title)
                             }
                         }.awaitAll()
                     }
@@ -237,7 +242,7 @@ class EnrichMediaItemUseCase
                     // and found nothing. For non-Plex items (backend/xtream), network fallback is
                     // pointless — IPTV content is rarely duplicated on Plex servers, and if it were,
                     // Room would have found it via the shared TMDB/IMDB ID.
-                    val isNonPlexItem = item.serverId.startsWith("backend_") || item.serverId.startsWith("xtream_")
+                    val isNonPlexItem = SourcePrefix.isNonPlex(item.serverId)
                     if (isNonPlexItem) {
                         performanceTracker.addCheckpoint(opId, "Network Fallback Skipped (non-Plex Room miss)")
                         Timber.d("Enrich: Skipping network fallback for non-Plex item '${item.title}' (Room miss with unificationId=${item.unificationId})")
@@ -318,6 +323,18 @@ class EnrichMediaItemUseCase
                 }
             } catch (e: Exception) {
                 Timber.w(e, "Enrich: Failed to load xtream account names")
+            }
+
+            // Jellyfin servers
+            try {
+                jellyfinServerRepository.observeServers().first().forEach { jfServer ->
+                    val serverId = SourcePrefix.JELLYFIN + jfServer.id
+                    if (serverId in enabledServerIds) {
+                        map[serverId] = jfServer.name
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Enrich: Failed to load Jellyfin server names")
             }
 
             return map

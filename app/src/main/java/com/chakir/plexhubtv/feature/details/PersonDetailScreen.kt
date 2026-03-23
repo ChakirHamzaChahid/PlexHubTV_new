@@ -3,7 +3,7 @@ package com.chakir.plexhubtv.feature.details
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -61,8 +62,18 @@ import com.chakir.plexhubtv.core.model.PersonCredit
 fun PersonDetailRoute(
     viewModel: PersonDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
+    onNavigateToDetail: (ratingKey: String, serverId: String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.navigationEvents.collect { event ->
+            when (event) {
+                is PersonDetailNavigationEvent.NavigateToMediaDetail ->
+                    onNavigateToDetail(event.ratingKey, event.serverId)
+            }
+        }
+    }
 
     BackHandler(onBack = onNavigateBack)
 
@@ -70,6 +81,7 @@ fun PersonDetailRoute(
         state = uiState,
         onBack = onNavigateBack,
         onToggleFavorite = viewModel::toggleFavorite,
+        onCreditClick = viewModel::onCreditClicked,
     )
 }
 
@@ -78,6 +90,7 @@ private fun PersonDetailScreen(
     state: PersonDetailUiState,
     onBack: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onCreditClick: (PersonCredit) -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -126,7 +139,7 @@ private fun PersonDetailScreen(
                                 )
                             }
                             item(key = "cast_row") {
-                                CreditRow(credits = person.castCredits)
+                                CreditRow(credits = person.castCredits, onCreditClick = onCreditClick)
                             }
                         }
 
@@ -139,7 +152,7 @@ private fun PersonDetailScreen(
                                 )
                             }
                             item(key = "crew_row") {
-                                CreditRow(credits = person.crewCredits)
+                                CreditRow(credits = person.crewCredits, onCreditClick = onCreditClick)
                             }
                         }
                     }
@@ -244,27 +257,31 @@ private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CreditRow(credits: List<PersonCredit>) {
+private fun CreditRow(credits: List<PersonCredit>, onCreditClick: (PersonCredit) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 48.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(credits, key = { "${it.id}_${it.character ?: it.job}" }) { credit ->
-            CreditCard(credit = credit)
+            CreditCard(credit = credit, onCreditClick = onCreditClick)
         }
     }
 }
 
 @Composable
-private fun CreditCard(credit: PersonCredit) {
+private fun CreditCard(credit: PersonCredit, onCreditClick: (PersonCredit) -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     Column(
         modifier = Modifier
             .width(140.dp)
-            .focusable(interactionSource = interactionSource)
-            .scale(if (isFocused) 1.05f else 1f),
+            .scale(if (isFocused) 1.05f else 1f)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { onCreditClick(credit) },
+            ),
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)

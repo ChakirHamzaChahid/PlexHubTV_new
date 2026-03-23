@@ -109,8 +109,22 @@ class OnDeckRepositoryImpl
                             try {
                                 val baseUrl = client.baseUrl
                                 val accessToken = client.server.accessToken ?: ""
-                                val response = client.getOnDeck()
-                                response.body()?.mediaContainer?.metadata?.map { dto: MetadataDTO ->
+
+                                // Paginate to fetch ALL on-deck items (not just first 100)
+                                val allDtos = mutableListOf<MetadataDTO>()
+                                var offset = 0
+                                val pageSize = 100
+                                do {
+                                    val response = client.getOnDeck(start = offset, size = pageSize)
+                                    val container = response.body()?.mediaContainer
+                                    val metadata = container?.metadata ?: emptyList()
+                                    allDtos.addAll(metadata)
+                                    val totalSize = container?.totalSize ?: 0
+                                    offset += pageSize
+                                    Timber.d("OnDeck page: offset=$offset, fetched=${metadata.size}, total=$totalSize, server=${client.server.name}")
+                                } while (offset < totalSize)
+
+                                allDtos.map { dto: MetadataDTO ->
                                     val entity = mapper.mapDtoToEntity(dto, client.server.clientIdentifier, dto.librarySectionID ?: "", isOwned = client.server.isOwned)
                                     entity.copy(
                                         resolvedThumbUrl = entity.thumbUrl?.let { path ->
@@ -123,7 +137,7 @@ class OnDeckRepositoryImpl
                                         },
                                         resolvedBaseUrl = baseUrl,
                                     )
-                                } ?: emptyList()
+                                }
                             } catch (e: Exception) {
                                 Timber.w(e, "OnDeck fetch failed for server=${client.server.name}")
                                 emptyList()

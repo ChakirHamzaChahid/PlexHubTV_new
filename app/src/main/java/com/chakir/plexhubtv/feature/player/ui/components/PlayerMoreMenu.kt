@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Equalizer
@@ -63,6 +64,8 @@ fun PlayerMoreMenu(
     hasChapters: Boolean,
     hasQueue: Boolean,
     showPerformanceOverlay: Boolean = false,
+    currentAspectRatioLabel: String = "Fit",
+    onCycleAspectRatio: () -> Unit = {},
     onShowSettings: () -> Unit,
     onShowSpeed: () -> Unit,
     onShowSubtitleSync: () -> Unit,
@@ -138,6 +141,7 @@ fun PlayerMoreMenu(
                     add(MenuItem(Icons.Default.Tune, stringResource(R.string.player_more_audio_sync), onShowAudioSync))
                     add(MenuItem(Icons.Default.CloudDownload, stringResource(R.string.player_more_download_subs), onShowSubtitleDownload))
                     add(MenuItem(Icons.Default.Equalizer, stringResource(R.string.player_more_equalizer), onShowEqualizer))
+                    add(MenuItem(Icons.Default.AspectRatio, "Aspect Ratio: $currentAspectRatioLabel", onCycleAspectRatio))
                     add(MenuItem(Icons.Default.Analytics, stringResource(R.string.player_more_stats), onToggleStats, isToggle = true, isActive = showPerformanceOverlay))
                     if (hasChapters) {
                         add(MenuItem(Icons.Default.ViewList, stringResource(R.string.player_more_chapters), onShowChapters))

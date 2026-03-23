@@ -8,6 +8,7 @@ import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.Profile
 import com.chakir.plexhubtv.core.model.VideoQuality
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -30,6 +31,8 @@ class ProfileRepositoryImpl @Inject constructor(
     override suspend fun getProfileById(profileId: String): Profile? {
         return try {
             profileDao.getProfileById(profileId)?.toProfile()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Failed to get profile by ID: $profileId")
             null
@@ -39,6 +42,8 @@ class ProfileRepositoryImpl @Inject constructor(
     override suspend fun getActiveProfile(): Profile? {
         return try {
             profileDao.getActiveProfile()?.toProfile()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Failed to get active profile")
             null

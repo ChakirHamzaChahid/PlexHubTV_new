@@ -241,8 +241,8 @@ class MediaDetailViewModel
                             .firstOrNull()?.id
                         opId?.let { performanceTracker.addCheckpoint(it, "User Selected Source", mapOf("serverId" to event.source.serverId)) }
 
-                        // Start playback with specific server
-                        playItem(startItem, opId, event.source.serverId)
+                        // Start playback with specific source (serverId + ratingKey for same-server alternatives)
+                        playItem(startItem, opId, event.source.serverId, event.source.ratingKey)
                     }
                 }
                 is MediaDetailEvent.PlayExtra -> {
@@ -359,6 +359,7 @@ class MediaDetailViewModel
             item: MediaItem,
             opId: String? = null,
             forcedServerId: String? = null,
+            forcedRatingKey: String? = null,
         ) {
             // Direct-stream sources: URL built in PlayerControlViewModel, skip detail fetch
             val targetServerId = forcedServerId ?: item.serverId
@@ -375,12 +376,15 @@ class MediaDetailViewModel
             }
 
             val finalItem =
-                if (forcedServerId != null && forcedServerId != item.serverId) {
-                    // Find the source matching forcedServerId to get its ratingKey
-                    val source = item.remoteSources.find { it.serverId == forcedServerId }
+                if (forcedServerId != null && (forcedServerId != item.serverId || forcedRatingKey != item.ratingKey)) {
+                    // Find the source matching both serverId AND ratingKey (handles same-server alternatives)
+                    val source = item.remoteSources.find {
+                        it.serverId == forcedServerId &&
+                        (forcedRatingKey == null || it.ratingKey == forcedRatingKey)
+                    }
                     if (source != null) {
-                        opId?.let { performanceTracker.addCheckpoint(it, "Server Switch", mapOf("from" to item.serverId, "to" to source.serverId)) }
-                        // Fetch full media detail from the target server to get correct
+                        opId?.let { performanceTracker.addCheckpoint(it, "Source Switch", mapOf("from" to item.serverId, "to" to source.serverId, "ratingKey" to source.ratingKey)) }
+                        // Fetch full media detail from the target source to get correct
                         // mediaParts, stream IDs, baseUrl, accessToken, and id
                         val detailResult = getMediaDetailUseCase(source.ratingKey, source.serverId).first()
                         detailResult.getOrNull()?.item ?: run {
@@ -392,7 +396,7 @@ class MediaDetailViewModel
                             )
                         }
                     } else {
-                        Timber.w("playItem: Source not found for serverId=$forcedServerId in remoteSources")
+                        Timber.w("playItem: Source not found for serverId=$forcedServerId ratingKey=$forcedRatingKey in remoteSources")
                         item
                     }
                 } else {

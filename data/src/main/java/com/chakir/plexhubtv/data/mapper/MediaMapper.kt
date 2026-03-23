@@ -367,12 +367,13 @@ class MediaMapper
                 type = mapType(entity.type),
                 imdbId = entity.imdbId,
                 tmdbId = entity.tmdbId,
-                // Always use raw relative paths — callers resolve against current baseUrl
-                // (resolvedThumbUrl may embed a stale server address from sync time)
-                thumbUrl = entity.thumbUrl,
+                // Prefer TMDB overrides (absolute URLs) over raw Plex relative paths.
+                // overriddenThumbUrl is set by TMDB refresh and is already a full URL.
+                // Falls back to raw Plex path which callers resolve against current baseUrl.
+                thumbUrl = entity.overriddenThumbUrl ?: entity.thumbUrl,
                 artUrl = entity.artUrl,
                 alternativeThumbUrls = entity.alternativeThumbUrls?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
-                summary = entity.summary,
+                summary = entity.overriddenSummary ?: entity.summary,
                 year = entity.year,
                 durationMs = entity.duration,
                 viewOffset = entity.viewOffset,
@@ -434,6 +435,7 @@ class MediaMapper
                 "show" -> MediaType.Show
                 "episode" -> MediaType.Episode
                 "season" -> MediaType.Season
+                "clip" -> MediaType.Clip
                 else -> MediaType.Unknown
             }
         }
@@ -455,8 +457,8 @@ class MediaMapper
                 type = mapType(entity.type),
                 imdbId = entity.imdbId,
                 tmdbId = entity.tmdbId,
-                thumbUrl = entity.thumbUrl,
-                artUrl = entity.artUrl,
+                thumbUrl = entity.resolvedThumbUrl ?: entity.thumbUrl,
+                artUrl = entity.resolvedArtUrl ?: entity.artUrl,
                 alternativeThumbUrls = entity.alternativeThumbUrls?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
                 summary = entity.summary,
                 year = entity.year,

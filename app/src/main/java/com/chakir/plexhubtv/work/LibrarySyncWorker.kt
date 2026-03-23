@@ -52,6 +52,7 @@ class LibrarySyncWorker
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val syncWatchlistUseCase: com.chakir.plexhubtv.domain.usecase.SyncWatchlistUseCase,
         private val syncXtreamLibraryUseCase: com.chakir.plexhubtv.domain.usecase.SyncXtreamLibraryUseCase,
+        private val syncJellyfinLibraryUseCase: com.chakir.plexhubtv.domain.usecase.SyncJellyfinLibraryUseCase,
         private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
         private val librarySectionDao: LibrarySectionDao,
@@ -105,17 +106,10 @@ class LibrarySyncWorker
 
                     Timber.d("→ Fetching servers...")
                     val serversResult = authRepository.getServers()
-                    val servers = serversResult.getOrNull()
-
-                    if (servers == null || servers.isEmpty()) {
-                        Timber.w("✗ No servers found")
-                        syncRepository.onProgressUpdate = null
-                        settingsDataStore.saveFirstSyncComplete(true)
-                        return@withContext Result.success()
-                    }
+                    val servers = serversResult.getOrNull() ?: emptyList()
 
                     val serverNames = servers.joinToString { it.name }
-                    Timber.d("→ Syncing ${servers.size} server(s): [$serverNames]")
+                    Timber.d("→ Syncing ${servers.size} Plex server(s): [$serverNames]")
 
                     // Initialize per-server state tracking
                     val selectedIds = settingsDataStore.selectedLibraryIds.first()
@@ -308,6 +302,20 @@ class LibrarySyncWorker
                         }
                     } catch (e: Exception) {
                         Timber.e("✗ Backend sync failed: ${e.message}")
+                    }
+
+                    // SYNC JELLYFIN SERVERS (best effort — does not affect Result)
+                    try {
+                        Timber.w("JELLYFIN_TRACE [LibrarySyncWorker] → Starting Jellyfin sync...")
+                        updateNotification("Syncing Jellyfin servers...")
+                        val jellyfinResult = syncJellyfinLibraryUseCase()
+                        if (jellyfinResult.isFailure) {
+                            Timber.e("JELLYFIN_TRACE [LibrarySyncWorker] ✗ Jellyfin sync FAILED: ${jellyfinResult.exceptionOrNull()?.message}", jellyfinResult.exceptionOrNull())
+                        } else {
+                            Timber.w("JELLYFIN_TRACE [LibrarySyncWorker] ✓ Jellyfin sync complete: ${jellyfinResult.getOrDefault(0)} items synced")
+                        }
+                    } catch (e: Exception) {
+                        Timber.e("JELLYFIN_TRACE [LibrarySyncWorker] ✗ Jellyfin sync EXCEPTION: ${e.message}", e)
                     }
 
                     // AUTOMATE WATCHLIST SYNC

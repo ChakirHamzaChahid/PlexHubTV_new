@@ -2,6 +2,7 @@ package com.chakir.plexhubtv.data.source
 
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.BackendRepository
@@ -20,7 +21,7 @@ class BackendSourceHandler @Inject constructor(
     private val backendRepository: BackendRepository,
 ) : MediaSourceHandler {
 
-    override fun matches(serverId: String): Boolean = serverId.startsWith("backend_")
+    override fun matches(serverId: String): Boolean = serverId.startsWith(SourcePrefix.BACKEND)
 
     override suspend fun getDetail(ratingKey: String, serverId: String): Result<MediaItem> {
         // Room first

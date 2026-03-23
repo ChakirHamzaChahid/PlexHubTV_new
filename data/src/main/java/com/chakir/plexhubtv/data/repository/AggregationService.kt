@@ -30,10 +30,29 @@ class AggregationService @Inject constructor(
      */
     suspend fun rebuildAll() {
         val startTime = System.currentTimeMillis()
+
+        // TRACE: Count items BEFORE rebuild
+        val mediaDao = database.mediaDao()
+        val preMovieCount = mediaDao.getRawCountByType("movie")
+        val preShowCount = mediaDao.getRawCountByType("show")
+        val preJellyfinMovies = mediaDao.getRawCountByServerPrefixAndType("jellyfin_", "movie")
+        val preJellyfinShows = mediaDao.getRawCountByServerPrefixAndType("jellyfin_", "show")
+        Timber.w("JELLYFIN_TRACE [rebuildAll] PRE-REBUILD: media table movies=$preMovieCount, shows=$preShowCount, jellyfin_movies=$preJellyfinMovies, jellyfin_shows=$preJellyfinShows")
+
         database.withTransaction {
             mediaUnifiedDao.deleteAll()
-            mediaUnifiedDao.rebuildFromRawQuery(SimpleSQLiteQuery(buildRebuildSql()))
+            val insertedRows = mediaUnifiedDao.rebuildFromRawQuery(SimpleSQLiteQuery(buildRebuildSql()))
+            Timber.w("JELLYFIN_TRACE [rebuildAll] INSERT returned $insertedRows rows")
         }
+
+        // TRACE: Count items AFTER rebuild
+        val postMovieCount = mediaUnifiedDao.getCountByType("movie")
+        val postShowCount = mediaUnifiedDao.getCountByType("show")
+        val postJellyfinCount = mediaUnifiedDao.getCountByServerPrefix("jellyfin_")
+        val postJellyfinMovies = mediaUnifiedDao.getCountByServerPrefixAndType("jellyfin_", "movie")
+        val postJellyfinShows = mediaUnifiedDao.getCountByServerPrefixAndType("jellyfin_", "show")
+        Timber.w("JELLYFIN_TRACE [rebuildAll] POST-REBUILD: media_unified movies=$postMovieCount, shows=$postShowCount, jellyfin_total=$postJellyfinCount, jellyfin_movies=$postJellyfinMovies, jellyfin_shows=$postJellyfinShows")
+
         val duration = System.currentTimeMillis() - startTime
         Timber.i("AGGREGATION: Full rebuild completed in ${duration}ms")
     }
@@ -45,6 +64,17 @@ class AggregationService @Inject constructor(
         mediaUnifiedDao.rebuildSingleGroup(
             SimpleSQLiteQuery(buildRebuildSql(groupKey = groupKey), arrayOf(groupKey))
         )
+    }
+
+    /**
+     * Removes a unified group and re-inserts only if visible (non-hidden) members remain.
+     * Used after soft-hide to keep media_unified in sync.
+     */
+    suspend fun removeAndRebuildGroup(groupKey: String) {
+        database.withTransaction {
+            mediaUnifiedDao.deleteByGroupKey(groupKey)
+            rebuildGroup(groupKey)
+        }
     }
 
     /**

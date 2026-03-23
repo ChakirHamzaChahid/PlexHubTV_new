@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Build
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaPart
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.feature.player.profile.DeviceProfileService
 import timber.log.Timber
 import java.net.URLEncoder
@@ -11,15 +12,18 @@ import java.util.UUID
 import javax.inject.Inject
 
 /**
- * Construit les URLs de lecture (Direct Play ou Transcoding) pour Plex.
+ * Plex-specific playback URL builder.
+ * Handles Direct Play and HLS transcoding URLs for Plex Media Server.
  */
 @javax.inject.Singleton
 class TranscodeUrlBuilder
     @Inject
     constructor(
         private val deviceProfileService: DeviceProfileService,
-    ) {
-        fun buildUrl(
+    ) : PlaybackUrlBuilder {
+        override fun matches(serverId: String): Boolean = !SourcePrefix.isNonPlex(serverId)
+
+        override fun buildUrl(
             media: MediaItem,
             part: MediaPart,
             rKey: String,
@@ -38,7 +42,8 @@ class TranscodeUrlBuilder
                 val partKey = part.key
                 // External URL (CDN-hosted extras): use as-is without prepending baseUrl
                 if (partKey.startsWith("http://") || partKey.startsWith("https://")) {
-                    return Uri.parse(partKey)
+                    val separator = if (partKey.contains("?")) "&" else "?"
+                    return Uri.parse("$partKey${separator}X-Plex-Token=$token")
                 }
                 // Direct Play: local file key on server
                 return Uri.parse("$baseUrl$partKey?X-Plex-Token=$token")

@@ -43,6 +43,10 @@ data class SettingsUiState(
     val isSyncingXtream: Boolean = false,
     val xtreamSyncMessage: String? = null,
     val xtreamAccounts: List<com.chakir.plexhubtv.core.model.XtreamAccount> = emptyList(),
+    // Jellyfin
+    val jellyfinServers: List<com.chakir.plexhubtv.core.model.JellyfinServer> = emptyList(),
+    val isSyncingJellyfin: Boolean = false,
+    val jellyfinSyncMessage: String? = null,
     // Backend
     val backendServers: List<com.chakir.plexhubtv.core.model.BackendServer> = emptyList(),
     val isTestingBackend: Boolean = false,
@@ -155,6 +159,10 @@ sealed interface SettingsAction {
     data object ManageAppProfiles : SettingsAction
 
     data object ManageLibrarySelection : SettingsAction
+
+    data object ManageJellyfinServers : SettingsAction
+
+    data object SyncJellyfin : SettingsAction
 
     data object ManageXtreamAccounts : SettingsAction
 

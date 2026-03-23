@@ -92,12 +92,12 @@ class ExoPlayerFactory
                     5_000,   // bufferForPlaybackAfterRebufferMs
                 )
             } else {
-                // LAN direct: aggressive buffers — fast network, low memory footprint
+                // LAN direct: balanced buffers — handles Wi-Fi jitter without excessive memory
                 builder.setBufferDurationsMs(
-                    5_000,   // minBufferMs (5s — plenty on gigabit LAN)
-                    15_000,  // maxBufferMs (15s — saves ~70% memory vs default 50s on 4K)
-                    1_500,   // bufferForPlaybackMs
-                    2_500,   // bufferForPlaybackAfterRebufferMs
+                    15_000,  // minBufferMs (15s — tolerates Wi-Fi hiccups)
+                    30_000,  // maxBufferMs (30s — ~300MB peak on 4K HEVC, acceptable on 2GB+ devices)
+                    2_000,   // bufferForPlaybackMs
+                    4_000,   // bufferForPlaybackAfterRebufferMs
                 )
             }
 

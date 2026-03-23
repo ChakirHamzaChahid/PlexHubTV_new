@@ -66,6 +66,7 @@ class LibraryViewModel
         private val getLibraryIndexUseCase: com.chakir.plexhubtv.domain.usecase.GetLibraryIndexUseCase,
         private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
+        private val jellyfinServerRepository: com.chakir.plexhubtv.domain.repository.JellyfinServerRepository,
         private val savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         // État de l'UI exposé de manière immuable (StateFlow)
@@ -358,13 +359,30 @@ class LibraryViewModel
                     Timber.w("Failed to load Backend servers for filter: ${e.message}")
                 }
 
+                // Include Jellyfin servers
+                try {
+                    val jellyfinServers = jellyfinServerRepository.getServers()
+                    Timber.w("JELLYFIN_TRACE [loadMetadata] jellyfinServers: ${jellyfinServers.size}, details=${jellyfinServers.map { "${it.name}(id=${it.id}, prefixed=${it.prefixedServerId}, active=${it.isActive})" }}")
+                    jellyfinServers.forEach { jfServer ->
+                        serverNames.add(jfServer.name)
+                        serverMap[jfServer.name] = jfServer.prefixedServerId
+                    }
+                } catch (e: Exception) {
+                    Timber.e("JELLYFIN_TRACE [loadMetadata] Failed to load Jellyfin servers: ${e.message}", e)
+                }
+
+                Timber.w("JELLYFIN_TRACE [loadMetadata] plexServers=${servers.size}, totalServerNames=${serverNames.size}, serverNames=$serverNames, serverMap=$serverMap")
+
                 // Single-server fast path: skip unified query when only one source exists
                 if (servers.size == 1 && serverNames.size == 1) {
+                    Timber.w("JELLYFIN_TRACE [loadMetadata] SINGLE-SERVER FAST PATH activated: serverId=${servers[0].clientIdentifier}")
                     _uiState.update { it.copy(
                         selection = it.selection.copy(
                             selectedServerId = servers[0].clientIdentifier
                         )
                     ) }
+                } else {
+                    Timber.w("JELLYFIN_TRACE [loadMetadata] UNIFIED PATH: plexServers=${servers.size}, serverNames=${serverNames.size} → serverId will be 'all'")
                 }
 
                 // Utilisation des groupes de genres définis statiquement (UI_LABELS)

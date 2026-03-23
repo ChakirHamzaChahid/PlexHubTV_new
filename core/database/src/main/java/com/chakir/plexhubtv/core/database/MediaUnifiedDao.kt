@@ -88,6 +88,16 @@ interface MediaUnifiedDao {
     @Query("SELECT COUNT(*) FROM media_unified WHERE type = :type")
     suspend fun getCountByType(type: String): Int
 
+    @Query("SELECT COUNT(*) FROM media_unified WHERE bestServerId LIKE :serverIdPrefix || '%'")
+    suspend fun getCountByServerPrefix(serverIdPrefix: String): Int
+
+    @Query("SELECT COUNT(*) FROM media_unified WHERE bestServerId LIKE :serverIdPrefix || '%' AND type = :type")
+    suspend fun getCountByServerPrefixAndType(serverIdPrefix: String, type: String): Int
+
     @Query("SELECT * FROM media_unified WHERE groupKey = :groupKey")
     suspend fun getByGroupKey(groupKey: String): MediaUnifiedEntity?
+
+    /** Remove a unified group by key (used after soft-hide to clear stale row). */
+    @Query("DELETE FROM media_unified WHERE groupKey = :groupKey")
+    suspend fun deleteByGroupKey(groupKey: String)
 }

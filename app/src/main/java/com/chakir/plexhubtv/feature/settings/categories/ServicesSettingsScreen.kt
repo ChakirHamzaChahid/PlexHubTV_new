@@ -148,6 +148,45 @@ fun ServicesSettingsScreen(
                 }
             }
 
+            // --- Jellyfin ---
+            item {
+                SettingsSection("Jellyfin Servers") {
+                    state.jellyfinServers.forEach { server ->
+                        SettingsTile(
+                            title = server.name,
+                            subtitle = "${server.baseUrl} (${server.userName})",
+                            icon = Icons.Filled.Dns,
+                            onClick = {},
+                        )
+                    }
+
+                    SettingsTile(
+                        title = "Manage Jellyfin Servers",
+                        subtitle = if (state.jellyfinServers.isEmpty()) "Add a Jellyfin server" else "${state.jellyfinServers.size} server(s) configured",
+                        icon = Icons.Filled.AddCircle,
+                        onClick = { onAction(SettingsAction.ManageJellyfinServers) },
+                    )
+
+                    if (state.jellyfinServers.isNotEmpty()) {
+                        SettingsTile(
+                            title = "Sync Jellyfin",
+                            subtitle = if (state.isSyncingJellyfin) {
+                                stringResource(R.string.settings_syncing_message)
+                            } else {
+                                state.jellyfinSyncMessage ?: "Sync all Jellyfin libraries"
+                            },
+                            icon = Icons.Filled.Cached,
+                            onClick = { if (!state.isSyncingJellyfin) onAction(SettingsAction.SyncJellyfin) },
+                            trailingContent = if (state.isSyncingJellyfin) {
+                                { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                }
+            }
+
             // --- IPTV & Xtream ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_iptv)) {

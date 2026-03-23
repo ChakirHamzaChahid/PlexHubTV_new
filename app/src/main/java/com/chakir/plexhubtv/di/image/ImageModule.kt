@@ -6,13 +6,14 @@ import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.size.Precision
+import com.chakir.plexhubtv.BuildConfig
+import com.chakir.plexhubtv.core.network.AuthInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
-import com.chakir.plexhubtv.BuildConfig
 import okio.Path.Companion.toOkioPath
 import timber.log.Timber
 import java.io.File
@@ -28,10 +29,17 @@ object ImageModule {
         @ApplicationContext context: Context,
         okHttpClient: OkHttpClient,
         performanceImageInterceptor: PerformanceImageInterceptor,
+        jellyfinImageInterceptor: JellyfinImageInterceptor,
     ): ImageLoader {
-        // Dedicated OkHttpClient for images with shorter timeouts to prevent blocking on slow/offline servers
-        val imageOkHttpClient = okHttpClient.newBuilder()
-            .connectTimeout(2, java.util.concurrent.TimeUnit.SECONDS)  // 2s: fail fast on stale URLs, FallbackAsyncImage handles retries
+        // Dedicated OkHttpClient for images:
+        // - Remove Plex AuthInterceptor (tokens already embedded in Plex URLs)
+        // - Add JellyfinImageInterceptor (adds Authorization header for Jellyfin URLs)
+        // - Shorter timeouts to prevent blocking on slow/offline servers
+        val builder = okHttpClient.newBuilder()
+        builder.interceptors().removeAll { it is AuthInterceptor }
+        val imageOkHttpClient = builder
+            .addInterceptor(jellyfinImageInterceptor)
+            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)  // 5s: allows local Jellyfin servers time to respond
             .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)    // 10s instead of 30s
             .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)   // 10s instead of 30s
             .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)    // 15s total max (prevents 60s hangs)

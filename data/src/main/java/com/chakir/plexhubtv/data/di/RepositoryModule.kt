@@ -187,4 +187,10 @@ abstract class RepositoryModule {
     abstract fun bindCategoryRepository(
         impl: com.chakir.plexhubtv.data.repository.HybridCategoryRepository,
     ): com.chakir.plexhubtv.domain.repository.CategoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindJellyfinServerRepository(
+        impl: com.chakir.plexhubtv.data.repository.JellyfinServerRepositoryImpl,
+    ): com.chakir.plexhubtv.domain.repository.JellyfinServerRepository
 }

@@ -236,8 +236,8 @@ fun VideoPlayerScreen(
             // Error overlay showing — back always closes the player
             onAction(PlayerAction.Close)
         } else if (isDialogVisible) {
-            // Close any open dialog without stopping playback
-            onAction(PlayerAction.DismissDialog)
+            // Close only the topmost overlay (layered back navigation)
+            onAction(PlayerAction.DismissCurrentOverlay)
         } else if (controlsVisible) {
             controlsVisible = false
         } else {
@@ -261,11 +261,24 @@ fun VideoPlayerScreen(
                     if (event.type == KeyEventType.KeyDown) {
                         lastInteractionTime = System.currentTimeMillis() // Reset timer on input
                         when (event.nativeKeyEvent.keyCode) {
+                            // Left/Right: seek when controls hidden, navigate when visible
+                            NativeKeyEvent.KEYCODE_DPAD_LEFT,
+                            NativeKeyEvent.KEYCODE_DPAD_RIGHT,
+                            -> {
+                                if (isDialogVisible) {
+                                    false // Let dialog handle its own navigation
+                                } else if (!controlsVisible) {
+                                    // Direct seek without showing controls
+                                    val delta = if (event.nativeKeyEvent.keyCode == NativeKeyEvent.KEYCODE_DPAD_LEFT) -10_000L else 10_000L
+                                    onAction(PlayerAction.SeekTo((uiState.currentPosition + delta).coerceIn(0L, uiState.duration)))
+                                    true
+                                } else {
+                                    false // Controls visible: normal focus navigation
+                                }
+                            }
                             NativeKeyEvent.KEYCODE_DPAD_CENTER,
                             NativeKeyEvent.KEYCODE_DPAD_UP,
                             NativeKeyEvent.KEYCODE_DPAD_DOWN,
-                            NativeKeyEvent.KEYCODE_DPAD_LEFT,
-                            NativeKeyEvent.KEYCODE_DPAD_RIGHT,
                             NativeKeyEvent.KEYCODE_ENTER,
                             -> {
                                 if (!controlsVisible) {
@@ -322,6 +335,7 @@ fun VideoPlayerScreen(
         val shouldScale = uiState.showAutoNextPopup
             && uiState.nextItem != null
             && uiState.error == null
+            && autoPlayEnabled
 
         val playerScale by animateFloatAsState(
             targetValue = if (shouldScale) 0.75f else 1.0f,
@@ -362,7 +376,7 @@ fun VideoPlayerScreen(
                         PlayerView(context).apply {
                             this.player = exoPlayer
                             useController = false // Use our custom controls
-                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            resizeMode = uiState.aspectRatioMode.exoResizeMode
                             keepScreenOn = true
                             layoutParams =
                                 FrameLayout.LayoutParams(
@@ -383,6 +397,7 @@ fun VideoPlayerScreen(
                         }
                     },
                     update = { playerView ->
+                        playerView.resizeMode = uiState.aspectRatioMode.exoResizeMode
                         playerView.subtitleView?.setStyle(
                             CaptionStyleCompat(
                                 subtitlePrefs.fontColor.toInt(),
@@ -437,6 +452,7 @@ fun VideoPlayerScreen(
                 modifier = Modifier,
                 playPauseFocusRequester = focusRequester,
                 getFrameBitmap = getFrameBitmap,
+                onInteraction = { lastInteractionTime = System.currentTimeMillis() },
             )
         }
 
@@ -488,8 +504,8 @@ fun VideoPlayerScreen(
             )
         }
 
-        // Auto-Next Popup with countdown timer
-        val showPopup = uiState.showAutoNextPopup && uiState.nextItem != null
+        // Auto-Next Popup with countdown timer (only when enabled in settings)
+        val showPopup = uiState.showAutoNextPopup && uiState.nextItem != null && autoPlayEnabled
         var countdown by remember { mutableIntStateOf(15) }
 
         LaunchedEffect(showPopup) {
@@ -531,7 +547,7 @@ fun VideoPlayerScreen(
                 onShowSubtitleDownload = { onAction(PlayerAction.ShowSubtitleDownload) },
                 onShowEqualizer = { onAction(PlayerAction.ShowEqualizer) },
                 onSelectSpeed = { onAction(PlayerAction.SetPlaybackSpeed(it)) },
-                onDismiss = { onAction(PlayerAction.ToggleSettings) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -541,7 +557,7 @@ fun VideoPlayerScreen(
                 tracks = uiState.audioTracks,
                 selectedTrack = uiState.selectedAudio,
                 onSelect = { onAction(PlayerAction.SelectAudioTrack(it)) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -551,7 +567,7 @@ fun VideoPlayerScreen(
                 tracks = uiState.subtitleTracks,
                 selectedTrack = uiState.selectedSubtitle,
                 onSelect = { onAction(PlayerAction.SelectSubtitleTrack(it)) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -559,7 +575,7 @@ fun VideoPlayerScreen(
             com.chakir.plexhubtv.feature.player.ui.components.SpeedSelectionDialog(
                 currentSpeed = uiState.playbackSpeed,
                 onSelect = { onAction(PlayerAction.SetPlaybackSpeed(it)) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -569,7 +585,7 @@ fun VideoPlayerScreen(
                 title = "Audio Sync",
                 currentDelayMs = uiState.audioDelay,
                 onDelayChanged = { onAction(PlayerAction.SetAudioDelay(it)) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -579,7 +595,7 @@ fun VideoPlayerScreen(
                 title = "Subtitle Sync",
                 currentDelayMs = uiState.subtitleDelay,
                 onDelayChanged = { onAction(PlayerAction.SetSubtitleDelay(it)) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -593,18 +609,19 @@ fun VideoPlayerScreen(
                 onSubtitleDownloaded = { filePath ->
                     onAction(PlayerAction.ApplyDownloadedSubtitle(filePath))
                 },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
         // Audio Equalizer Dialog
         if (uiState.showEqualizer && audioEqualizerManager != null) {
+            val eqState by audioEqualizerManager.state.collectAsState()
             com.chakir.plexhubtv.feature.player.ui.components.AudioEqualizerDialog(
-                state = audioEqualizerManager.state,
+                state = eqState,
                 onPresetSelected = { onAction(PlayerAction.SelectEqualizerPreset(it)) },
                 onBandChanged = { bandIndex, level -> onAction(PlayerAction.SetEqualizerBand(bandIndex, level)) },
                 onEnabledChanged = { onAction(PlayerAction.SetEqualizerEnabled(it)) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -618,6 +635,8 @@ fun VideoPlayerScreen(
                 hasChapters = chapters.isNotEmpty(),
                 hasQueue = uiState.playQueue.size > 1,
                 showPerformanceOverlay = uiState.showPerformanceOverlay,
+                currentAspectRatioLabel = uiState.aspectRatioMode.label,
+                onCycleAspectRatio = { onAction(PlayerAction.CycleAspectRatio) },
                 onShowSettings = { onAction(PlayerAction.ToggleSettings) },
                 onShowSpeed = { onAction(PlayerAction.ToggleSpeedSelection) },
                 onShowSubtitleSync = { onAction(PlayerAction.ShowSubtitleSyncSelector) },
@@ -627,7 +646,7 @@ fun VideoPlayerScreen(
                 onToggleStats = { onAction(PlayerAction.TogglePerformanceOverlay) },
                 onShowChapters = { onAction(PlayerAction.ShowChapterOverlay) },
                 onShowQueue = { onAction(PlayerAction.ShowQueueOverlay) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -645,7 +664,7 @@ fun VideoPlayerScreen(
                 currentChapter = currentChapter,
                 currentPosition = uiState.currentPosition,
                 onSelectChapter = { onAction(PlayerAction.SeekToChapter(it)) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
 
@@ -659,7 +678,7 @@ fun VideoPlayerScreen(
                 queue = uiState.playQueue,
                 currentIndex = uiState.currentQueueIndex,
                 onSelectItem = { onAction(PlayerAction.PlayQueueItem(it)) },
-                onDismiss = { onAction(PlayerAction.DismissDialog) },
+                onDismiss = { onAction(PlayerAction.DismissCurrentOverlay) },
             )
         }
     }

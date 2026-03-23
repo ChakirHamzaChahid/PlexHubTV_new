@@ -24,5 +24,11 @@
 # Keep all source handlers (injected by Dagger with @IntoSet multibinding)
 -keep class com.chakir.plexhubtv.data.source.** { *; }
 
+# Keep all playback reporters (injected by Dagger with @IntoSet multibinding)
+-keep class com.chakir.plexhubtv.data.playback.** { *; }
+
+# Keep DI modules (Hilt bindings)
+-keep class com.chakir.plexhubtv.data.di.** { *; }
+
 # Keep all network providers (injected by Dagger)
 -keep class com.chakir.plexhubtv.data.network.** { *; }

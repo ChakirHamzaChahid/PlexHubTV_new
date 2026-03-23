@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -27,10 +28,12 @@ fun PerformanceOverlay(
     modifier: Modifier = Modifier,
 ) {
     val statsDesc = stringResource(R.string.player_stats_description)
+    val maxWidth = (LocalConfiguration.current.screenWidthDp / 3).dp
 
     Box(
         modifier =
             modifier
+                .widthIn(max = maxWidth)
                 .testTag("player_performance_overlay")
                 .semantics { contentDescription = statsDesc }
                 .padding(16.dp)
@@ -70,8 +73,8 @@ fun PerformanceOverlay(
             // Network section
             StatSectionHeader(stringResource(R.string.player_stat_section_network))
             StatRow(stringResource(R.string.player_stat_bitrate), stats.bitrate)
-            StatRow(stringResource(R.string.player_stat_peak_bitrate), if (stats.peakBitrateKbps > 0) "${stats.peakBitrateKbps} kbps" else "N/A")
-            StatRow(stringResource(R.string.player_stat_avg_bitrate), if (stats.avgBitrateKbps > 0) "${stats.avgBitrateKbps} kbps" else "N/A")
+            StatRow(stringResource(R.string.player_stat_peak_bitrate), formatBitrateKbps(stats.peakBitrateKbps))
+            StatRow(stringResource(R.string.player_stat_avg_bitrate), formatBitrateKbps(stats.avgBitrateKbps))
             StatRow(stringResource(R.string.player_stat_cache), if (stats.cacheDuration > 0) String.format("%.2fs", stats.cacheDuration / 1000.0) else "0s")
 
             DividerLine()
@@ -100,6 +103,12 @@ private fun DividerLine() {
         thickness = 0.5.dp,
         modifier = Modifier.padding(vertical = 2.dp),
     )
+}
+
+private fun formatBitrateKbps(kbps: Long): String = when {
+    kbps <= 0 -> "N/A"
+    kbps < 1000 -> "$kbps kbps"
+    else -> String.format("%.1f Mbps", kbps / 1000.0)
 }
 
 @Composable

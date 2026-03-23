@@ -8,3 +8,6 @@
 
 # Keep all source handler interfaces (implemented by data layer with @IntoSet)
 -keep interface com.chakir.plexhubtv.domain.source.** { *; }
+
+# Keep all service interfaces (PlaybackReporter, PlaybackUrlBuilder, etc.)
+-keep interface com.chakir.plexhubtv.domain.service.** { *; }

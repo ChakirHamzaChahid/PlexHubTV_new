@@ -27,6 +27,7 @@ sealed class AppError(
         data class SessionExpired(override val message: String? = null) : Auth(message)
         data class NoServersFound(override val message: String? = null) : Auth(message)
         data class PinGenerationFailed(override val message: String? = null, override val cause: Throwable? = null) : Auth(message, cause)
+        data class InvalidCredentials(override val message: String? = null) : Auth(message)
     }
 
     /**

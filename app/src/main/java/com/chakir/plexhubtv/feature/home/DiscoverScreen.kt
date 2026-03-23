@@ -138,7 +138,7 @@ fun DiscoverScreen(
                         totalLibraries = state.syncTotalLibraries,
                     )
                 state.isLoading -> LoadingState()
-                state.onDeck.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
+                state.onDeck.isEmpty() && state.hubs.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
                 else ->
                     NetflixHomeContent(
                         focusedItem = state.focusedItem,
