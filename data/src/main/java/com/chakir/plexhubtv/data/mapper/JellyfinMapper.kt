@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.data.mapper
 
 import com.chakir.plexhubtv.core.common.StringNormalizer
+import timber.log.Timber
 import com.chakir.plexhubtv.core.database.MediaEntity
 import com.chakir.plexhubtv.core.database.computeMetadataScore
 import com.chakir.plexhubtv.core.model.AudioStream
@@ -457,7 +458,8 @@ class JellyfinMapper @Inject constructor() {
         if (dateStr.isNullOrBlank()) return 0
         return try {
             Instant.parse(dateStr).epochSecond
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Timber.d(e, "JellyfinMapper: Failed to parse ISO date '$dateStr'")
             0
         }
     }

@@ -141,10 +141,10 @@ class MediaDetailRepositoryImpl
 
             return allEpisodes
                 .filter { it.parentIndex != null && it.index != null }
-                .groupBy { it.parentIndex!! }
+                .groupBy { it.parentIndex ?: 0 }
                 .toSortedMap()
                 .map { (seasonIdx, seasonEpisodes) ->
-                    val byEpIndex = seasonEpisodes.groupBy { it.index!! }
+                    val byEpIndex = seasonEpisodes.groupBy { it.index ?: 0 }
                     val unifiedEps = byEpIndex.toSortedMap().map { (epIdx, entities) ->
                         val best = pickBestEntity(entities)
                         UnifiedEpisode(
@@ -353,18 +353,19 @@ class MediaDetailRepositoryImpl
                 val entity = mediaDao.getMedia(ratingKey, serverId)
                 Timber.d("hideMedia: entity found=${entity != null}, uid=${entity?.unificationId}, rk=$ratingKey sid=$serverId")
 
-                val count = if (!entity?.unificationId.isNullOrBlank()) {
-                    mediaDao.hideMediaByUnificationId(entity!!.unificationId)
+                val uid = entity?.unificationId
+                val count = if (!uid.isNullOrBlank()) {
+                    mediaDao.hideMediaByUnificationId(uid)
                 } else {
                     mediaDao.hideMedia(ratingKey, serverId)
                 }
 
                 if (count > 0) {
-                    Timber.i("Soft-hidden $count media rows (rk=$ratingKey sid=$serverId uid=${entity?.unificationId})")
+                    Timber.i("Soft-hidden $count media rows (rk=$ratingKey sid=$serverId uid=$uid)")
                 } else {
-                    Timber.w("hideMedia: 0 rows affected! rk=$ratingKey sid=$serverId uid=${entity?.unificationId}")
+                    Timber.w("hideMedia: 0 rows affected! rk=$ratingKey sid=$serverId uid=$uid")
                     // Fallback: if hideByUnificationId matched 0 rows, try direct ratingKey+serverId
-                    if (!entity?.unificationId.isNullOrBlank()) {
+                    if (!uid.isNullOrBlank()) {
                         val fallbackCount = mediaDao.hideMedia(ratingKey, serverId)
                         Timber.d("hideMedia: fallback by rk+sid → $fallbackCount rows")
                     }

@@ -24,10 +24,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.analytics
-import com.google.firebase.analytics.logEvent
+import com.chakir.plexhubtv.domain.service.AnalyticsService
 
 /**
  * ViewModel pour la Recherche Globale.
@@ -40,6 +37,7 @@ class SearchViewModel
         private val searchAcrossServersUseCase: SearchAcrossServersUseCase,
         private val profileRepository: ProfileRepository,
         private val filterContentByAgeUseCase: FilterContentByAgeUseCase,
+        private val analyticsService: AnalyticsService,
         private val savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val _uiState = MutableStateFlow(
@@ -107,9 +105,7 @@ class SearchViewModel
                     val startTime = System.currentTimeMillis()
                     _uiState.update { it.copy(searchState = SearchState.Searching) }
 
-                    Firebase.analytics.logEvent("search") {
-                        param(FirebaseAnalytics.Param.SEARCH_TERM, query.take(100))
-                    }
+                    analyticsService.logEvent("search", mapOf("search_term" to query.take(100)))
 
                     searchAcrossServersUseCase(query).safeCollectIn(
                         scope = viewModelScope,

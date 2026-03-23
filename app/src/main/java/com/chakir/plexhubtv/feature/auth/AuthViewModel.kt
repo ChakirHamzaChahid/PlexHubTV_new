@@ -16,9 +16,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.analytics
-import com.google.firebase.analytics.logEvent
+import com.chakir.plexhubtv.domain.service.AnalyticsService
 
 /**
  * ViewModel gérant le flux d'authentification.
@@ -32,6 +30,7 @@ class AuthViewModel
     @Inject
     constructor(
         private val authRepository: AuthRepository,
+        private val analyticsService: AnalyticsService,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
         val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -76,9 +75,7 @@ class AuthViewModel
                             fetchServers()
                         }
                         .onFailure { e ->
-                            Firebase.analytics.logEvent("auth_failed") {
-                                param("method", "token")
-                            }
+                            analyticsService.logEvent("auth_failed", mapOf("method" to "token"))
                             _uiState.value = AuthUiState.Error("Token verification failed: ${e.message}")
                         }
                 }
@@ -135,16 +132,14 @@ class AuthViewModel
                     return
                 }
             }
-            Firebase.analytics.logEvent("auth_timeout") {}
+            analyticsService.logEvent("auth_timeout")
             _uiState.value = AuthUiState.Error("Authentication timed out")
         }
 
         private suspend fun fetchServers() {
             authRepository.getServers()
                 .onSuccess { servers ->
-                    Firebase.analytics.logEvent("auth_success") {
-                        param("server_count", servers.size.toLong())
-                    }
+                    analyticsService.logEvent("auth_success", mapOf("server_count" to servers.size.toLong()))
                     _uiState.value = AuthUiState.Success(servers)
                 }
                 .onFailure { e ->

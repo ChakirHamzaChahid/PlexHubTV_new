@@ -6,6 +6,7 @@ import com.chakir.plexhubtv.core.model.MediaPart
 import com.chakir.plexhubtv.core.model.UnificationId
 import com.chakir.plexhubtv.core.network.backend.BackendMediaItemDto
 import kotlinx.serialization.json.Json
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,7 +19,8 @@ class BackendMediaMapper @Inject constructor() {
         if (raw.isNullOrBlank() || raw == "[]" || raw == "null") return emptyList()
         return try {
             json.decodeFromString<List<MediaPart>>(raw)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Timber.w(e, "BackendMediaMapper: Failed to parse media parts JSON")
             emptyList()
         }
     }

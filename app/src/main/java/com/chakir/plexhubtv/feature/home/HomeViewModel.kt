@@ -224,7 +224,7 @@ class HomeViewModel
                 .onEach { show -> _uiState.update { it.copy(showSuggestions = show) } }
                 .launchIn(viewModelScope)
             settingsDataStore.homeRowOrder
-                .onEach { order -> _uiState.update { it.copy(homeRowOrder = order) } }
+                .onEach { order -> _uiState.update { it.copy(homeRowOrder = order.toImmutableList()) } }
                 .launchIn(viewModelScope)
         }
     }

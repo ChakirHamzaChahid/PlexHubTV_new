@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.feature.favorites
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.usecase.GetFavoritesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +38,7 @@ class FavoritesViewModel
     @Inject
     constructor(
         private val getFavoritesUseCase: GetFavoritesUseCase,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
 
         private val _sortOption = MutableStateFlow(FavoritesSortOption.DATE_ADDED)
         private val _isDescending = MutableStateFlow(true)

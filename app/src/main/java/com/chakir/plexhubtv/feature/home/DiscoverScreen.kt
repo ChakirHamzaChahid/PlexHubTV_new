@@ -145,7 +145,7 @@ fun DiscoverScreen(
                         hubs = state.hubs,
                         favorites = state.favorites,
                         suggestions = state.suggestions,
-                        onDeck = state.onDeck.toList(),
+                        onDeck = state.onDeck,
                         onAction = onAction,
                         showContinueWatching = state.showContinueWatching,
                         showMyList = state.showMyList,

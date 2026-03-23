@@ -22,12 +22,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.analytics
-import com.google.firebase.analytics.logEvent
+import com.chakir.plexhubtv.domain.service.AnalyticsService
 
 /**
  * ViewModel gérant les détails d'un média.
@@ -59,6 +58,7 @@ class MediaDetailViewModel
         private val deleteMediaUseCase: DeleteMediaUseCase,
         private val playlistRepository: PlaylistRepository,
         private val mediaDetailRepository: com.chakir.plexhubtv.domain.repository.MediaDetailRepository,
+        private val analyticsService: AnalyticsService,
         savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -107,11 +107,11 @@ class MediaDetailViewModel
             when (event) {
                 is MediaDetailEvent.PlayClicked -> {
                     val media = _uiState.value.media ?: return
-                    Firebase.analytics.logEvent("video_play") {
-                        param("media_type", media.type.name)
-                        param("title", media.title.take(100))
-                        param("server_id", media.serverId)
-                    }
+                    analyticsService.logEvent("video_play", mapOf(
+                        "media_type" to media.type.name,
+                        "title" to media.title.take(100),
+                        "server_id" to media.serverId,
+                    ))
                     viewModelScope.launch {
                         val opId = "playback_movie_${media.ratingKey}_${System.currentTimeMillis()}"
                         performanceTracker.startOperation(
@@ -301,7 +301,7 @@ class MediaDetailViewModel
                             playlistRepository.refreshPlaylists()
                             // Collect current playlists snapshot
                             val playlists = playlistRepository.getPlaylists().first()
-                            _uiState.update { it.copy(availablePlaylists = playlists, isLoadingPlaylists = false) }
+                            _uiState.update { it.copy(availablePlaylists = playlists.toImmutableList(), isLoadingPlaylists = false) }
                         } catch (e: Exception) {
                             Timber.e(e, "VM: Failed to load playlists")
                             _uiState.update { it.copy(isLoadingPlaylists = false) }
@@ -447,7 +447,7 @@ class MediaDetailViewModel
                         it.copy(
                             isLoading = false,
                             media = detail.item,
-                            seasons = detail.children,
+                            seasons = detail.children.toImmutableList(),
                             isEnriching = true,
                         )
                     }
@@ -552,7 +552,7 @@ class MediaDetailViewModel
                             items
                         }
                         Timber.d("VM: Loaded ${filtered.size} similar items for $ratingKey (${items.size} before filter)")
-                        _uiState.update { it.copy(similarItems = filtered) }
+                        _uiState.update { it.copy(similarItems = filtered.toImmutableList()) }
                     }
                     .onFailure { error ->
                         Timber.w(error, "VM: Failed to load similar items for $ratingKey")
@@ -574,12 +574,14 @@ class MediaDetailViewModel
                         // Merge seasons from other servers that are missing from the primary list
                         val existingIndices = currentState.seasons.map { it.seasonIndex ?: it.parentIndex }.toSet()
                         val supplementary = unifiedSeasons
-                            .filter { it.seasonIndex !in existingIndices && it.bestSeasonRatingKey != null && it.bestSeasonServerId != null }
-                            .map { unified ->
+                            .filter { it.seasonIndex !in existingIndices }
+                            .mapNotNull { unified ->
+                                val rk = unified.bestSeasonRatingKey ?: return@mapNotNull null
+                                val sid = unified.bestSeasonServerId ?: return@mapNotNull null
                                 MediaItem(
-                                    id = "unified-s${unified.seasonIndex}-${unified.bestSeasonServerId}",
-                                    ratingKey = unified.bestSeasonRatingKey!!,
-                                    serverId = unified.bestSeasonServerId!!,
+                                    id = "unified-s${unified.seasonIndex}-$sid",
+                                    ratingKey = rk,
+                                    serverId = sid,
                                     title = unified.title,
                                     type = MediaType.Season,
                                     thumbUrl = unified.thumbUrl,
@@ -594,7 +596,7 @@ class MediaDetailViewModel
                         } else {
                             currentState.seasons
                         }
-                        currentState.copy(unifiedSeasons = unifiedSeasons, seasons = mergedSeasons)
+                        currentState.copy(unifiedSeasons = unifiedSeasons.toImmutableList(), seasons = mergedSeasons.toImmutableList())
                     }
                 }.onFailure { error ->
                     Timber.w(error, "VM: Failed to load unified seasons")
@@ -624,7 +626,7 @@ class MediaDetailViewModel
                     }
                     Timber.d("VM: Got ${filtered.size} collection(s) from primary server (${result.size} before filter)")
 
-                    _uiState.update { it.copy(collections = filtered, isLoadingCollections = false) }
+                    _uiState.update { it.copy(collections = filtered.toImmutableList(), isLoadingCollections = false) }
                 } catch (e: Exception) {
                     Timber.e(e, "VM: Exception loading collections")
                     _uiState.update { it.copy(isLoadingCollections = false) }
@@ -658,7 +660,7 @@ class MediaDetailViewModel
 
                 if (newCollections.isNotEmpty()) {
                     Timber.d("VM: Found ${newCollections.size} additional collection(s) from remote servers")
-                    _uiState.update { it.copy(collections = it.collections + newCollections) }
+                    _uiState.update { it.copy(collections = (it.collections + newCollections).toImmutableList()) }
                 }
             }
         }

@@ -1,10 +1,10 @@
 package com.chakir.plexhubtv.feature.details
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.Person
 import com.chakir.plexhubtv.core.model.PersonCredit
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.core.network.ApiKeyManager
 import com.chakir.plexhubtv.core.network.TmdbApiService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,7 +44,7 @@ class PersonDetailViewModel @Inject constructor(
     private val personFavoriteRepository: PersonFavoriteRepository,
     private val settingsRepository: SettingsRepository,
     private val mediaDetailRepository: MediaDetailRepository,
-) : ViewModel() {
+) : BaseViewModel() {
 
     private val _uiState = MutableStateFlow(PersonDetailUiState())
     val uiState: StateFlow<PersonDetailUiState> = _uiState.asStateFlow()

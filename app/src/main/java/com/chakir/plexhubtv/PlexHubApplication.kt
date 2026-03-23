@@ -85,6 +85,8 @@ class PlexHubApplication : Application(), SingletonImageLoader.Factory, Configur
 
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
+        } else {
+            Timber.plant(com.chakir.plexhubtv.handler.CrashReportingTree(FirebaseCrashlytics.getInstance()))
         }
 
         // Move security + Firebase init off main thread (no UI dependency)

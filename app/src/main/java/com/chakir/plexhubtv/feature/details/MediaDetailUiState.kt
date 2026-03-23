@@ -1,21 +1,25 @@
 package com.chakir.plexhubtv.feature.details
 
+import androidx.compose.runtime.Immutable
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.Playlist
 import com.chakir.plexhubtv.core.model.UnifiedSeason
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * État de l'UI pour la vue Détail Média.
  * Contient le média principal, les saisons (si série), et les items similaires.
  * Les erreurs sont maintenant émises via errorEvents channel pour une gestion centralisée.
  */
+@Immutable
 data class MediaDetailUiState(
     val isLoading: Boolean = false,
     val media: MediaItem? = null,
-    val seasons: List<MediaItem> = emptyList(), // Only if media is Show
-    val unifiedSeasons: List<UnifiedSeason> = emptyList(), // Cross-server unified seasons
-    val similarItems: List<MediaItem> = emptyList(),
-    val collections: List<com.chakir.plexhubtv.core.model.Collection> = emptyList(),
+    val seasons: ImmutableList<MediaItem> = persistentListOf(), // Only if media is Show
+    val unifiedSeasons: ImmutableList<UnifiedSeason> = persistentListOf(), // Cross-server unified seasons
+    val similarItems: ImmutableList<MediaItem> = persistentListOf(),
+    val collections: ImmutableList<com.chakir.plexhubtv.core.model.Collection> = persistentListOf(),
     val showSourceSelection: Boolean = false,
     val selectedPlaybackItem: MediaItem? = null,
     val isOffline: Boolean = false,
@@ -25,7 +29,7 @@ data class MediaDetailUiState(
     val showDeleteConfirmation: Boolean = false,
     val isDeleting: Boolean = false,
     val showAddToPlaylist: Boolean = false,
-    val availablePlaylists: List<Playlist> = emptyList(),
+    val availablePlaylists: ImmutableList<Playlist> = persistentListOf(),
     val isLoadingPlaylists: Boolean = false,
     val isRefreshingMetadata: Boolean = false,
     val error: String? = null,

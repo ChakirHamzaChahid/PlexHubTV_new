@@ -5,6 +5,7 @@ import com.chakir.plexhubtv.domain.repository.BackendRepository
 import com.chakir.plexhubtv.domain.repository.JellyfinServerRepository
 import com.chakir.plexhubtv.domain.repository.XtreamAccountRepository
 import kotlinx.coroutines.flow.firstOrNull
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -41,21 +42,27 @@ class ServerNameResolver @Inject constructor(
                 ?.forEach { backend ->
                     map["backend_${backend.id}"] = backend.label
                 }
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            Timber.w(e, "ServerNameResolver: Failed to load backend servers")
+        }
 
         // Xtream accounts
         try {
             xtreamAccountRepository.observeAccounts().firstOrNull()?.forEach { account ->
                 map["xtream_${account.id}"] = account.label
             }
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            Timber.w(e, "ServerNameResolver: Failed to load Xtream accounts")
+        }
 
         // Jellyfin servers
         try {
             jellyfinServerRepository.getServers().forEach { server ->
                 map[server.prefixedServerId] = server.name
             }
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            Timber.w(e, "ServerNameResolver: Failed to load Jellyfin servers")
+        }
 
         return map
     }

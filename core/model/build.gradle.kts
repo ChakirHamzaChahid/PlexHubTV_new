@@ -26,6 +26,7 @@ android {
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
+    api(libs.kotlinx.collections.immutable)
     implementation(libs.androidx.compose.runtime.annotation)
 
     // Testing

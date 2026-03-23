@@ -1,9 +1,9 @@
 package com.chakir.plexhubtv.feature.collection
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.usecase.GetCollectionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -16,7 +16,7 @@ class CollectionDetailViewModel
     constructor(
         private val getCollectionUseCase: GetCollectionUseCase,
         savedStateHandle: SavedStateHandle,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         private val collectionId: String? = savedStateHandle["collectionId"]
         private val serverId: String? = savedStateHandle["serverId"]
 

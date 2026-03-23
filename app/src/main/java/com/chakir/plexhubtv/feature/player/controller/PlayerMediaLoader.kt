@@ -63,6 +63,7 @@ class PlayerMediaLoader
 
             var result: Result<MediaLoadResult>? = null
 
+            try {
             getMediaDetailUseCase(rKey, sId).collect { detailResult ->
                 detailResult.onSuccess { detail ->
                     playerScrobbler.resetAutoNext()
@@ -157,6 +158,10 @@ class PlayerMediaLoader
                 }.onFailure { e ->
                     result = Result.failure(e)
                 }
+            }
+            } catch (e: Exception) {
+                Timber.e(e, "PlayerMediaLoader: media detail flow failed for $rKey/$sId")
+                return Result.failure(e)
             }
 
             return result ?: Result.failure(Exception("Unknown error loading media"))

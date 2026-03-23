@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.feature.downloads
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.repository.DownloadsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -24,7 +24,7 @@ class DownloadsViewModel
     @Inject
     constructor(
         private val downloadsRepository: DownloadsRepository,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         private val _uiState = MutableStateFlow(DownloadsUiState(isLoading = true))
         val uiState: StateFlow<DownloadsUiState> = _uiState.asStateFlow()
 

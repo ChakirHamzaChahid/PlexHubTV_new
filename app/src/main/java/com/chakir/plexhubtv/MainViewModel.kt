@@ -14,9 +14,7 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.firstOrNull
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.analytics
-import com.google.firebase.analytics.logEvent
+import com.chakir.plexhubtv.domain.service.AnalyticsService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +36,7 @@ class MainViewModel @Inject constructor(
     private val connectionManager: ConnectionManager,
     private val updateChecker: UpdateChecker,
     private val settingsRepository: SettingsRepository,
+    private val analyticsService: AnalyticsService,
     val apkInstaller: ApkInstaller,
 ) : ViewModel() {
 
@@ -119,11 +118,9 @@ class MainViewModel @Inject constructor(
 
             // Track session expiration for monitoring (non-critical)
             try {
-                Firebase.analytics.logEvent("session_expired") {
-                    param("source", "401_interceptor")
-                }
+                analyticsService.logEvent("session_expired", mapOf("source" to "401_interceptor"))
             } catch (e: Exception) {
-                Timber.d(e, "Firebase analytics unavailable, skipping event")
+                Timber.d(e, "Analytics unavailable, skipping event")
             }
         }
     }

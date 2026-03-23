@@ -121,7 +121,8 @@ class LibrarySyncWorker
                                 .filter { it.type == "movie" || it.type == "show" }
                                 .filter { selectedIds.contains("${server.clientIdentifier}:${it.libraryKey}") }
                                 .map { SyncLibraryState(key = it.libraryKey, name = it.title) }
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            Timber.w(e, "LibrarySync: Failed to load cached library sections for ${server.name}")
                             emptyList()
                         }
                         SyncServerState(
@@ -258,7 +259,9 @@ class LibrarySyncWorker
                             "serverStates" to Json.encodeToString(serverStates.toList()),
                             "currentServerIdx" to currentServerIdx,
                         ))
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        Timber.w(e, "LibrarySync: Failed to report extras progress")
+                    }
 
                     // SYNC XTREAM ACCOUNTS (VOD + Series)
                     try {
@@ -338,7 +341,9 @@ class LibrarySyncWorker
                             "serverStates" to Json.encodeToString(serverStates.toList()),
                             "currentServerIdx" to currentServerIdx,
                         ))
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        Timber.w(e, "LibrarySync: Failed to report finalizing progress")
+                    }
 
                     if (failureCount == servers.size && servers.isNotEmpty()) {
                         Timber.w("✗ All ${servers.size} servers failed — scheduling retry: [$serverNames]")

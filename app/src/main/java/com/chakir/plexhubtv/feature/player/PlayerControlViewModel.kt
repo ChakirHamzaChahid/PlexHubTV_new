@@ -1,9 +1,9 @@
 package com.chakir.plexhubtv.feature.player
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
 import com.chakir.plexhubtv.feature.player.controller.TrickplayManager
@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -30,7 +31,7 @@ class PlayerControlViewModel @Inject constructor(
     val subtitleSearchService: com.chakir.plexhubtv.feature.player.controller.SubtitleSearchService,
     val audioEqualizerManager: com.chakir.plexhubtv.feature.player.controller.AudioEqualizerManager,
     settingsRepository: SettingsRepository,
-) : ViewModel() {
+) : BaseViewModel() {
 
     val uiState = playerController.uiState
 
@@ -59,7 +60,7 @@ class PlayerControlViewModel @Inject constructor(
             playbackManager.state.collect { pbState ->
                 playerController.updateState {
                     it.copy(
-                        playQueue = pbState.playQueue,
+                        playQueue = pbState.playQueue.toImmutableList(),
                         currentQueueIndex = pbState.currentIndex,
                     )
                 }

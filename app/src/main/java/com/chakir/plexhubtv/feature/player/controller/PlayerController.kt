@@ -32,6 +32,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import com.chakir.plexhubtv.feature.player.mpv.MpvConfig
 import timber.log.Timber
+import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -349,8 +350,8 @@ class PlayerController @Inject constructor(
                 isPlaying = true,
                 isBuffering = true,
                 currentPosition = if (it.currentItem?.id != mediaItem.id) 0L else it.currentPosition,
-                audioTracks = audios,
-                subtitleTracks = subtitles,
+                audioTracks = audios.toImmutableList(),
+                subtitleTracks = subtitles.toImmutableList(),
                 selectedAudio = audios.find { t -> t.isSelected },
                 selectedSubtitle = subtitles.find { t -> t.isSelected } ?: SubtitleTrack.OFF,
             )
@@ -848,8 +849,8 @@ class PlayerController @Inject constructor(
                     nextItem = next,
                     showAutoNextPopup = false,
                     currentPosition = if (it.currentItem?.id != media.id) 0L else it.currentPosition,
-                    audioTracks = audios,
-                    subtitleTracks = subtitles,
+                    audioTracks = audios.toImmutableList(),
+                    subtitleTracks = subtitles.toImmutableList(),
                     selectedAudio = audios.find { t -> t.isSelected },
                     selectedSubtitle = subtitles.find { t -> t.isSelected } ?: SubtitleTrack.OFF
                 )

@@ -51,6 +51,7 @@ import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.HandleErrors
+import kotlinx.collections.immutable.toImmutableList
 import com.chakir.plexhubtv.core.ui.DetailHeroSkeleton
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
@@ -451,7 +452,7 @@ fun PreviewMediaDetailShow() {
             MediaItem(id = "s2", ratingKey = "s2", serverId = "s1", title = "Season 2", type = MediaType.Season, thumbUrl = ""),
         )
     MediaDetailScreen(
-        state = MediaDetailUiState(media = show, seasons = seasons),
+        state = MediaDetailUiState(media = show, seasons = seasons.toImmutableList()),
         onAction = {},
         onCollectionClicked = { _, _ -> },
         snackbarHostState = remember { SnackbarHostState() },
