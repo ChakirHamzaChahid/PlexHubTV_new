@@ -282,7 +282,7 @@ fun AppProfileListItem(
 @Preview(showBackground = true)
 @Composable
 fun PreviewAppProfileSwitchScreen() {
-    val profiles = listOf(
+    val profiles = kotlinx.collections.immutable.persistentListOf(
         Profile(id = "1", name = "Chakir", avatarEmoji = "\uD83D\uDC64"),
         Profile(id = "2", name = "Guest", avatarEmoji = "\uD83D\uDC65"),
     )

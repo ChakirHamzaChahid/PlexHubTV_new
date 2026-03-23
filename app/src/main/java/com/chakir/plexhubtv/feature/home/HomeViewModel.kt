@@ -117,7 +117,7 @@ class HomeViewModel
                 is HomeAction.OpenMedia -> {
                     if (action.media.serverId == "watchlist") {
                         _errorEvents.trySend(
-                            AppError.Media.NotFound("Ce titre n'est pas disponible dans votre librairie"),
+                            AppError.Media.NotFound(),
                         )
                     } else {
                         viewModelScope.launch {
@@ -130,7 +130,7 @@ class HomeViewModel
                 is HomeAction.PlayMedia -> {
                     if (action.media.serverId == "watchlist") {
                         _errorEvents.trySend(
-                            AppError.Media.NotFound("Ce titre n'est pas disponible dans votre librairie"),
+                            AppError.Media.NotFound(),
                         )
                     } else {
                         viewModelScope.launch {
@@ -214,18 +214,21 @@ class HomeViewModel
         }
 
         private fun observeHomeRowPreferences() {
-            settingsDataStore.showContinueWatching
-                .onEach { show -> _uiState.update { it.copy(showContinueWatching = show) } }
-                .launchIn(viewModelScope)
-            settingsDataStore.showMyList
-                .onEach { show -> _uiState.update { it.copy(showMyList = show) } }
-                .launchIn(viewModelScope)
-            settingsDataStore.showSuggestions
-                .onEach { show -> _uiState.update { it.copy(showSuggestions = show) } }
-                .launchIn(viewModelScope)
-            settingsDataStore.homeRowOrder
-                .onEach { order -> _uiState.update { it.copy(homeRowOrder = order.toImmutableList()) } }
-                .launchIn(viewModelScope)
+            combine(
+                settingsDataStore.showContinueWatching,
+                settingsDataStore.showMyList,
+                settingsDataStore.showSuggestions,
+                settingsDataStore.homeRowOrder,
+            ) { showContinueWatching, showMyList, showSuggestions, homeRowOrder ->
+                _uiState.update {
+                    it.copy(
+                        showContinueWatching = showContinueWatching,
+                        showMyList = showMyList,
+                        showSuggestions = showSuggestions,
+                        homeRowOrder = homeRowOrder.toImmutableList(),
+                    )
+                }
+            }.launchIn(viewModelScope)
         }
     }
 

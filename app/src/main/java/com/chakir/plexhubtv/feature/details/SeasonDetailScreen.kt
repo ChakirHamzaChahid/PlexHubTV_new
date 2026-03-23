@@ -199,6 +199,12 @@ fun SeasonDetailScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = NetflixLightGray,
                             )
+                            Spacer(Modifier.height(24.dp))
+                            Button(
+                                onClick = { onAction(SeasonDetailEvent.Retry) },
+                            ) {
+                                Text("Retry")
+                            }
                         }
                     }
                 }

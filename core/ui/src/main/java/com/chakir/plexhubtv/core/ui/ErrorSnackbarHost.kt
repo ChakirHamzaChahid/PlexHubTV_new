@@ -1,7 +1,6 @@
 package com.chakir.plexhubtv.core.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import android.content.Context
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,11 +28,10 @@ import androidx.compose.ui.unit.dp
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.isCritical
 import com.chakir.plexhubtv.core.model.isRetryable
-import com.chakir.plexhubtv.core.model.toUserMessage
 
 /**
- * Host pour afficher les snackbars d'erreur de manière cohérente dans l'app.
- * Adapté pour Android TV avec focus et design approprié.
+ * Host for displaying error snackbars consistently across the app.
+ * Adapted for Android TV with focus and appropriate design.
  */
 @Composable
 fun ErrorSnackbarHost(
@@ -50,7 +48,8 @@ fun ErrorSnackbarHost(
 }
 
 /**
- * Snackbar personnalisé pour afficher les erreurs avec icône et style approprié
+ * Custom snackbar for displaying errors with icon and appropriate style.
+ * Uses snackbar metadata prefix to determine severity without language-dependent matching.
  */
 @Composable
 private fun ErrorSnackbar(
@@ -61,16 +60,15 @@ private fun ErrorSnackbar(
     val containerColor: Color
     val contentColor: Color
 
-    // Déterminer l'icône et les couleurs selon le type de message
+    // Determine icon and colors based on metadata prefix (language-independent)
+    val message = snackbarData.visuals.message
     when {
-        snackbarData.visuals.message.contains("critique", ignoreCase = true) ||
-        snackbarData.visuals.message.contains("expiré", ignoreCase = true) -> {
+        message.startsWith(SEVERITY_CRITICAL) -> {
             icon = Icons.Default.Error
             containerColor = MaterialTheme.colorScheme.error
             contentColor = MaterialTheme.colorScheme.onError
         }
-        snackbarData.visuals.message.contains("attention", ignoreCase = true) ||
-        snackbarData.visuals.message.contains("impossible", ignoreCase = true) -> {
+        message.startsWith(SEVERITY_WARNING) -> {
             icon = Icons.Default.Warning
             containerColor = MaterialTheme.colorScheme.errorContainer
             contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -81,6 +79,11 @@ private fun ErrorSnackbar(
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         }
     }
+
+    // Strip the severity prefix before displaying
+    val displayMessage = message
+        .removePrefix(SEVERITY_CRITICAL)
+        .removePrefix(SEVERITY_WARNING)
 
     Snackbar(
         modifier = modifier
@@ -114,7 +117,7 @@ private fun ErrorSnackbar(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = snackbarData.visuals.message,
+                text = displayMessage,
                 style = MaterialTheme.typography.bodyMedium,
                 color = contentColor
             )
@@ -122,23 +125,35 @@ private fun ErrorSnackbar(
     }
 }
 
+private const val SEVERITY_CRITICAL = "[CRITICAL]"
+private const val SEVERITY_WARNING = "[WARNING]"
+
 /**
- * Extension pour afficher une erreur AppError via un SnackbarHostState
+ * Extension to show an [AppError] via a [SnackbarHostState] with localized message.
  */
 suspend fun SnackbarHostState.showError(
     error: AppError,
+    context: Context,
     actionLabel: String? = null
 ): androidx.compose.material3.SnackbarResult {
-    val message = error.toUserMessage()
+    val resolvedMessage = error.resolveMessage(context)
+
+    // Prefix with severity marker for the snackbar UI to style appropriately
+    val prefixedMessage = when {
+        error.isCritical() -> "$SEVERITY_CRITICAL$resolvedMessage"
+        error.isRetryable() -> "$SEVERITY_WARNING$resolvedMessage"
+        else -> resolvedMessage
+    }
+
     val action = when {
         actionLabel != null -> actionLabel
-        error.isRetryable() -> "Réessayer"
-        error.isCritical() -> "OK"
+        error.isRetryable() -> context.getString(R.string.error_action_retry)
+        error.isCritical() -> context.getString(R.string.error_action_ok)
         else -> null
     }
 
     return showSnackbar(
-        message = message,
+        message = prefixedMessage,
         actionLabel = action,
         withDismissAction = true,
         duration = if (error.isCritical()) {
@@ -150,7 +165,7 @@ suspend fun SnackbarHostState.showError(
 }
 
 /**
- * Extension pour afficher un message d'erreur simple
+ * Extension to show a simple error message string.
  */
 suspend fun SnackbarHostState.showErrorMessage(
     message: String,

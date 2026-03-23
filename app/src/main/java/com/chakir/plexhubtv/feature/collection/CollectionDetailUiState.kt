@@ -1,8 +1,10 @@
 package com.chakir.plexhubtv.feature.collection
 
+import androidx.compose.runtime.Immutable
 import com.chakir.plexhubtv.core.model.Collection
 import com.chakir.plexhubtv.core.model.MediaItem
 
+@Immutable
 data class CollectionDetailUiState(
     val isLoading: Boolean = false,
     val collection: Collection? = null,

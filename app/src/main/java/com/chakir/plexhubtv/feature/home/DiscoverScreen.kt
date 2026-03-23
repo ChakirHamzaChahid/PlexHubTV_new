@@ -264,6 +264,7 @@ fun AnimatedBackground(
                 model =
                     coil3.request.ImageRequest.Builder(LocalContext.current)
                         .data(targetUrl)
+                        .size(640, 360)
                         .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

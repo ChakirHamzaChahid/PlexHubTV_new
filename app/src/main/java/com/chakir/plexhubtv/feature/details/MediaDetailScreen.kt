@@ -155,6 +155,27 @@ fun MediaDetailScreen(
                     onAction = onAction,
                     onCollectionClicked = onCollectionClicked,
                 )
+            } else {
+                // Content not found state
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            stringResource(com.chakir.plexhubtv.core.ui.R.string.error_media_not_found),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White,
+                        )
+                    }
+                }
             }
         }
     

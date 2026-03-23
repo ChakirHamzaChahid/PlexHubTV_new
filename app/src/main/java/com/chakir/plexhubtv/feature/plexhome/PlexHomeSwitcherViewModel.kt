@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.feature.common.launchLoading
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,7 +72,7 @@ class PlexHomeSwitcherViewModel
                 onSuccess = { users ->
                     val duration = System.currentTimeMillis() - startTime
                     Timber.i("SCREEN [PlexHomeSwitch] SUCCESS: duration=${duration}ms | users=${users.size}")
-                    _uiState.update { it.copy(isLoading = false, users = users) }
+                    _uiState.update { it.copy(isLoading = false, users = users.toImmutableList()) }
                 },
                 onFailure = { error ->
                     val duration = System.currentTimeMillis() - startTime

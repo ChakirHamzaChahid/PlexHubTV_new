@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -165,7 +167,7 @@ class SettingsViewModel
                     val idx = current.indexOf(action.rowId)
                     if (idx > 0) {
                         current[idx] = current[idx - 1].also { current[idx - 1] = current[idx] }
-                        _uiState.update { it.copy(homeRowOrder = current) }
+                        _uiState.update { it.copy(homeRowOrder = current.toImmutableList()) }
                         viewModelScope.launch { settingsRepository.saveHomeRowOrder(current) }
                     }
                 }
@@ -174,7 +176,7 @@ class SettingsViewModel
                     val idx = current.indexOf(action.rowId)
                     if (idx >= 0 && idx < current.size - 1) {
                         current[idx] = current[idx + 1].also { current[idx + 1] = current[idx] }
-                        _uiState.update { it.copy(homeRowOrder = current) }
+                        _uiState.update { it.copy(homeRowOrder = current.toImmutableList()) }
                         viewModelScope.launch { settingsRepository.saveHomeRowOrder(current) }
                     }
                 }
@@ -653,21 +655,21 @@ class SettingsViewModel
 
         private fun observeBackendServers() {
             backendRepository.observeServers()
-                .onEach { servers -> _uiState.update { it.copy(backendServers = servers) } }
+                .onEach { servers -> _uiState.update { it.copy(backendServers = servers.toImmutableList()) } }
                 .catch { e -> Timber.e(e, "Failed to observe backend servers") }
                 .launchIn(viewModelScope)
         }
 
         private fun observeXtreamAccounts() {
             xtreamAccountRepository.observeAccounts()
-                .onEach { accounts -> _uiState.update { it.copy(xtreamAccounts = accounts) } }
+                .onEach { accounts -> _uiState.update { it.copy(xtreamAccounts = accounts.toImmutableList()) } }
                 .catch { e -> Timber.e(e, "Failed to observe Xtream accounts") }
                 .launchIn(viewModelScope)
         }
 
         private fun observeJellyfinServers() {
             jellyfinServerRepository.observeServers()
-                .onEach { servers -> _uiState.update { it.copy(jellyfinServers = servers) } }
+                .onEach { servers -> _uiState.update { it.copy(jellyfinServers = servers.toImmutableList()) } }
                 .catch { e -> Timber.e(e, "Failed to observe Jellyfin servers") }
                 .launchIn(viewModelScope)
         }
@@ -683,8 +685,8 @@ class SettingsViewModel
                 val duration = System.currentTimeMillis() - serverStart
                 serversResult.getOrNull()?.let { servers ->
                     Timber.i("SCREEN [Settings] SUCCESS: Servers loaded in ${duration}ms | Count=${servers.size}")
-                    val serverNames = listOf(ALL_SERVERS_SENTINEL) + servers.map { it.name }
-                    val serverMap = servers.associate { it.name to it.clientIdentifier }
+                    val serverNames = (listOf(ALL_SERVERS_SENTINEL) + servers.map { it.name }).toImmutableList()
+                    val serverMap = servers.associate { it.name to it.clientIdentifier }.toImmutableMap()
                     _uiState.update { it.copy(availableServers = serverNames, availableServersMap = serverMap) }
                 }
             }
@@ -786,7 +788,7 @@ class SettingsViewModel
                 .catch { e -> Timber.e(e, "Settings: showSuggestions flow failed") }
                 .launchIn(viewModelScope)
             settingsRepository.homeRowOrder
-                .onEach { order -> _uiState.update { it.copy(homeRowOrder = order) } }
+                .onEach { order -> _uiState.update { it.copy(homeRowOrder = order.toImmutableList()) } }
                 .catch { e -> Timber.e(e, "Settings: homeRowOrder flow failed") }
                 .launchIn(viewModelScope)
 

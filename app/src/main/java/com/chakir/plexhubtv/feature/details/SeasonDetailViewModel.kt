@@ -43,6 +43,8 @@ sealed interface SeasonDetailEvent {
 
     data object ToggleFavorite : SeasonDetailEvent
 
+    data object Retry : SeasonDetailEvent
+
     data object Back : SeasonDetailEvent
 }
 
@@ -249,6 +251,9 @@ class SeasonDetailViewModel
                         // Then reload or update state manually
                         loadSeason()
                     }
+                }
+                is SeasonDetailEvent.Retry -> {
+                    loadSeason()
                 }
             }
         }

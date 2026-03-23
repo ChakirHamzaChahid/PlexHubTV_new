@@ -58,15 +58,16 @@ fun FallbackAsyncImage(
         return
     }
 
-    AsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
+    val context = LocalContext.current
+    val model = remember(currentUrl, imageWidth, imageHeight) {
+        ImageRequest.Builder(context)
             .data(currentUrl)
             .size(imageWidth, imageHeight)
             .crossfade(200)
             .memoryCachePolicy(coil3.request.CachePolicy.ENABLED)
             .diskCachePolicy(coil3.request.CachePolicy.ENABLED)
             .listener(
-                onError = { request, result ->
+                onError = { _, result ->
                     val nextIndex = currentUrlIndex + 1
                     if (nextIndex < allUrls.size) {
                         Timber.w("Image load failed for URL $currentUrl (${result.throwable.message}), trying fallback ${nextIndex + 1}/${allUrls.size}")
@@ -75,13 +76,17 @@ fun FallbackAsyncImage(
                         Timber.e("All ${allUrls.size} image URLs failed for $primaryUrl")
                     }
                 },
-                onSuccess = { request, result ->
+                onSuccess = { _, _ ->
                     if (currentUrlIndex > 0) {
                         Timber.i("Image loaded successfully from fallback URL #${currentUrlIndex + 1}: $currentUrl")
                     }
                 }
             )
-            .build(),
+            .build()
+    }
+
+    AsyncImage(
+        model = model,
         contentDescription = contentDescription,
         contentScale = contentScale,
         modifier = modifier

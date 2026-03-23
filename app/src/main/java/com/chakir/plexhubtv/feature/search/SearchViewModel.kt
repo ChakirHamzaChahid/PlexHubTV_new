@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -74,12 +76,12 @@ class SearchViewModel
                     _uiState.update { it.copy(query = action.query) }
                     savedStateHandle["search_query"] = action.query
                     if (action.query.isBlank()) {
-                        _uiState.update { it.copy(searchState = SearchState.Idle, results = emptyList()) }
+                        _uiState.update { it.copy(searchState = SearchState.Idle, results = persistentListOf()) }
                         searchJob?.cancel()
                     }
                 }
                 is SearchAction.ClearQuery -> {
-                    _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = emptyList()) }
+                    _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = persistentListOf()) }
                     savedStateHandle["search_query"] = ""
                     searchJob?.cancel()
                 }
@@ -137,7 +139,7 @@ class SearchViewModel
                                 Timber.i("SCREEN [Search] SUCCESS: query='$query' Load Duration=${duration}ms | Results=${filtered.size}")
                                 _uiState.update {
                                     it.copy(
-                                        results = filtered,
+                                        results = filtered.toImmutableList(),
                                         searchState = if (filtered.isNotEmpty()) SearchState.Results else SearchState.NoResults,
                                     )
                                 }

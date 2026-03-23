@@ -59,7 +59,6 @@ fun NetflixHomeContent(
     }
 
     // Determine which special rows are active (visible + have data)
-    data class SpecialRow(val id: String, val hasData: Boolean)
     val rowAvailability = mapOf(
         "continue_watching" to (showContinueWatching && onDeck.isNotEmpty()),
         "my_list" to (showMyList && favorites.isNotEmpty()),

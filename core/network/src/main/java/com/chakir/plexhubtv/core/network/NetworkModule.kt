@@ -106,7 +106,7 @@ object NetworkModule {
     fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.HEADERS
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
@@ -276,6 +276,7 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
+            .addNetworkInterceptor(PlexCacheInterceptor())
             .cache(cache) // Issue #117 (AGENT-8-001): Enable HTTP disk cache
             .connectionPool(okhttp3.ConnectionPool(5, 5, TimeUnit.MINUTES))
             .sslSocketFactory(sslContext.socketFactory, localAwareTrustManager)

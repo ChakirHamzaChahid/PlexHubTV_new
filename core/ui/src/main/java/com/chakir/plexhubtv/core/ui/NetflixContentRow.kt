@@ -99,8 +99,10 @@ fun NetflixContentRow(
                     onClick = onClick,
                     onPlay = onPlay,
                     onLongPress = longPress,
-                    onFocus = { isFocused ->
-                        if (isFocused) onItemFocused?.invoke(item)
+                    onFocus = remember(item.ratingKey, item.serverId) {
+                        { isFocused: Boolean ->
+                            if (isFocused) onItemFocused?.invoke(item)
+                        }
                     },
                     showYear = showYear,
                 )

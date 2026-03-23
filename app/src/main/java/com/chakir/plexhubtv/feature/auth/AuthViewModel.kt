@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -140,7 +141,7 @@ class AuthViewModel
             authRepository.getServers()
                 .onSuccess { servers ->
                     analyticsService.logEvent("auth_success", mapOf("server_count" to servers.size.toLong()))
-                    _uiState.value = AuthUiState.Success(servers)
+                    _uiState.value = AuthUiState.Success(servers.toImmutableList())
                 }
                 .onFailure { e ->
                     _uiState.value = AuthUiState.Error("Linked, but failed to load servers: ${e.message}")

@@ -112,6 +112,7 @@ interface MediaDao {
     @Query("DELETE FROM media WHERE serverId = :serverId")
     suspend fun deleteAllMediaByServerId(serverId: String)
 
+    @Deprecated("Use searchMediaFts for better performance on large libraries", replaceWith = ReplaceWith("searchMediaFts(query, type)"))
     @Query("SELECT * FROM media WHERE type = :type AND title LIKE '%' || :query || '%' ORDER BY title ASC")
     suspend fun searchMedia(
         query: String,
