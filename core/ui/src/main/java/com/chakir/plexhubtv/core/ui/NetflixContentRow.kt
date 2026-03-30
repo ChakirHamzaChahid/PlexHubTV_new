@@ -26,7 +26,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.compose.foundation.lazy.LazyColumn // ✅ Depuis tv-material
 import androidx.compose.foundation.lazy.LazyRow // ✅ Depuis tv-material (pas foundation)
-import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
 import kotlinx.collections.immutable.ImmutableList
 
@@ -61,7 +60,7 @@ fun NetflixContentRow(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = NetflixWhite,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 48.dp, bottom = 12.dp)
         )
 

@@ -4,25 +4,29 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+// === CINEMA GOLD REFONTE ===
 /**
  * Custom shimmer effect for skeleton loading states.
  * Creates an animated gradient that moves from left to right.
+ * Uses theme-aware colors for proper rendering across all themes.
  */
 @Composable
 fun shimmerBrush(): Brush {
+    val shimmerBase = MaterialTheme.colorScheme.onSurface
     val shimmerColors = listOf(
-        Color.White.copy(alpha = 0.15f),
-        Color.White.copy(alpha = 0.25f),
-        Color.White.copy(alpha = 0.15f),
+        shimmerBase.copy(alpha = 0.15f),
+        shimmerBase.copy(alpha = 0.25f),
+        shimmerBase.copy(alpha = 0.15f),
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")

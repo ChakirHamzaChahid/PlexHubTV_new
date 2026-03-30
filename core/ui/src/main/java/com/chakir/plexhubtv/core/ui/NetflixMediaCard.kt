@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 
@@ -95,8 +94,10 @@ fun NetflixMediaCard(
         animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
         label = "scale"
     )
+    // === CINEMA GOLD REFONTE ===
+    val cs = MaterialTheme.colorScheme
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color.Transparent,
+        targetValue = if (isFocused) cs.onBackground else Color.Transparent,
         animationSpec = tween(durationMillis = 200),
         label = "border"
     )
@@ -195,7 +196,7 @@ fun NetflixMediaCard(
                     .graphicsLayer { alpha = scrimAlpha }
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
+                            colors = listOf(Color.Transparent, cs.background.copy(alpha = 0.9f)),
                             startY = 0f,
                             endY = Float.POSITIVE_INFINITY
                         )
@@ -210,7 +211,7 @@ fun NetflixMediaCard(
                         .align(Alignment.TopEnd)
                         .padding(6.dp)
                         .background(
-                            color = Color.Black.copy(alpha = 0.75f),
+                            color = cs.background.copy(alpha = 0.75f),
                             shape = RoundedCornerShape(4.dp)
                         )
                         .padding(horizontal = 6.dp, vertical = 3.dp)
@@ -222,14 +223,14 @@ fun NetflixMediaCard(
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
-                            tint = Color(0xFFFFD700), // Gold color
+                            tint = cs.tertiary,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = String.format("%.1f", rating),
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
+                            color = cs.onBackground,
                             fontSize = 14.sp, // Increased from 11sp for TV readability
                             fontWeight = FontWeight.Bold
                         )
@@ -246,7 +247,7 @@ fun NetflixMediaCard(
                         .align(Alignment.TopStart)
                         .padding(6.dp)
                         .background(
-                            color = Color(0xFF2196F3).copy(alpha = 0.85f), // Blue color for multi-server
+                            color = cs.secondary.copy(alpha = 0.85f),
                             shape = RoundedCornerShape(4.dp)
                         )
                         .padding(horizontal = 6.dp, vertical = 3.dp)
@@ -258,14 +259,14 @@ fun NetflixMediaCard(
                         Icon(
                             imageVector = Icons.Default.Cloud,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = cs.onBackground,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = serverCount.toString(),
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
+                            color = cs.onBackground,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -355,7 +356,7 @@ fun NetflixMediaCard(
                     text = media.title,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = cs.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -365,7 +366,7 @@ fun NetflixMediaCard(
                     Text(
                         text = media.year.toString(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = cs.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
@@ -386,6 +387,7 @@ fun NetflixMediaCard(
     }
 }
 
+// === CINEMA GOLD REFONTE ===
 @Composable
 fun NetflixProgressBar(
     progress: Float,
@@ -394,6 +396,7 @@ fun NetflixProgressBar(
     ratingKey: String = "",
     modifier: Modifier = Modifier
 ) {
+    val cs = MaterialTheme.colorScheme
     val progressPercent = (progress * 100).toInt()
     Column(
         modifier = modifier
@@ -417,8 +420,8 @@ fun NetflixProgressBar(
                 Text(
                     text = remainingText,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 14.sp, // Increased from 10sp for TV readability
+                    color = cs.onBackground.copy(alpha = 0.9f),
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.align(Alignment.CenterEnd)
                 )
@@ -429,14 +432,14 @@ fun NetflixProgressBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(4.dp) // Increased from 2dp for better visibility
-                .background(Color.Gray.copy(alpha = 0.3f))
+                .height(4.dp)
+                .background(cs.onSurfaceVariant.copy(alpha = 0.3f))
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progress)
                     .height(4.dp)
-                    .background(NetflixRed)
+                    .background(cs.primary)
             )
         }
     }
@@ -444,10 +447,11 @@ fun NetflixProgressBar(
 
 @Composable
 private fun WatchedBadge(modifier: Modifier = Modifier) {
+    val cs = MaterialTheme.colorScheme
     Box(
         modifier = modifier
             .background(
-                color = Color.Black.copy(alpha = 0.75f),
+                color = cs.background.copy(alpha = 0.75f),
                 shape = RoundedCornerShape(4.dp),
             )
             .padding(horizontal = 6.dp, vertical = 3.dp),
@@ -456,14 +460,14 @@ private fun WatchedBadge(modifier: Modifier = Modifier) {
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = null,
-                tint = Color(0xFF66BB6A),
+                tint = Color(0xFF66BB6A), // Keep green — universal semantic "watched"
                 modifier = Modifier.size(12.dp),
             )
             Spacer(Modifier.width(3.dp))
             Text(
                 text = stringResource(R.string.watched_badge),
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White,
+                color = cs.onBackground,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
             )
