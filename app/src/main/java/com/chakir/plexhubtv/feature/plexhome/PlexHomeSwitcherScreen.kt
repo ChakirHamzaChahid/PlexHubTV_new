@@ -36,7 +36,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.PlexHomeUser
 
 /**
@@ -163,7 +162,7 @@ fun PlexHomeSwitcherScreen(
                         .fillMaxSize()
                         .testTag("profile_switching")
                         .semantics { contentDescription = switchingDescription }
-                        .background(Color.Black.copy(alpha = 0.5f)),
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
@@ -204,7 +203,7 @@ fun PlexHomeUserCard(
             )
             .border(
                 width = if (isFocused) 4.dp else 0.dp,
-                color = if (isFocused) NetflixRed else Color.Transparent,
+                color = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = RoundedCornerShape(12.dp),
             )
             .clip(RoundedCornerShape(12.dp))
@@ -229,7 +228,7 @@ fun PlexHomeUserCard(
             text = user.title,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
-            color = if (isFocused) NetflixRed else MaterialTheme.colorScheme.onBackground,
+            color = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
         )
         if (user.protected || user.hasPassword) {

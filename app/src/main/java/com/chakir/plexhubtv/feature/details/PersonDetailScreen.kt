@@ -53,8 +53,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.Person
 import com.chakir.plexhubtv.core.model.PersonCredit
 
@@ -95,20 +93,20 @@ private fun PersonDetailScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NetflixBlack),
+            .background(MaterialTheme.colorScheme.background),
     ) {
         when {
             state.isLoading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
             }
 
             state.error != null -> {
                 Text(
                     text = state.error,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.align(Alignment.Center),
                 )
@@ -170,6 +168,7 @@ private fun PersonFixedHeader(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val cs = MaterialTheme.colorScheme
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -196,7 +195,7 @@ private fun PersonFixedHeader(
                     Text(
                         text = person.name,
                         style = MaterialTheme.typography.headlineLarge,
-                        color = Color.White,
+                        color = cs.onBackground,
                         fontWeight = FontWeight.Bold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -207,7 +206,7 @@ private fun PersonFixedHeader(
                         Icon(
                             imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = stringResource(if (isFavorite) R.string.person_remove_favorite else R.string.person_add_favorite),
-                            tint = if (isFavorite) Color(0xFFE91E63) else Color.White.copy(alpha = 0.7f),
+                            tint = if (isFavorite) Color(0xFFE91E63) else cs.onBackground.copy(alpha = 0.7f),
                             modifier = Modifier.size(28.dp),
                         )
                     }
@@ -225,7 +224,7 @@ private fun PersonFixedHeader(
                     Text(
                         text = metaItems.joinToString(" \u2022 "),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = NetflixLightGray,
+                        color = cs.onSurfaceVariant,
                     )
                 }
 
@@ -235,7 +234,7 @@ private fun PersonFixedHeader(
                     Text(
                         text = bio,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = cs.onBackground.copy(alpha = 0.9f),
                         maxLines = 6,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -250,7 +249,7 @@ private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleLarge,
-        color = Color.White,
+        color = MaterialTheme.colorScheme.onBackground,
         fontWeight = FontWeight.Bold,
         modifier = modifier,
     )
@@ -272,6 +271,7 @@ private fun CreditRow(credits: List<PersonCredit>, onCreditClick: (PersonCredit)
 private fun CreditCard(credit: PersonCredit, onCreditClick: (PersonCredit) -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val cs = MaterialTheme.colorScheme
 
     Column(
         modifier = Modifier
@@ -293,9 +293,9 @@ private fun CreditCard(credit: PersonCredit, onCreditClick: (PersonCredit) -> Un
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color.DarkGray)
+                .background(cs.surfaceVariant)
                 .then(
-                    if (isFocused) Modifier.border(2.dp, Color.White, RoundedCornerShape(8.dp))
+                    if (isFocused) Modifier.border(2.dp, cs.onBackground, RoundedCornerShape(8.dp))
                     else Modifier
                 ),
         )
@@ -303,7 +303,7 @@ private fun CreditCard(credit: PersonCredit, onCreditClick: (PersonCredit) -> Un
         Text(
             text = credit.title,
             style = MaterialTheme.typography.bodySmall,
-            color = if (isFocused) Color.White else Color.White.copy(alpha = 0.8f),
+            color = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.8f),
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -313,7 +313,7 @@ private fun CreditCard(credit: PersonCredit, onCreditClick: (PersonCredit) -> Un
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
-                color = NetflixLightGray,
+                color = cs.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -322,7 +322,7 @@ private fun CreditCard(credit: PersonCredit, onCreditClick: (PersonCredit) -> Un
             Text(
                 text = it,
                 style = MaterialTheme.typography.labelSmall,
-                color = NetflixLightGray.copy(alpha = 0.7f),
+                color = cs.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
     }

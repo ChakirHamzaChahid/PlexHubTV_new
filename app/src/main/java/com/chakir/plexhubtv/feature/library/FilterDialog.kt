@@ -41,9 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
-
-private val DialogBackground = Color(0xFF1A1A1A)
 
 /**
  * Server filter dialog — Netflix dark style.
@@ -62,6 +59,8 @@ fun ServerFilterDialog(
         focusRequester.requestFocus()
     }
 
+    val cs = MaterialTheme.colorScheme
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -69,13 +68,13 @@ fun ServerFilterDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(0.5f),
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     DialogHeader(
@@ -110,7 +109,7 @@ fun ServerFilterDialog(
                     } else {
                         Text(
                             stringResource(R.string.filter_no_servers),
-                            color = NetflixLightGray,
+                            color = cs.onSurfaceVariant,
                         )
                     }
                 }
@@ -141,6 +140,8 @@ fun GenreFilterDialog(
         focusRequester.requestFocus()
     }
 
+    val cs = MaterialTheme.colorScheme
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -148,13 +149,13 @@ fun GenreFilterDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(0.5f),
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     DialogHeader(
@@ -194,7 +195,7 @@ fun GenreFilterDialog(
                     } else {
                         Text(
                             stringResource(R.string.filter_no_genres),
-                            color = NetflixLightGray,
+                            color = cs.onSurfaceVariant,
                         )
                     }
                 }
@@ -220,6 +221,8 @@ fun SortDialog(
         focusRequester.requestFocus()
     }
 
+    val cs = MaterialTheme.colorScheme
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -227,13 +230,13 @@ fun SortDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(0.35f),
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     DialogHeader(
@@ -259,8 +262,8 @@ fun SortDialog(
                                 .fillMaxWidth()
                                 .background(
                                     when {
-                                        isFocused -> Color.White
-                                        isCurrent -> Color.White.copy(alpha = 0.08f)
+                                        isFocused -> cs.onBackground
+                                        isCurrent -> cs.onBackground.copy(alpha = 0.08f)
                                         else -> Color.Transparent
                                     },
                                     RoundedCornerShape(8.dp),
@@ -282,14 +285,14 @@ fun SortDialog(
                                 option,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isFocused) Color.Black else Color.White,
+                                color = if (isFocused) cs.background else cs.onBackground,
                             )
                             if (isCurrent) {
                                 Text(
                                     if (isDescending) "↓" else "↑",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isFocused) Color.Black else Color.White,
+                                    color = if (isFocused) cs.background else cs.onBackground,
                                 )
                             }
                         }
@@ -307,6 +310,7 @@ private fun DialogHeader(
     title: String,
     onDismiss: () -> Unit,
 ) {
+    val cs = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -316,13 +320,13 @@ private fun DialogHeader(
             title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = cs.onBackground,
         )
         IconButton(onClick = onDismiss) {
             Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = stringResource(R.string.action_close),
-                tint = NetflixLightGray,
+                tint = cs.onSurfaceVariant,
             )
         }
     }
@@ -338,6 +342,7 @@ private fun SelectableChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
@@ -345,9 +350,9 @@ private fun SelectableChip(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = when {
-            isFocused -> Color.White
-            isSelected -> Color.White.copy(alpha = 0.15f)
-            else -> Color.White.copy(alpha = 0.05f)
+            isFocused -> cs.onBackground
+            isSelected -> cs.onBackground.copy(alpha = 0.15f)
+            else -> cs.onBackground.copy(alpha = 0.05f)
         },
         interactionSource = interactionSource,
         modifier = modifier,
@@ -358,9 +363,9 @@ private fun SelectableChip(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Normal,
             color = when {
-                isFocused -> Color.Black
-                isSelected -> Color.White
-                else -> NetflixLightGray
+                isFocused -> cs.background
+                isSelected -> cs.onBackground
+                else -> cs.onSurfaceVariant
             },
         )
     }

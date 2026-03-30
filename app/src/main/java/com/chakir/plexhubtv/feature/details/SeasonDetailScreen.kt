@@ -46,8 +46,6 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import com.chakir.plexhubtv.core.common.util.FormatUtils
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.SeasonDetailSkeleton
@@ -98,10 +96,12 @@ fun SeasonDetailScreen(
 
     BackHandler(onBack = onNavigateBack)
 
+    val cs = MaterialTheme.colorScheme
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NetflixBlack)
+            .background(cs.background)
             .testTag("screen_season_detail")
             .semantics { contentDescription = "Écran de détails de saison" }
     ) {
@@ -127,9 +127,9 @@ fun SeasonDetailScreen(
                             Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    NetflixBlack.copy(alpha = 0.5f),
-                                    NetflixBlack.copy(alpha = 0.9f),
-                                    NetflixBlack,
+                                    cs.background.copy(alpha = 0.5f),
+                                    cs.background.copy(alpha = 0.9f),
+                                    cs.background,
                                 ),
                                 startY = 0f,
                                 endY = Float.POSITIVE_INFINITY,
@@ -145,8 +145,8 @@ fun SeasonDetailScreen(
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    NetflixBlack.copy(alpha = 0.9f),
-                                    NetflixBlack.copy(alpha = 0.5f),
+                                    cs.background.copy(alpha = 0.9f),
+                                    cs.background.copy(alpha = 0.5f),
                                     Color.Transparent,
                                 ),
                                 startX = 0f,
@@ -192,12 +192,12 @@ fun SeasonDetailScreen(
                             Text(
                                 "Error loading episodes",
                                 style = MaterialTheme.typography.titleLarge,
-                                color = Color.White,
+                                color = cs.onBackground,
                             )
                             Text(
                                 state.error,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = NetflixLightGray,
+                                color = cs.onSurfaceVariant,
                             )
                             Spacer(Modifier.height(24.dp))
                             Button(
@@ -221,13 +221,13 @@ fun SeasonDetailScreen(
                                 Icons.Filled.Movie,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
-                                tint = NetflixLightGray,
+                                tint = cs.onSurfaceVariant,
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 "No episodes found",
                                 style = MaterialTheme.typography.titleLarge,
-                                color = NetflixLightGray,
+                                color = cs.onSurfaceVariant,
                             )
                         }
                     }
@@ -253,7 +253,7 @@ fun SeasonDetailScreen(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 32.sp,
                                 ),
-                                color = Color.White,
+                                color = cs.onBackground,
                             )
 
                             // Show title (grandparent)
@@ -262,7 +262,7 @@ fun SeasonDetailScreen(
                                 Text(
                                     text = showTitle,
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = NetflixLightGray,
+                                    color = cs.onSurfaceVariant,
                                 )
                             }
 
@@ -272,7 +272,7 @@ fun SeasonDetailScreen(
                             Text(
                                 text = "${state.episodes.size} episodes",
                                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = cs.onBackground.copy(alpha = 0.7f),
                             )
 
                             // Summary
@@ -285,7 +285,7 @@ fun SeasonDetailScreen(
                                             lineHeight = 24.sp,
                                             fontSize = 16.sp,
                                         ),
-                                        color = Color.White.copy(alpha = 0.8f),
+                                        color = cs.onBackground.copy(alpha = 0.8f),
                                         maxLines = 6,
                                         overflow = TextOverflow.Ellipsis,
                                     )
@@ -343,7 +343,7 @@ fun SeasonDetailScreen(
                                 )
                                 if (index < state.episodes.size - 1) {
                                     HorizontalDivider(
-                                        color = Color.White.copy(alpha = 0.1f),
+                                        color = cs.onBackground.copy(alpha = 0.1f),
                                     )
                                 }
                             }
@@ -364,7 +364,7 @@ fun SeasonDetailScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.6f))
+                        .background(cs.background.copy(alpha = 0.6f))
                         .testTag("source_resolution_overlay")
                         .semantics { contentDescription = "Preparing playback" },
                     contentAlignment = Alignment.Center,
@@ -375,7 +375,7 @@ fun SeasonDetailScreen(
                         Text(
                             "Preparing playback\u2026",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White,
+                            color = cs.onBackground,
                         )
                     }
                 }
@@ -403,6 +403,7 @@ private fun SeasonActionButton(
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
 ) {
+    val cs = MaterialTheme.colorScheme
     var isFocused by remember { mutableStateOf(false) }
 
     val scale by animateFloatAsState(
@@ -410,15 +411,15 @@ private fun SeasonActionButton(
         animationSpec = tween(200), label = "scale",
     )
     val backgroundColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f),
+        targetValue = if (isFocused) cs.onBackground.copy(alpha = 0.2f) else cs.onBackground.copy(alpha = 0.1f),
         animationSpec = tween(200), label = "bg",
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.3f),
+        targetValue = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.3f),
         animationSpec = tween(200), label = "border",
     )
     val labelColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else NetflixLightGray,
+        targetValue = if (isFocused) cs.onBackground else cs.onSurfaceVariant,
         animationSpec = tween(200), label = "label",
     )
 
@@ -440,7 +441,7 @@ private fun SeasonActionButton(
             Icon(
                 icon,
                 contentDescription = label,
-                tint = if (isFavorite) Color.Red else Color.White,
+                tint = if (isFavorite) Color.Red else cs.onBackground,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(12.dp),
@@ -471,6 +472,7 @@ fun EnhancedEpisodeItem(
             0f
         }
 
+    val cs = MaterialTheme.colorScheme
     var isFocused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (isFocused) 1.03f else 1f, label = "scale")
     val borderColor by animateColorAsState(
@@ -493,7 +495,7 @@ fun EnhancedEpisodeItem(
             .onFocusChanged { isFocused = it.isFocused }
             .scale(scale)
             .background(
-                color = if (isFocused) Color.White.copy(alpha = 0.1f) else Color.Transparent,
+                color = if (isFocused) cs.onBackground.copy(alpha = 0.1f) else Color.Transparent,
                 shape = RoundedCornerShape(8.dp),
             )
             .then(
@@ -532,7 +534,7 @@ fun EnhancedEpisodeItem(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.2f),
+                                cs.background.copy(alpha = 0.2f),
                             ),
                         ),
                     ),
@@ -545,13 +547,13 @@ fun EnhancedEpisodeItem(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color.Black.copy(alpha = 0.6f),
+                    color = cs.background.copy(alpha = 0.6f),
                     modifier = Modifier.size(36.dp),
                 ) {
                     Icon(
                         Icons.Filled.PlayArrow,
                         contentDescription = "Play",
-                        tint = Color.White,
+                        tint = cs.onBackground,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(6.dp),
@@ -571,7 +573,7 @@ fun EnhancedEpisodeItem(
                         progress = { progress },
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.primary,
-                        trackColor = Color.White.copy(alpha = 0.3f),
+                        trackColor = cs.onBackground.copy(alpha = 0.3f),
                     )
                 }
             }
@@ -619,7 +621,7 @@ fun EnhancedEpisodeItem(
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                     ),
-                    color = Color.White,
+                    color = cs.onBackground,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
@@ -636,7 +638,7 @@ fun EnhancedEpisodeItem(
                             lineHeight = 20.sp,
                             fontSize = 14.sp,
                         ),
-                        color = NetflixLightGray,
+                        color = cs.onSurfaceVariant,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -652,7 +654,7 @@ fun EnhancedEpisodeItem(
                     Text(
                         FormatUtils.formatDuration(duration),
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
-                        color = NetflixLightGray,
+                        color = cs.onSurfaceVariant,
                     )
                 }
 
@@ -660,7 +662,7 @@ fun EnhancedEpisodeItem(
                     Text(
                         " \u2022 ",
                         style = MaterialTheme.typography.bodySmall,
-                        color = NetflixLightGray,
+                        color = cs.onSurfaceVariant,
                     )
                     Icon(
                         Icons.Filled.Check,
@@ -700,7 +702,7 @@ fun DownloadStatusIcon(state: DownloadState) {
             is DownloadState.Paused -> Icons.Filled.PauseCircleOutline to Color(0xFFFFA726)
             is DownloadState.Completed -> Icons.Filled.FileDownloadDone to Color(0xFF66BB6A)
             is DownloadState.Failed -> Icons.Filled.ErrorOutline to MaterialTheme.colorScheme.error
-            is DownloadState.Cancelled -> Icons.Filled.Cancel to NetflixLightGray
+            is DownloadState.Cancelled -> Icons.Filled.Cancel to MaterialTheme.colorScheme.onSurfaceVariant
             else -> return
         }
 

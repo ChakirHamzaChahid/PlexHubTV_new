@@ -52,12 +52,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.feature.player.controller.SubtitleSearchResult
 import com.chakir.plexhubtv.feature.player.controller.SubtitleSearchService
 import kotlinx.coroutines.launch
-
-private val DialogBackground = Color(0xFF1A1A1A)
 
 @Composable
 fun DownloadSubtitlesDialog(
@@ -98,6 +95,8 @@ fun DownloadSubtitlesDialog(
         }
     }
 
+    val cs = MaterialTheme.colorScheme
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -105,12 +104,12 @@ fun DownloadSubtitlesDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
                 modifier = Modifier
                     .fillMaxWidth(0.55f)
                     .heightIn(max = 600.dp)
@@ -128,13 +127,13 @@ fun DownloadSubtitlesDialog(
                             dialogTitle,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = cs.onBackground,
                         )
                         IconButton(onClick = onDismiss) {
                             Icon(
                                 imageVector = Icons.Outlined.Close,
                                 contentDescription = stringResource(R.string.action_close),
-                                tint = NetflixLightGray,
+                                tint = cs.onSurfaceVariant,
                             )
                         }
                     }
@@ -144,7 +143,7 @@ fun DownloadSubtitlesDialog(
                     // Search bar
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color.White.copy(alpha = 0.08f),
+                        color = cs.onBackground.copy(alpha = 0.08f),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
@@ -154,7 +153,7 @@ fun DownloadSubtitlesDialog(
                             Icon(
                                 Icons.Default.Search,
                                 contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.5f),
+                                tint = cs.onBackground.copy(alpha = 0.5f),
                                 modifier = Modifier.size(20.dp),
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -162,7 +161,7 @@ fun DownloadSubtitlesDialog(
                                 value = query,
                                 onValueChange = { query = it },
                                 textStyle = TextStyle(
-                                    color = Color.White,
+                                    color = cs.onBackground,
                                     fontSize = 14.sp,
                                 ),
                                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -175,7 +174,7 @@ fun DownloadSubtitlesDialog(
                                         if (query.isEmpty()) {
                                             Text(
                                                 stringResource(R.string.player_subtitle_search_hint),
-                                                color = Color.White.copy(alpha = 0.4f),
+                                                color = cs.onBackground.copy(alpha = 0.4f),
                                                 fontSize = 14.sp,
                                             )
                                         }
@@ -208,7 +207,7 @@ fun DownloadSubtitlesDialog(
                                     }
                                 },
                                 shape = RoundedCornerShape(6.dp),
-                                color = if (isSearchFocused) Color.White else MaterialTheme.colorScheme.primary,
+                                color = if (isSearchFocused) cs.onBackground else cs.primary,
                                 interactionSource = searchInteraction,
                                 modifier = Modifier.height(32.dp),
                             ) {
@@ -220,7 +219,7 @@ fun DownloadSubtitlesDialog(
                                         "Search",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = if (isSearchFocused) Color.Black else Color.White,
+                                        color = if (isSearchFocused) cs.background else cs.onBackground,
                                     )
                                 }
                             }
@@ -244,7 +243,7 @@ fun DownloadSubtitlesDialog(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         stringResource(R.string.player_subtitle_searching),
-                                        color = Color.White.copy(alpha = 0.6f),
+                                        color = cs.onBackground.copy(alpha = 0.6f),
                                         fontSize = 14.sp,
                                     )
                                 }
@@ -263,7 +262,7 @@ fun DownloadSubtitlesDialog(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         stringResource(R.string.player_subtitle_downloading),
-                                        color = Color.White.copy(alpha = 0.6f),
+                                        color = cs.onBackground.copy(alpha = 0.6f),
                                         fontSize = 14.sp,
                                     )
                                 }
@@ -288,7 +287,7 @@ fun DownloadSubtitlesDialog(
                             ) {
                                 Text(
                                     stringResource(R.string.player_subtitle_no_results),
-                                    color = Color.White.copy(alpha = 0.5f),
+                                    color = cs.onBackground.copy(alpha = 0.5f),
                                     fontSize = 14.sp,
                                 )
                             }
@@ -335,12 +334,13 @@ private fun SubtitleResultItem(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val cs = MaterialTheme.colorScheme
 
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = when {
-            isFocused -> Color.White
+            isFocused -> cs.onBackground
             else -> Color.Transparent
         },
         interactionSource = interactionSource,
@@ -355,7 +355,7 @@ private fun SubtitleResultItem(
                 Text(
                     text = result.release,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (isFocused) Color.Black else Color.White,
+                    color = if (isFocused) cs.background else cs.onBackground,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -368,13 +368,13 @@ private fun SubtitleResultItem(
                     // Language badge
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = if (isFocused) Color.Black.copy(alpha = 0.1f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                        color = if (isFocused) cs.background.copy(alpha = 0.1f) else cs.primary.copy(alpha = 0.2f),
                     ) {
                         Text(
                             text = result.language.uppercase(),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isFocused) Color.Black else MaterialTheme.colorScheme.primary,
+                            color = if (isFocused) cs.background else cs.primary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         )
                     }
@@ -382,19 +382,19 @@ private fun SubtitleResultItem(
                     Text(
                         text = stringResource(R.string.player_subtitle_downloads_label, result.downloadCount),
                         fontSize = 11.sp,
-                        color = if (isFocused) Color.Black.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.5f),
+                        color = if (isFocused) cs.background.copy(alpha = 0.6f) else cs.onBackground.copy(alpha = 0.5f),
                     )
                     // HI badge
                     if (result.hearingImpaired) {
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = if (isFocused) Color.Black.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.1f),
+                            color = if (isFocused) cs.background.copy(alpha = 0.1f) else cs.onBackground.copy(alpha = 0.1f),
                         ) {
                             Text(
                                 text = stringResource(R.string.player_subtitle_hi_label),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isFocused) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f),
+                                color = if (isFocused) cs.background.copy(alpha = 0.7f) else cs.onBackground.copy(alpha = 0.7f),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             )
                         }

@@ -34,8 +34,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.MediaItem
 
 @Composable
@@ -56,10 +54,11 @@ fun RemoveFromOnDeckDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
+        val cs = MaterialTheme.colorScheme
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f))
+                .background(cs.background.copy(alpha = 0.7f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -69,7 +68,7 @@ fun RemoveFromOnDeckDialog(
         ) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = NetflixDarkGray,
+                color = cs.surface,
                 modifier = Modifier
                     .width(400.dp)
                     .clickable(
@@ -86,7 +85,7 @@ fun RemoveFromOnDeckDialog(
                         text = stringResource(R.string.remove_from_continue_watching_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = cs.onBackground,
                         textAlign = TextAlign.Center,
                     )
 
@@ -95,7 +94,7 @@ fun RemoveFromOnDeckDialog(
                     Text(
                         text = stringResource(R.string.remove_from_continue_watching_subtitle, media.title),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = cs.onBackground.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center,
                         fontSize = 14.sp,
                     )
@@ -108,7 +107,7 @@ fun RemoveFromOnDeckDialog(
                         // Remove button (focused by default)
                         DialogButton(
                             text = stringResource(R.string.remove_button),
-                            backgroundColor = NetflixRed,
+                            backgroundColor = cs.error,
                             onClick = onConfirm,
                             modifier = Modifier.focusRequester(confirmFocusRequester),
                         )
@@ -116,7 +115,7 @@ fun RemoveFromOnDeckDialog(
                         // Cancel button
                         DialogButton(
                             text = stringResource(R.string.cancel_button),
-                            backgroundColor = Color.Gray.copy(alpha = 0.5f),
+                            backgroundColor = cs.onSurfaceVariant.copy(alpha = 0.5f),
                             onClick = onDismiss,
                         )
                     }
@@ -150,7 +149,7 @@ private fun DialogButton(
             text = text,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
         )
     }

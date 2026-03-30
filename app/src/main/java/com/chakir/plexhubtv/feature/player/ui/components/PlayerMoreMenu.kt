@@ -55,9 +55,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
-
-private val MenuBackground = Color(0xFF1A1A1A)
 
 @Composable
 fun PlayerMoreMenu(
@@ -83,10 +80,12 @@ fun PlayerMoreMenu(
         try { firstItemFocusRequester.requestFocus() } catch (_: Exception) { }
     }
 
+    val cs = MaterialTheme.colorScheme
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(cs.background.copy(alpha = 0.5f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -104,7 +103,7 @@ fun PlayerMoreMenu(
                     onClick = {}, // Consume click to prevent dismiss
                 ),
             shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
-            color = MenuBackground,
+            color = cs.surface,
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 // Header
@@ -116,20 +115,20 @@ fun PlayerMoreMenu(
                         text = stringResource(R.string.player_more),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = cs.onBackground,
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
                             contentDescription = null,
-                            tint = NetflixLightGray,
+                            tint = cs.onSurfaceVariant,
                         )
                     }
                 }
 
                 HorizontalDivider(
-                    color = Color.White.copy(alpha = 0.1f),
+                    color = cs.onBackground.copy(alpha = 0.1f),
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
 
@@ -165,7 +164,7 @@ fun PlayerMoreMenu(
                             modifier = itemModifier
                                 .fillMaxWidth()
                                 .background(
-                                    if (isFocused) Color.White else Color.Transparent,
+                                    if (isFocused) cs.onBackground else Color.Transparent,
                                     RoundedCornerShape(8.dp),
                                 )
                                 .clickable(
@@ -179,21 +178,21 @@ fun PlayerMoreMenu(
                             Icon(
                                 imageVector = item.icon,
                                 contentDescription = null,
-                                tint = if (isFocused) Color.Black else NetflixLightGray,
+                                tint = if (isFocused) cs.background else cs.onSurfaceVariant,
                                 modifier = Modifier.size(24.dp),
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 text = item.label,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = if (isFocused) Color.Black else Color.White,
+                                color = if (isFocused) cs.background else cs.onBackground,
                                 modifier = Modifier.weight(1f),
                             )
                             if (item.isToggle && item.isActive) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
-                                    tint = if (isFocused) Color.Black else MaterialTheme.colorScheme.primary,
+                                    tint = if (isFocused) cs.background else cs.primary,
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
