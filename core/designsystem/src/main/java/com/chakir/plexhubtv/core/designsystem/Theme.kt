@@ -135,6 +135,29 @@ private val NetflixColorScheme =
         onSurfaceVariant = NetflixLightGray,
     )
 
+// === CINEMA GOLD REFONTE ===
+private val CinemaGoldColorScheme =
+    darkColorScheme(
+        primary = CinemaGold,
+        onPrimary = CinemaBackground,
+        primaryContainer = CinemaGoldDim,
+        onPrimaryContainer = CinemaWhite,
+        secondary = CinemaGoldDim,
+        onSecondary = CinemaWhite,
+        tertiary = CinemaGray,
+        onTertiary = CinemaBackground,
+        background = CinemaBackground,
+        onBackground = CinemaWhite,
+        surface = CinemaSurface,
+        onSurface = CinemaWhite,
+        surfaceVariant = CinemaSurfaceHigh,
+        onSurfaceVariant = CinemaGray,
+        error = CinemaError,
+        onError = CinemaWhite,
+        outline = CinemaGrayDark,
+        outlineVariant = CinemaGrayDark.copy(alpha = 0.5f),
+    )
+
 /**
  * Thème principal de l'application basé sur Material3.
  *
@@ -157,6 +180,7 @@ fun PlexHubTheme(
             "Morocco" -> MoroccoColorScheme
             "Netflix" -> NetflixColorScheme
             "OLEDBlack" -> OledBlackColorScheme
+            "CinemaGold" -> CinemaGoldColorScheme
             "Plex" -> if (darkTheme) DarkColorScheme else LightColorScheme
             else -> if (darkTheme) DarkColorScheme else LightColorScheme
         }

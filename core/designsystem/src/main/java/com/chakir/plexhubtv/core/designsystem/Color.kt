@@ -57,3 +57,26 @@ val NetflixBlack = Color(0xFF000000)
 val NetflixDarkGray = Color(0xFF141414)
 val NetflixLightGray = Color(0xFFB3B3B3)
 val NetflixWhite = Color(0xFFFFFFFF)
+
+// === CINEMA GOLD THEME ===
+// Fonds
+val CinemaBackground = Color(0xFF070B0F) // Noir bleuté profond — fond principal
+val CinemaSurface = Color(0xFF0F1520) // Surface cards — bleu nuit
+val CinemaSurfaceHigh = Color(0xFF1A2336) // Surface élevée — hover/focus
+
+// Accents
+val CinemaGold = Color(0xFFFFB938) // Accent principal — or ambré premium
+val CinemaGoldDim = Color(0xFF8A6520) // Or atténué — states secondaires
+
+// Texte
+val CinemaWhite = Color(0xFFF2F2F2) // Texte principal
+val CinemaGray = Color(0xFF8B95A5) // Texte secondaire — bleuté
+val CinemaGrayDark = Color(0xFF3D4A5C) // Séparateurs, bordures, tertiaire
+
+// Sémantique
+val CinemaError = Color(0xFFFF5252) // Erreurs / Destructif
+val CinemaSuccess = Color(0xFF4CAF50) // Succès
+
+// Effets
+val CinemaGlow = Color(0x33FFB938) // Lueur dorée focus (20% opacité)
+val CinemaOverlay = Color(0xCC070B0F) // Overlay scrim (80% opacité)
