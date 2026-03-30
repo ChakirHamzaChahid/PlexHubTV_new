@@ -12,10 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.model.Profile
 import com.chakir.plexhubtv.core.ui.ParentalPinDialog
 import com.chakir.plexhubtv.core.ui.PinDialogMode
@@ -49,16 +51,16 @@ fun AppProfileSwitchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Manage Profiles") },
+                title = { Text(stringResource(R.string.profile_manage_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     if (state.profiles.size < 5) {
                         IconButton(onClick = { onAction(AppProfileAction.CreateProfile) }) {
-                            Icon(Icons.Filled.Add, contentDescription = "Add profile")
+                            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.profile_add_description))
                         }
                     }
                 },
@@ -92,7 +94,7 @@ fun AppProfileSwitchScreen(
                             )
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = onNavigateBack) {
-                                Text("Back")
+                                Text(stringResource(R.string.action_back))
                             }
                         }
                     }
@@ -108,7 +110,7 @@ fun AppProfileSwitchScreen(
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "No profiles available",
+                                stringResource(R.string.profile_no_profiles_available),
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -239,7 +241,7 @@ fun AppProfileListItem(
                 )
                 if (profile.isKidsProfile) {
                     Text(
-                        "Kids",
+                        stringResource(R.string.profile_badge_kids),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -250,7 +252,7 @@ fun AppProfileListItem(
             if (isCurrentProfile) {
                 Icon(
                     Icons.Filled.CheckCircle,
-                    contentDescription = "Current profile",
+                    contentDescription = stringResource(R.string.profile_current_indicator),
                     tint = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(Modifier.width(8.dp))
@@ -260,7 +262,7 @@ fun AppProfileListItem(
             IconButton(onClick = onEdit) {
                 Icon(
                     Icons.Filled.Edit,
-                    contentDescription = "Edit profile",
+                    contentDescription = stringResource(R.string.profile_edit_description),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -270,7 +272,7 @@ fun AppProfileListItem(
                 IconButton(onClick = onDelete) {
                     Icon(
                         Icons.Filled.Delete,
-                        contentDescription = "Delete profile",
+                        contentDescription = stringResource(R.string.profile_delete_description),
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }

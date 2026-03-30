@@ -263,9 +263,10 @@ class LibrarySyncWorker
                         Timber.w(e, "LibrarySync: Failed to report extras progress")
                     }
 
-                    // SYNC XTREAM ACCOUNTS (VOD + Series)
+                    // SYNC XTREAM ACCOUNTS (VOD + Series) — skip backend-managed accounts (no local credentials)
                     try {
                         val xtreamAccounts = xtreamAccountRepository.observeAccounts().first()
+                            .filter { !it.isBackendManaged }
                         if (xtreamAccounts.isNotEmpty()) {
                             val selectedCatIds = settingsDataStore.selectedXtreamCategoryIds.first()
                             Timber.d("→ Syncing ${xtreamAccounts.size} Xtream account(s), selectedCategories=${selectedCatIds.size}")

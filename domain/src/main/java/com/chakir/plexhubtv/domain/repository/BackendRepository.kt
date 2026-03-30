@@ -4,7 +4,10 @@ import com.chakir.plexhubtv.core.model.BackendConnectionInfo
 import com.chakir.plexhubtv.core.model.BackendServer
 import com.chakir.plexhubtv.core.model.CategoryConfig
 import com.chakir.plexhubtv.core.model.CategorySelection
+import com.chakir.plexhubtv.core.model.EpgEntry
+import com.chakir.plexhubtv.core.model.LiveChannel
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.XtreamAccount
 import kotlinx.coroutines.flow.Flow
 
 interface BackendRepository {
@@ -53,4 +56,30 @@ interface BackendRepository {
     ): Result<Unit>
 
     suspend fun refreshCategories(backendId: String, accountId: String): Result<Unit>
+
+    suspend fun getXtreamAccounts(backendId: String): Result<List<XtreamAccount>>
+
+    // Live TV
+    suspend fun getLiveChannels(
+        backendId: String,
+        limit: Int = 500,
+        offset: Int = 0,
+        sort: String = "name_asc",
+        categoryId: String? = null,
+        search: String? = null,
+    ): Result<Pair<List<LiveChannel>, Boolean>>  // (channels, hasMore)
+
+    suspend fun getChannelEpg(
+        backendId: String,
+        serverId: String,
+        streamId: Int,
+    ): Result<List<EpgEntry>>
+
+    suspend fun getLiveStream(
+        backendId: String,
+        serverId: String,
+        streamId: Int,
+    ): Result<String>
+
+    suspend fun getCurrentEpg(backendId: String, serverId: String): Result<Map<Int, EpgEntry>>  // streamId → nowPlaying
 }

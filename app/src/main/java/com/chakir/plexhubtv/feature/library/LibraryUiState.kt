@@ -53,6 +53,8 @@ data class LibraryFilterState(
     val availableGenres: ImmutableList<String> = persistentListOf(),
     val availableServers: ImmutableList<String> = persistentListOf(),
     val availableServersMap: ImmutableMap<String, String> = persistentMapOf(),
+    /** Incremented when media_unified rebuild completes, forcing PagingSource + count refresh. */
+    val refreshVersion: Int = 0,
 )
 
 @Immutable

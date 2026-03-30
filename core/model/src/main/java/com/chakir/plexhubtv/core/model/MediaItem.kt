@@ -103,6 +103,9 @@ data class MediaSource(
     val thumbUrl: String? = null,
     val artUrl: String? = null,
     val viewOffset: Long = 0,
+    /** For Plex merged versions: index of the Media entry within the same ratingKey.
+     *  null means this source is identified by (serverId, ratingKey) only. */
+    val mediaIndex: Int? = null,
 )
 
 data class CastMember(

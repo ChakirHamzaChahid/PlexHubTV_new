@@ -82,6 +82,7 @@ class SettingsViewModel
             observeSettings()
             observeBackendServers()
             observeXtreamAccounts()
+            observeXtreamCategorySummaries()
             observeJellyfinServers()
             _uiState.update { it.copy(hasParentalPin = settingsRepository.hasParentalPin()) }
         }
@@ -464,7 +465,24 @@ class SettingsViewModel
                     viewModelScope.launch {
                         val result = backendRepository.addServer(action.label, action.url)
                         if (result.isSuccess) {
-                            _uiState.update { it.copy(isTestingBackend = false, backendConfigMessage = "Server added") }
+                            val server = result.getOrThrow()
+                            // Auto-import Xtream accounts from backend
+                            val importResult = backendRepository.getXtreamAccounts(server.id)
+                            if (importResult.isSuccess) {
+                                val accounts = importResult.getOrThrow()
+                                xtreamAccountRepository.importFromBackend(server.id, accounts)
+                                _uiState.update {
+                                    it.copy(isTestingBackend = false, backendConfigMessage = "Server added, ${accounts.size} account(s) imported")
+                                }
+                                // Navigate to category selection so user can pick before first sync
+                                if (accounts.isNotEmpty()) {
+                                    _navigationEvents.send(
+                                        SettingsNavigationEvent.NavigateToXtreamCategorySelection(accounts.first().id)
+                                    )
+                                }
+                            } else {
+                                _uiState.update { it.copy(isTestingBackend = false, backendConfigMessage = "Server added (account import failed)") }
+                            }
                         } else {
                             _uiState.update {
                                 it.copy(isTestingBackend = false, backendConfigMessage = "Failed: ${result.exceptionOrNull()?.message}")
@@ -476,6 +494,7 @@ class SettingsViewModel
                 }
                 is SettingsAction.RemoveBackendServer -> {
                     viewModelScope.launch {
+                        xtreamAccountRepository.cleanupBackendAccounts(action.id)
                         backendRepository.removeServer(action.id)
                     }
                 }
@@ -548,6 +567,11 @@ class SettingsViewModel
                             } else {
                                 var totalSynced = 0
                                 servers.filter { it.isActive }.forEach { server ->
+                                    // Re-import Xtream accounts on each backend sync
+                                    val importResult = backendRepository.getXtreamAccounts(server.id)
+                                    if (importResult.isSuccess) {
+                                        xtreamAccountRepository.importFromBackend(server.id, importResult.getOrThrow())
+                                    }
                                     val result = backendRepository.syncMedia(server.id)
                                     totalSynced += result.getOrDefault(0)
                                 }
@@ -664,6 +688,58 @@ class SettingsViewModel
             xtreamAccountRepository.observeAccounts()
                 .onEach { accounts -> _uiState.update { it.copy(xtreamAccounts = accounts.toImmutableList()) } }
                 .catch { e -> Timber.e(e, "Failed to observe Xtream accounts") }
+                .launchIn(viewModelScope)
+        }
+
+        private fun observeXtreamCategorySummaries() {
+            // Local accounts: read summaries from DataStore
+            settingsDataStore.selectedXtreamCategoryIds
+                .onEach { allIds ->
+                    val localSummaries = allIds
+                        .groupBy { id -> id.substringBefore(":") }
+                        .mapValues { (_, ids) ->
+                            val vodCount = ids.count { it.contains(":vod:") }
+                            val seriesCount = ids.count { it.contains(":series:") }
+                            vodCount to seriesCount
+                        }
+                    // Merge with existing backend summaries (keep them)
+                    _uiState.update { current ->
+                        val merged = current.xtreamCategorySummaries.toMutableMap()
+                        merged.putAll(localSummaries)
+                        current.copy(xtreamCategorySummaries = merged.toImmutableMap())
+                    }
+                }
+                .catch { e -> Timber.e(e, "Failed to observe Xtream category summaries") }
+                .launchIn(viewModelScope)
+
+            // Backend accounts: fetch summaries from backend API when accounts change
+            xtreamAccountRepository.observeAccounts()
+                .onEach { accounts ->
+                    val backendAccounts = accounts.filter { it.isBackendManaged }
+                    if (backendAccounts.isEmpty()) return@onEach
+
+                    val backendId = backendAccounts.first().backendId ?: return@onEach
+                    val backendSummaries = mutableMapOf<String, Pair<Int, Int>>()
+
+                    for (account in backendAccounts) {
+                        val result = backendRepository.getCategories(backendId, account.id)
+                        if (result.isSuccess) {
+                            val config = result.getOrThrow()
+                            val vodCount = config.categories.count { it.categoryType == "vod" && it.isAllowed }
+                            val seriesCount = config.categories.count { it.categoryType == "series" && it.isAllowed }
+                            backendSummaries[account.id] = vodCount to seriesCount
+                        }
+                    }
+
+                    if (backendSummaries.isNotEmpty()) {
+                        _uiState.update { current ->
+                            val merged = current.xtreamCategorySummaries.toMutableMap()
+                            merged.putAll(backendSummaries)
+                            current.copy(xtreamCategorySummaries = merged.toImmutableMap())
+                        }
+                    }
+                }
+                .catch { e -> Timber.e(e, "Failed to load backend category summaries") }
                 .launchIn(viewModelScope)
         }
 

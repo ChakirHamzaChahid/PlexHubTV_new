@@ -21,4 +21,8 @@ interface XtreamAccountRepository {
     suspend fun refreshAccountStatus(accountId: String): Result<XtreamAccount>
 
     suspend fun getDecryptedPassword(accountId: String): String?
+
+    suspend fun importFromBackend(backendId: String, accounts: List<XtreamAccount>)
+
+    suspend fun cleanupBackendAccounts(backendId: String)
 }

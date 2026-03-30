@@ -23,6 +23,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -31,22 +32,26 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 
 @Composable
 fun XtreamSetupRoute(
     viewModel: XtreamSetupViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
+    onNavigateToCategorySelection: (String) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     XtreamSetupScreen(
         state = state,
         onAction = viewModel::onAction,
         onNavigateBack = onNavigateBack,
+        onNavigateToCategorySelection = onNavigateToCategorySelection,
     )
 }
 
@@ -55,6 +60,7 @@ fun XtreamSetupScreen(
     state: XtreamSetupUiState,
     onAction: (XtreamSetupAction) -> Unit,
     onNavigateBack: () -> Unit,
+    onNavigateToCategorySelection: (String) -> Unit = {},
 ) {
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -78,7 +84,7 @@ fun XtreamSetupScreen(
         ) {
             item {
                 Text(
-                    "Xtream IPTV Setup",
+                    stringResource(R.string.xtream_setup_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -95,7 +101,7 @@ fun XtreamSetupScreen(
                     OutlinedTextField(
                         value = state.baseUrl,
                         onValueChange = { onAction(XtreamSetupAction.UpdateBaseUrl(it)) },
-                        label = { Text("Server URL") },
+                        label = { Text(stringResource(R.string.xtream_server_url_label)) },
                         placeholder = { Text("http://example.com") },
                         modifier = Modifier.weight(2f),
                         singleLine = true,
@@ -104,7 +110,7 @@ fun XtreamSetupScreen(
                     OutlinedTextField(
                         value = state.port,
                         onValueChange = { onAction(XtreamSetupAction.UpdatePort(it)) },
-                        label = { Text("Port") },
+                        label = { Text(stringResource(R.string.xtream_port_label)) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -121,7 +127,7 @@ fun XtreamSetupScreen(
                     OutlinedTextField(
                         value = state.username,
                         onValueChange = { onAction(XtreamSetupAction.UpdateUsername(it)) },
-                        label = { Text("Username") },
+                        label = { Text(stringResource(R.string.xtream_username_label)) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         colors = textFieldColors,
@@ -129,7 +135,7 @@ fun XtreamSetupScreen(
                     OutlinedTextField(
                         value = state.password,
                         onValueChange = { onAction(XtreamSetupAction.UpdatePassword(it)) },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.xtream_password_label)) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
@@ -142,8 +148,8 @@ fun XtreamSetupScreen(
                 OutlinedTextField(
                     value = state.label,
                     onValueChange = { onAction(XtreamSetupAction.UpdateLabel(it)) },
-                    label = { Text("Label (optional)") },
-                    placeholder = { Text("My IPTV") },
+                    label = { Text(stringResource(R.string.xtream_label_label)) },
+                    placeholder = { Text(stringResource(R.string.xtream_label_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = textFieldColors,
@@ -174,7 +180,7 @@ fun XtreamSetupScreen(
                             )
                             Spacer(Modifier.width(8.dp))
                         }
-                        Text(if (state.isTesting) "Testing..." else "Test & Save")
+                        Text(if (state.isTesting) stringResource(R.string.xtream_testing) else stringResource(R.string.xtream_test_save))
                     }
 
                     Button(
@@ -183,7 +189,7 @@ fun XtreamSetupScreen(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         ),
                     ) {
-                        Text("Clear", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.action_clear), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -203,26 +209,35 @@ fun XtreamSetupScreen(
                                     .padding(16.dp)
                             ) {
                                 Text(
-                                    "Connected",
+                                    stringResource(R.string.xtream_connected),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
-                                    "Status: ${result.status}",
+                                    stringResource(R.string.xtream_status, result.status),
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 result.expiration?.let {
                                     Text(
-                                        "Expires: $it",
+                                        stringResource(R.string.xtream_expires, it),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                }
+                                state.savedAccount?.let { account ->
+                                    Spacer(Modifier.height(12.dp))
+                                    OutlinedButton(
+                                        onClick = { onNavigateToCategorySelection(account.id) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text(stringResource(R.string.xtream_choose_categories))
+                                    }
                                 }
                             }
                         }
                         is XtreamTestResult.Error -> {
                             Text(
-                                "Error: ${result.message}",
+                                stringResource(R.string.xtream_error, result.message),
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
@@ -238,7 +253,7 @@ fun XtreamSetupScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Configured Accounts",
+                        stringResource(R.string.xtream_configured_accounts),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
@@ -269,7 +284,7 @@ fun XtreamSetupScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
-                                "Status: ${account.status.name}",
+                                stringResource(R.string.xtream_status, account.status.name),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = when (account.status) {
                                     com.chakir.plexhubtv.core.model.XtreamAccountStatus.Active ->
@@ -285,7 +300,7 @@ fun XtreamSetupScreen(
                         ) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Remove account",
+                                contentDescription = stringResource(R.string.xtream_remove_account),
                                 tint = MaterialTheme.colorScheme.error,
                             )
                         }

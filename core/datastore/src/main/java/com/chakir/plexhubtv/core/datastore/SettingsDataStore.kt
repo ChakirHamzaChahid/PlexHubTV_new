@@ -72,6 +72,9 @@ class SettingsDataStore
         // Xtream Category Selection Configuration
         private val SELECTED_XTREAM_CATEGORY_IDS = androidx.datastore.preferences.core.stringSetPreferencesKey("selected_xtream_category_ids")
 
+        // Profile-specific Category Filter (for backend accounts — local override, does NOT touch backend whitelist)
+        private val PROFILE_CATEGORY_FILTER = androidx.datastore.preferences.core.stringSetPreferencesKey("profile_category_filter")
+
         // Rating Sync Configuration
         private val RATING_SYNC_SOURCE = stringPreferencesKey("rating_sync_source") // "tmdb" or "omdb"
         private val RATING_SYNC_DELAY = stringPreferencesKey("rating_sync_delay") // delay in ms
@@ -150,6 +153,15 @@ class SettingsDataStore
                             securePrefs.saveOmdbApiKey(key)
                             dataStore.edit { it.remove(OMDB_API_KEY) }
                             Timber.d("Migrated OMDB API key to EncryptedSharedPreferences")
+                        }
+                    }
+
+                    // Migrate IPTV playlist URL (may contain credentials)
+                    prefs[IPTV_PLAYLIST_URL]?.let { url ->
+                        if (url.isNotBlank() && securePrefs.getIptvPlaylistUrl() == null) {
+                            securePrefs.saveIptvPlaylistUrl(url)
+                            dataStore.edit { it.remove(IPTV_PLAYLIST_URL) }
+                            Timber.d("Migrated IPTV playlist URL to EncryptedSharedPreferences")
                         }
                     }
                 } catch (e: Exception) {
@@ -256,9 +268,8 @@ class SettingsDataStore
             dataStore.data
                 .map { preferences -> preferences[LIBRARY_SELECTION_COMPLETE]?.toBoolean() ?: false }
 
-        val iptvPlaylistUrl: Flow<String?> =
-            dataStore.data
-                .map { preferences -> preferences[IPTV_PLAYLIST_URL] }
+        // Delegated to SecurePreferencesManager for encryption (IPTV URLs may contain credentials)
+        val iptvPlaylistUrl: Flow<String?> = securePrefs.iptvPlaylistUrl
 
         // Delegated to SecurePreferencesManager for encryption
         val tmdbApiKey: Flow<String?> = securePrefs.tmdbApiKey
@@ -554,9 +565,44 @@ class SettingsDataStore
             }
         }
 
+        @Deprecated("Use mergeSelectedXtreamCategoryIds to avoid overwriting other accounts")
         suspend fun saveSelectedXtreamCategoryIds(ids: Set<String>) {
             dataStore.edit { preferences ->
                 preferences[SELECTED_XTREAM_CATEGORY_IDS] = ids
+            }
+        }
+
+        suspend fun mergeSelectedXtreamCategoryIds(accountId: String, newIdsForAccount: Set<String>) {
+            dataStore.edit { preferences ->
+                val current = preferences[SELECTED_XTREAM_CATEGORY_IDS] ?: emptySet()
+                val withoutAccount = current.filterNot { it.startsWith("$accountId:") }.toSet()
+                preferences[SELECTED_XTREAM_CATEGORY_IDS] = withoutAccount + newIdsForAccount
+            }
+        }
+
+        /**
+         * Get the profile-specific category filter for a backend account.
+         * Returns the set of allowed composite IDs ("profileId:accountId:categoryType:categoryId"),
+         * or null if no filter has been set (meaning "show all backend categories as-is").
+         */
+        suspend fun getProfileCategoryFilter(profileId: String, accountId: String): Set<String>? {
+            val allFilters = dataStore.data.first()[PROFILE_CATEGORY_FILTER] ?: return null
+            val prefix = "$profileId:$accountId:"
+            val filtered = allFilters.filter { it.startsWith(prefix) }.toSet()
+            return if (filtered.isEmpty()) null else filtered
+        }
+
+        /**
+         * Save profile-specific category filter for a backend account.
+         * Stores which categories are ALLOWED for this profile+account combo.
+         * Does NOT modify the backend whitelist.
+         */
+        suspend fun saveProfileCategoryFilter(profileId: String, accountId: String, allowedCompositeIds: Set<String>) {
+            dataStore.edit { preferences ->
+                val current = preferences[PROFILE_CATEGORY_FILTER] ?: emptySet()
+                val prefix = "$profileId:$accountId:"
+                val withoutThis = current.filterNot { it.startsWith(prefix) }.toSet()
+                preferences[PROFILE_CATEGORY_FILTER] = withoutThis + allowedCompositeIds
             }
         }
 
@@ -567,8 +613,11 @@ class SettingsDataStore
         }
 
         suspend fun saveIptvPlaylistUrl(url: String) {
+            // Use SecurePreferencesManager for encrypted storage (IPTV URLs may contain credentials)
+            securePrefs.saveIptvPlaylistUrl(url)
+            // Clean up legacy unencrypted DataStore entry if it exists
             dataStore.edit { preferences ->
-                preferences[IPTV_PLAYLIST_URL] = url
+                preferences.remove(IPTV_PLAYLIST_URL)
             }
         }
 

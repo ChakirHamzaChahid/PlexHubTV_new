@@ -15,7 +15,15 @@ data class SyncLibraryState(
     val itemsSynced: Int = 0,
     val itemsTotal: Int = 0,
     val errorMessage: String? = null,
-)
+) {
+    /** Percentage 0-100 for display, safe against division by zero. */
+    val progressPercent: Int
+        get() = when {
+            status == LibraryStatus.Success -> 100
+            itemsTotal > 0 -> (itemsSynced * 100 / itemsTotal).coerceIn(0, 100)
+            else -> 0
+        }
+}
 
 @Serializable
 enum class ServerStatus { Pending, Running, Success, PartialSuccess, Error }
@@ -58,4 +66,10 @@ data class SyncGlobalState(
 
     val currentLibrary: SyncLibraryState?
         get() = currentServer?.libraries?.firstOrNull { it.status == LibraryStatus.Running }
+
+    /** Count of fully processed servers (not Pending, not Running). */
+    val completedServerCount: Int
+        get() = servers.count {
+            it.status != ServerStatus.Pending && it.status != ServerStatus.Running
+        }
 }

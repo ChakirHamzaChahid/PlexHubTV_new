@@ -19,4 +19,7 @@ interface XtreamAccountDao {
 
     @Query("DELETE FROM xtream_accounts WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("DELETE FROM xtream_accounts WHERE backendId = :backendId")
+    suspend fun deleteByBackendId(backendId: String)
 }

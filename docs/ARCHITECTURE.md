@@ -1,7 +1,7 @@
 # Architecture PlexHubTV
 
-> **Date** : 14 février 2026
-> **Version** : 2.0
+> **Date** : 23 mars 2026
+> **Version** : 3.0
 > **Architecture** : Clean Architecture Multi-Modules
 > **Plateforme** : Android TV (Jetpack Compose)
 
@@ -25,13 +25,15 @@
 14. [Système d'erreurs](#14-système-derreurs)
 15. [Thèmes](#15-thèmes)
 16. [Workers](#16-workers)
-17. [Tests](#17-tests)
+17. [Intégration Jellyfin](#17-intégration-jellyfin)
+18. [Gestion expiration de session](#18-gestion-expiration-de-session)
+19. [Tests](#19-tests)
 
 ---
 
 ## 1. Vue d'ensemble
 
-PlexHubTV est un client Android TV pour Plex Media Server, construit en Kotlin avec Jetpack Compose. L'application offre une interface inspirée de Netflix, optimisée pour la navigation D-Pad, avec support multi-serveur, lecture offline et enrichissement croisé des métadonnées.
+PlexHubTV est un client Android TV pour Plex Media Server et Jellyfin, construit en Kotlin avec Jetpack Compose. L'application offre une interface inspirée de Netflix, optimisée pour la navigation D-Pad, avec support multi-serveur (Plex, Jellyfin, Xtream, Backend), lecture offline et enrichissement croisé des métadonnées.
 
 ### Stack technique
 
@@ -41,13 +43,14 @@ PlexHubTV est un client Android TV pour Plex Media Server, construit en Kotlin a
 | UI | Jetpack Compose for TV, Material3 |
 | Architecture | Clean Architecture, MVVM + MVI |
 | DI | Hilt (Dagger) |
-| Base de données | Room (v26), WAL mode |
-| Réseau | Retrofit, OkHttp, Gson |
+| Base de données | Room (v46), WAL mode, FTS |
+| Réseau | Retrofit, OkHttp, Gson, kotlinx-serialization |
 | Player | ExoPlayer (primaire) + MPV (fallback) |
 | Images | Coil (cache adaptatif RAM) |
 | Background | WorkManager |
 | Préférences | DataStore + EncryptedSharedPreferences |
 | Pagination | Paging 3 |
+| Monitoring | Firebase Crashlytics + Performance |
 | Tests | JUnit, MockK, Truth, Turbine |
 
 ### Diagramme des modules
@@ -92,24 +95,25 @@ Presentation (:app)  ──>  Domain (:domain)  <──  Data (:data)
 
 ### Presentation (`:app`)
 
-- Compose UI + ViewModels
+- Compose UI + ViewModels (35 ViewModels dont `BaseViewModel` abstract)
 - Navigation Compose
-- Workers (WorkManager)
+- Workers (WorkManager) — 6 workers
 - Modules DI Hilt dans `app/di/`
 
 ### Domain (`:domain`)
 
-- Use Cases (logique métier pure)
-- Interfaces Repository (contrats)
+- Use Cases (29 use cases, logique métier pure)
+- Interfaces Repository (25 contrats)
 - Services (PlaybackManager)
 - Aucune dépendance Android Framework
 
 ### Data (`:data`)
 
-- Implémentations Repository
-- Mappers (DTO -> Domain)
+- Implémentations Repository (24 implémentations)
+- Mappers (6 : MediaMapper, BackendMediaMapper, XtreamMediaMapper, JellyfinMapper, ServerMapper, UserMapper)
 - Paging 3 (MediaRemoteMediator)
 - Agrégation multi-serveur (MediaDeduplicator)
+- Construction SQL dynamique (MediaLibraryQueryBuilder)
 
 ### Core (`:core:*`)
 
@@ -130,7 +134,7 @@ Presentation (:app)  ──>  Domain (:domain)  <──  Data (:data)
 | `:data` | Implémentations Repository, Mappers | `:domain`, `:core:model`, `:core:common`, `:core:network`, `:core:database`, `:core:datastore` |
 | `:core:model` | Entités métier (MediaItem, Server, etc.) | Kotlin Serialization |
 | `:core:common` | Utilitaires, extensions, dispatchers | Coroutines |
-| `:core:network` | Retrofit services, API clients | `:core:model`, Retrofit, OkHttp |
+| `:core:network` | Retrofit services, API clients, AuthEventBus | `:core:model`, Retrofit, OkHttp |
 | `:core:database` | Room DB, DAOs, entités, migrations | `:core:model`, Room |
 | `:core:datastore` | DataStore, EncryptedSharedPreferences | DataStore, Security Crypto |
 | `:core:designsystem` | Thèmes Material3 | Compose |
@@ -156,14 +160,16 @@ Le dossier `app/di/` contient uniquement du câblage Hilt (anciennement `app/cor
 
 | Module | Emplacement | Composant | Fournit |
 |--------|-------------|-----------|---------|
-| `DatabaseModule` | `core:database` | SingletonComponent | PlexDatabase, tous les DAOs, Migrations |
-| `NetworkModule` | `core:network` | SingletonComponent | OkHttpClient (trust SSL local), Retrofit, PlexApiService, TmdbApiService, OmdbApiService, AuthInterceptor |
-| `RepositoryModule` | `data:di` | SingletonComponent | 14+ @Binds (Auth, Media, Library, Search, Playback, OnDeck, Hubs, Favorites, Watchlist, Sync, Downloads, Collection, History, Iptv...) |
+| `DatabaseModule` | `core:database` | SingletonComponent | PlexDatabase, 21 DAOs, 35 Migrations |
+| `NetworkModule` | `core:network` | SingletonComponent | OkHttpClient (trust SSL local), Retrofit, PlexApiService, TmdbApiService, OmdbApiService, AuthInterceptor, PlexCacheInterceptor |
+| `JellyfinNetworkModule` | `core:network` | SingletonComponent | JellyfinApiService, JellyfinClient, JellyfinConnectionTester, JellyfinImageInterceptor |
+| `RepositoryModule` | `data:di` | SingletonComponent | 26 @Binds (Auth, Media, Library, Search, Playback, OnDeck, Hubs, Favorites, Watchlist, Sync, Downloads, Collection, History, Iptv, Profile, Jellyfin, Playlist, PersonFavorite, Backend, Xtream...) |
 | `DataStoreModule` | `core:datastore` | SingletonComponent | `DataStore<Preferences>` |
 | `CoroutineModule` | `core:common` | SingletonComponent | `@IoDispatcher`, `@DefaultDispatcher`, `@MainDispatcher`, `@ApplicationScope` |
 | `WorkModule` | `core:common` | SingletonComponent | WorkManager |
 | `PlayerModule` | `app:di` | SingletonComponent | PlayerFactory (ExoPlayerFactory) |
 | `ImageModule` | `app:di` | SingletonComponent | Coil ImageLoader (cache adaptatif 10-15% RAM), PlexImageKeyer |
+| `AnalyticsModule` | `app:di` | SingletonComponent | AnalyticsService (abstraction Firebase Analytics) |
 
 ### Qualifiers personnalisés
 
@@ -183,7 +189,7 @@ Le dossier `app/di/` contient uniquement du câblage Hilt (anciennement `app/cor
 abstract class RepositoryModule {
     @Binds abstract fun bindAuthRepo(impl: AuthRepositoryImpl): AuthRepository
     @Binds abstract fun bindMediaRepo(impl: MediaRepositoryImpl): MediaRepository
-    // ... 14+ bindings
+    // ... 26 bindings total
 }
 ```
 
@@ -191,14 +197,16 @@ abstract class RepositoryModule {
 
 ## 5. Base de données (Room)
 
-### PlexDatabase (Version 26)
+### PlexDatabase (Version 46)
 
 - Fichier : `core/database/src/.../PlexDatabase.kt`
 - Mode WAL (Write-Ahead Logging) activé
 - `PRAGMA synchronous = NORMAL`
 - `PRAGMA cache_size = -8000` (8 Mo)
+- Full-Text Search via `MediaFts` (table FTS4)
+- Vue matérialisée `MediaUnifiedEntity` pour le browsing unifié
 
-### Entités (14)
+### Entités (24)
 
 | Entité | Description |
 |--------|-------------|
@@ -214,14 +222,24 @@ abstract class RepositoryModule {
 | `TrackPreferenceEntity` | Préférences audio/sous-titres par média |
 | `CollectionEntity` | Collections Plex |
 | `MediaCollectionCrossRef` | Relation many-to-many (média <-> collection) |
-| `ProfileEntity` | Profils multi-utilisateur (Plex Home) |
+| `ProfileEntity` | Profils multi-utilisateur locaux |
 | `SearchCacheEntity` | Cache des résultats de recherche |
+| `MediaFts` | Index de recherche plein texte (FTS4) |
+| `XtreamAccountEntity` | Comptes streaming Xtream |
+| `BackendServerEntity` | Configuration serveurs backend |
+| `IdBridgeEntity` | Mapping IMDB/TMDB IDs cross-serveur |
+| `MediaUnifiedEntity` | Vue matérialisée pour browsing unifié |
+| `PersonFavoriteEntity` | Acteurs/réalisateurs favoris |
+| `PlaylistEntity` | Playlists utilisateur |
+| `PlaylistItemEntity` | Items de playlist |
+| `WatchlistEntity` | Watchlist cloud Plex |
+| `JellyfinServerEntity` | Serveurs Jellyfin (credentials chiffrés) |
 
-### DAOs (13)
+### DAOs (21)
 
-MediaDao, ServerDao, DownloadDao, ApiCacheDao, OfflineWatchProgressDao, HomeContentDao, FavoriteDao, RemoteKeysDao, LibrarySectionDao, TrackPreferenceDao, CollectionDao, ProfileDao, SearchCacheDao
+MediaDao, ServerDao, DownloadDao, ApiCacheDao, OfflineWatchProgressDao, HomeContentDao, FavoriteDao, RemoteKeysDao, LibrarySectionDao, TrackPreferenceDao, CollectionDao, ProfileDao, SearchCacheDao, XtreamAccountDao, BackendServerDao, IdBridgeDao, MediaUnifiedDao, PersonFavoriteDao, PlaylistDao, WatchlistDao, JellyfinServerDao
 
-### Migrations (v11 -> v26)
+### Migrations (v11 -> v46)
 
 | Migration | Description |
 |-----------|-------------|
@@ -235,14 +253,43 @@ MediaDao, ServerDao, DownloadDao, ApiCacheDao, OfflineWatchProgressDao, HomeCont
 | 23 -> 24 | Table `search_cache` |
 | 24 -> 25 | Colonnes relay/publicAddress/httpsRequired/connectionCandidatesJson sur ServerEntity |
 | 25 -> 26 | Suppression serveurs obsolètes (force re-fetch) |
+| 26 -> 27 | Colonne parentIndex (numéro de saison pour épisodes) |
+| 27 -> 28 | Colonne alternativeThumbUrls (images fallback multi-serveur) |
+| 28 -> 29 | Colonne displayRating (note canonique pré-calculée) |
+| 29 -> 30 | Colonne historyGroupKey (groupement historique lecture) |
+| 30 -> 31 | Table `media_fts` (recherche plein texte) + triggers sync |
+| 31 -> 32 | Corrections/index mineurs |
+| 32 -> 33 | Table `xtream_accounts` (intégration Xtream) |
+| 33 -> 34 | Table `backend_servers` + colonne sourceServerId |
+| 34 -> 35 | Table `id_bridge` (mapping IMDB/TMDB cross-serveur) |
+| 35 -> 36 | Index de performance supplémentaires |
+| 36 -> 37 | Colonne metadataScore (score complétude métadonnées) |
+| 37 -> 38 | Colonne isOwned (suivi serveurs possédés) |
+| 38 -> 39 | Index de performance additionnels |
+| 39 -> 40 | Colonne groupKey + table `media_unified` (vue matérialisée) |
+| 40 -> 41 | Table `person_favorites` (acteurs/réalisateurs favoris) |
+| 41 -> 42 | Tables `playlists` + `playlist_items` |
+| 42 -> 43 | Colonnes isHidden/hiddenAt (masquage soft-delete depuis hubs) |
+| 43 -> 44 | Colonnes overriddenSummary/overriddenThumbUrl (refresh TMDB manuel) |
+| 44 -> 45 | Table `watchlist` (watchlist cloud) |
+| 45 -> 46 | Table `jellyfin_servers` (intégration Jellyfin) |
 
-**Point important** : `MediaEntity` ne stocke PAS `parentIndex` (numéro de saison pour les épisodes) — seulement `index` (numéro d'épisode/saison). Le mapper `mapEntityToDomain` ne mappe donc jamais `parentIndex`.
+### MediaLibraryQueryBuilder
+
+Classe dédiée (`data/repository/MediaLibraryQueryBuilder.kt`) qui construit les requêtes SQL dynamiques pour le browsing bibliothèque. Utilise des **listes de colonnes explicites** pour éviter le piège Room `@RawQuery` (voir MEMORY.md).
+
+Constantes clés :
+- `UNIFIED_SELECT` / `NON_UNIFIED_SELECT` — colonnes explicites par type de requête
+- `UNIFIED_GROUP_BY` / `NON_UNIFIED_GROUP_BY` — GROUP BY pour agrégation multi-source
+- Méthodes : `buildPagedQuery()`, `buildCountQuery()`, `buildIndexQuery()`
+
+**Point important** : `MediaEntity` stocke maintenant `parentIndex` (ajouté en v27) pour le matching épisodes par saison.
 
 ---
 
 ## 6. Couche réseau
 
-### Services API (3 interfaces Retrofit)
+### Services API (4 interfaces Retrofit)
 
 #### PlexApiService (`core:network`)
 
@@ -256,7 +303,7 @@ URL de base dynamique : `plex.tv` pour l'auth, URL serveur pour les médias.
 | Média | `GET /hubs/search`, `GET /library/metadata/{key}`, `GET /library/sections/{id}/all` |
 | Collections | `GET /library/sections/{id}/collections`, `GET /library/collections/{id}/children` |
 | Playback | `GET /:/timeline`, `GET /:/scrobble`, `GET /:/unscrobble`, `PUT /:/prefs` |
-| Plex Home | `GET /api/home/users`, `POST /api/home/users/{uuid}/switch` |
+| Plex Home | `GET /api/v2/home/users`, `POST /api/home/users/{uuid}/switch` |
 
 Utilise `@Url` dynamique pour les appels multi-serveur.
 
@@ -264,18 +311,31 @@ Utilise `@Url` dynamique pour les appels multi-serveur.
 
 - Base : `https://api.themoviedb.org/`
 - `GET /3/tv/{tv_id}` — Notes des séries (vote_average)
+- Supporte le paramètre `language` (FR/EN via `metadataLanguage` setting)
 
 #### OmdbApiService (`core:network`)
 
 - Base : `https://www.omdbapi.com/`
 - `GET /?i={imdbId}` — Notes IMDb (imdbRating)
 
+#### JellyfinApiService (`core:network`)
+
+- Base : URL dynamique par serveur Jellyfin
+- Auth : `POST /Users/AuthenticateByName`
+- Bibliothèques : `GET /Users/{userId}/Views`, `GET /Users/{userId}/Items`
+- Détails : `GET /Users/{userId}/Items/{itemId}`, saisons, épisodes, similar
+- Recherche : `GET /Items` avec paramètre `searchTerm`
+- Playback : `POST /Sessions/Playing`, `POST /Sessions/Playing/Progress`, `POST /Sessions/Playing/Stopped`
+
 ### Gestion des connexions
 
 - `ConnectionManager` : teste les candidats de connexion en parallèle (race), sélectionne la meilleure URL
 - `ServerClientResolver` : résout les connexions serveur via `ConnectionManager.findBestConnection`
+- `JellyfinConnectionTester` : valide la connectivité serveur Jellyfin via `/System/Info/Public`
 - SSL trust pour les IP locales uniquement (certificats auto-signés sur LAN)
-- `AuthInterceptor` : injecte le token Plex dans chaque requête
+- `AuthInterceptor` : injecte le token Plex dans chaque requête, détecte les 401 (plex.tv uniquement)
+- `JellyfinImageInterceptor` : injecte le header Authorization pour les images Jellyfin
+- `PlexCacheInterceptor` : cache HTTP 5min pour les endpoints stables
 
 ---
 
@@ -288,7 +348,7 @@ Deux backends de stockage :
 | Type | Backend | Données |
 |------|---------|---------|
 | Non-sensible | `DataStore<Preferences>` | Thème, qualité vidéo, player engine, timestamps sync, préférences UI |
-| Sensible | `SecurePreferencesManager` | Token Plex, Client ID, clés API TMDb/OMDb |
+| Sensible | `SecurePreferencesManager` | Token Plex, Client ID, clés API TMDb/OMDb, tokens Jellyfin |
 
 ### Clés principales
 
@@ -303,6 +363,9 @@ Deux backends de stockage :
 | API | `tmdbApiKey`, `omdbApiKey` | Oui |
 | IPTV | `iptvPlaylistUrl` | Non |
 | Cache | `cachedConnections` (serverId -> baseUrl) | Non |
+| Métadonnées | `metadataLanguage` (FR/EN, défaut: "fr") | Non |
+| Écran de veille | `screensaverEnabled`, `screensaverIntervalSeconds`, `screensaverShowClock` | Non |
+| Bibliothèque | `librarySort`, `librarySortDescending`, `libraryGenre`, `libraryServerFilter` | Non |
 
 ### SecurePreferencesManager
 
@@ -326,7 +389,7 @@ Deux backends de stockage :
 #### Auth Graph
 
 ```
-Splash -> Login -> PinInput -> Profiles -> Loading -> Main
+Splash -> Login -> PinInput -> PlexHomeSwitch -> LibrarySelection -> Loading -> Main
 ```
 
 #### Main Graph (sidebar)
@@ -340,7 +403,8 @@ Main
 ├── Downloads
 ├── Favorites
 ├── History
-├── Settings -> Debug, ServerStatus
+├── Playlists
+├── Settings -> Debug, ServerStatus, SubtitleStyle, SettingsCategory
 └── Iptv
 ```
 
@@ -351,55 +415,88 @@ Main
 | `media_detail/{ratingKey}?serverId={serverId}` | ratingKey, serverId |
 | `season_detail/{ratingKey}?serverId={serverId}` | ratingKey, serverId |
 | `collection_detail/{collectionId}?serverId={serverId}` | collectionId, serverId |
+| `playlist_detail/{playlistId}?serverId={serverId}` | playlistId, serverId |
+| `person_detail/{personName}` | personName (URL-encoded) |
 | `video_player/{ratingKey}?serverId={serverId}&startOffset=...&url=...&title=...` | ratingKey, serverId, startOffset, url, title |
+
+#### Setup Graph
+
+| Route | Description |
+|-------|-------------|
+| `xtream_setup` | Configuration compte Xtream |
+| `jellyfin_setup` | Configuration serveur Jellyfin |
+| `xtream_category_selection/{accountId}` | Sélection catégories Xtream |
+| `app_profile_selection` | Sélection profil au démarrage |
+| `app_profile_switch` | Changement de profil |
 
 ### NavigationItem (`core:navigation`)
 
 Sealed class associant chaque `Screen` a un label et une icone pour la sidebar TV :
 
 ```
-Home, Movies, TVShows, Search, Downloads, Favorites, History, Settings, Iptv (Live TV)
+Home, Movies, TVShows, Search, Downloads, Favorites, History, Playlists, Settings, Iptv (Live TV)
 ```
 
 ---
 
 ## 9. Ecrans et Features
 
-### ViewModels (24)
+### BaseViewModel
+
+Classe abstraite avec error channel unifié, héritée par la majorité des ViewModels :
+
+```kotlin
+abstract class BaseViewModel : ViewModel() {
+    private val _errorEvents = Channel<AppError>()
+    val errorEvents = _errorEvents.receiveAsFlow()
+    protected suspend fun emitError(error: AppError) = _errorEvents.send(error)
+}
+```
+
+### ViewModels (35)
 
 | ViewModel | Feature | Responsabilité |
 |-----------|---------|----------------|
 | `AuthViewModel` | auth | Flux d'auth PIN Plex, OAuth |
-| `ProfileViewModel` (auth) | auth | Sélection profil Plex Home |
-| `SplashViewModel` | auth | Auto-login, bypass auth |
+| `PlexHomeSwitcherViewModel` | plexhome | Sélection utilisateur Plex Home |
+| `SplashViewModel` | splash | Auto-login, bypass auth |
 | `LoadingViewModel` | loading | Suivi progression sync initiale |
-| `MainViewModel` | main | État global app, navigation |
+| `MainViewModel` | main | État global app, navigation, coordination 401 |
 | `HomeViewModel` | home | Contenu unifié (On Deck + Hubs), sync WorkManager, prefetch images |
 | `LibraryViewModel` | library | Navigation bibliothèque avec Paging3, filtres, tri |
-| `SearchViewModel` | search | Recherche globale multi-serveur, debounce 500ms |
-| `MediaDetailViewModel` | details | Détails média, Smart Start (reprise/épisode suivant), sélection source, favoris, statut lecture |
+| `LibrarySelectionViewModel` | libraryselection | Sélection bibliothèques au premier lancement |
+| `SearchViewModel` | search | Recherche globale multi-serveur, debounce 400ms |
+| `MediaDetailViewModel` | details | Détails média, Smart Start, sélection source, favoris, statut lecture |
 | `SeasonDetailViewModel` | details | Liste des épisodes par saison, lecture épisode |
+| `PersonDetailViewModel` | details | Détails acteur/réalisateur, filmographie |
+| `MediaEnrichmentViewModel` | details | Enrichissement en arrière-plan |
 | `CollectionDetailViewModel` | collection | Contenu d'une collection |
-| `HubDetailViewModel` | hub | Contenu d'un hub (ex: "Reprendre la lecture") |
+| `HubViewModel` | hub | Contenu d'un hub (ex: "Reprendre la lecture") |
 | `FavoritesViewModel` | favorites | Liste des favoris |
 | `HistoryViewModel` | history | Historique de lecture |
 | `DownloadsViewModel` | downloads | Contenu téléchargé (offline) |
-| `SettingsViewModel` | settings | Paramètres (thème, qualité, moteur player) |
+| `PlaylistListViewModel` | playlist | Liste des playlists |
+| `PlaylistDetailViewModel` | playlist | Contenu d'une playlist |
+| `SettingsViewModel` | settings | Paramètres (thème, qualité, moteur player, langue métadonnées) |
 | `ServerStatusViewModel` | settings | État des connexions serveur |
-| `DebugViewModel` | settings | Outils de debug (BUILD_TYPE only) |
-| `ProfileViewModel` | profile | Gestion profils utilisateur |
+| `SubtitleStyleViewModel` | settings | Style sous-titres personnalisable |
+| `DebugViewModel` | debug | Outils de debug (BUILD_TYPE only) |
+| `AppProfileViewModel` | appprofile | Gestion profils utilisateur locaux (CRUD complet) |
 | `IptvViewModel` | iptv | Parsing playlist M3U, lecture IPTV |
+| `XtreamSetupViewModel` | xtream | Configuration compte Xtream |
+| `XtreamCategorySelectionViewModel` | xtream | Sélection catégories Xtream |
+| `JellyfinSetupViewModel` | jellyfin | Configuration serveur Jellyfin (auth + test connexion) |
+| `ScreensaverViewModel` | screensaver | Écran de veille avec horloge et art média |
 | `PlayerControlViewModel` | player | Contrôles UI player, overlay |
 | `PlaybackStatsViewModel` | player | Stats temps-réel (bitrate, codec, buffer) |
 | `TrackSelectionViewModel` | player | Sélection pistes audio/sous-titres |
-| `MediaEnrichmentViewModel` | player | Enrichissement en arrière-plan |
 
 ### Deux chemins de lecture
 
 1. **MediaDetailViewModel.PlayClicked** : films et séries (récupère l'épisode suivant via `GetNextEpisodeUseCase`)
 2. **SeasonDetailViewModel.PlayEpisode** : épisodes depuis la liste de saison
 
-Les deux chemins passent par `EnrichMediaItemUseCase` avant la lecture.
+Les deux chemins passent par `PreparePlaybackUseCase` (qui encapsule `EnrichMediaItemUseCase` + source selection + queue building) avant la lecture.
 
 ---
 
@@ -451,7 +548,7 @@ Les deux chemins passent par `EnrichMediaItemUseCase` avant la lecture.
 | `PlayerInitializer` | Initialisation du player |
 | `PlayerMediaLoader` | Résolution URL de stream |
 | `PlayerPositionTracker` | Mise à jour position (intervalle 1s) |
-| `PlayerScrobbler` | Mises à jour timeline Plex, popup épisode suivant |
+| `PlayerScrobbler` | Mises à jour timeline Plex/Jellyfin, popup épisode suivant |
 | `PlayerTrackController` | Gestion pistes audio/sous-titres |
 | `ChapterMarkerManager` | Marqueurs intro/crédits (skip) |
 
@@ -462,7 +559,7 @@ Les deux chemins passent par `EnrichMediaItemUseCase` avant la lecture.
 | ExoPlayer | Primaire | Décodeur FFmpeg Jellyfin, support sous-titres ASS |
 | MPV | Fallback | Basculement automatique sur erreur MediaCodec |
 
-`TranscodeUrlBuilder` construit les URL de lecture directe ou transcodée.
+`TranscodeUrlBuilder` construit les URL de lecture directe ou transcodée (Plex). `JellyfinUrlBuilder` construit les URL de lecture Jellyfin.
 
 ---
 
@@ -471,18 +568,17 @@ Les deux chemins passent par `EnrichMediaItemUseCase` avant la lecture.
 ### Pattern StateFlow + Channel
 
 ```kotlin
-// Pattern standard ViewModel
-class SomeViewModel : ViewModel() {
+// Pattern standard ViewModel (hérite de BaseViewModel)
+class SomeViewModel @Inject constructor(...) : BaseViewModel() {
     // État UI réactif
     private val _uiState = MutableStateFlow(SomeUiState())
     val uiState: StateFlow<SomeUiState> = _uiState.asStateFlow()
 
-    // Événements one-shot (navigation, erreurs)
+    // Événements one-shot (navigation)
     private val _navigationEvents = Channel<NavigationEvent>(Channel.BUFFERED)
     val navigationEvents = _navigationEvents.receiveAsFlow()
 
-    private val _errorEvents = Channel<AppError>(Channel.BUFFERED)
-    val errorEvents = _errorEvents.receiveAsFlow()
+    // Erreurs héritées de BaseViewModel : errorEvents
 
     // Actions MVI-like
     fun onEvent(event: SomeEvent) { ... }
@@ -495,6 +591,8 @@ class SomeViewModel : ViewModel() {
 - **Channel** pour les événements one-shot (navigation, toasts, erreurs)
 - **SavedStateHandle** pour la restauration d'état après process death
 - Les ViewModels exposent des `fun onEvent(event)` ou `fun onAction(action)` (pattern MVI-like)
+- **BaseViewModel** fournit `errorEvents` et `emitError()` pour un error handling unifié
+- **@Immutable** + `ImmutableList` sur les data classes d'état UI critiques pour optimiser la recomposition Compose
 
 ### PlayerController (cas spécial)
 
@@ -527,15 +625,19 @@ UI  <──  ViewModel  <──  UseCase  <──  Repository
 
 | Composant | Rôle |
 |-----------|------|
-| `LibrarySyncWorker` | Sync périodique (6h) films/séries depuis tous les serveurs |
+| `LibrarySyncWorker` | Sync périodique (6h) films/séries depuis tous les serveurs (Plex + Jellyfin) |
 | `CollectionSyncWorker` | Sync collections après LibrarySync |
 | `RatingSyncWorker` | Scraping notes TMDb/OMDb |
+| `UnifiedRebuildWorker` | Reconstruction de la vue matérialisée `media_unified` |
+| `CachePurgeWorker` | Nettoyage périodique du cache API expiré |
+| `ChannelSyncWorker` | Sync des chaînes IPTV/Xtream |
+| `MediaUnifiedEntity` | Vue matérialisée pour browsing unifié performant |
 | `OfflineWatchProgressEntity` | Sauvegarde progression lecture hors-ligne |
 | `ApiCacheEntity` | Cache réponses API avec TTL |
 
 ### Limites
 
-- `LibrarySyncWorker` synchronise uniquement les films et séries depuis `/library/sections/{id}/all`, **PAS** les saisons ni les épisodes
+- `LibrarySyncWorker` synchronise uniquement les films et séries depuis `/library/sections/{id}/all` (Plex) et `/Users/{id}/Items` (Jellyfin), **PAS** les saisons ni les épisodes
 - Les épisodes sont chargés a la demande dans `SeasonDetailViewModel`
 - Les saisons ne sont pas dans Room → elles viennent toujours du réseau
 
@@ -574,9 +676,10 @@ title:Movie Name|year:2024
 
 ### Points d'attention
 
-- L'enrichissement doit se faire dans les **deux** ViewModels de lecture (MediaDetail + SeasonDetail)
-- Le matching `parentIndex` dans le fallback réseau doit être null-safe (Room ne stocke pas `parentIndex`)
+- L'enrichissement passe par `PreparePlaybackUseCase` qui encapsule le flow complet (enrichment → source selection → queue)
+- Le matching `parentIndex` dans le fallback réseau doit être null-safe
 - Les épisodes d'un serveur distant peuvent ne pas être dans Room → le fallback réseau doit fonctionner
+- Les sources Xtream et Backend ne nécessitent pas d'enrichissement cross-serveur
 
 ---
 
@@ -631,10 +734,21 @@ fun Throwable.toAppError(): AppError
 // else -> Unknown
 ```
 
+### ErrorMessageResolver
+
+Utilitaire de conversion `AppError → String` localisé (FR/EN) :
+
+```kotlin
+object ErrorMessageResolver {
+    fun resolve(context: Context, error: AppError): String
+}
+```
+
 ### Propagation
 
-- Les ViewModels émettent les erreurs via `Channel<AppError>` (événements one-shot)
-- `ErrorSnackbarHost` dans les écrans Compose consomme et affiche les erreurs
+- `BaseViewModel` fournit `emitError()` et `errorEvents: Flow<AppError>` (événements one-shot)
+- `ErrorSnackbarHost` dans les écrans Compose consomme et affiche les erreurs localisées
+- Les écrans critiques (MediaDetail, SeasonDetail) affichent un empty state "Content not found" avec bouton retry
 
 ---
 
@@ -657,19 +771,20 @@ fun Throwable.toAppError(): AppError
 - Optimisé pour TV (sombre par défaut)
 - Support couleurs dynamiques (Android 12+)
 - Sélection dans Settings, stocké dans DataStore (`appTheme`)
+- Transitions NavHost avec FadeIn/FadeOut
 
 ---
 
 ## 16. Workers
 
-### Workers WorkManager (3)
+### Workers WorkManager (6)
 
 #### LibrarySyncWorker
 
 - **Déclencheur** : Sync initiale + périodique (6h)
-- **Action** : Sync films/séries depuis `/library/sections/{id}/all` pour tous les serveurs
+- **Action** : Sync films/séries depuis `/library/sections/{id}/all` (Plex) et `/Users/{id}/Items` (Jellyfin)
 - **Particularités** : Foreground service, notifications de progression, gestion timeout
-- **Chainage** : Déclenche `CollectionSyncWorker` en cas de succès
+- **Chainage** : Déclenche `CollectionSyncWorker` puis `UnifiedRebuildWorker` en cas de succès
 
 #### CollectionSyncWorker
 
@@ -680,8 +795,23 @@ fun Throwable.toAppError(): AppError
 #### RatingSyncWorker
 
 - **Déclencheur** : Manuel ou périodique
-- **Action** : Récupère les notes depuis TMDb (séries) et OMDb (films)
+- **Action** : Récupère les notes depuis TMDb (séries) et OMDb (films), met à jour `displayRating`
 - **Particularités** : Rate limiting (250ms entre requêtes), gestion erreurs SSL
+
+#### UnifiedRebuildWorker
+
+- **Déclencheur** : Après sync réussie (LibrarySync ou CollectionSync)
+- **Action** : Reconstruit la vue matérialisée `media_unified` pour le browsing unifié performant
+
+#### CachePurgeWorker
+
+- **Déclencheur** : Périodique
+- **Action** : Supprime les entrées `ApiCacheEntity` expirées
+
+#### ChannelSyncWorker
+
+- **Déclencheur** : Manuel ou périodique
+- **Action** : Sync des chaînes IPTV/Xtream
 
 ### Injection dans les Workers
 
@@ -689,37 +819,148 @@ Les Workers utilisent `@HiltWorker` avec `@AssistedInject` pour l'injection de d
 
 ---
 
-## 17. Tests
+## 17. Intégration Jellyfin
 
-### Fichiers de tests existants (18)
+### Architecture
 
-#### Couche App (7)
+L'intégration Jellyfin suit le pattern `MediaSourceHandler` pour s'intégrer au système multi-source existant.
+
+```
+┌──────────────────────────────────────┐
+│          JellyfinSetupScreen          │
+│          JellyfinSetupViewModel       │
+│   (URL, username, password → auth)    │
+└──────────────┬───────────────────────┘
+               │
+               v
+┌──────────────────────────────────────┐
+│        JellyfinClient                 │
+│   (authentification, browsing)        │
+│                                       │
+│  JellyfinApiService (Retrofit)        │
+│  JellyfinConnectionTester             │
+└──────────────┬───────────────────────┘
+               │
+               v
+┌──────────────────────────────────────┐
+│     JellyfinSourceHandler             │
+│   (Room-first + API fallback)         │
+│                                       │
+│  JellyfinMapper (ticks→ms, IDs)       │
+│  JellyfinUrlBuilder (stream URLs)     │
+│  JellyfinPlaybackReporter (sessions)  │
+│  JellyfinImageInterceptor (auth)      │
+└──────────────────────────────────────┘
+```
+
+### Composants clés
+
+| Composant | Rôle |
+|-----------|------|
+| `JellyfinApiService` | Interface Retrofit (auth, browse, search, playback) |
+| `JellyfinClient` | Client haut-niveau (authentification, test connexion) |
+| `JellyfinMapper` | Conversion DTO → domain (ticks→ms, ProviderIds, URLs relatives) |
+| `JellyfinSourceHandler` | Strategy pattern : Room-first + API fallback pour détails/saisons/épisodes |
+| `JellyfinUrlBuilder` | Construction URLs de lecture directe |
+| `JellyfinPlaybackReporter` | Reporting session (start, progress, stop) |
+| `JellyfinImageInterceptor` | Injection header Authorization pour les images |
+| `JellyfinServerEntity` | Stockage credentials en Room |
+
+### Particularités
+
+- **Same-server sources** : les requêtes DAO excluent par `ratingKey + serverId` (pas `serverId` seul), permettant plusieurs versions d'un même contenu (VF/VO, 720p/4K)
+- **Sync intégrée** : `LibrarySyncWorker` synchronise aussi les bibliothèques Jellyfin via `SyncJellyfinLibraryUseCase`
+- **Recherche fusionnée** : résultats Jellyfin intégrés dans `SearchRepositoryImpl`
+
+---
+
+## 18. Gestion expiration de session
+
+### Architecture
+
+```
+┌─────────────────────┐     401 Response     ┌──────────────────┐
+│   AuthInterceptor   │ ─────────────────────>│   AuthEventBus   │
+│   (OkHttp layer)    │     tryEmit(event)    │   (SharedFlow)   │
+└─────────────────────┘                       └────────┬─────────┘
+                                                       │ collect
+                                                       v
+                                              ┌──────────────────┐
+                                              │  MainViewModel   │
+                                              │  (dialog + nav)  │
+                                              └──────────────────┘
+```
+
+### Composants
+
+| Composant | Rôle |
+|-----------|------|
+| `AuthEventBus` | Singleton `MutableSharedFlow` (buffer=1, DROP_OLDEST), thread-safe |
+| `AuthInterceptor` | Détecte les 401 depuis `plex.tv` uniquement (les 401 serveurs locaux sont ignorés) |
+| `MainViewModel` | Coordonne l'affichage du dialog d'expiration et la navigation vers l'écran d'auth |
+
+### Comportement
+
+- L'interceptor retourne la réponse 401 au caller (pas de retry automatique) → évite les boucles infinies
+- Déduplication des dialogs via flag dans MainViewModel (empêche les multiples 401 simultanés)
+- Navigation vers l'auth avec `popUpTo(0)` pour vider le back stack
+
+---
+
+## 19. Tests
+
+### Fichiers de tests existants (38)
+
+#### Couche App (17)
 
 | Fichier | Couverture |
 |---------|-----------|
 | `ChapterMarkerManagerTest.kt` | Marqueurs intro/crédits |
 | `PlayerStatsTrackerTest.kt` | Collecte stats lecture |
 | `PlayerTrackControllerTest.kt` | Gestion pistes audio/sous-titres |
-| `PlayerControlViewModelTest.kt` | Contrôles player (19 tests) |
-| `TrackSelectionViewModelTest.kt` | Sélection pistes (6 tests) |
-| `PlaybackStatsViewModelTest.kt` | Overlay stats (6 tests) |
-| `MediaDetailViewModelTest.kt` | Détails média (10 tests) |
+| `PlayerScrobblerTest.kt` | Scrobbling timeline Plex |
+| `PlayerControlViewModelTest.kt` | Contrôles player |
+| `TrackSelectionViewModelTest.kt` | Sélection pistes |
+| `PlaybackStatsViewModelTest.kt` | Overlay stats |
+| `MediaDetailViewModelTest.kt` | Détails média |
+| `HomeViewModelTest.kt` | Contenu accueil |
+| `SearchViewModelTest.kt` | Recherche multi-serveur |
+| `LibraryViewModelTest.kt` | Bibliothèque + filtres |
+| `AppProfileViewModelTest.kt` | Profils locaux |
+| `PlexHomeSwitcherViewModelTest.kt` | Plex Home |
+| `PlaylistDetailViewModelTest.kt` | Détails playlist |
+| `PlaylistListViewModelTest.kt` | Liste playlists |
+| `MainViewModelTest.kt` | État global app |
+| `GlobalCoroutineExceptionHandlerTest.kt` | Gestion exceptions globales |
 
-#### Couche Core (2)
+#### Couche App — Autres
+
+| Fichier | Couverture |
+|---------|-----------|
+| `SyncStatusModelTest.kt` | Modèle statut sync |
+
+#### Couche Core (6)
 
 | Fichier | Couverture |
 |---------|-----------|
 | `StringNormalizerTest.kt` | Normalisation de chaînes |
 | `AppErrorTest.kt` | Conversion erreurs |
+| `UnificationIdTest.kt` | Calcul unificationId |
+| `AuthEventBusTest.kt` | Bus événements auth |
+| `AuthInterceptorTest.kt` | Intercepteur 401 |
+| `ConnectionManagerTest.kt` | Gestion connexions serveur |
+| `NetworkSecurityTest.kt` | Sécurité réseau (SSL trust) |
 
-#### Couche Data (2)
+#### Couche Data (3)
 
 | Fichier | Couverture |
 |---------|-----------|
 | `MediaUrlResolverTest.kt` | Résolution URL média |
 | `ProfileRepositoryImplTest.kt` | Repository profils |
+| `MediaLibraryQueryBuilderTest.kt` | Construction SQL dynamique |
+| `MediaMapperTest.kt` | Mapping DTO → domain |
 
-#### Couche Domain (7)
+#### Couche Domain (8)
 
 | Fichier | Couverture |
 |---------|-----------|
@@ -729,7 +970,9 @@ Les Workers utilisent `@HiltWorker` avec `@AssistedInject` pour l'injection de d
 | `SearchAcrossServersUseCaseTest.kt` | Recherche multi-serveur |
 | `SyncWatchlistUseCaseTest.kt` | Sync watchlist |
 | `ToggleFavoriteUseCaseTest.kt` | Toggle favoris |
-| `TrackSelectionUseCaseTest.kt` | Sélection pistes |
+| `EnrichMediaItemUseCaseTest.kt` | Enrichissement multi-serveur |
+| `PlaybackManagerTest.kt` | Gestion lecture |
+| `FilterContentByAgeUseCaseTest.kt` | Filtrage contenu par âge |
 
 ### Stack de tests
 
@@ -739,10 +982,6 @@ Les Workers utilisent `@HiltWorker` avec `@AssistedInject` pour l'injection de d
 - **Turbine** : Tests Flow/StateFlow
 - **Coroutines Test** : `runTest`, `StandardTestDispatcher`, `advanceUntilIdle`
 
-### Tests manquants
-
-Voir `MISSING_TESTS.md` pour la liste des tests a restaurer (supprimés lors du refactoring).
-
 ---
 
-**Derniere mise a jour** : 14 février 2026
+**Derniere mise a jour** : 23 mars 2026

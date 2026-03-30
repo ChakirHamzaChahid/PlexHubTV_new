@@ -37,7 +37,7 @@ import androidx.room.TypeConverters
         WatchlistEntity::class,
         JellyfinServerEntity::class,
     ],
-    version = 46,
+    version = 47,
     exportSchema = true,
 )
 abstract class PlexDatabase : RoomDatabase() {

@@ -127,7 +127,7 @@ fun NetflixHeroBillboard(
                     .data(media.artUrl ?: media.thumbUrl)
                     .size(1280, 720) // Downscaled for GPU-limited TV devices (sufficient for 1080p with Crop)
                     .build(),
-                contentDescription = "Image de fond de ${media.title}",
+                contentDescription = media.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()

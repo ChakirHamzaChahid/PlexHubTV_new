@@ -44,22 +44,25 @@ class JellyfinSourceHandler @Inject constructor(
         if (!isEpisode && localEntity != null) {
             val client = clientResolver.getClient(serverId)
 
-            // MediaSources missing → single-item API fetch to get streams for playback
-            if (localEntity.mediaParts.isEmpty() && client != null) {
+            // Sync excludes People (cast) and MediaSources → single-item API fetch
+            // to get full details (cast, directors, tagline, streams).
+            // Shows have mediaSources=null (only episodes have streams), but we still
+            // need the API response for People/cast data.
+            if (client != null) {
                 try {
                     val response = client.getItem(ratingKey)
                     if (response.isSuccessful) {
                         val apiItem = response.body()
-                        if (apiItem != null && !apiItem.mediaSources.isNullOrEmpty()) {
+                        if (apiItem != null) {
                             val apiDomain = jellyfinMapper.mapDtoToDomain(
                                 apiItem, serverId, client.baseUrl, client.accessToken,
                             )
-                            Timber.d("JellyfinSourceHandler: Enriched $ratingKey with ${apiDomain.mediaParts.size} parts from API")
+                            Timber.d("JellyfinSourceHandler: Enriched $ratingKey with ${apiDomain.mediaParts.size} parts, ${apiDomain.role?.size ?: 0} cast from API")
                             return Result.success(apiDomain)
                         }
                     }
                 } catch (e: Exception) {
-                    Timber.w(e, "JellyfinSourceHandler: API fetch for MediaSources failed, using Room entity")
+                    Timber.w(e, "JellyfinSourceHandler: API fetch failed, using Room entity")
                 }
             }
 
@@ -115,12 +118,16 @@ class JellyfinSourceHandler @Inject constructor(
         }
 
         // API fallback — use generic getItems(parentId) which works for both
-        // series→seasons AND season→episodes (GetMediaDetailUseCase calls this for both)
+        // series→seasons AND season→episodes (GetMediaDetailUseCase calls this for both).
+        // CRITICAL: recursive=false to get only DIRECT children, not all descendants.
+        // With recursive=true (default), a series returns seasons + all episodes mixed,
+        // e.g. "156 Seasons" for Black Clover instead of 4 real seasons.
         return safeApiCall("JellyfinSourceHandler.getSeasons") {
             val client = clientResolver.getClient(serverId)
                 ?: throw AppError.Network.ServerError("Jellyfin server $serverId unavailable")
             val response = client.getItems(
                 parentId = ratingKey,
+                recursive = false,
                 sortBy = "IndexNumber",
                 sortOrder = "Ascending",
             )

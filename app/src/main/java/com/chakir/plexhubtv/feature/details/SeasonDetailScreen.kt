@@ -519,7 +519,7 @@ fun EnhancedEpisodeItem(
                     .data(episode.thumbUrl)
                     .size(360, 202)
                     .build(),
-                contentDescription = null,
+                contentDescription = episode.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )

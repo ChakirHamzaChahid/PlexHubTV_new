@@ -50,6 +50,7 @@ data class SettingsUiState(
     val isSyncingXtream: Boolean = false,
     val xtreamSyncMessage: String? = null,
     val xtreamAccounts: ImmutableList<com.chakir.plexhubtv.core.model.XtreamAccount> = persistentListOf(),
+    val xtreamCategorySummaries: ImmutableMap<String, Pair<Int, Int>> = persistentMapOf(), // accountId → (vodCount, seriesCount)
     // Jellyfin
     val jellyfinServers: ImmutableList<com.chakir.plexhubtv.core.model.JellyfinServer> = persistentListOf(),
     val isSyncingJellyfin: Boolean = false,

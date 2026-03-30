@@ -239,10 +239,19 @@ class MediaDetailViewModel
                         // Continue tracking from PlayClicked (find active operation)
                         val opId = performanceTracker.getSummary(com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK, 1)
                             .firstOrNull()?.id
-                        opId?.let { performanceTracker.addCheckpoint(it, "User Selected Source", mapOf("serverId" to event.source.serverId)) }
+                        opId?.let { performanceTracker.addCheckpoint(it, "User Selected Source", mapOf("serverId" to event.source.serverId, "mediaIndex" to (event.source.mediaIndex?.toString() ?: "null"))) }
+
+                        // For Plex merged versions: filter mediaParts to the selected media entry
+                        val itemForPlayback = if (event.source.mediaIndex != null) {
+                            startItem.copy(
+                                mediaParts = startItem.mediaParts.filter { it.mediaIndex == event.source.mediaIndex }
+                            )
+                        } else {
+                            startItem
+                        }
 
                         // Start playback with specific source (serverId + ratingKey for same-server alternatives)
-                        playItem(startItem, opId, event.source.serverId, event.source.ratingKey)
+                        playItem(itemForPlayback, opId, event.source.serverId, event.source.ratingKey)
                     }
                 }
                 is MediaDetailEvent.PlayExtra -> {
@@ -515,8 +524,9 @@ class MediaDetailViewModel
          */
         private fun prefetchRemoteEpisodes(show: MediaItem) {
             viewModelScope.launch {
-                val remoteSources = show.remoteSources.filter { it.serverId != show.serverId }
-                Timber.d("VM: Prefetching episodes from ${remoteSources.size} remote server(s)")
+                // Filter by ratingKey (not serverId) to include same-server alternatives (e.g. VF/VO)
+                val remoteSources = show.remoteSources.filter { it.ratingKey != show.ratingKey }
+                Timber.d("VM: Prefetching episodes from ${remoteSources.size} remote source(s)")
                 for (source in remoteSources) {
                     try {
                         // Fetch show detail → returns seasons as children

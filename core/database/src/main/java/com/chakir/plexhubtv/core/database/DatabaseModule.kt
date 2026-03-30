@@ -748,6 +748,13 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_46_47 =
+        object : androidx.room.migration.Migration(46, 47) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE xtream_accounts ADD COLUMN backendId TEXT DEFAULT NULL")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -808,6 +815,7 @@ object DatabaseModule {
                 MIGRATION_43_44,
                 MIGRATION_44_45,
                 MIGRATION_45_46,
+                MIGRATION_46_47,
             )
             .build()
     }

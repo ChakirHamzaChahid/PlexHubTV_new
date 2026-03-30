@@ -76,7 +76,7 @@ class MediaMapper
                 themeUrl = (dto.theme ?: dto.grandparentTheme)?.let { "$baseUrl$it?X-Plex-Token=$accessToken" },
                 // Parts & Streams
                 mediaParts =
-                    dto.media?.flatMap { mediaDto ->
+                    dto.media?.flatMapIndexed { mediaIdx, mediaDto ->
                         mediaDto.parts?.map { partDto ->
                             com.chakir.plexhubtv.core.model.MediaPart(
                                 id = partDto.id,
@@ -89,6 +89,7 @@ class MediaMapper
                                     partDto.streams?.map { streamDto ->
                                         mapStream(streamDto)
                                     } ?: emptyList(),
+                                mediaIndex = mediaIdx,
                             )
                         } ?: emptyList()
                     } ?: emptyList(),
@@ -242,7 +243,7 @@ class MediaMapper
                 grandparentRatingKey = dto.grandparentRatingKey,
                 index = dto.index,
                 mediaParts =
-                    dto.media?.flatMap { mediaDto ->
+                    dto.media?.flatMapIndexed { mediaIdx, mediaDto ->
                         mediaDto.parts?.map { partDto ->
                             com.chakir.plexhubtv.core.model.MediaPart(
                                 id = partDto.id,
@@ -255,6 +256,7 @@ class MediaMapper
                                     partDto.streams?.map { streamDto ->
                                         mapStream(streamDto)
                                     } ?: emptyList(),
+                                mediaIndex = mediaIdx,
                             )
                         } ?: emptyList()
                     } ?: emptyList(),
@@ -367,11 +369,12 @@ class MediaMapper
                 type = mapType(entity.type),
                 imdbId = entity.imdbId,
                 tmdbId = entity.tmdbId,
-                // Prefer TMDB overrides (absolute URLs) over raw Plex relative paths.
-                // overriddenThumbUrl is set by TMDB refresh and is already a full URL.
-                // Falls back to raw Plex path which callers resolve against current baseUrl.
-                thumbUrl = entity.overriddenThumbUrl ?: entity.thumbUrl,
-                artUrl = entity.artUrl,
+                // Prefer TMDB overrides (absolute URLs) over pre-resolved full URLs
+                // over raw relative paths. resolvedThumbUrl is set during sync with
+                // the server's baseUrl prepended (critical for Jellyfin where auth is
+                // header-based, not embedded in the URL).
+                thumbUrl = entity.overriddenThumbUrl ?: entity.resolvedThumbUrl ?: entity.thumbUrl,
+                artUrl = entity.resolvedArtUrl ?: entity.artUrl,
                 alternativeThumbUrls = entity.alternativeThumbUrls?.split("|")?.filter { it.isNotBlank() } ?: emptyList(),
                 summary = entity.overriddenSummary ?: entity.summary,
                 year = entity.year,

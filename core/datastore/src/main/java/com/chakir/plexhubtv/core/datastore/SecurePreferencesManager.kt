@@ -36,6 +36,7 @@ class SecurePreferencesManager
             const val KEY_OMDB_API_KEY = "omdb_api_key"
         const val KEY_OPENSUBTITLES_API_KEY = "opensubtitles_api_key"
         const val KEY_PARENTAL_PIN = "parental_pin"
+        const val KEY_IPTV_PLAYLIST_URL = "iptv_playlist_url"
         }
 
         private val _isEncryptionDegraded = MutableStateFlow(false)
@@ -107,6 +108,9 @@ class SecurePreferencesManager
         private val _openSubtitlesApiKey = MutableStateFlow<String?>(null)
         val openSubtitlesApiKey: Flow<String?> = _openSubtitlesApiKey.asStateFlow()
 
+        private val _iptvPlaylistUrl = MutableStateFlow<String?>(null)
+        val iptvPlaylistUrl: Flow<String?> = _iptvPlaylistUrl.asStateFlow()
+
         init {
             // Load initial values (null-safe: returns null when degraded)
             _plexToken.value = encryptedPrefs?.getString(KEY_PLEX_TOKEN, null)
@@ -114,6 +118,7 @@ class SecurePreferencesManager
             _tmdbApiKey.value = encryptedPrefs?.getString(KEY_TMDB_API_KEY, null)
             _omdbApiKey.value = encryptedPrefs?.getString(KEY_OMDB_API_KEY, null)
             _openSubtitlesApiKey.value = encryptedPrefs?.getString(KEY_OPENSUBTITLES_API_KEY, null)
+            _iptvPlaylistUrl.value = encryptedPrefs?.getString(KEY_IPTV_PLAYLIST_URL, null)
         }
 
         fun savePlexToken(token: String) {
@@ -209,6 +214,29 @@ class SecurePreferencesManager
             }
         }
 
+        fun saveIptvPlaylistUrl(url: String) {
+            synchronized(this) {
+                if (url.isBlank()) {
+                    encryptedPrefs?.edit()?.remove(KEY_IPTV_PLAYLIST_URL)?.apply()
+                    _iptvPlaylistUrl.value = null
+                } else {
+                    encryptedPrefs?.edit()?.putString(KEY_IPTV_PLAYLIST_URL, url)?.apply()
+                        ?: Timber.w("Cannot save IPTV URL: encryption unavailable")
+                    _iptvPlaylistUrl.value = url
+                }
+            }
+        }
+
+        fun getIptvPlaylistUrl(): String? =
+            encryptedPrefs?.getString(KEY_IPTV_PLAYLIST_URL, null)
+
+        fun clearIptvPlaylistUrl() {
+            synchronized(this) {
+                encryptedPrefs?.edit()?.remove(KEY_IPTV_PLAYLIST_URL)?.apply()
+                _iptvPlaylistUrl.value = null
+            }
+        }
+
         fun putSecret(key: String, value: String) {
             synchronized(this) {
                 encryptedPrefs?.edit()?.putString(key, value)?.apply()
@@ -233,6 +261,7 @@ class SecurePreferencesManager
                 _tmdbApiKey.value = null
                 _omdbApiKey.value = null
                 _openSubtitlesApiKey.value = null
+                _iptvPlaylistUrl.value = null
                 Timber.d("All secure preferences cleared")
             }
         }

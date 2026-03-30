@@ -194,7 +194,7 @@ fun DownloadItem(
         ) {
             AsyncImage(
                 model = item.thumbUrl,
-                contentDescription = null,
+                contentDescription = item.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )

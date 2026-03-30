@@ -265,6 +265,9 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 onNavigateToXtreamCategorySelection = { accountId ->
                     navController.navigate(Screen.XtreamCategorySelection.createRoute(accountId))
                 },
+                onNavigateToPersonDetail = { personName ->
+                    navController.navigate(Screen.PersonDetail.createRoute(personName))
+                },
             )
         }
 
@@ -363,6 +366,9 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
         composable(Screen.XtreamSetup.route) {
             com.chakir.plexhubtv.feature.xtream.XtreamSetupRoute(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToCategorySelection = { accountId ->
+                    navController.navigate(Screen.XtreamCategorySelection.createRoute(accountId))
+                },
             )
         }
 
@@ -370,10 +376,10 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
         composable(
             route = Screen.XtreamCategorySelection.route,
             arguments = listOf(
-                navArgument(Screen.ARG_ACCOUNT_ID) { type = NavType.LongType },
+                navArgument(Screen.ARG_ACCOUNT_ID) { type = NavType.StringType },
             ),
         ) {
-            val accountId = it.arguments?.getLong(Screen.ARG_ACCOUNT_ID) ?: 0L
+            val accountId = it.arguments?.getString(Screen.ARG_ACCOUNT_ID) ?: ""
             com.chakir.plexhubtv.feature.xtream.XtreamCategorySelectionRoute(
                 accountId = accountId,
                 onNavigateBack = { navController.popBackStack() },

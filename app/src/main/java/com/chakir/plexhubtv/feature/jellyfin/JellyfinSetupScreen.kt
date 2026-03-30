@@ -40,10 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 
 @Composable
 fun JellyfinSetupRoute(
@@ -86,7 +88,7 @@ fun JellyfinSetupScreen(
         ) {
             item {
                 Text(
-                    "Jellyfin Server Setup",
+                    stringResource(R.string.jellyfin_setup_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -99,7 +101,7 @@ fun JellyfinSetupScreen(
                 OutlinedTextField(
                     value = state.baseUrl,
                     onValueChange = { onAction(JellyfinSetupAction.UpdateBaseUrl(it)) },
-                    label = { Text("Server URL") },
+                    label = { Text(stringResource(R.string.jellyfin_server_url_label)) },
                     placeholder = { Text("http://192.168.1.100:8096") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -116,7 +118,7 @@ fun JellyfinSetupScreen(
                     OutlinedTextField(
                         value = state.username,
                         onValueChange = { onAction(JellyfinSetupAction.UpdateUsername(it)) },
-                        label = { Text("Username") },
+                        label = { Text(stringResource(R.string.jellyfin_username_label)) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         colors = textFieldColors,
@@ -124,7 +126,7 @@ fun JellyfinSetupScreen(
                     OutlinedTextField(
                         value = state.password,
                         onValueChange = { onAction(JellyfinSetupAction.UpdatePassword(it)) },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.jellyfin_password_label)) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
@@ -159,7 +161,7 @@ fun JellyfinSetupScreen(
                             Spacer(Modifier.width(8.dp))
                         }
                         Text(
-                            if (state.isTesting) "Connecting..." else "Test & Add",
+                            if (state.isTesting) stringResource(R.string.jellyfin_connecting) else stringResource(R.string.jellyfin_test_add),
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
@@ -169,7 +171,7 @@ fun JellyfinSetupScreen(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     ) {
-                        Text("Clear", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.action_clear), fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -189,24 +191,24 @@ fun JellyfinSetupScreen(
                                     .padding(16.dp)
                             ) {
                                 Text(
-                                    "Connected",
+                                    stringResource(R.string.jellyfin_connected),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
-                                    "Server: ${result.serverName}",
+                                    stringResource(R.string.jellyfin_server_name, result.serverName),
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
-                                    "Version: ${result.version}",
+                                    stringResource(R.string.jellyfin_version, result.version),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
                         is JellyfinTestResult.Error -> {
                             Text(
-                                "Error: ${result.message}",
+                                stringResource(R.string.jellyfin_error, result.message),
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
@@ -222,7 +224,7 @@ fun JellyfinSetupScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Configured Servers",
+                        stringResource(R.string.jellyfin_configured_servers),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
@@ -254,7 +256,7 @@ fun JellyfinSetupScreen(
                             )
                             if (server.version.isNotBlank()) {
                                 Text(
-                                    "Version: ${server.version}",
+                                    stringResource(R.string.jellyfin_version, server.version),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -265,7 +267,7 @@ fun JellyfinSetupScreen(
                         ) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Remove server",
+                                contentDescription = stringResource(R.string.jellyfin_remove_server),
                                 tint = MaterialTheme.colorScheme.error,
                             )
                         }
@@ -279,16 +281,16 @@ fun JellyfinSetupScreen(
     state.showRemoveDialog?.let {
         AlertDialog(
             onDismissRequest = { onAction(JellyfinSetupAction.DismissRemoveDialog(false)) },
-            title = { Text("Remove Server") },
-            text = { Text("Remove this Jellyfin server? All associated media items will be deleted from the local library.") },
+            title = { Text(stringResource(R.string.jellyfin_remove_dialog_title)) },
+            text = { Text(stringResource(R.string.jellyfin_remove_confirm)) },
             confirmButton = {
                 TextButton(onClick = { onAction(JellyfinSetupAction.DismissRemoveDialog(true)) }) {
-                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.jellyfin_remove), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { onAction(JellyfinSetupAction.DismissRemoveDialog(false)) }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )

@@ -76,6 +76,7 @@ fun MainScreen(
     onNavigateToJellyfinSetup: () -> Unit = {},
     onNavigateToXtreamSetup: () -> Unit = {},
     onNavigateToXtreamCategorySelection: (String) -> Unit = {},
+    onNavigateToPersonDetail: (String) -> Unit = {},
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
@@ -330,6 +331,7 @@ fun MainScreen(
             composable(Screen.Favorites.route) {
                 com.chakir.plexhubtv.feature.favorites.FavoritesRoute(
                     onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    onNavigateToPersonDetail = onNavigateToPersonDetail,
                 )
             }
             composable(Screen.Playlists.route) {

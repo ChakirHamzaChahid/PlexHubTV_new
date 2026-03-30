@@ -716,7 +716,7 @@ fun AutoNextPopup(
                 // Thumbnail
                 coil3.compose.AsyncImage(
                     model = item.thumbUrl,
-                    contentDescription = null,
+                    contentDescription = item.title,
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier =
                         Modifier

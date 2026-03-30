@@ -168,7 +168,7 @@ fun NetflixMediaCard(
             FallbackAsyncImage(
                 primaryUrl = imageUrl,
                 alternativeUrls = media.alternativeThumbUrls,
-                contentDescription = "Affiche de ${media.title}",
+                contentDescription = media.title,
                 contentScale = ContentScale.Crop,
                 imageWidth = when (cardType) {
                     CardType.POSTER, CardType.TOP_TEN -> 300

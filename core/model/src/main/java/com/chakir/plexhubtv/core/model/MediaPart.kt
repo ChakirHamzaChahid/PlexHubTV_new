@@ -25,4 +25,7 @@ data class MediaPart(
     val size: Long?,
     val container: String?,
     val streams: List<MediaStream> = emptyList(),
+    /** Index of the parent Media entry in Plex's media array (0-based).
+     *  Used to distinguish Plex merged versions (e.g. 720p vs 576i under same ratingKey). */
+    val mediaIndex: Int = 0,
 )

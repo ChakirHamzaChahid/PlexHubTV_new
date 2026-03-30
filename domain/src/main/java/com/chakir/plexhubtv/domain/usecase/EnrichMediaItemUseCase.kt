@@ -134,10 +134,16 @@ class EnrichMediaItemUseCase
 
             performanceTracker.addCheckpoint(opId, "Server List Loaded", mapOf("total" to enabledServerIds.size, "plex" to enabledPlexServers.size))
 
-            // Single server shortcut — check ALL enabled servers, not just Plex
+            // Single server shortcut — skip enrichment if only one server is enabled
+            // EXCEPT: same-server alternatives (e.g. VF/VO on same Jellyfin) need discovery
             if (enabledServerIds.size <= 1) {
-                performanceTracker.addCheckpoint(opId, "Single Server - No Enrichment Needed")
-                return item.copy(remoteSources = listOf(currentSource))
+                val hasSameServerAlternatives = !item.unificationId.isNullOrBlank() &&
+                    mediaDetailRepository.findRemoteSources(item).isNotEmpty()
+                if (!hasSameServerAlternatives) {
+                    performanceTracker.addCheckpoint(opId, "Single Server - No Enrichment Needed")
+                    return item.copy(remoteSources = listOf(currentSource))
+                }
+                performanceTracker.addCheckpoint(opId, "Single Server - Same-server alternatives found")
             }
 
             // === ROOM-FIRST: query local DB (~5ms) ===

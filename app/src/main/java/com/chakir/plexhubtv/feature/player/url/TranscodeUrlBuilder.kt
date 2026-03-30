@@ -48,10 +48,11 @@ class TranscodeUrlBuilder
                 // Direct Play: local file key on server
                 return Uri.parse("$baseUrl$partKey?X-Plex-Token=$token")
             } else {
-                // Transcoding Strategy
+                // Transcoding Strategy — pass mediaIndex from part (Plex merged versions)
                 return buildTranscodeUrl(
                     baseUrl,
                     rKey,
+                    part.mediaIndex,
                     bitrate,
                     token,
                     clientId,
@@ -66,6 +67,7 @@ class TranscodeUrlBuilder
         private fun buildTranscodeUrl(
             baseUrl: String,
             rKey: String,
+            mediaIndex: Int,
             bitrate: Int,
             token: String,
             clientId: String,
@@ -79,7 +81,7 @@ class TranscodeUrlBuilder
 
             val transcodeUrlBuilder = StringBuilder("$baseUrl/video/:/transcode/universal/start.m3u8?")
             transcodeUrlBuilder.append("path=$encodedPath")
-            transcodeUrlBuilder.append("&mediaIndex=0")
+            transcodeUrlBuilder.append("&mediaIndex=$mediaIndex")
             transcodeUrlBuilder.append("&partIndex=0")
             transcodeUrlBuilder.append("&protocol=hls")
             transcodeUrlBuilder.append("&fastSeek=1")

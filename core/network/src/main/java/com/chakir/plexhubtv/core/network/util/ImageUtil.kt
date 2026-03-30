@@ -19,6 +19,11 @@ fun getOptimizedImageUrl(
         val uri = URI(originalUrl)
         val scheme = uri.scheme
         val host = uri.host
+
+        // Guard against relative URLs (e.g. Jellyfin paths like /Items/.../Images/Primary)
+        // where scheme and host are null — avoids producing "null://null/..." URLs.
+        if (scheme == null || host == null) return originalUrl
+
         val port = uri.port
         val portSuffix = if (port != -1) ":$port" else ""
         val baseUrl = "$scheme://$host$portSuffix"
