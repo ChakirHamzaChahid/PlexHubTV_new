@@ -18,7 +18,20 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(cmd.exe /c:*)",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(MSYS_NO_PATHCONV=1 \"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\" shell:*)",
+      "Bash(MSYS_NO_PATHCONV=1 \"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\" pull:*)",
+      "Bash(ADB=\"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe\")",
+      "Bash(\"$ADB\" shell input tap 260 328)",
+      "Bash(\"$ADB\" exec-out screencap -p)",
+      "Bash(gh.exe issue view:*)",
+      "Bash(where:*)",
+      "Bash(git config:*)",
+      "Bash(./gradlew assembleRelease:*)",
+      "Read(//c/Users/chakir/Plexhub Backend/**)",
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(cmd /c \"gradlew.bat :data:compileDebugKotlin 2>&1\")",
+      "Bash(.\\\\gradlew assembleDebugAndroidTest:*)"
     ]
   }
 }
