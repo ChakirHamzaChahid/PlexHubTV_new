@@ -20,6 +20,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -287,7 +288,8 @@ private fun NetflixNavItem(
         else -> FontWeight.Normal
     }
 
-    Box(
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .focusRequester(focusRequester)
             .clickable(
@@ -302,6 +304,16 @@ private fun NetflixNavItem(
                 fontWeight = fontWeight,
                 color = textColor
             )
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .width(24.dp)
+                .height(2.dp)
+                .background(
+                    color = if (isSelected) cs.primary else Color.Transparent,
+                    shape = RoundedCornerShape(1.dp)
+                )
         )
     }
 }

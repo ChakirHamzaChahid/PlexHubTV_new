@@ -97,9 +97,15 @@ fun NetflixMediaCard(
     // === CINEMA GOLD REFONTE ===
     val cs = MaterialTheme.colorScheme
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) cs.onBackground else Color.Transparent,
+        targetValue = if (isFocused) cs.primary else Color.Transparent,
         animationSpec = tween(durationMillis = 200),
         label = "border"
+    )
+    // Gold glow behind focused card
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isFocused) 0.15f else 0f,
+        animationSpec = tween(durationMillis = 250),
+        label = "glow"
     )
 
     // Dimensions based on CardType
@@ -117,6 +123,14 @@ fun NetflixMediaCard(
     Column(
         modifier = modifier
             .then(if (compact) Modifier.fillMaxWidth() else Modifier.width(cardWidth))
+            .graphicsLayer {
+                // Gold glow shadow behind focused cards
+                if (glowAlpha > 0f) {
+                    shadowElevation = 16f
+                    ambientShadowColor = cs.primary.copy(alpha = glowAlpha)
+                    spotShadowColor = cs.primary.copy(alpha = glowAlpha)
+                }
+            }
             .testTag("media_card_${media.ratingKey}")
             .semantics {
                 contentDescription = when (media.type) {

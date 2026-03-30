@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -178,6 +179,25 @@ fun NetflixHeroBillboard(
                 .fillMaxWidth(0.45f)
                 .zIndex(1f) // Above billboard overlay
         ) {
+            // Genre / Metadata tagline in accent color
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val metaParts = buildList {
+                    currentItem.contentRating?.let { add(it.uppercase()) }
+                    currentItem.year?.let { add(it.toString()) }
+                }
+                if (metaParts.isNotEmpty()) {
+                    Text(
+                        text = metaParts.joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.5.sp,
+                        color = cs.primary,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
                 text = currentItem.title,
                 style = MaterialTheme.typography.displayMedium,
@@ -188,28 +208,6 @@ fun NetflixHeroBillboard(
             )
 
             Spacer(modifier = Modifier.height(12.dp))
-
-            // Metadata Line
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                currentItem.year?.let {
-                    Text(text = it.toString(), color = cs.onBackground.copy(alpha = 0.8f))
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-                currentItem.contentRating?.let {
-                    Box(
-                        modifier = Modifier
-                            .background(cs.onSurfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = it,
-                            color = cs.onBackground,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -258,15 +256,16 @@ fun NetflixHeroBillboard(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items.forEachIndexed { index, _ ->
-                val indicatorWidth = if (index == currentIndex) 24.dp else 8.dp
-                val alpha = if (index == currentIndex) 1f else 0.5f
+                val isActive = index == currentIndex
+                val indicatorWidth = if (isActive) 24.dp else 8.dp
+                val dotColor = if (isActive) cs.primary else cs.outline
 
                 Box(
                     modifier = Modifier
                         .height(8.dp)
                         .width(indicatorWidth)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(cs.onBackground.copy(alpha = alpha))
+                        .background(dotColor)
                 )
             }
         }
@@ -289,8 +288,8 @@ fun NetflixPlayButton(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.15f),
-            contentColor = if (isFocused) cs.background else cs.onBackground
+            containerColor = if (isFocused) cs.primary else cs.primary.copy(alpha = 0.9f),
+            contentColor = cs.onPrimary
         ),
         interactionSource = interactionSource,
         contentPadding = ButtonDefaults.ContentPadding,
@@ -345,9 +344,10 @@ fun NetflixInfoButton(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.15f),
-            contentColor = if (isFocused) cs.background else cs.onBackground
+            containerColor = if (isFocused) cs.onBackground else Color.Transparent,
+            contentColor = if (isFocused) cs.background else cs.onSurfaceVariant
         ),
+        border = if (!isFocused) androidx.compose.foundation.BorderStroke(1.dp, cs.outline) else null,
         interactionSource = interactionSource,
         modifier = modifier
             .onKeyEvent { keyEvent ->
