@@ -65,9 +65,6 @@ import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
 import com.chakir.plexhubtv.core.ui.rememberBackdropColors
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.SubtitleStream
 import com.chakir.plexhubtv.core.model.VideoStream
@@ -106,8 +103,9 @@ fun NetflixDetailScreen(
         } catch (_: Exception) { }
     }
 
+    val cs = MaterialTheme.colorScheme
     val backdropColors = rememberBackdropColors(media.artUrl ?: media.thumbUrl)
-    val gradientBase = if (backdropColors.isDefault) NetflixBlack else backdropColors.secondary
+    val gradientBase = if (backdropColors.isDefault) cs.background else backdropColors.secondary
 
     Box(modifier = Modifier.fillMaxSize().background(gradientBase)) {
         // 1. Full Screen Backdrop with Gradient
@@ -181,11 +179,11 @@ fun NetflixDetailScreen(
                         // Available on
                         if (!state.isEnriching && media.remoteSources.isNotEmpty()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Available on: ", style = MaterialTheme.typography.bodyMedium, color = NetflixLightGray)
+                                Text("Available on: ", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
                                 Text(
                                     text = media.remoteSources.joinToString(", ") { it.serverName },
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White, fontWeight = FontWeight.SemiBold,
+                                    color = cs.onBackground, fontWeight = FontWeight.SemiBold,
                                 )
                             }
                             Spacer(modifier = Modifier.height(12.dp))
@@ -207,7 +205,7 @@ fun NetflixDetailScreen(
                                 text = "\"${media.tagline}\"",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontStyle = FontStyle.Italic,
-                                color = Color.White.copy(alpha = 0.8f),
+                                color = cs.onBackground.copy(alpha = 0.8f),
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                         }
@@ -219,9 +217,10 @@ fun NetflixDetailScreen(
                             Text(
                                 text = "Directed by ${media.directors.joinToString(", ")}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = NetflixLightGray,
+                                color = cs.onSurfaceVariant,
                             )
                         }
+
 
                         val castList = media.role
                         if (!castList.isNullOrEmpty()) {
@@ -276,7 +275,7 @@ fun NetflixDetailScreen(
                                 }
                             }
                         } else {
-                            item(key = "detail_no_seasons") { Text("No seasons available", color = NetflixLightGray) }
+                            item(key = "detail_no_seasons") { Text("No seasons available", color = cs.onSurfaceVariant) }
                         }
                     }
                     DetailTab.MoreLikeThis -> {
@@ -301,7 +300,7 @@ fun NetflixDetailScreen(
                                 }
                             }
                         } else {
-                            item(key = "detail_no_similar") { Text("No similar items found", color = NetflixLightGray) }
+                            item(key = "detail_no_similar") { Text("No similar items found", color = cs.onSurfaceVariant) }
                         }
                     }
                     DetailTab.Collections -> {
@@ -326,7 +325,7 @@ fun NetflixDetailScreen(
                                 }
                             }
                         } else {
-                            item(key = "detail_no_collections") { Text("No collections available", color = NetflixLightGray) }
+                            item(key = "detail_no_collections") { Text("No collections available", color = cs.onSurfaceVariant) }
                         }
                     }
                     DetailTab.Trailers -> {
@@ -350,7 +349,7 @@ fun NetflixDetailScreen(
                                 }
                             }
                         } else {
-                            item(key = "detail_no_trailers") { Text("No trailers available", color = NetflixLightGray) }
+                            item(key = "detail_no_trailers") { Text("No trailers available", color = cs.onSurfaceVariant) }
                         }
                     }
                 }
@@ -371,6 +370,7 @@ private fun DetailFixedHeader(
     seasons: List<MediaItem>,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     Box(
         modifier = modifier.fillMaxWidth().padding(start = 50.dp, end = 50.dp, bottom = 8.dp),
         contentAlignment = Alignment.TopStart,
@@ -380,7 +380,7 @@ private fun DetailFixedHeader(
                 text = media.title,
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.White,
+                color = cs.onBackground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -393,7 +393,7 @@ private fun DetailFixedHeader(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 media.year?.let {
-                    Text(text = it.toString(), style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
+                    Text(text = it.toString(), style = MaterialTheme.typography.titleMedium, color = cs.onSurfaceVariant)
                     MetaDot()
                 }
 
@@ -401,12 +401,12 @@ private fun DetailFixedHeader(
                     if (seasons.isNotEmpty()) {
                         Text(
                             text = "${seasons.size} Season${if (seasons.size > 1) "s" else ""}",
-                            style = MaterialTheme.typography.titleMedium, color = NetflixLightGray,
+                            style = MaterialTheme.typography.titleMedium, color = cs.onSurfaceVariant,
                         )
                     }
                 } else {
                     media.durationMs?.let { durationMs ->
-                        Text(text = formatDuration(durationMs), style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
+                        Text(text = formatDuration(durationMs), style = MaterialTheme.typography.titleMedium, color = cs.onSurfaceVariant)
                     }
                 }
 
@@ -415,7 +415,7 @@ private fun DetailFixedHeader(
                     val remainingMs = (durationMs - media.viewOffset).coerceAtLeast(0)
                     if (remainingMs > 0) {
                         MetaDot()
-                        Text(text = "${formatDuration(remainingMs)} left", style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
+                        Text(text = "${formatDuration(remainingMs)} left", style = MaterialTheme.typography.titleMedium, color = cs.onSurfaceVariant)
                     }
                 }
 
@@ -423,10 +423,10 @@ private fun DetailFixedHeader(
                     MetaDot()
                     Box(
                         modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                            .background(cs.onBackground.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Text(text = it, style = MaterialTheme.typography.labelMedium, color = Color.White)
+                        Text(text = it, style = MaterialTheme.typography.labelMedium, color = cs.onBackground)
                     }
                 }
 
@@ -434,9 +434,9 @@ private fun DetailFixedHeader(
                 if (ratingValue != null && ratingValue > 0) {
                     MetaDot()
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Star, contentDescription = null, tint = cs.tertiary, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(String.format("%.1f", ratingValue), style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(String.format("%.1f", ratingValue), style = MaterialTheme.typography.titleMedium, color = cs.onBackground, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -453,7 +453,7 @@ private fun DetailFixedHeader(
                                 if (cal.get(Calendar.AM_PM) == Calendar.AM) "AM" else "PM"
                             )
                         }
-                        Text(text = "Ends at $endsAt", style = MaterialTheme.typography.titleMedium, color = NetflixLightGray)
+                        Text(text = "Ends at $endsAt", style = MaterialTheme.typography.titleMedium, color = cs.onSurfaceVariant)
                     }
                 }
 
@@ -503,7 +503,7 @@ private fun DetailFixedHeader(
                 Text(
                     text = media.genres.joinToString(", "),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = NetflixLightGray,
+                    color = cs.onSurfaceVariant,
                 )
             }
         }
@@ -518,6 +518,7 @@ private fun CollectionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
@@ -527,12 +528,12 @@ private fun CollectionCard(
         label = "collectionScale"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.2f),
+        targetValue = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.2f),
         animationSpec = tween(200),
         label = "collectionBorder"
     )
     val backgroundColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f),
+        targetValue = if (isFocused) cs.onBackground.copy(alpha = 0.2f) else cs.onBackground.copy(alpha = 0.08f),
         animationSpec = tween(200),
         label = "collectionBg"
     )
@@ -577,7 +578,7 @@ private fun CollectionCard(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = if (isFocused) FontWeight.Bold else FontWeight.SemiBold,
-                color = if (isFocused) Color.White else Color.White.copy(alpha = 0.8f),
+                color = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.8f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -585,7 +586,7 @@ private fun CollectionCard(
                 Text(
                     text = "$itemCount items",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isFocused) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.5f),
+                    color = if (isFocused) cs.onBackground.copy(alpha = 0.9f) else cs.onBackground.copy(alpha = 0.5f),
                 )
             }
         }
@@ -598,6 +599,7 @@ private fun ExtraCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
@@ -607,7 +609,7 @@ private fun ExtraCard(
         label = "extraScale"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color.Transparent,
+        targetValue = if (isFocused) cs.onBackground else Color.Transparent,
         animationSpec = tween(200),
         label = "extraBorder"
     )
@@ -661,14 +663,14 @@ private fun ExtraCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = if (isFocused) 0.2f else 0.4f))
+                    .background(cs.background.copy(alpha = if (isFocused) 0.2f else 0.4f))
             )
 
             // Play icon center
             Icon(
                 imageVector = Icons.Default.PlayArrow,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = if (isFocused) 1f else 0.8f),
+                tint = cs.onBackground.copy(alpha = if (isFocused) 1f else 0.8f),
                 modifier = Modifier
                     .size(48.dp)
                     .align(Alignment.Center),
@@ -680,13 +682,13 @@ private fun ExtraCard(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(8.dp)
-                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .background(cs.background.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = durationText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
+                        color = cs.onBackground,
                     )
                 }
             }
@@ -699,7 +701,7 @@ private fun ExtraCard(
             text = extra.title,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
-            color = if (isFocused) Color.White else Color.White.copy(alpha = 0.9f),
+            color = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.9f),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
@@ -708,7 +710,7 @@ private fun ExtraCard(
         Text(
             text = subtypeLabel,
             style = MaterialTheme.typography.labelSmall,
-            color = NetflixLightGray,
+            color = cs.onSurfaceVariant,
         )
     }
 }
@@ -721,6 +723,7 @@ private fun ExpandableSummary(
 ) {
     if (text.isBlank()) return
 
+    val cs = MaterialTheme.colorScheme
     var isExpanded by remember { mutableStateOf(false) }
     var hasOverflow by remember { mutableStateOf(false) }
 
@@ -731,7 +734,7 @@ private fun ExpandableSummary(
         Text(
             text = text,
             style = MaterialTheme.typography.bodyLarge,
-            color = Color.White,
+            color = cs.onBackground,
             maxLines = if (isExpanded) Int.MAX_VALUE else collapsedMaxLines,
             overflow = TextOverflow.Ellipsis,
             onTextLayout = { result ->
@@ -744,7 +747,7 @@ private fun ExpandableSummary(
         if (hasOverflow || isExpanded) {
             val label = if (isExpanded) "Less" else "More..."
             val labelColor by animateColorAsState(
-                targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.6f),
+                targetValue = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.6f),
                 animationSpec = tween(150),
                 label = "expandColor"
             )
@@ -768,24 +771,26 @@ private fun ExpandableSummary(
 
 @Composable
 private fun MetaDot() {
+    val cs = MaterialTheme.colorScheme
     Text(
         text = "•",
         style = MaterialTheme.typography.titleMedium,
-        color = NetflixLightGray,
+        color = cs.onSurfaceVariant,
     )
 }
 
 @Composable
 private fun TechBadge(text: String) {
+    val cs = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
-            .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+            .background(cs.onBackground.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            color = Color.White,
+            color = cs.onBackground,
             fontWeight = FontWeight.SemiBold,
         )
     }
@@ -807,12 +812,13 @@ private fun CastRow(
     cast: List<com.chakir.plexhubtv.core.model.CastMember>,
     onPersonClicked: (String) -> Unit,
 ) {
+    val cs = MaterialTheme.colorScheme
     val displayCast = cast.take(8)
     Column {
         Text(
             text = "Cast",
             style = MaterialTheme.typography.titleSmall,
-            color = NetflixLightGray,
+            color = cs.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(6.dp))
         Row(
@@ -843,7 +849,7 @@ private fun CastRow(
                                 .size(56.dp)
                                 .clip(androidx.compose.foundation.shape.CircleShape)
                                 .then(
-                                    if (isFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.CircleShape)
+                                    if (isFocused) Modifier.border(2.dp, cs.onBackground, androidx.compose.foundation.shape.CircleShape)
                                     else Modifier
                                 ),
                         )
@@ -852,9 +858,9 @@ private fun CastRow(
                             modifier = Modifier
                                 .size(56.dp)
                                 .clip(androidx.compose.foundation.shape.CircleShape)
-                                .background(Color.DarkGray)
+                                .background(cs.surfaceVariant)
                                 .then(
-                                    if (isFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.CircleShape)
+                                    if (isFocused) Modifier.border(2.dp, cs.onBackground, androidx.compose.foundation.shape.CircleShape)
                                     else Modifier
                                 ),
                             contentAlignment = Alignment.Center,
@@ -862,7 +868,7 @@ private fun CastRow(
                             Text(
                                 text = name.first().toString(),
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color.White,
+                                color = cs.onBackground,
                             )
                         }
                     }
@@ -870,7 +876,7 @@ private fun CastRow(
                     Text(
                         text = name,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isFocused) Color.White else NetflixLightGray,
+                        color = if (isFocused) cs.onBackground else cs.onSurfaceVariant,
                         fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -879,7 +885,7 @@ private fun CastRow(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = cs.onBackground.copy(alpha = 0.5f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

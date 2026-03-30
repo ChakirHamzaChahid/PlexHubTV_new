@@ -131,7 +131,7 @@ fun SplashScreen(
             .fillMaxSize()
             .testTag("screen_splash")
             .semantics { contentDescription = "Écran de démarrage" }
-            .background(Color.Black), // Netflix black background
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         // Video player view
@@ -161,8 +161,8 @@ fun SplashScreen(
                 .testTag("splash_skip_button"),
             interactionSource = skipInteractionSource,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isSkipFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.8f),
-                contentColor = if (isSkipFocused) Color.White else Color.Black
+                containerColor = if (isSkipFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+                contentColor = if (isSkipFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.background
             )
         ) {
             Text(

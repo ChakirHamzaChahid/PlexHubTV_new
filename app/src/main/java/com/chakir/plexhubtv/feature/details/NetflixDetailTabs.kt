@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 
 enum class DetailTab(val title: String) {
     Episodes("EPISODES"),
@@ -32,6 +30,7 @@ fun NetflixDetailTabs(
     showCollections: Boolean = false,
     showTrailers: Boolean = false,
 ) {
+    val cs = MaterialTheme.colorScheme
     val tabs = buildList {
         if (showEpisodes) add(DetailTab.Episodes)
         add(DetailTab.MoreLikeThis)
@@ -44,14 +43,14 @@ fun NetflixDetailTabs(
         selectedTabIndex = selectedIndex,
         edgePadding = 0.dp,
         containerColor = Color.Transparent,
-        contentColor = Color.White,
+        contentColor = cs.onBackground,
         indicator = { tabPositions ->
             if (selectedIndex < tabPositions.size) {
                 Box(
                     modifier = Modifier
                         .tabIndicatorOffset(tabPositions[selectedIndex])
                         .height(4.dp)
-                        .background(NetflixRed)
+                        .background(cs.primary)
                 )
             }
         },
@@ -67,7 +66,7 @@ fun NetflixDetailTabs(
                         text = tab.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (index == selectedIndex) Color.White else Color.White.copy(alpha = 0.6f)
+                        color = if (index == selectedIndex) cs.onBackground else cs.onBackground.copy(alpha = 0.6f)
                     )
                 }
             )

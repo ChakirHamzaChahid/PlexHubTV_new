@@ -46,8 +46,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.HandleErrors
@@ -172,7 +170,7 @@ fun MediaDetailScreen(
                         Text(
                             stringResource(com.chakir.plexhubtv.core.ui.R.string.error_media_not_found),
                             style = MaterialTheme.typography.titleLarge,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                         )
                     }
                 }
@@ -238,6 +236,7 @@ fun ActionButtonsRow(
     onAction: (MediaDetailEvent) -> Unit,
     playButtonFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
 ) {
+    val cs = MaterialTheme.colorScheme
     val playLoadingDesc = stringResource(R.string.detail_loading_description)
     val playDesc = stringResource(R.string.detail_play_description)
     val removeFavDesc = stringResource(R.string.detail_remove_favorite_description)
@@ -258,10 +257,10 @@ fun ActionButtonsRow(
             onClick = { onAction(MediaDetailEvent.PlayClicked) },
             enabled = !state.isPlayButtonLoading,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isPlayFocused) Color.White else Color.White.copy(alpha = 0.15f),
-                contentColor = if (isPlayFocused) Color.Black else Color.White,
-                disabledContainerColor = Color.White.copy(alpha = 0.08f),
-                disabledContentColor = Color.White.copy(alpha = 0.38f),
+                containerColor = if (isPlayFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.15f),
+                contentColor = if (isPlayFocused) cs.background else cs.onBackground,
+                disabledContainerColor = cs.onBackground.copy(alpha = 0.08f),
+                disabledContentColor = cs.onBackground.copy(alpha = 0.38f),
             ),
             shape = RoundedCornerShape(4.dp),
             modifier = Modifier
@@ -275,7 +274,7 @@ fun ActionButtonsRow(
             if (state.isPlayButtonLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = Color.White.copy(alpha = 0.38f),
+                    color = cs.onBackground.copy(alpha = 0.38f),
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -299,7 +298,7 @@ fun ActionButtonsRow(
                     .size(40.dp)
                     .onFocusChanged { watchFocused = it.isFocused }
                     .background(
-                        if (watchFocused) Color.White else Color.White.copy(alpha = 0.1f),
+                        if (watchFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.1f),
                         CircleShape,
                     )
                     .scale(if (watchFocused) 1.1f else 1f),
@@ -308,9 +307,9 @@ fun ActionButtonsRow(
                 imageVector = Icons.Default.Check,
                 contentDescription = watchStatusDesc,
                 tint = when {
-                    watchFocused -> Color.Black
-                    media.isWatched -> MaterialTheme.colorScheme.primary
-                    else -> Color.White
+                    watchFocused -> cs.background
+                    media.isWatched -> cs.primary
+                    else -> cs.onBackground
                 },
                 modifier = Modifier.size(20.dp),
             )
@@ -327,7 +326,7 @@ fun ActionButtonsRow(
                     .semantics { contentDescription = if (media.isFavorite) removeFavDesc else addFavDesc }
                     .onFocusChanged { favFocused = it.isFocused }
                     .background(
-                        if (favFocused) Color.White else Color.White.copy(alpha = 0.1f),
+                        if (favFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.1f),
                         CircleShape,
                     )
                     .scale(if (favFocused) 1.1f else 1f),
@@ -336,9 +335,9 @@ fun ActionButtonsRow(
                 imageVector = if (media.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                 contentDescription = null,
                 tint = when {
-                    favFocused -> if (media.isFavorite) MaterialTheme.colorScheme.error else Color.Black
-                    media.isFavorite -> MaterialTheme.colorScheme.error
-                    else -> Color.White
+                    favFocused -> if (media.isFavorite) cs.error else cs.background
+                    media.isFavorite -> cs.error
+                    else -> cs.onBackground
                 },
                 modifier = Modifier.size(20.dp),
             )
@@ -353,7 +352,7 @@ fun ActionButtonsRow(
                 .testTag("add_to_playlist_button")
                 .onFocusChanged { playlistFocused = it.isFocused }
                 .background(
-                    if (playlistFocused) Color.White else Color.White.copy(alpha = 0.1f),
+                    if (playlistFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.1f),
                     CircleShape,
                 )
                 .scale(if (playlistFocused) 1.1f else 1f),
@@ -361,7 +360,7 @@ fun ActionButtonsRow(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
                 contentDescription = stringResource(R.string.playlist_add_to_title),
-                tint = if (playlistFocused) Color.Black else Color.White,
+                tint = if (playlistFocused) cs.background else cs.onBackground,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -381,7 +380,7 @@ fun ActionButtonsRow(
                     .testTag("refresh_metadata_button")
                     .onFocusChanged { refreshFocused = it.isFocused }
                     .background(
-                        if (refreshFocused) Color.White else Color.White.copy(alpha = 0.1f),
+                        if (refreshFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.1f),
                         CircleShape,
                     )
                     .scale(if (refreshFocused) 1.1f else 1f),
@@ -389,14 +388,14 @@ fun ActionButtonsRow(
                 if (state.isRefreshingMetadata) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
-                        color = Color.White,
+                        color = cs.onBackground,
                         strokeWidth = 2.dp,
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Filled.Refresh,
                         contentDescription = stringResource(R.string.refresh_metadata),
-                        tint = if (refreshFocused) Color.Black else Color.White,
+                        tint = if (refreshFocused) cs.background else cs.onBackground,
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -416,7 +415,7 @@ fun ActionButtonsRow(
                     .semantics { contentDescription = deleteDesc }
                     .onFocusChanged { deleteFocused = it.isFocused }
                     .background(
-                        if (deleteFocused) MaterialTheme.colorScheme.error else Color.White.copy(alpha = 0.1f),
+                        if (deleteFocused) cs.error else cs.onBackground.copy(alpha = 0.1f),
                         CircleShape,
                     )
                     .scale(if (deleteFocused) 1.1f else 1f),
@@ -424,14 +423,14 @@ fun ActionButtonsRow(
                 if (state.isDeleting) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
-                        color = Color.White,
+                        color = cs.onBackground,
                         strokeWidth = 2.dp,
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
                         contentDescription = null,
-                        tint = if (deleteFocused) Color.White else Color.White.copy(alpha = 0.7f),
+                        tint = if (deleteFocused) cs.onBackground else cs.error.copy(alpha = 0.7f),
                         modifier = Modifier.size(20.dp),
                     )
                 }
