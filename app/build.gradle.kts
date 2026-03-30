@@ -81,17 +81,9 @@ android {
                 }
             buildConfigField("String", "API_BASE_URL", "\"https://plex.tv/\"")
             buildConfigField("String", "PLEX_TOKEN", "\"\"")
-            val releaseLocalProperties = Properties()
-            val releaseLocalPropertiesFile = rootProject.file("local.properties")
-            if (releaseLocalPropertiesFile.exists()) {
-                releaseLocalProperties.load(FileInputStream(releaseLocalPropertiesFile))
-            }
-            val releaseIptvUrl = releaseLocalProperties.getProperty("IPTV_PLAYLIST_URL") ?: ""
-            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"$releaseIptvUrl\"")
-            val releaseTmdbApiKey = releaseLocalProperties.getProperty("TMDB_API_KEY") ?: ""
-            buildConfigField("String", "TMDB_API_KEY", "\"$releaseTmdbApiKey\"")
-            val releaseOmdbApiKey = releaseLocalProperties.getProperty("OMDB_API_KEY") ?: ""
-            buildConfigField("String", "OMDB_API_KEY", "\"$releaseOmdbApiKey\"")
+            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"\"")
+            buildConfigField("String", "TMDB_API_KEY", "\"\"")
+            buildConfigField("String", "OMDB_API_KEY", "\"\"")
         }
     }
 

@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -141,6 +143,19 @@ class IptvViewModel @Inject constructor(
         categorySearchFlow
             .debounce(200)
             .onEach { query -> filterCategories(query) }
+            .launchIn(viewModelScope)
+
+        // Auto-reload when M3U URL changes (e.g. saved from Settings screen)
+        iptvRepository.observeM3uUrl()
+            .distinctUntilChanged()
+            .drop(1) // Skip initial emission — we load on init anyway
+            .onEach { url ->
+                if (_uiState.value.sourceMode == SourceMode.M3U && !url.isNullOrBlank()) {
+                    Timber.d("LiveTV: M3U URL changed, reloading channels from: ${url.take(60)}")
+                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    fetchM3uChannels(url)
+                }
+            }
             .launchIn(viewModelScope)
 
         // Detect if backend is available, then load appropriate source
