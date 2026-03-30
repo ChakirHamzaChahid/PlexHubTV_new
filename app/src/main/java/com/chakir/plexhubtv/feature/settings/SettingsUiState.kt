@@ -1,17 +1,24 @@
 package com.chakir.plexhubtv.feature.settings
 
+import androidx.compose.runtime.Immutable
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+
 /**
  * État UI des paramètres.
  * Contient les préférences utilisateur (Thème, Qualité Vidéo, Moteur de lecture) et l'état de la synchronisation.
  */
+@Immutable
 data class SettingsUiState(
     val theme: AppTheme = AppTheme.MonoDark,
     val videoQuality: String = "Original",
     val isCacheEnabled: Boolean = true,
     val cacheSize: String = "0 MB",
     val defaultServer: String = "MyServer",
-    val availableServers: List<String> = listOf("MyServer"),
-    val availableServersMap: Map<String, String> = emptyMap(),
+    val availableServers: ImmutableList<String> = persistentListOf("MyServer"),
+    val availableServersMap: ImmutableMap<String, String> = persistentMapOf(),
     val playerEngine: String = "ExoPlayer",
     val deinterlaceMode: String = "auto",
     val autoPlayNextEnabled: Boolean = true,
@@ -36,15 +43,20 @@ data class SettingsUiState(
     val showContinueWatching: Boolean = true,
     val showMyList: Boolean = true,
     val showSuggestions: Boolean = true,
-    val homeRowOrder: List<String> = listOf("continue_watching", "my_list", "suggestions"),
+    val homeRowOrder: ImmutableList<String> = persistentListOf("continue_watching", "my_list", "suggestions"),
     val showYearOnCards: Boolean = false,
     val gridColumnsCount: Int = 6,
     // Xtream sync
     val isSyncingXtream: Boolean = false,
     val xtreamSyncMessage: String? = null,
-    val xtreamAccounts: List<com.chakir.plexhubtv.core.model.XtreamAccount> = emptyList(),
+    val xtreamAccounts: ImmutableList<com.chakir.plexhubtv.core.model.XtreamAccount> = persistentListOf(),
+    val xtreamCategorySummaries: ImmutableMap<String, Pair<Int, Int>> = persistentMapOf(), // accountId → (vodCount, seriesCount)
+    // Jellyfin
+    val jellyfinServers: ImmutableList<com.chakir.plexhubtv.core.model.JellyfinServer> = persistentListOf(),
+    val isSyncingJellyfin: Boolean = false,
+    val jellyfinSyncMessage: String? = null,
     // Backend
-    val backendServers: List<com.chakir.plexhubtv.core.model.BackendServer> = emptyList(),
+    val backendServers: ImmutableList<com.chakir.plexhubtv.core.model.BackendServer> = persistentListOf(),
     val isTestingBackend: Boolean = false,
     val backendConfigMessage: String? = null,
     val isSyncingBackend: Boolean = false,
@@ -155,6 +167,10 @@ sealed interface SettingsAction {
     data object ManageAppProfiles : SettingsAction
 
     data object ManageLibrarySelection : SettingsAction
+
+    data object ManageJellyfinServers : SettingsAction
+
+    data object SyncJellyfin : SettingsAction
 
     data object ManageXtreamAccounts : SettingsAction
 

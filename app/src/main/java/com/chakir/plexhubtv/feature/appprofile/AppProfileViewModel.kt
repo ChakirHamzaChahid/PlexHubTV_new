@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -77,7 +78,7 @@ class AppProfileViewModel @Inject constructor(
                 ) { profiles ->
                     _uiState.update {
                         it.copy(
-                            profiles = profiles,
+                            profiles = profiles.toImmutableList(),
                             isLoading = false,
                             error = null
                         )

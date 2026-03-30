@@ -75,6 +75,7 @@
     <string name="sync_server_recap_title_count">Servers (%1$d/%2$d)</string>
     <string name="sync_library_progress_title">Libraries (%1$d/%2$d)</string>
     <string name="sync_server_label">Server: %1$s</string>
+    <string name="sync_server_counter">Server %1$d/%2$d</string>
 
     <!-- ══════════════════════════════════════════════
          Workers / Background Sync
@@ -622,6 +623,8 @@
     <string name="xtream_category_mode_blacklist">Blacklist mode</string>
     <string name="xtream_category_mode_all">All categories</string>
     <string name="xtream_category_syncing">Syncing…</string>
+    <string name="xtream_choose_categories">Choose Categories</string>
+    <string name="xtream_category_summary">%1$d VOD, %2$d Series</string>
     <string name="xtream_filter_unified">All Categories</string>
     <string name="xtream_filter_non_unified">Selected Categories</string>
     <string name="retry">Retry</string>
@@ -746,6 +749,12 @@
     <string name="favorites_screen_description">Favorites screen</string>
     <string name="favorites_loading_description">Loading favorites</string>
     <string name="favorites_empty_description">No favorites</string>
+    <string name="favorites_category_media">Movies &amp; Shows</string>
+    <string name="favorites_category_actors">Actors</string>
+    <string name="favorites_actors_empty">No favorite actors yet.</string>
+    <string name="favorites_actors_empty_hint">Add actors to your favorites from the person detail screen.</string>
+    <string name="favorites_actors_sort_date_added">Date Added</string>
+    <string name="favorites_actors_sort_name">Name</string>
 
     <!-- ══════════════════════════════════════════════
          History Screen
@@ -774,6 +783,18 @@
     <string name="iptv_channels_list_description">IPTV channels list</string>
     <string name="iptv_channel_description">Channel: %1$s</string>
     <string name="iptv_url_dialog_description">M3U URL input dialog</string>
+
+    <!-- Live TV (dual source) -->
+    <string name="live_tv_source_title">Select Live TV Source</string>
+    <string name="live_tv_source_m3u">M3U Playlist</string>
+    <string name="live_tv_source_backend">Backend Xtream</string>
+    <string name="live_tv_category_all">All Channels</string>
+    <string name="live_tv_search_hint">Search channels…</string>
+    <string name="live_tv_select_channel">Select a channel</string>
+    <string name="live_tv_no_epg">No program information available</string>
+    <string name="live_tv_fullscreen">Fullscreen</string>
+    <string name="live_tv_search_categories">Search categories…</string>
+    <string name="live_tv_all_channels">All</string>
 
     <!-- ══════════════════════════════════════════════
          Source Selection Dialog
@@ -833,4 +854,94 @@
     <string name="parental_pin_backspace">&#x232B;</string>
     <string name="parental_pin_ok">OK</string>
     <string name="parental_pin_cancel">Cancel</string>
+
+    <!-- ══════════════════════════════════════════════
+         Profile Form Dialog
+         ══════════════════════════════════════════════ -->
+    <string name="profile_form_edit_title">Edit Profile</string>
+    <string name="profile_form_new_title">New Profile</string>
+    <string name="profile_form_name_label">Name</string>
+    <string name="profile_form_avatar_label">Avatar</string>
+    <string name="profile_form_kids_label">Kids Profile</string>
+    <string name="profile_form_save_button">Save</string>
+    <string name="profile_form_create_button">Create</string>
+    <string name="profile_delete_confirm_title">Delete profile \"%1$s\"?</string>
+    <string name="profile_delete_confirm_message">This cannot be undone.</string>
+    <string name="profile_badge_kids">Kids</string>
+    <string name="profile_manage_title">Manage Profiles</string>
+    <string name="profile_no_profiles_available">No profiles available</string>
+    <string name="profile_current_indicator">Current profile</string>
+    <string name="profile_edit_description">Edit profile</string>
+    <string name="profile_delete_description">Delete profile</string>
+    <string name="profile_add_description">Add profile</string>
+
+    <!-- ══════════════════════════════════════════════
+         Update Dialog
+         ══════════════════════════════════════════════ -->
+    <string name="update_dialog_title">Update Available</string>
+    <string name="update_dialog_version_available">Version %1$s is available.</string>
+    <string name="update_dialog_whats_new">What\'s new:</string>
+    <string name="update_dialog_size">Size: %1$s</string>
+    <string name="update_dialog_downloading">Downloading… %1$d%%</string>
+    <string name="update_dialog_install">Install</string>
+    <string name="update_dialog_download">Download</string>
+    <string name="update_dialog_later">Later</string>
+    <string name="update_dialog_retry">Retry</string>
+
+    <!-- ══════════════════════════════════════════════
+         Xtream Setup Screen
+         ══════════════════════════════════════════════ -->
+    <string name="xtream_setup_title">Xtream IPTV Setup</string>
+    <string name="xtream_server_url_label">Server URL</string>
+    <string name="xtream_port_label">Port</string>
+    <string name="xtream_username_label">Username</string>
+    <string name="xtream_password_label">Password</string>
+    <string name="xtream_label_label">Label (optional)</string>
+    <string name="xtream_label_placeholder">My IPTV</string>
+    <string name="xtream_testing">Testing…</string>
+    <string name="xtream_test_save">Test &amp; Save</string>
+    <string name="xtream_connected">Connected</string>
+    <string name="xtream_status">Status: %1$s</string>
+    <string name="xtream_expires">Expires: %1$s</string>
+    <string name="xtream_error">Error: %1$s</string>
+    <string name="xtream_configured_accounts">Configured Accounts</string>
+    <string name="xtream_remove_account">Remove account</string>
+
+    <!-- ══════════════════════════════════════════════
+         Jellyfin Setup Screen
+         ══════════════════════════════════════════════ -->
+    <string name="jellyfin_setup_title">Jellyfin Server Setup</string>
+    <string name="jellyfin_server_url_label">Server URL</string>
+    <string name="jellyfin_username_label">Username</string>
+    <string name="jellyfin_password_label">Password</string>
+    <string name="jellyfin_connecting">Connecting…</string>
+    <string name="jellyfin_test_add">Test &amp; Add</string>
+    <string name="jellyfin_connected">Connected</string>
+    <string name="jellyfin_server_name">Server: %1$s</string>
+    <string name="jellyfin_version">Version: %1$s</string>
+    <string name="jellyfin_error">Error: %1$s</string>
+    <string name="jellyfin_configured_servers">Configured Servers</string>
+    <string name="jellyfin_remove_server">Remove server</string>
+    <string name="jellyfin_remove_dialog_title">Remove Server</string>
+    <string name="jellyfin_remove_confirm">Remove this Jellyfin server? All associated media items will be deleted from the local library.</string>
+    <string name="jellyfin_remove">Remove</string>
+
+    <!-- ══════════════════════════════════════════════
+         IPTV Screen (additional)
+         ══════════════════════════════════════════════ -->
+    <string name="iptv_close_search">Close Search</string>
+    <string name="iptv_switch_source">Switch Source</string>
+    <string name="iptv_live_tv_title">Live TV</string>
+    <string name="iptv_live_tv_screen">Live TV Screen</string>
+
+    <!-- ══════════════════════════════════════════════
+         Library Selection Screen
+         ══════════════════════════════════════════════ -->
+    <string name="library_selection_title">Choose your libraries</string>
+    <string name="library_selection_subtitle">Select the libraries you want to sync</string>
+    <string name="library_selection_loading">Loading servers…</string>
+    <string name="library_selection_confirm">Confirm (%1$d/%2$d)</string>
+    <string name="library_selection_select_one">Select at least one library</string>
+    <string name="library_selection_type_movies">Movies</string>
+    <string name="library_selection_type_shows">TV Shows</string>
 </resources>

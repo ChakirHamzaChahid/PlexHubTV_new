@@ -167,3 +167,44 @@ data class BackendCategoryRefreshResponse(
     val seriesCount: Int? = null,
     val total: Int? = null,
 )
+
+// Live TV DTOs
+data class BackendLiveChannelListResponse(
+    val items: List<BackendLiveChannelDto>,
+    val total: Int,
+    val hasMore: Boolean,
+)
+
+data class BackendLiveChannelDto(
+    val streamId: Int,
+    val serverId: String,
+    val name: String,
+    val nameSortable: String,
+    val streamIcon: String?,
+    val epgChannelId: String?,
+    val categoryId: String?,
+    val containerExtension: String?,
+    val customSid: String?,
+    val tvArchive: Boolean,
+    val tvArchiveDuration: Int,
+    val isAdult: Boolean,
+    val isActive: Boolean,
+    val addedAt: Long,
+    val updatedAt: Long,
+)
+
+data class BackendEpgListResponse(
+    val items: List<BackendEpgEntryDto>,
+    val total: Int,
+)
+
+data class BackendEpgEntryDto(
+    val id: Int,
+    val epgChannelId: String,
+    val streamId: Int,
+    val title: String,
+    val description: String?,
+    val startTime: Long,
+    val endTime: Long,
+    val lang: String?,
+)

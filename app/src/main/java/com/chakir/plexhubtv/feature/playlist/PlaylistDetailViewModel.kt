@@ -1,10 +1,10 @@
 package com.chakir.plexhubtv.feature.playlist
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.Playlist
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +35,7 @@ sealed interface PlaylistDetailEvent {
 class PlaylistDetailViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     savedStateHandle: SavedStateHandle,
-) : ViewModel() {
+) : BaseViewModel() {
 
     private val playlistId: String? = savedStateHandle["playlistId"]
     private val serverId: String? = savedStateHandle["serverId"]

@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.feature.playlist
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.Playlist
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +24,7 @@ data class PlaylistListUiState(
 @HiltViewModel
 class PlaylistListViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
-) : ViewModel() {
+) : BaseViewModel() {
 
     val uiState: StateFlow<PlaylistListUiState> = playlistRepository.getPlaylists()
         .map { playlists ->

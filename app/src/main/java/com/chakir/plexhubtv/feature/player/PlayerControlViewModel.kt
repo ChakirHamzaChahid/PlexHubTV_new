@@ -1,9 +1,9 @@
 package com.chakir.plexhubtv.feature.player
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.feature.player.controller.PlayerController
 import com.chakir.plexhubtv.feature.player.controller.TrickplayManager
@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -30,7 +31,7 @@ class PlayerControlViewModel @Inject constructor(
     val subtitleSearchService: com.chakir.plexhubtv.feature.player.controller.SubtitleSearchService,
     val audioEqualizerManager: com.chakir.plexhubtv.feature.player.controller.AudioEqualizerManager,
     settingsRepository: SettingsRepository,
-) : ViewModel() {
+) : BaseViewModel() {
 
     val uiState = playerController.uiState
 
@@ -59,7 +60,7 @@ class PlayerControlViewModel @Inject constructor(
             playbackManager.state.collect { pbState ->
                 playerController.updateState {
                     it.copy(
-                        playQueue = pbState.playQueue,
+                        playQueue = pbState.playQueue.toImmutableList(),
                         currentQueueIndex = pbState.currentIndex,
                     )
                 }
@@ -212,6 +213,25 @@ class PlayerControlViewModel @Inject constructor(
             is PlayerAction.DismissDialog -> {
                 playerController.updateState { it.copy(showSettings = false, showAudioSelection = false, showSubtitleSelection = false, showAutoNextPopup = false, showAudioSyncDialog = false, showSubtitleSyncDialog = false, showSpeedSelection = false, showSubtitleDownload = false, showEqualizer = false, showMoreMenu = false, showChapterOverlay = false, showQueueOverlay = false) }
             }
+            is PlayerAction.DismissCurrentOverlay -> {
+                val s = uiState.value
+                playerController.updateState {
+                    when {
+                        s.showSettings -> it.copy(showSettings = false)
+                        s.showSpeedSelection -> it.copy(showSpeedSelection = false)
+                        s.showAudioSyncDialog -> it.copy(showAudioSyncDialog = false)
+                        s.showSubtitleSyncDialog -> it.copy(showSubtitleSyncDialog = false)
+                        s.showSubtitleDownload -> it.copy(showSubtitleDownload = false)
+                        s.showEqualizer -> it.copy(showEqualizer = false)
+                        s.showAudioSelection -> it.copy(showAudioSelection = false)
+                        s.showSubtitleSelection -> it.copy(showSubtitleSelection = false)
+                        s.showChapterOverlay -> it.copy(showChapterOverlay = false)
+                        s.showQueueOverlay -> it.copy(showQueueOverlay = false)
+                        s.showMoreMenu -> it.copy(showMoreMenu = false)
+                        else -> it
+                    }
+                }
+            }
             is PlayerAction.RetryPlayback -> {
                 playerController.retryPlayback()
             }
@@ -247,6 +267,9 @@ class PlayerControlViewModel @Inject constructor(
             }
             is PlayerAction.TogglePerformanceOverlay -> {
                 playerController.updateState { it.copy(showPerformanceOverlay = !it.showPerformanceOverlay) }
+            }
+            is PlayerAction.CycleAspectRatio -> {
+                playerController.updateState { it.copy(aspectRatioMode = it.aspectRatioMode.next()) }
             }
             is PlayerAction.Close -> {
                 val state = uiState.value

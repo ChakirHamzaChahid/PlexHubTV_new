@@ -21,13 +21,12 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.analytics
-import com.google.firebase.analytics.logEvent
+import com.chakir.plexhubtv.domain.service.AnalyticsService
 
 /**
  * ViewModel pour la Recherche Globale.
@@ -40,6 +39,7 @@ class SearchViewModel
         private val searchAcrossServersUseCase: SearchAcrossServersUseCase,
         private val profileRepository: ProfileRepository,
         private val filterContentByAgeUseCase: FilterContentByAgeUseCase,
+        private val analyticsService: AnalyticsService,
         private val savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val _uiState = MutableStateFlow(
@@ -76,12 +76,12 @@ class SearchViewModel
                     _uiState.update { it.copy(query = action.query) }
                     savedStateHandle["search_query"] = action.query
                     if (action.query.isBlank()) {
-                        _uiState.update { it.copy(searchState = SearchState.Idle, results = emptyList()) }
+                        _uiState.update { it.copy(searchState = SearchState.Idle, results = persistentListOf()) }
                         searchJob?.cancel()
                     }
                 }
                 is SearchAction.ClearQuery -> {
-                    _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = emptyList()) }
+                    _uiState.update { it.copy(query = "", searchState = SearchState.Idle, results = persistentListOf()) }
                     savedStateHandle["search_query"] = ""
                     searchJob?.cancel()
                 }
@@ -107,9 +107,7 @@ class SearchViewModel
                     val startTime = System.currentTimeMillis()
                     _uiState.update { it.copy(searchState = SearchState.Searching) }
 
-                    Firebase.analytics.logEvent("search") {
-                        param(FirebaseAnalytics.Param.SEARCH_TERM, query.take(100))
-                    }
+                    analyticsService.logEvent("search", mapOf("search_term" to query.take(100)))
 
                     searchAcrossServersUseCase(query).safeCollectIn(
                         scope = viewModelScope,
@@ -141,7 +139,7 @@ class SearchViewModel
                                 Timber.i("SCREEN [Search] SUCCESS: query='$query' Load Duration=${duration}ms | Results=${filtered.size}")
                                 _uiState.update {
                                     it.copy(
-                                        results = filtered,
+                                        results = filtered.toImmutableList(),
                                         searchState = if (filtered.isNotEmpty()) SearchState.Results else SearchState.NoResults,
                                     )
                                 }

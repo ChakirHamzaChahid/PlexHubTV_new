@@ -51,7 +51,7 @@ import com.chakir.plexhubtv.R
 
 @Composable
 fun XtreamCategorySelectionRoute(
-    accountId: Long,
+    accountId: String,
     viewModel: XtreamCategorySelectionViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
 ) {

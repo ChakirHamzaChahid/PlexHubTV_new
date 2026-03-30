@@ -16,6 +16,49 @@
     <!-- Error messages -->
     <string name="error_fragment_message">Une erreur est survenue</string>
     <string name="dismiss_error">Fermer</string>
+    <string name="error_action_retry">Réessayer</string>
+    <string name="error_action_ok">OK</string>
+
+    <!-- Erreurs réseau -->
+    <string name="error_network_no_connection">Impossible de se connecter au réseau. Vérifiez votre connexion Internet.</string>
+    <string name="error_network_timeout">La requête a pris trop de temps. Veuillez réessayer.</string>
+    <string name="error_network_server">Erreur serveur. Veuillez réessayer plus tard.</string>
+    <string name="error_network_not_found">Contenu introuvable.</string>
+    <string name="error_network_unauthorized">Accès non autorisé. Veuillez vous reconnecter.</string>
+
+    <!-- Erreurs d\'authentification -->
+    <string name="error_auth_invalid_token">Token d\'authentification invalide. Veuillez vous reconnecter.</string>
+    <string name="error_auth_session_expired">Votre session a expiré. Veuillez vous reconnecter.</string>
+    <string name="error_auth_no_servers">Aucun serveur Plex trouvé. Vérifiez votre compte Plex.</string>
+    <string name="error_auth_pin_failed">Impossible de générer le code PIN. Veuillez réessayer.</string>
+    <string name="error_auth_invalid_credentials">Identifiants invalides. Vérifiez votre nom d\'utilisateur et mot de passe.</string>
+
+    <!-- Erreurs de médias -->
+    <string name="error_media_not_found">Média introuvable.</string>
+    <string name="error_media_load_failed">Impossible de charger le média. Veuillez réessayer.</string>
+    <string name="error_media_no_playable">Aucun contenu lisible trouvé pour ce média.</string>
+    <string name="error_media_unsupported">Format de média non supporté.</string>
+    <string name="error_media_not_in_library">Ce titre n\'est pas disponible dans votre librairie.</string>
+
+    <!-- Erreurs de lecture -->
+    <string name="error_playback_init">Impossible d\'initialiser le lecteur. Veuillez réessayer.</string>
+    <string name="error_playback_streaming">Erreur de lecture. Vérifiez votre connexion.</string>
+    <string name="error_playback_codec">Codec vidéo non supporté par votre appareil.</string>
+    <string name="error_playback_drm">Erreur de protection DRM. Impossible de lire ce contenu.</string>
+
+    <!-- Erreurs de recherche -->
+    <string name="error_search_too_short">Votre recherche doit contenir au moins 2 caractères.</string>
+    <string name="error_search_no_results">Aucun résultat trouvé pour votre recherche.</string>
+    <string name="error_search_failed">La recherche a échoué. Veuillez réessayer.</string>
+
+    <!-- Erreurs de stockage -->
+    <string name="error_storage_disk_full">Espace de stockage insuffisant.</string>
+    <string name="error_storage_read">Impossible de lire les données du cache.</string>
+    <string name="error_storage_write">Impossible d\'écrire dans le cache.</string>
+
+    <!-- Erreurs génériques -->
+    <string name="error_validation">Données invalides.</string>
+    <string name="error_unknown">Une erreur inattendue s\'est produite. Veuillez réessayer.</string>
 
     <!-- Barre supérieure -->
     <string name="topbar_title">PlexHub TV</string>

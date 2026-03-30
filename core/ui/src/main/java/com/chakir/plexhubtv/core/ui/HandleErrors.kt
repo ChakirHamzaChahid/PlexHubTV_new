@@ -4,6 +4,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.isRetryable
 import kotlinx.coroutines.flow.Flow
@@ -18,9 +19,10 @@ fun HandleErrors(
     snackbarHostState: SnackbarHostState,
     onRetry: (() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
     LaunchedEffect(errorFlow) {
         errorFlow.collect { error ->
-            val result = snackbarHostState.showError(error)
+            val result = snackbarHostState.showError(error, context)
             if (onRetry != null && result == SnackbarResult.ActionPerformed && error.isRetryable()) {
                 onRetry()
             }

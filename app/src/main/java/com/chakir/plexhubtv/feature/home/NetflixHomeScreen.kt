@@ -27,20 +27,22 @@ import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.HomeHeader
 import com.chakir.plexhubtv.core.ui.NetflixContentRow
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 fun NetflixHomeContent(
     focusedItem: MediaItem?,
-    hubs: List<Hub>,
-    favorites: List<MediaItem>,
-    suggestions: List<MediaItem>,
-    onDeck: List<MediaItem>,
+    hubs: ImmutableList<Hub>,
+    favorites: ImmutableList<MediaItem>,
+    suggestions: ImmutableList<MediaItem>,
+    onDeck: ImmutableList<MediaItem>,
     onAction: (HomeAction) -> Unit,
     modifier: Modifier = Modifier,
     showContinueWatching: Boolean = true,
     showMyList: Boolean = true,
     showSuggestions: Boolean = true,
-    homeRowOrder: List<String> = listOf("continue_watching", "my_list", "suggestions"),
+    homeRowOrder: ImmutableList<String> = persistentListOf("continue_watching", "my_list", "suggestions"),
     onNavigateUp: (() -> Unit)? = null,
     onFocusChanged: ((MediaItem?) -> Unit)? = null,
 ) {
@@ -57,7 +59,6 @@ fun NetflixHomeContent(
     }
 
     // Determine which special rows are active (visible + have data)
-    data class SpecialRow(val id: String, val hasData: Boolean)
     val rowAvailability = mapOf(
         "continue_watching" to (showContinueWatching && onDeck.isNotEmpty()),
         "my_list" to (showMyList && favorites.isNotEmpty()),

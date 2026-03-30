@@ -1,6 +1,5 @@
 package com.chakir.plexhubtv.feature.settings
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -10,6 +9,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.repository.AuthRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.work.LibrarySyncWorker
@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -51,8 +53,10 @@ class SettingsViewModel
         private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         private val settingsDataStore: com.chakir.plexhubtv.core.datastore.SettingsDataStore,
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
+        private val jellyfinServerRepository: com.chakir.plexhubtv.domain.repository.JellyfinServerRepository,
+        private val syncJellyfinLibraryUseCase: com.chakir.plexhubtv.domain.usecase.SyncJellyfinLibraryUseCase,
         private val updateChecker: com.chakir.plexhubtv.core.update.UpdateChecker,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         companion object {
             const val ALL_SERVERS_SENTINEL = "all"
         }
@@ -78,6 +82,8 @@ class SettingsViewModel
             observeSettings()
             observeBackendServers()
             observeXtreamAccounts()
+            observeXtreamCategorySummaries()
+            observeJellyfinServers()
             _uiState.update { it.copy(hasParentalPin = settingsRepository.hasParentalPin()) }
         }
 
@@ -162,7 +168,7 @@ class SettingsViewModel
                     val idx = current.indexOf(action.rowId)
                     if (idx > 0) {
                         current[idx] = current[idx - 1].also { current[idx - 1] = current[idx] }
-                        _uiState.update { it.copy(homeRowOrder = current) }
+                        _uiState.update { it.copy(homeRowOrder = current.toImmutableList()) }
                         viewModelScope.launch { settingsRepository.saveHomeRowOrder(current) }
                     }
                 }
@@ -171,7 +177,7 @@ class SettingsViewModel
                     val idx = current.indexOf(action.rowId)
                     if (idx >= 0 && idx < current.size - 1) {
                         current[idx] = current[idx + 1].also { current[idx + 1] = current[idx] }
-                        _uiState.update { it.copy(homeRowOrder = current) }
+                        _uiState.update { it.copy(homeRowOrder = current.toImmutableList()) }
                         viewModelScope.launch { settingsRepository.saveHomeRowOrder(current) }
                     }
                 }
@@ -381,6 +387,32 @@ class SettingsViewModel
                         _navigationEvents.send(SettingsNavigationEvent.NavigateToLibrarySelection)
                     }
                 }
+                is SettingsAction.ManageJellyfinServers -> {
+                    viewModelScope.launch {
+                        _navigationEvents.send(SettingsNavigationEvent.NavigateToJellyfinSetup)
+                    }
+                }
+                is SettingsAction.SyncJellyfin -> {
+                    _uiState.update { it.copy(isSyncingJellyfin = true, jellyfinSyncMessage = null) }
+                    viewModelScope.launch {
+                        try {
+                            val result = syncJellyfinLibraryUseCase()
+                            val msg = if (result.isSuccess) {
+                                "Jellyfin sync completed (${result.getOrDefault(0)} items)"
+                            } else {
+                                "Jellyfin sync failed: ${result.exceptionOrNull()?.message}"
+                            }
+                            _uiState.update { it.copy(isSyncingJellyfin = false, jellyfinSyncMessage = msg) }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Jellyfin sync failed")
+                            _uiState.update {
+                                it.copy(isSyncingJellyfin = false, jellyfinSyncMessage = "Sync failed: ${e.message}")
+                            }
+                        }
+                        kotlinx.coroutines.delay(5000)
+                        _uiState.update { it.copy(jellyfinSyncMessage = null) }
+                    }
+                }
                 is SettingsAction.ManageXtreamAccounts -> {
                     viewModelScope.launch {
                         _navigationEvents.send(SettingsNavigationEvent.NavigateToXtreamSetup)
@@ -433,7 +465,24 @@ class SettingsViewModel
                     viewModelScope.launch {
                         val result = backendRepository.addServer(action.label, action.url)
                         if (result.isSuccess) {
-                            _uiState.update { it.copy(isTestingBackend = false, backendConfigMessage = "Server added") }
+                            val server = result.getOrThrow()
+                            // Auto-import Xtream accounts from backend
+                            val importResult = backendRepository.getXtreamAccounts(server.id)
+                            if (importResult.isSuccess) {
+                                val accounts = importResult.getOrThrow()
+                                xtreamAccountRepository.importFromBackend(server.id, accounts)
+                                _uiState.update {
+                                    it.copy(isTestingBackend = false, backendConfigMessage = "Server added, ${accounts.size} account(s) imported")
+                                }
+                                // Navigate to category selection so user can pick before first sync
+                                if (accounts.isNotEmpty()) {
+                                    _navigationEvents.send(
+                                        SettingsNavigationEvent.NavigateToXtreamCategorySelection(accounts.first().id)
+                                    )
+                                }
+                            } else {
+                                _uiState.update { it.copy(isTestingBackend = false, backendConfigMessage = "Server added (account import failed)") }
+                            }
                         } else {
                             _uiState.update {
                                 it.copy(isTestingBackend = false, backendConfigMessage = "Failed: ${result.exceptionOrNull()?.message}")
@@ -445,6 +494,7 @@ class SettingsViewModel
                 }
                 is SettingsAction.RemoveBackendServer -> {
                     viewModelScope.launch {
+                        xtreamAccountRepository.cleanupBackendAccounts(action.id)
                         backendRepository.removeServer(action.id)
                     }
                 }
@@ -481,14 +531,21 @@ class SettingsViewModel
                 is SettingsAction.CheckForUpdates -> {
                     _uiState.update { it.copy(isCheckingForUpdate = true, updateCheckMessage = null) }
                     viewModelScope.launch {
-                        val update = updateChecker.checkForUpdate(com.chakir.plexhubtv.BuildConfig.VERSION_NAME)
-                        if (update != null) {
-                            _uiState.update {
-                                it.copy(isCheckingForUpdate = false, updateCheckMessage = "Update available: v${update.versionName}")
+                        try {
+                            val update = updateChecker.checkForUpdate(com.chakir.plexhubtv.BuildConfig.VERSION_NAME)
+                            if (update != null) {
+                                _uiState.update {
+                                    it.copy(isCheckingForUpdate = false, updateCheckMessage = "Update available: v${update.versionName}")
+                                }
+                            } else {
+                                _uiState.update {
+                                    it.copy(isCheckingForUpdate = false, updateCheckMessage = "You're up to date!")
+                                }
                             }
-                        } else {
+                        } catch (e: Exception) {
+                            Timber.e(e, "Settings: update check failed")
                             _uiState.update {
-                                it.copy(isCheckingForUpdate = false, updateCheckMessage = "You're up to date!")
+                                it.copy(isCheckingForUpdate = false, updateCheckMessage = "Update check failed")
                             }
                         }
                         kotlinx.coroutines.delay(5000)
@@ -510,6 +567,11 @@ class SettingsViewModel
                             } else {
                                 var totalSynced = 0
                                 servers.filter { it.isActive }.forEach { server ->
+                                    // Re-import Xtream accounts on each backend sync
+                                    val importResult = backendRepository.getXtreamAccounts(server.id)
+                                    if (importResult.isSuccess) {
+                                        xtreamAccountRepository.importFromBackend(server.id, importResult.getOrThrow())
+                                    }
                                     val result = backendRepository.syncMedia(server.id)
                                     totalSynced += result.getOrDefault(0)
                                 }
@@ -617,15 +679,74 @@ class SettingsViewModel
 
         private fun observeBackendServers() {
             backendRepository.observeServers()
-                .onEach { servers -> _uiState.update { it.copy(backendServers = servers) } }
+                .onEach { servers -> _uiState.update { it.copy(backendServers = servers.toImmutableList()) } }
                 .catch { e -> Timber.e(e, "Failed to observe backend servers") }
                 .launchIn(viewModelScope)
         }
 
         private fun observeXtreamAccounts() {
             xtreamAccountRepository.observeAccounts()
-                .onEach { accounts -> _uiState.update { it.copy(xtreamAccounts = accounts) } }
+                .onEach { accounts -> _uiState.update { it.copy(xtreamAccounts = accounts.toImmutableList()) } }
                 .catch { e -> Timber.e(e, "Failed to observe Xtream accounts") }
+                .launchIn(viewModelScope)
+        }
+
+        private fun observeXtreamCategorySummaries() {
+            // Local accounts: read summaries from DataStore
+            settingsDataStore.selectedXtreamCategoryIds
+                .onEach { allIds ->
+                    val localSummaries = allIds
+                        .groupBy { id -> id.substringBefore(":") }
+                        .mapValues { (_, ids) ->
+                            val vodCount = ids.count { it.contains(":vod:") }
+                            val seriesCount = ids.count { it.contains(":series:") }
+                            vodCount to seriesCount
+                        }
+                    // Merge with existing backend summaries (keep them)
+                    _uiState.update { current ->
+                        val merged = current.xtreamCategorySummaries.toMutableMap()
+                        merged.putAll(localSummaries)
+                        current.copy(xtreamCategorySummaries = merged.toImmutableMap())
+                    }
+                }
+                .catch { e -> Timber.e(e, "Failed to observe Xtream category summaries") }
+                .launchIn(viewModelScope)
+
+            // Backend accounts: fetch summaries from backend API when accounts change
+            xtreamAccountRepository.observeAccounts()
+                .onEach { accounts ->
+                    val backendAccounts = accounts.filter { it.isBackendManaged }
+                    if (backendAccounts.isEmpty()) return@onEach
+
+                    val backendId = backendAccounts.first().backendId ?: return@onEach
+                    val backendSummaries = mutableMapOf<String, Pair<Int, Int>>()
+
+                    for (account in backendAccounts) {
+                        val result = backendRepository.getCategories(backendId, account.id)
+                        if (result.isSuccess) {
+                            val config = result.getOrThrow()
+                            val vodCount = config.categories.count { it.categoryType == "vod" && it.isAllowed }
+                            val seriesCount = config.categories.count { it.categoryType == "series" && it.isAllowed }
+                            backendSummaries[account.id] = vodCount to seriesCount
+                        }
+                    }
+
+                    if (backendSummaries.isNotEmpty()) {
+                        _uiState.update { current ->
+                            val merged = current.xtreamCategorySummaries.toMutableMap()
+                            merged.putAll(backendSummaries)
+                            current.copy(xtreamCategorySummaries = merged.toImmutableMap())
+                        }
+                    }
+                }
+                .catch { e -> Timber.e(e, "Failed to load backend category summaries") }
+                .launchIn(viewModelScope)
+        }
+
+        private fun observeJellyfinServers() {
+            jellyfinServerRepository.observeServers()
+                .onEach { servers -> _uiState.update { it.copy(jellyfinServers = servers.toImmutableList()) } }
+                .catch { e -> Timber.e(e, "Failed to observe Jellyfin servers") }
                 .launchIn(viewModelScope)
         }
 
@@ -640,8 +761,8 @@ class SettingsViewModel
                 val duration = System.currentTimeMillis() - serverStart
                 serversResult.getOrNull()?.let { servers ->
                     Timber.i("SCREEN [Settings] SUCCESS: Servers loaded in ${duration}ms | Count=${servers.size}")
-                    val serverNames = listOf(ALL_SERVERS_SENTINEL) + servers.map { it.name }
-                    val serverMap = servers.associate { it.name to it.clientIdentifier }
+                    val serverNames = (listOf(ALL_SERVERS_SENTINEL) + servers.map { it.name }).toImmutableList()
+                    val serverMap = servers.associate { it.name to it.clientIdentifier }.toImmutableMap()
                     _uiState.update { it.copy(availableServers = serverNames, availableServersMap = serverMap) }
                 }
             }
@@ -730,95 +851,75 @@ class SettingsViewModel
             }
 
             // Collect home row visibility preferences
-            viewModelScope.launch {
-                settingsRepository.showContinueWatching.collect { show ->
-                    _uiState.update { it.copy(showContinueWatching = show) }
-                }
-            }
-            viewModelScope.launch {
-                settingsRepository.showMyList.collect { show ->
-                    _uiState.update { it.copy(showMyList = show) }
-                }
-            }
-            viewModelScope.launch {
-                settingsRepository.showSuggestions.collect { show ->
-                    _uiState.update { it.copy(showSuggestions = show) }
-                }
-            }
-            viewModelScope.launch {
-                settingsRepository.homeRowOrder.collect { order ->
-                    _uiState.update { it.copy(homeRowOrder = order) }
-                }
-            }
+            settingsRepository.showContinueWatching
+                .onEach { show -> _uiState.update { it.copy(showContinueWatching = show) } }
+                .catch { e -> Timber.e(e, "Settings: showContinueWatching flow failed") }
+                .launchIn(viewModelScope)
+            settingsRepository.showMyList
+                .onEach { show -> _uiState.update { it.copy(showMyList = show) } }
+                .catch { e -> Timber.e(e, "Settings: showMyList flow failed") }
+                .launchIn(viewModelScope)
+            settingsRepository.showSuggestions
+                .onEach { show -> _uiState.update { it.copy(showSuggestions = show) } }
+                .catch { e -> Timber.e(e, "Settings: showSuggestions flow failed") }
+                .launchIn(viewModelScope)
+            settingsRepository.homeRowOrder
+                .onEach { order -> _uiState.update { it.copy(homeRowOrder = order.toImmutableList()) } }
+                .catch { e -> Timber.e(e, "Settings: homeRowOrder flow failed") }
+                .launchIn(viewModelScope)
 
-            // Collect showYearOnCards separately (single flow, simpler than creating a group)
-            viewModelScope.launch {
-                settingsRepository.showYearOnCards.collect { showYear ->
-                    _uiState.update { it.copy(showYearOnCards = showYear) }
-                }
-            }
+            settingsRepository.showYearOnCards
+                .onEach { showYear -> _uiState.update { it.copy(showYearOnCards = showYear) } }
+                .catch { e -> Timber.e(e, "Settings: showYearOnCards flow failed") }
+                .launchIn(viewModelScope)
 
-            // Collect gridColumnsCount separately
-            viewModelScope.launch {
-                settingsRepository.gridColumnsCount.collect { columnsCount ->
-                    _uiState.update { it.copy(gridColumnsCount = columnsCount) }
-                }
-            }
+            settingsRepository.gridColumnsCount
+                .onEach { columnsCount -> _uiState.update { it.copy(gridColumnsCount = columnsCount) } }
+                .catch { e -> Timber.e(e, "Settings: gridColumnsCount flow failed") }
+                .launchIn(viewModelScope)
 
-            // Collect deinterlaceMode separately
-            viewModelScope.launch {
-                settingsRepository.deinterlaceMode.collect { mode ->
-                    _uiState.update { it.copy(deinterlaceMode = mode) }
-                }
-            }
+            settingsRepository.deinterlaceMode
+                .onEach { mode -> _uiState.update { it.copy(deinterlaceMode = mode) } }
+                .catch { e -> Timber.e(e, "Settings: deinterlaceMode flow failed") }
+                .launchIn(viewModelScope)
 
-            // Collect autoPlayNextEnabled separately
-            viewModelScope.launch {
-                settingsRepository.autoPlayNextEnabled.collect { enabled ->
-                    _uiState.update { it.copy(autoPlayNextEnabled = enabled) }
-                }
-            }
+            settingsRepository.autoPlayNextEnabled
+                .onEach { enabled -> _uiState.update { it.copy(autoPlayNextEnabled = enabled) } }
+                .catch { e -> Timber.e(e, "Settings: autoPlayNextEnabled flow failed") }
+                .launchIn(viewModelScope)
 
-            // Collect skip intro/credits modes separately
-            viewModelScope.launch {
-                settingsRepository.skipIntroMode.collect { mode ->
-                    _uiState.update { it.copy(skipIntroMode = mode) }
-                }
-            }
-            viewModelScope.launch {
-                settingsRepository.skipCreditsMode.collect { mode ->
-                    _uiState.update { it.copy(skipCreditsMode = mode) }
-                }
-            }
-            viewModelScope.launch {
-                settingsRepository.themeSongEnabled.collect { enabled ->
-                    _uiState.update { it.copy(themeSongEnabled = enabled) }
-                }
-            }
+            // Collect skip intro/credits modes
+            settingsRepository.skipIntroMode
+                .onEach { mode -> _uiState.update { it.copy(skipIntroMode = mode) } }
+                .catch { e -> Timber.e(e, "Settings: skipIntroMode flow failed") }
+                .launchIn(viewModelScope)
+            settingsRepository.skipCreditsMode
+                .onEach { mode -> _uiState.update { it.copy(skipCreditsMode = mode) } }
+                .catch { e -> Timber.e(e, "Settings: skipCreditsMode flow failed") }
+                .launchIn(viewModelScope)
+            settingsRepository.themeSongEnabled
+                .onEach { enabled -> _uiState.update { it.copy(themeSongEnabled = enabled) } }
+                .catch { e -> Timber.e(e, "Settings: themeSongEnabled flow failed") }
+                .launchIn(viewModelScope)
 
-            // Collect screensaver settings separately
-            viewModelScope.launch {
-                settingsRepository.screensaverEnabled.collect { enabled ->
-                    _uiState.update { it.copy(screensaverEnabled = enabled) }
-                }
-            }
-            viewModelScope.launch {
-                settingsRepository.screensaverIntervalSeconds.collect { seconds ->
-                    _uiState.update { it.copy(screensaverIntervalSeconds = seconds) }
-                }
-            }
-            viewModelScope.launch {
-                settingsRepository.screensaverShowClock.collect { show ->
-                    _uiState.update { it.copy(screensaverShowClock = show) }
-                }
-            }
+            // Collect screensaver settings
+            settingsRepository.screensaverEnabled
+                .onEach { enabled -> _uiState.update { it.copy(screensaverEnabled = enabled) } }
+                .catch { e -> Timber.e(e, "Settings: screensaverEnabled flow failed") }
+                .launchIn(viewModelScope)
+            settingsRepository.screensaverIntervalSeconds
+                .onEach { seconds -> _uiState.update { it.copy(screensaverIntervalSeconds = seconds) } }
+                .catch { e -> Timber.e(e, "Settings: screensaverIntervalSeconds flow failed") }
+                .launchIn(viewModelScope)
+            settingsRepository.screensaverShowClock
+                .onEach { show -> _uiState.update { it.copy(screensaverShowClock = show) } }
+                .catch { e -> Timber.e(e, "Settings: screensaverShowClock flow failed") }
+                .launchIn(viewModelScope)
 
-            // Collect autoCheckUpdates separately
-            viewModelScope.launch {
-                settingsRepository.autoCheckUpdates.collect { enabled ->
-                    _uiState.update { it.copy(autoCheckUpdates = enabled) }
-                }
-            }
+            settingsRepository.autoCheckUpdates
+                .onEach { enabled -> _uiState.update { it.copy(autoCheckUpdates = enabled) } }
+                .catch { e -> Timber.e(e, "Settings: autoCheckUpdates flow failed") }
+                .launchIn(viewModelScope)
 
             // Single combined collector — applies all groups to the current state
             settingsJob = combine(core, prefs, apiKeys, ratingSyncConfig, ratingSyncProgress) { c, p, a, rc, rp ->
@@ -851,6 +952,8 @@ sealed interface SettingsNavigationEvent {
     data object NavigateToAppProfiles : SettingsNavigationEvent
 
     data object NavigateToLibrarySelection : SettingsNavigationEvent
+
+    data object NavigateToJellyfinSetup : SettingsNavigationEvent
 
     data object NavigateToXtreamSetup : SettingsNavigationEvent
 

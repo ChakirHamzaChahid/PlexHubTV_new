@@ -1,9 +1,9 @@
 package com.chakir.plexhubtv.feature.details
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.feature.common.launchLoading
@@ -43,6 +43,8 @@ sealed interface SeasonDetailEvent {
 
     data object ToggleFavorite : SeasonDetailEvent
 
+    data object Retry : SeasonDetailEvent
+
     data object Back : SeasonDetailEvent
 }
 
@@ -66,7 +68,7 @@ class SeasonDetailViewModel
         private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
         private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
         savedStateHandle: SavedStateHandle,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
         private val serverId: String? = savedStateHandle["serverId"]
 
@@ -250,6 +252,9 @@ class SeasonDetailViewModel
                         loadSeason()
                     }
                 }
+                is SeasonDetailEvent.Retry -> {
+                    loadSeason()
+                }
             }
         }
 
@@ -320,7 +325,9 @@ class SeasonDetailViewModel
                             for (episode in toPrefetch) {
                                 try {
                                     enrichMediaItemUseCase(episode)
-                                } catch (_: Exception) { }
+                                } catch (e: Exception) {
+                                    Timber.d(e, "SeasonDetail: Prefetch enrichment failed for ${episode.title}")
+                                }
                             }
                             Timber.d("SCREEN [SeasonDetail]: Prefetch enrichment done for ${toPrefetch.size} episodes")
                         }

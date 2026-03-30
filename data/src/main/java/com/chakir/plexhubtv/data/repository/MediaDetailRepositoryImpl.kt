@@ -12,10 +12,12 @@ import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.network.ApiKeyManager
 import com.chakir.plexhubtv.core.network.OmdbApiService
 import com.chakir.plexhubtv.core.network.TmdbApiService
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.data.source.MediaSourceResolver
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
+import com.chakir.plexhubtv.domain.repository.MediaNavTarget
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -31,6 +33,7 @@ class MediaDetailRepositoryImpl
     @Inject
     constructor(
         private val serverClientResolver: ServerClientResolver,
+        private val jellyfinClientResolver: JellyfinClientResolver,
         private val mediaDao: MediaDao,
         private val collectionDao: com.chakir.plexhubtv.core.database.CollectionDao,
         private val mapper: MediaMapper,
@@ -69,13 +72,13 @@ class MediaDetailRepositoryImpl
 
                     if (!showUnificationId.isNullOrBlank()) {
                         mediaDao.findRemoteEpisodesByShowUnificationId(
-                            showUnificationId, seasonIndex, episodeIndex, item.serverId
+                            showUnificationId, seasonIndex, episodeIndex, item.ratingKey, item.serverId
                         )
                     } else {
                         // Fallback: exact grandparentTitle match
                         val showTitle = item.grandparentTitle
                         if (showTitle != null) {
-                            mediaDao.findRemoteEpisodeSources(showTitle, seasonIndex, episodeIndex, item.serverId)
+                            mediaDao.findRemoteEpisodeSources(showTitle, seasonIndex, episodeIndex, item.ratingKey, item.serverId)
                         } else emptyList()
                     }
                 } else {
@@ -85,19 +88,46 @@ class MediaDetailRepositoryImpl
                 // For movies/shows: match by unificationId
                 val unificationId = item.unificationId
                 if (unificationId.isNullOrBlank()) return emptyList()
-                mediaDao.findRemoteSources(unificationId, item.serverId)
+                mediaDao.findRemoteSources(unificationId, item.ratingKey, item.serverId)
             }
             return entities.map { entity ->
-                val client = serverClientResolver.getClient(entity.serverId)
-                val baseUrl = client?.baseUrl
-                val token = client?.server?.accessToken
                 val domain = mapper.mapEntityToDomain(entity)
-                if (baseUrl != null && token != null) {
-                    mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
-                        baseUrl = baseUrl, accessToken = token
-                    )
-                } else domain
+                resolveEntityUrls(entity, domain)
             }
+        }
+
+        /** Resolve URLs for a remote source entity — dispatches to Plex or Jellyfin resolver. */
+        private suspend fun resolveEntityUrls(entity: MediaEntity, domain: MediaItem): MediaItem {
+            if (entity.serverId.startsWith(SourcePrefix.JELLYFIN)) {
+                val jClient = jellyfinClientResolver.getClient(entity.serverId)
+                if (jClient != null) {
+                    return domain.copy(
+                        thumbUrl = resolveIfRelative(domain.thumbUrl, jClient.baseUrl),
+                        artUrl = resolveIfRelative(domain.artUrl, jClient.baseUrl),
+                        parentThumb = resolveIfRelative(domain.parentThumb, jClient.baseUrl),
+                        grandparentThumb = resolveIfRelative(domain.grandparentThumb, jClient.baseUrl),
+                        baseUrl = jClient.baseUrl,
+                        accessToken = jClient.accessToken,
+                    )
+                }
+                return domain
+            }
+            // Plex / other sources
+            val client = serverClientResolver.getClient(entity.serverId)
+            val baseUrl = client?.baseUrl
+            val token = client?.server?.accessToken
+            if (baseUrl != null && token != null) {
+                return mediaUrlResolver.resolveUrls(domain, baseUrl, token).copy(
+                    baseUrl = baseUrl, accessToken = token
+                )
+            }
+            return domain
+        }
+
+        private fun resolveIfRelative(url: String?, baseUrl: String): String? {
+            if (url.isNullOrBlank()) return null
+            if (url.startsWith("http")) return url
+            return "$baseUrl$url"
         }
 
         override suspend fun getUnifiedSeasons(
@@ -111,10 +141,10 @@ class MediaDetailRepositoryImpl
 
             return allEpisodes
                 .filter { it.parentIndex != null && it.index != null }
-                .groupBy { it.parentIndex!! }
+                .groupBy { it.parentIndex ?: 0 }
                 .toSortedMap()
                 .map { (seasonIdx, seasonEpisodes) ->
-                    val byEpIndex = seasonEpisodes.groupBy { it.index!! }
+                    val byEpIndex = seasonEpisodes.groupBy { it.index ?: 0 }
                     val unifiedEps = byEpIndex.toSortedMap().map { (epIdx, entities) ->
                         val best = pickBestEntity(entities)
                         UnifiedEpisode(
@@ -323,22 +353,31 @@ class MediaDetailRepositoryImpl
                 val entity = mediaDao.getMedia(ratingKey, serverId)
                 Timber.d("hideMedia: entity found=${entity != null}, uid=${entity?.unificationId}, rk=$ratingKey sid=$serverId")
 
-                val count = if (!entity?.unificationId.isNullOrBlank()) {
-                    mediaDao.hideMediaByUnificationId(entity!!.unificationId)
+                val uid = entity?.unificationId
+                val count = if (!uid.isNullOrBlank()) {
+                    mediaDao.hideMediaByUnificationId(uid)
                 } else {
                     mediaDao.hideMedia(ratingKey, serverId)
                 }
 
                 if (count > 0) {
-                    Timber.i("Soft-hidden $count media rows (rk=$ratingKey sid=$serverId uid=${entity?.unificationId})")
+                    Timber.i("Soft-hidden $count media rows (rk=$ratingKey sid=$serverId uid=$uid)")
                 } else {
-                    Timber.w("hideMedia: 0 rows affected! rk=$ratingKey sid=$serverId uid=${entity?.unificationId}")
+                    Timber.w("hideMedia: 0 rows affected! rk=$ratingKey sid=$serverId uid=$uid")
                     // Fallback: if hideByUnificationId matched 0 rows, try direct ratingKey+serverId
-                    if (!entity?.unificationId.isNullOrBlank()) {
+                    if (!uid.isNullOrBlank()) {
                         val fallbackCount = mediaDao.hideMedia(ratingKey, serverId)
                         Timber.d("hideMedia: fallback by rk+sid → $fallbackCount rows")
                     }
                 }
+
+                // Sync media_unified: delete stale row, re-insert only if visible members remain
+                val groupKey = entity?.groupKey
+                if (!groupKey.isNullOrBlank()) {
+                    aggregationService.removeAndRebuildGroup(groupKey)
+                    Timber.d("hideMedia: rebuilt media_unified group '$groupKey'")
+                }
+
                 Result.success(Unit)
             } catch (e: Exception) {
                 Timber.e(e, "hideMedia failed")
@@ -381,6 +420,12 @@ class MediaDetailRepositoryImpl
         override suspend fun isServerOwned(serverId: String): Boolean {
             val client = serverClientResolver.getClient(serverId) ?: return false
             return client.server.isOwned
+        }
+
+        override suspend fun findLocalMediaByTmdbId(tmdbId: Int, mediaType: String): MediaNavTarget? {
+            val type = if (mediaType == "tv") "show" else mediaType
+            val ref = mediaDao.findRefByTmdbId(tmdbId.toString(), type) ?: return null
+            return MediaNavTarget(ref.ratingKey, ref.serverId)
         }
 
         override suspend fun refreshMetadataFromTmdb(media: MediaItem): Result<Unit> =

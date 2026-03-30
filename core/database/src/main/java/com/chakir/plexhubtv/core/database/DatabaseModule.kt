@@ -702,6 +702,59 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_44_45 =
+        object : androidx.room.migration.Migration(44, 45) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Watchlist cloud table: stores ALL items (matched + unmatched)
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `watchlist` (
+                        `cloudRatingKey` TEXT NOT NULL,
+                        `guid` TEXT,
+                        `title` TEXT NOT NULL,
+                        `type` TEXT NOT NULL,
+                        `year` INTEGER,
+                        `thumbUrl` TEXT,
+                        `artUrl` TEXT,
+                        `summary` TEXT,
+                        `addedAt` INTEGER NOT NULL,
+                        `localRatingKey` TEXT,
+                        `localServerId` TEXT,
+                        `orderIndex` INTEGER NOT NULL,
+                        PRIMARY KEY(`cloudRatingKey`)
+                    )""",
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_watchlist_guid` ON `watchlist` (`guid`)")
+            }
+        }
+
+    private val MIGRATION_45_46 =
+        object : androidx.room.migration.Migration(45, 46) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Jellyfin server credentials table
+                database.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `jellyfin_servers` (
+                        `id` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `baseUrl` TEXT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `userName` TEXT NOT NULL,
+                        `version` TEXT NOT NULL DEFAULT '',
+                        `isActive` INTEGER NOT NULL DEFAULT 1,
+                        `lastSyncedAt` INTEGER NOT NULL DEFAULT 0,
+                        `addedAt` INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY(`id`)
+                    )""",
+                )
+            }
+        }
+
+    private val MIGRATION_46_47 =
+        object : androidx.room.migration.Migration(46, 47) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE xtream_accounts ADD COLUMN backendId TEXT DEFAULT NULL")
+            }
+        }
+
     @Provides
     @Singleton
     fun providePlexDatabase(
@@ -760,6 +813,9 @@ object DatabaseModule {
                 MIGRATION_41_42,
                 MIGRATION_42_43,
                 MIGRATION_43_44,
+                MIGRATION_44_45,
+                MIGRATION_45_46,
+                MIGRATION_46_47,
             )
             .build()
     }
@@ -851,7 +907,17 @@ object DatabaseModule {
     }
 
     @Provides
+    fun provideWatchlistDao(database: PlexDatabase): WatchlistDao {
+        return database.watchlistDao()
+    }
+
+    @Provides
     fun provideLibrarySectionDao(database: PlexDatabase): LibrarySectionDao {
         return database.librarySectionDao()
+    }
+
+    @Provides
+    fun provideJellyfinServerDao(database: PlexDatabase): JellyfinServerDao {
+        return database.jellyfinServerDao()
     }
 }

@@ -28,12 +28,13 @@ import androidx.compose.foundation.lazy.LazyColumn // ✅ Depuis tv-material
 import androidx.compose.foundation.lazy.LazyRow // ✅ Depuis tv-material (pas foundation)
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
+import kotlinx.collections.immutable.ImmutableList
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun NetflixContentRow(
     title: String,
-    items: List<MediaItem>,
+    items: ImmutableList<MediaItem>,
     modifier: Modifier = Modifier,
     cardType: CardType = CardType.POSTER,
     onItemClick: (MediaItem) -> Unit,
@@ -98,8 +99,10 @@ fun NetflixContentRow(
                     onClick = onClick,
                     onPlay = onPlay,
                     onLongPress = longPress,
-                    onFocus = { isFocused ->
-                        if (isFocused) onItemFocused?.invoke(item)
+                    onFocus = remember(item.ratingKey, item.serverId) {
+                        { isFocused: Boolean ->
+                            if (isFocused) onItemFocused?.invoke(item)
+                        }
                     },
                     showYear = showYear,
                 )

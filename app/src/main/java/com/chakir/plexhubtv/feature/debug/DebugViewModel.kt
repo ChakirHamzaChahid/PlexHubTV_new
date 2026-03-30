@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -165,7 +166,7 @@ class DebugViewModel @Inject constructor(
             // This would need actual server connection logic
             // For now, return placeholder data
             ServerInfo(
-                connectedServers = emptyList(),
+                connectedServers = persistentListOf(),
                 primaryServer = null,
                 totalServers = 0
             )

@@ -8,6 +8,7 @@ import com.chakir.plexhubtv.core.database.MediaUnifiedDao
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.LibrarySection
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.core.network.PlexApiService
@@ -38,6 +39,7 @@ class LibraryRepositoryImpl
         private val settingsRepository: com.chakir.plexhubtv.domain.repository.SettingsRepository,
         private val serverNameResolver: ServerNameResolver,
         private val mediaUrlResolver: MediaUrlResolver,
+        private val jellyfinClientResolver: JellyfinClientResolver,
     ) : LibraryRepository {
         override suspend fun getLibraries(serverId: String): Result<List<LibrarySection>> {
             try {
@@ -158,6 +160,7 @@ class LibraryRepositoryImpl
                 // Build Dynamic SQL via QueryBuilder
                 val isUnified = serverId == "all"
                 val plexTypeStr = if (mediaType == com.chakir.plexhubtv.core.model.MediaType.Movie) "movie" else "show"
+                timber.log.Timber.w("JELLYFIN_TRACE [getLibraryContent] serverId=$serverId, resolvedServerId=$resolvedServerId, isUnified=$isUnified, type=$plexTypeStr, filter=$normalizedFilter, sort=$normalizedSort")
 
                 val queryConfig = MediaLibraryQueryBuilder.QueryConfig(
                     isUnified = isUnified,
@@ -203,7 +206,8 @@ class LibraryRepositoryImpl
                     val builtQuery = MediaLibraryQueryBuilder.buildMaterializedPagedQuery(queryConfig)
                     val rawQuery = builtQuery.toSimpleSQLiteQuery()
 
-                    timber.log.Timber.d("LIBRARY_UNIFIED [baseSort=$baseSort, isDesc=$isDescending] SQL: ${builtQuery.sql.take(500)}")
+                    timber.log.Timber.w("JELLYFIN_TRACE [getLibraryContent] UNIFIED PATH SQL: ${builtQuery.sql.take(800)}")
+                    timber.log.Timber.w("JELLYFIN_TRACE [getLibraryContent] UNIFIED PATH args: ${builtQuery.args.joinToString()}")
 
                     val pager = androidx.paging.Pager(
                         config = androidx.paging.PagingConfig(
@@ -211,15 +215,22 @@ class LibraryRepositoryImpl
                             prefetchDistance = 15,
                             initialLoadSize = 100,
                             enablePlaceholders = true,
-                            maxSize = 800,
+                            maxSize = 500,
                         ),
                         initialKey = initialKey,
                         pagingSourceFactory = { mediaUnifiedDao.getPagedUnified(rawQuery) },
                     )
 
+                    var loggedFirstPage = false
                     emitAll(
                         pager.flow.map { pagingData ->
                             pagingData.map { entity ->
+                                // TRACE: Log first few unified entities to verify data
+                                if (!loggedFirstPage) {
+                                    loggedFirstPage = true
+                                    timber.log.Timber.w("JELLYFIN_TRACE [unified paging] first entity: groupKey=${entity.groupKey}, bestServerId=${entity.bestServerId}, bestRatingKey=${entity.bestRatingKey}, title=${entity.title}, type=${entity.type}, thumbUrl=${entity.thumbUrl?.take(60)}, resolvedThumbUrl=${entity.resolvedThumbUrl?.take(60)}")
+                                }
+
                                 val domain = mapper.mapUnifiedEntityToDomain(entity)
                                 val baseUrl = clientMap[entity.bestServerId]
                                 val token = tokenMap[entity.bestServerId]
@@ -233,6 +244,16 @@ class LibraryRepositoryImpl
                                         baseUrl = baseUrl,
                                         accessToken = token,
                                     )
+                                } else if (entity.bestServerId.startsWith(SourcePrefix.JELLYFIN)) {
+                                    // Jellyfin: resolve relative URLs with api_key (not X-Plex-Token)
+                                    val jfClient = jellyfinClientResolver.getClient(entity.bestServerId)
+                                    if (jfClient != null) {
+                                        timber.log.Timber.d("JELLYFIN_TRACE [unified paging] Jellyfin URL resolved for ${entity.title}: baseUrl=${jfClient.baseUrl}")
+                                        resolveJellyfinUrls(finalDomain, jfClient.baseUrl, jfClient.accessToken)
+                                    } else {
+                                        timber.log.Timber.e("JELLYFIN_TRACE [unified paging] Jellyfin client NULL for bestServerId=${entity.bestServerId}")
+                                        finalDomain
+                                    }
                                 } else {
                                     finalDomain
                                 }
@@ -274,7 +295,7 @@ class LibraryRepositoryImpl
                                     prefetchDistance = 15,
                                     initialLoadSize = 100,
                                     enablePlaceholders = true,
-                                    maxSize = 800,
+                                    maxSize = 500,
                                 ),
                             initialKey = initialKey,
                             remoteMediator = remoteMediator,
@@ -297,6 +318,11 @@ class LibraryRepositoryImpl
                                         baseUrl = baseUrl,
                                         accessToken = token,
                                     )
+                                } else if (entity.serverId.startsWith(SourcePrefix.JELLYFIN)) {
+                                    val jfClient = jellyfinClientResolver.getClient(entity.serverId)
+                                    if (jfClient != null) {
+                                        resolveJellyfinUrls(finalDomain, jfClient.baseUrl, jfClient.accessToken)
+                                    } else finalDomain
                                 } else {
                                     finalDomain
                                 }
@@ -347,6 +373,24 @@ class LibraryRepositoryImpl
                     )
                 }
             return domain.copy(remoteSources = sources)
+        }
+
+        /** Resolves relative Jellyfin image URLs with baseUrl + api_key query param. */
+        private fun resolveJellyfinUrls(item: MediaItem, baseUrl: String, token: String): MediaItem =
+            item.copy(
+                thumbUrl = resolveJellyfinUrl(item.thumbUrl, baseUrl, token),
+                artUrl = resolveJellyfinUrl(item.artUrl, baseUrl, token),
+                parentThumb = resolveJellyfinUrl(item.parentThumb, baseUrl, token),
+                grandparentThumb = resolveJellyfinUrl(item.grandparentThumb, baseUrl, token),
+                baseUrl = baseUrl,
+                accessToken = token,
+            )
+
+        private fun resolveJellyfinUrl(url: String?, baseUrl: String, token: String): String? {
+            if (url.isNullOrBlank()) return null
+            if (url.startsWith("http")) return url
+            val separator = if (url.contains("?")) "&" else "?"
+            return "$baseUrl$url${separator}api_key=$token"
         }
 
         override suspend fun getFilteredCount(

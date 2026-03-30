@@ -52,10 +52,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chakir.plexhubtv.R
 import kotlinx.coroutines.launch
 
 @Composable
@@ -101,13 +103,13 @@ fun LibrarySelectionScreen(
         ) {
             // Header
             Text(
-                text = "Choisissez vos bibliothèques",
+                text = stringResource(R.string.library_selection_title),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Sélectionnez les bibliothèques que vous souhaitez synchroniser",
+                text = stringResource(R.string.library_selection_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -125,7 +127,7 @@ fun LibrarySelectionScreen(
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Chargement des serveurs...",
+                                text = stringResource(R.string.library_selection_loading),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                         }
@@ -154,7 +156,7 @@ fun LibrarySelectionScreen(
                             )
                             Spacer(modifier = Modifier.height(24.dp))
                             Button(onClick = { onAction(LibrarySelectionAction.Retry) }) {
-                                Text("Réessayer")
+                                Text(stringResource(R.string.action_retry))
                             }
                         }
                     }
@@ -249,9 +251,9 @@ fun LibrarySelectionScreen(
                         } else {
                             Text(
                                 text = if (selectedCount > 0) {
-                                    "Confirmer ($selectedCount/$totalCount)"
+                                    stringResource(R.string.library_selection_confirm, selectedCount, totalCount)
                                 } else {
-                                    "Sélectionnez au moins une bibliothèque"
+                                    stringResource(R.string.library_selection_select_one)
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                             )
@@ -330,7 +332,7 @@ private fun LibraryItem(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = if (library.type == "movie") "Films" else "Séries",
+                text = if (library.type == "movie") stringResource(R.string.library_selection_type_movies) else stringResource(R.string.library_selection_type_shows),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

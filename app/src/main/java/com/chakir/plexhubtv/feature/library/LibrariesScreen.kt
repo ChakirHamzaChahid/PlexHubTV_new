@@ -667,7 +667,7 @@ fun LibraryContent(
                                             .padding(8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Thumbnail(url = item.thumbUrl, modifier = Modifier.size(60.dp, 90.dp))
+                                    Thumbnail(url = item.thumbUrl, modifier = Modifier.size(60.dp, 90.dp), contentDescription = item.title)
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column {
                                         Text(text = item.title, style = MaterialTheme.typography.titleMedium, color = Color.White)
@@ -771,6 +771,7 @@ fun RecommendedContent(
 fun Thumbnail(
     url: String?,
     modifier: Modifier = Modifier,
+    contentDescription: String? = null,
 ) {
     Box(modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))) {
         if (url != null) {
@@ -780,7 +781,7 @@ fun Thumbnail(
                         .data(url)
                         .size(180, 270) // Explicit size for 60dp×90dp at xxhdpi (×3 density)
                         .build(),
-                contentDescription = null,
+                contentDescription = contentDescription,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(4.dp)),
             )

@@ -2,6 +2,8 @@ package com.chakir.plexhubtv.feature.main
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,8 +73,10 @@ fun MainScreen(
     onNavigateToPlexHomeSwitch: () -> Unit,
     onLogout: () -> Unit,
     onNavigateToLibrarySelection: () -> Unit = {},
+    onNavigateToJellyfinSetup: () -> Unit = {},
     onNavigateToXtreamSetup: () -> Unit = {},
     onNavigateToXtreamCategorySelection: (String) -> Unit = {},
+    onNavigateToPersonDetail: (String) -> Unit = {},
 ) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsState()
@@ -160,6 +164,10 @@ fun MainScreen(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
+            enterTransition = { fadeIn(tween(300)) },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(300)) },
+            popExitTransition = { fadeOut(tween(200)) },
             modifier = Modifier
                 .fillMaxSize()
                 .then(
@@ -228,6 +236,7 @@ fun MainScreen(
                     onNavigateToPlexHomeSwitch = { onNavigateToPlexHomeSwitch() },
                     onNavigateToAppProfiles = { onNavigateToProfiles() },
                     onNavigateToLibrarySelection = { onNavigateToLibrarySelection() },
+                    onNavigateToJellyfinSetup = { onNavigateToJellyfinSetup() },
                     onNavigateToXtreamSetup = { onNavigateToXtreamSetup() },
                     onNavigateToXtreamCategorySelection = { accountId -> onNavigateToXtreamCategorySelection(accountId) },
                     onNavigateToSubtitleStyle = { navController.navigate(Screen.SubtitleStyle.route) },
@@ -256,6 +265,7 @@ fun MainScreen(
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToPlexHomeSwitch -> onNavigateToPlexHomeSwitch()
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToAppProfiles -> onNavigateToProfiles()
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
+                            is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToJellyfinSetup -> onNavigateToJellyfinSetup()
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToXtreamSetup -> onNavigateToXtreamSetup()
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToXtreamCategorySelection -> onNavigateToXtreamCategorySelection(event.accountId)
                             is com.chakir.plexhubtv.feature.settings.SettingsNavigationEvent.NavigateToSubtitleStyle -> navController.navigate(Screen.SubtitleStyle.route)
@@ -321,6 +331,7 @@ fun MainScreen(
             composable(Screen.Favorites.route) {
                 com.chakir.plexhubtv.feature.favorites.FavoritesRoute(
                     onNavigateToMedia = { ratingKey, serverId -> onNavigateToDetails(ratingKey, serverId) },
+                    onNavigateToPersonDetail = onNavigateToPersonDetail,
                 )
             }
             composable(Screen.Playlists.route) {

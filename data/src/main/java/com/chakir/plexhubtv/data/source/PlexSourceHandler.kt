@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.data.source
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.core.network.util.safeApiCall
 import com.chakir.plexhubtv.core.util.MediaUrlResolver
 import com.chakir.plexhubtv.data.mapper.MediaMapper
@@ -28,8 +29,7 @@ class PlexSourceHandler @Inject constructor(
     private val similarCache = ConcurrentHashMap<String, Pair<Long, List<MediaItem>>>()
     private val similarCacheTtlMs = 10 * 60 * 1000L
 
-    override fun matches(serverId: String): Boolean =
-        !serverId.startsWith("xtream_") && !serverId.startsWith("backend_")
+    override fun matches(serverId: String): Boolean = !SourcePrefix.isNonPlex(serverId)
 
     override suspend fun getDetail(ratingKey: String, serverId: String): Result<MediaItem> {
         val localEntity = mediaDao.getMedia(ratingKey, serverId)
@@ -136,14 +136,18 @@ class PlexSourceHandler @Inject constructor(
             Timber.d("MERGE_OVERRIDE: No entity in Room for rk=$ratingKey sid=$serverId — skip")
             return item
         }
-        if (entity.overriddenSummary == null && entity.overriddenThumbUrl == null) {
+        val hasOverrides = entity.overriddenSummary != null || entity.overriddenThumbUrl != null
+        val scraped = entity.scrapedRating
+        val hasRatingOverride = scraped != null && scraped > 0.0
+        if (!hasOverrides && !hasRatingOverride) {
             Timber.d("MERGE_OVERRIDE: No overrides for '${item.title}' rk=$ratingKey — skip")
             return item
         }
-        Timber.d("MERGE_OVERRIDE: Applying overrides for '${item.title}' rk=$ratingKey — summary=${entity.overriddenSummary?.take(50)}... thumb=${entity.overriddenThumbUrl?.take(60)}...")
+        Timber.d("MERGE_OVERRIDE: Applying overrides for '${item.title}' rk=$ratingKey — summary=${entity.overriddenSummary?.take(50)}... thumb=${entity.overriddenThumbUrl?.take(60)}... rating=$scraped")
         return item.copy(
             summary = entity.overriddenSummary ?: item.summary,
             thumbUrl = entity.overriddenThumbUrl ?: item.thumbUrl,
+            rating = if (hasRatingOverride) scraped else item.rating,
         )
     }
 

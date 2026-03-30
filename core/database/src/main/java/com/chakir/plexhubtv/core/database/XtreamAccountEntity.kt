@@ -18,4 +18,5 @@ data class XtreamAccountEntity(
     val serverUrl: String?,
     val httpsPort: Int?,
     val lastSyncedAt: Long = 0,
+    val backendId: String? = null,
 )

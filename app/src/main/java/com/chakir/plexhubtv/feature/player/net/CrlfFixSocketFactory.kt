@@ -68,11 +68,8 @@ private class CrlfFixSocket : Socket {
         private const val RECV_BUFFER_SIZE = 4 * 1024 * 1024 // 4 MB
     }
 
-    override fun getInputStream(): InputStream {
-        if (wrappedInput == null) {
-            wrappedInput = CrlfFixInputStream(super.getInputStream())
-        }
-        return wrappedInput!!
+    override fun getInputStream(): InputStream = synchronized(this) {
+        wrappedInput ?: CrlfFixInputStream(super.getInputStream()).also { wrappedInput = it }
     }
 }
 

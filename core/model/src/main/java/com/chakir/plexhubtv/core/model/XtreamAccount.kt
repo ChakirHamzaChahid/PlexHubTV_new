@@ -12,7 +12,10 @@ data class XtreamAccount(
     val allowedFormats: List<String>,
     val serverUrl: String?,
     val httpsPort: Int?,
-)
+    val backendId: String? = null,
+) {
+    val isBackendManaged: Boolean get() = backendId != null
+}
 
 enum class XtreamAccountStatus {
     Active,

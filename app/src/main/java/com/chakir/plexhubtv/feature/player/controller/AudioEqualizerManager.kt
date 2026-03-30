@@ -1,6 +1,10 @@
 package com.chakir.plexhubtv.feature.player.controller
 
 import android.media.audiofx.Equalizer
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,8 +39,8 @@ val DEFAULT_PRESETS = listOf(
 class AudioEqualizerManager @Inject constructor() {
 
     private var equalizer: Equalizer? = null
-    private var _state = EqualizerState()
-    val state: EqualizerState get() = _state
+    private val _state = MutableStateFlow(EqualizerState())
+    val state: StateFlow<EqualizerState> = _state.asStateFlow()
 
     fun attachToAudioSession(audioSessionId: Int) {
         release()
@@ -54,7 +58,7 @@ class AudioEqualizerManager @Inject constructor() {
                 else preset.copy(bands = adaptBands(preset.bands, numBands))
             }
 
-            _state = EqualizerState(
+            _state.value = EqualizerState(
                 enabled = false,
                 selectedPresetIndex = -1,
                 bandLevels = levels,
@@ -63,19 +67,22 @@ class AudioEqualizerManager @Inject constructor() {
                 maxLevel = eq.bandLevelRange[1].toInt(),
                 presets = adaptedPresets,
             )
-            Timber.d("Equalizer attached: $numBands bands, range ${_state.minLevel}..${_state.maxLevel}")
+            Timber.d("Equalizer attached: $numBands bands, range ${_state.value.minLevel}..${_state.value.maxLevel}")
         } catch (e: Exception) {
             Timber.e(e, "Failed to create Equalizer")
+            // Release partially-initialized equalizer to prevent native resource leak
+            release()
         }
     }
 
     fun setEnabled(enabled: Boolean) {
         equalizer?.enabled = enabled
-        _state = _state.copy(enabled = enabled)
+        _state.update { it.copy(enabled = enabled) }
     }
 
     fun selectPreset(index: Int) {
-        val preset = _state.presets.getOrNull(index) ?: return
+        val currentState = _state.value
+        val preset = currentState.presets.getOrNull(index) ?: return
         val eq = equalizer ?: return
 
         val numBands = eq.numberOfBands.toInt()
@@ -83,32 +90,43 @@ class AudioEqualizerManager @Inject constructor() {
         else adaptBands(preset.bands, numBands)
 
         bands.forEachIndexed { i, level ->
-            val clampedLevel = level.coerceIn(_state.minLevel, _state.maxLevel)
+            val clampedLevel = level.coerceIn(currentState.minLevel, currentState.maxLevel)
             eq.setBandLevel(i.toShort(), clampedLevel.toShort())
         }
 
-        if (!_state.enabled) {
+        if (!currentState.enabled) {
             eq.enabled = true
         }
 
-        _state = _state.copy(
-            enabled = true,
-            selectedPresetIndex = index,
-            bandLevels = bands.map { it.coerceIn(_state.minLevel, _state.maxLevel) },
-        )
+        _state.update { state ->
+            state.copy(
+                enabled = true,
+                selectedPresetIndex = index,
+                bandLevels = bands.map { b -> b.coerceIn(state.minLevel, state.maxLevel) },
+            )
+        }
     }
 
     fun setBandLevel(bandIndex: Int, level: Int) {
         val eq = equalizer ?: return
-        val clampedLevel = level.coerceIn(_state.minLevel, _state.maxLevel)
+        val currentState = _state.value
+        val clampedLevel = level.coerceIn(currentState.minLevel, currentState.maxLevel)
         eq.setBandLevel(bandIndex.toShort(), clampedLevel.toShort())
 
-        val newLevels = _state.bandLevels.toMutableList()
+        // Auto-enable on first user interaction
+        if (!currentState.enabled) {
+            eq.enabled = true
+        }
+
+        val newLevels = currentState.bandLevels.toMutableList()
         newLevels[bandIndex] = clampedLevel
-        _state = _state.copy(
-            bandLevels = newLevels,
-            selectedPresetIndex = -1, // Custom
-        )
+        _state.update {
+            it.copy(
+                enabled = true,
+                bandLevels = newLevels,
+                selectedPresetIndex = -1, // Custom
+            )
+        }
     }
 
     fun release() {

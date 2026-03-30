@@ -88,6 +88,7 @@ fun NetflixPlayerControls(
     onNextChapter: () -> Unit = {},
     playPauseFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
     getFrameBitmap: ((Long) -> android.graphics.Bitmap?)? = null,
+    onInteraction: () -> Unit = {},
 ) {
     val prevChapterDesc = stringResource(R.string.player_previous_chapter)
     val nextChapterDesc = stringResource(R.string.player_next_chapter)
@@ -143,16 +144,35 @@ fun NetflixPlayerControls(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
+                        // Line 1: For episodes "ShowName · S01E03 — Title", for movies just "Title"
+                        val headerTitle = buildString {
+                            val gp = media?.grandparentTitle
+                            if (gp != null) {
+                                append(gp)
+                                val s = media.parentIndex
+                                val e = media.episodeIndex
+                                if (s != null && e != null) {
+                                    append(" \u00B7 S${s.toString().padStart(2, '0')}E${e.toString().padStart(2, '0')}")
+                                }
+                                append(" \u2014 ")
+                            }
+                            append(media?.title ?: unknownTitle)
+                        }
                         Text(
-                            text = media?.title ?: unknownTitle,
+                            text = headerTitle,
                             style = MaterialTheme.typography.titleLarge,
                             color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         )
-                        if (media?.grandparentTitle != null) {
-                            val playingFrom = stringResource(R.string.player_playing_from, media.remoteSources.firstOrNull { it.serverId == media.serverId }?.serverName ?: server)
+                        // Line 2: Server name
+                        val serverName = media?.remoteSources
+                            ?.firstOrNull { it.serverId == media.serverId }
+                            ?.serverName
+                        if (serverName != null) {
                             Text(
-                                text = "${media.grandparentTitle} - $playingFrom",
+                                text = serverName,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.7f)
                             )
@@ -170,9 +190,7 @@ fun NetflixPlayerControls(
                     modifier = Modifier
                         .size(80.dp)
                         .testTag("player_playpause_button")
-                        .then(
-                             if (playPauseFocusRequester != null) Modifier.focusRequester(playPauseFocusRequester) else Modifier
-                        ),
+                        .focusable(false),
                     colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)
                 ) {
                     Icon(
@@ -219,6 +237,7 @@ fun NetflixPlayerControls(
                     playedColor = NetflixRed,
                     modifier = Modifier.fillMaxWidth(),
                     getFrameBitmap = getFrameBitmap,
+                    onInteraction = onInteraction,
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -250,7 +269,11 @@ fun NetflixPlayerControls(
 
                     IconButton(
                         onClick = onPlayPauseToggle,
-                        modifier = Modifier.testTag("player_transport_playpause")
+                        modifier = Modifier
+                            .testTag("player_transport_playpause")
+                            .then(
+                                if (playPauseFocusRequester != null) Modifier.focusRequester(playPauseFocusRequester) else Modifier
+                            ),
                     ) {
                          Icon(
                             if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,

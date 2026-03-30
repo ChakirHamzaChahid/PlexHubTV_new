@@ -256,11 +256,17 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
                 onNavigateToLibrarySelection = {
                     navController.navigate(Screen.LibrarySelection.route)
                 },
+                onNavigateToJellyfinSetup = {
+                    navController.navigate(Screen.JellyfinSetup.route)
+                },
                 onNavigateToXtreamSetup = {
                     navController.navigate(Screen.XtreamSetup.route)
                 },
                 onNavigateToXtreamCategorySelection = { accountId ->
                     navController.navigate(Screen.XtreamCategorySelection.createRoute(accountId))
+                },
+                onNavigateToPersonDetail = { personName ->
+                    navController.navigate(Screen.PersonDetail.createRoute(personName))
                 },
             )
         }
@@ -343,6 +349,16 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
         ) {
             PersonDetailRoute(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetail = { ratingKey, serverId ->
+                    navController.navigate(Screen.MediaDetail.createRoute(ratingKey, serverId))
+                },
+            )
+        }
+
+        // Jellyfin Setup
+        composable(Screen.JellyfinSetup.route) {
+            com.chakir.plexhubtv.feature.jellyfin.JellyfinSetupRoute(
+                onNavigateBack = { navController.popBackStack() },
             )
         }
 
@@ -350,6 +366,9 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
         composable(Screen.XtreamSetup.route) {
             com.chakir.plexhubtv.feature.xtream.XtreamSetupRoute(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToCategorySelection = { accountId ->
+                    navController.navigate(Screen.XtreamCategorySelection.createRoute(accountId))
+                },
             )
         }
 
@@ -357,10 +376,10 @@ fun PlexHubApp(mainViewModel: MainViewModel) {
         composable(
             route = Screen.XtreamCategorySelection.route,
             arguments = listOf(
-                navArgument(Screen.ARG_ACCOUNT_ID) { type = NavType.LongType },
+                navArgument(Screen.ARG_ACCOUNT_ID) { type = NavType.StringType },
             ),
         ) {
-            val accountId = it.arguments?.getLong(Screen.ARG_ACCOUNT_ID) ?: 0L
+            val accountId = it.arguments?.getString(Screen.ARG_ACCOUNT_ID) ?: ""
             com.chakir.plexhubtv.feature.xtream.XtreamCategorySelectionRoute(
                 accountId = accountId,
                 onNavigateBack = { navController.popBackStack() },

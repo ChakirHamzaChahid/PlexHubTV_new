@@ -1,12 +1,16 @@
 package com.chakir.plexhubtv.feature.appprofile
 
+import androidx.compose.runtime.Immutable
 import com.chakir.plexhubtv.core.model.Profile
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * État de l'UI pour la sélection et gestion des profils.
  */
+@Immutable
 data class AppProfileUiState(
-    val profiles: List<Profile> = emptyList(),
+    val profiles: ImmutableList<Profile> = persistentListOf(),
     val activeProfile: Profile? = null,
     val isLoading: Boolean = true,
     val error: String? = null,

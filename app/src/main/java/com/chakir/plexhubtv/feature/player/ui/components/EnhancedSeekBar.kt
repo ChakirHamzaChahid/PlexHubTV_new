@@ -58,6 +58,7 @@ fun EnhancedSeekBar(
     isDragging: Boolean = false,
     playedColor: Color = Color(0xFFE5A00D),
     getFrameBitmap: ((Long) -> Bitmap?)? = null,
+    onInteraction: () -> Unit = {},
 ) {
     if (duration <= 0L) return
 
@@ -229,6 +230,7 @@ fun EnhancedSeekBar(
                                     isDrag = true
                                     dragPosition = newPos
                                     onSeek(newPos)
+                                    onInteraction()
                                     true
                                 }
                                 NativeKeyEvent.KEYCODE_DPAD_RIGHT -> {
@@ -240,6 +242,7 @@ fun EnhancedSeekBar(
                                     isDrag = true
                                     dragPosition = newPos
                                     onSeek(newPos)
+                                    onInteraction()
                                     true
                                 }
                                 NativeKeyEvent.KEYCODE_DPAD_CENTER, NativeKeyEvent.KEYCODE_ENTER -> {
@@ -248,6 +251,7 @@ fun EnhancedSeekBar(
                                         isDrag = false
                                     }
                                     consecutiveSeeks = 0
+                                    onInteraction()
                                     true
                                 }
                                 else -> {
@@ -268,10 +272,12 @@ fun EnhancedSeekBar(
                                 isDrag = true
                                 dragStartX = offset.x
                                 dragPosition = currentPosition // Start drag from current
+                                onInteraction()
                             },
                             onHorizontalDrag = { change, _ ->
                                 change.consume()
                                 isDrag = true
+                                onInteraction()
                                 val dragDelta = change.position.x - dragStartX
                                 val seekDelta = (dragDelta / boxWidth) * duration
                                 dragPosition =

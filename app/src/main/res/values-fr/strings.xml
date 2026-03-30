@@ -75,6 +75,7 @@
     <string name="sync_server_recap_title_count">Serveurs (%1$d/%2$d)</string>
     <string name="sync_library_progress_title">Bibliothèques (%1$d/%2$d)</string>
     <string name="sync_server_label">Serveur\u00a0: %1$s</string>
+    <string name="sync_server_counter">Serveur %1$d/%2$d</string>
 
     <!-- ══════════════════════════════════════════════
          Workers / Synchronisation en arrière-plan
@@ -574,6 +575,8 @@
     <string name="xtream_category_mode_blacklist">Mode liste noire</string>
     <string name="xtream_category_mode_all">Toutes les categories</string>
     <string name="xtream_category_syncing">Synchronisation…</string>
+    <string name="xtream_choose_categories">Choisir les catégories</string>
+    <string name="xtream_category_summary">%1$d VOD, %2$d séries</string>
     <string name="xtream_filter_unified">Toutes les catégories</string>
     <string name="xtream_filter_non_unified">Catégories sélectionnées</string>
     <string name="retry">Réessayer</string>
@@ -662,6 +665,12 @@
     <string name="favorites_screen_description">Écran des favoris</string>
     <string name="favorites_loading_description">Chargement des favoris</string>
     <string name="favorites_empty_description">Aucun favori</string>
+    <string name="favorites_category_media">Films &amp; Séries</string>
+    <string name="favorites_category_actors">Acteurs</string>
+    <string name="favorites_actors_empty">Aucun acteur favori.</string>
+    <string name="favorites_actors_empty_hint">Ajoutez des acteurs à vos favoris depuis l\'écran de détails de la personne.</string>
+    <string name="favorites_actors_sort_date_added">Date d\'ajout</string>
+    <string name="favorites_actors_sort_name">Nom</string>
 
     <!-- ══════════════════════════════════════════════
          Écran de l\'historique
@@ -690,6 +699,18 @@
     <string name="iptv_channels_list_description">Liste des chaînes IPTV</string>
     <string name="iptv_channel_description">Chaîne : %1$s</string>
     <string name="iptv_url_dialog_description">Dialogue de saisie d\'URL M3U</string>
+
+    <!-- Live TV (double source) -->
+    <string name="live_tv_source_title">Choisir la source Live TV</string>
+    <string name="live_tv_source_m3u">Playlist M3U</string>
+    <string name="live_tv_source_backend">Backend Xtream</string>
+    <string name="live_tv_category_all">Toutes les chaînes</string>
+    <string name="live_tv_search_hint">Rechercher des chaînes…</string>
+    <string name="live_tv_select_channel">Sélectionnez une chaîne</string>
+    <string name="live_tv_no_epg">Aucune information de programme disponible</string>
+    <string name="live_tv_fullscreen">Plein écran</string>
+    <string name="live_tv_search_categories">Rechercher des catégories…</string>
+    <string name="live_tv_all_channels">Toutes</string>
 
     <!-- ══════════════════════════════════════════════
          Dialogue de sélection de source
@@ -753,4 +774,94 @@
     <!-- Screensaver -->
     <string name="settings_screensaver_activate">Activer dans les paramètres système</string>
     <string name="settings_screensaver_activate_subtitle">Ouvrir le sélecteur d\'écran de veille Android TV pour choisir PlexHubTV</string>
+
+    <!-- ══════════════════════════════════════════════
+         Dialogue de formulaire profil
+         ══════════════════════════════════════════════ -->
+    <string name="profile_form_edit_title">Modifier le profil</string>
+    <string name="profile_form_new_title">Nouveau profil</string>
+    <string name="profile_form_name_label">Nom</string>
+    <string name="profile_form_avatar_label">Avatar</string>
+    <string name="profile_form_kids_label">Profil enfant</string>
+    <string name="profile_form_save_button">Enregistrer</string>
+    <string name="profile_form_create_button">Créer</string>
+    <string name="profile_delete_confirm_title">Supprimer le profil « %1$s » ?</string>
+    <string name="profile_delete_confirm_message">Cette action est irréversible.</string>
+    <string name="profile_badge_kids">Enfant</string>
+    <string name="profile_manage_title">Gérer les profils</string>
+    <string name="profile_no_profiles_available">Aucun profil disponible</string>
+    <string name="profile_current_indicator">Profil actuel</string>
+    <string name="profile_edit_description">Modifier le profil</string>
+    <string name="profile_delete_description">Supprimer le profil</string>
+    <string name="profile_add_description">Ajouter un profil</string>
+
+    <!-- ══════════════════════════════════════════════
+         Dialogue de mise à jour
+         ══════════════════════════════════════════════ -->
+    <string name="update_dialog_title">Mise à jour disponible</string>
+    <string name="update_dialog_version_available">La version %1$s est disponible.</string>
+    <string name="update_dialog_whats_new">Nouveautés\u00a0:</string>
+    <string name="update_dialog_size">Taille\u00a0: %1$s</string>
+    <string name="update_dialog_downloading">Téléchargement… %1$d%%</string>
+    <string name="update_dialog_install">Installer</string>
+    <string name="update_dialog_download">Télécharger</string>
+    <string name="update_dialog_later">Plus tard</string>
+    <string name="update_dialog_retry">Réessayer</string>
+
+    <!-- ══════════════════════════════════════════════
+         Écran de configuration Xtream
+         ══════════════════════════════════════════════ -->
+    <string name="xtream_setup_title">Configuration Xtream IPTV</string>
+    <string name="xtream_server_url_label">URL du serveur</string>
+    <string name="xtream_port_label">Port</string>
+    <string name="xtream_username_label">Nom d\'utilisateur</string>
+    <string name="xtream_password_label">Mot de passe</string>
+    <string name="xtream_label_label">Libellé (optionnel)</string>
+    <string name="xtream_label_placeholder">Mon IPTV</string>
+    <string name="xtream_testing">Test en cours…</string>
+    <string name="xtream_test_save">Tester et sauvegarder</string>
+    <string name="xtream_connected">Connecté</string>
+    <string name="xtream_status">Statut\u00a0: %1$s</string>
+    <string name="xtream_expires">Expire\u00a0: %1$s</string>
+    <string name="xtream_error">Erreur\u00a0: %1$s</string>
+    <string name="xtream_configured_accounts">Comptes configurés</string>
+    <string name="xtream_remove_account">Supprimer le compte</string>
+
+    <!-- ══════════════════════════════════════════════
+         Écran de configuration Jellyfin
+         ══════════════════════════════════════════════ -->
+    <string name="jellyfin_setup_title">Configuration serveur Jellyfin</string>
+    <string name="jellyfin_server_url_label">URL du serveur</string>
+    <string name="jellyfin_username_label">Nom d\'utilisateur</string>
+    <string name="jellyfin_password_label">Mot de passe</string>
+    <string name="jellyfin_connecting">Connexion en cours…</string>
+    <string name="jellyfin_test_add">Tester et ajouter</string>
+    <string name="jellyfin_connected">Connecté</string>
+    <string name="jellyfin_server_name">Serveur\u00a0: %1$s</string>
+    <string name="jellyfin_version">Version\u00a0: %1$s</string>
+    <string name="jellyfin_error">Erreur\u00a0: %1$s</string>
+    <string name="jellyfin_configured_servers">Serveurs configurés</string>
+    <string name="jellyfin_remove_server">Supprimer le serveur</string>
+    <string name="jellyfin_remove_dialog_title">Supprimer le serveur</string>
+    <string name="jellyfin_remove_confirm">Supprimer ce serveur Jellyfin ? Tous les médias associés seront supprimés de la bibliothèque locale.</string>
+    <string name="jellyfin_remove">Supprimer</string>
+
+    <!-- ══════════════════════════════════════════════
+         Écran IPTV (complémentaire)
+         ══════════════════════════════════════════════ -->
+    <string name="iptv_close_search">Fermer la recherche</string>
+    <string name="iptv_switch_source">Changer de source</string>
+    <string name="iptv_live_tv_title">TV en direct</string>
+    <string name="iptv_live_tv_screen">Écran TV en direct</string>
+
+    <!-- ══════════════════════════════════════════════
+         Écran de sélection des bibliothèques
+         ══════════════════════════════════════════════ -->
+    <string name="library_selection_title">Choisissez vos bibliothèques</string>
+    <string name="library_selection_subtitle">Sélectionnez les bibliothèques que vous souhaitez synchroniser</string>
+    <string name="library_selection_loading">Chargement des serveurs…</string>
+    <string name="library_selection_confirm">Confirmer (%1$d/%2$d)</string>
+    <string name="library_selection_select_one">Sélectionnez au moins une bibliothèque</string>
+    <string name="library_selection_type_movies">Films</string>
+    <string name="library_selection_type_shows">Séries</string>
 </resources>

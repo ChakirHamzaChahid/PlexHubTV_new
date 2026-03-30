@@ -1,16 +1,20 @@
 package com.chakir.plexhubtv.feature.details
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.model.Person
 import com.chakir.plexhubtv.core.model.PersonCredit
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.core.network.ApiKeyManager
 import com.chakir.plexhubtv.core.network.TmdbApiService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import com.chakir.plexhubtv.domain.repository.PersonFavoriteRepository
 import com.chakir.plexhubtv.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +32,10 @@ data class PersonDetailUiState(
     val error: String? = null,
 )
 
+sealed interface PersonDetailNavigationEvent {
+    data class NavigateToMediaDetail(val ratingKey: String, val serverId: String) : PersonDetailNavigationEvent
+}
+
 @HiltViewModel
 class PersonDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -35,10 +43,14 @@ class PersonDetailViewModel @Inject constructor(
     private val apiKeyManager: ApiKeyManager,
     private val personFavoriteRepository: PersonFavoriteRepository,
     private val settingsRepository: SettingsRepository,
-) : ViewModel() {
+    private val mediaDetailRepository: MediaDetailRepository,
+) : BaseViewModel() {
 
     private val _uiState = MutableStateFlow(PersonDetailUiState())
     val uiState: StateFlow<PersonDetailUiState> = _uiState.asStateFlow()
+
+    private val _navigationEvents = MutableSharedFlow<PersonDetailNavigationEvent>()
+    val navigationEvents: SharedFlow<PersonDetailNavigationEvent> = _navigationEvents.asSharedFlow()
 
     private val personName: String = savedStateHandle.get<String>("personName") ?: ""
 
@@ -85,8 +97,8 @@ class PersonDetailViewModel @Inject constructor(
 
                 val castCredits = detail.combinedCredits?.cast
                     ?.filter { !it.character.isNullOrBlank() }
-                    ?.sortedByDescending { it.voteAverage ?: 0.0 }
                     ?.distinctBy { it.id }
+                    ?.sortedByDescending { it.releaseDate ?: it.firstAirDate ?: "" }
                     ?.map { credit ->
                         PersonCredit(
                             id = credit.id,
@@ -155,6 +167,18 @@ class PersonDetailViewModel @Inject constructor(
         val person = _uiState.value.person ?: return
         viewModelScope.launch {
             personFavoriteRepository.toggleFavorite(person)
+        }
+    }
+
+    fun onCreditClicked(credit: PersonCredit) {
+        if (credit.id <= 0) return
+        viewModelScope.launch {
+            val target = mediaDetailRepository.findLocalMediaByTmdbId(credit.id, credit.mediaType)
+            if (target != null) {
+                _navigationEvents.emit(
+                    PersonDetailNavigationEvent.NavigateToMediaDetail(target.ratingKey, target.serverId),
+                )
+            }
         }
     }
 

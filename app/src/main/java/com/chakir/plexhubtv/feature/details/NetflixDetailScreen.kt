@@ -559,7 +559,7 @@ private fun CollectionCard(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(thumbUrl)
                     .build(),
-                contentDescription = null,
+                contentDescription = title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
                 alpha = if (isFocused) 0.4f else 0.2f,

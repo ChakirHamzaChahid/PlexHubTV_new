@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.data.repository
 
 import com.chakir.plexhubtv.core.database.BackendServerDao
+import com.chakir.plexhubtv.core.database.ProfileDao
 import com.chakir.plexhubtv.core.datastore.SettingsDataStore
 import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.Category
@@ -22,6 +23,7 @@ class HybridCategoryRepository @Inject constructor(
     private val backendRepository: BackendRepository,
     private val getCategoriesUseCase: GetXtreamCategoriesUseCase,
     private val settingsDataStore: SettingsDataStore,
+    private val profileDao: ProfileDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : CategoryRepository {
 
@@ -35,7 +37,15 @@ class HybridCategoryRepository @Inject constructor(
 
         return if (backendId != null) {
             Timber.d("HybridCategory: using backend $backendId for categories")
-            backendRepository.getCategories(backendId, accountId)
+            val result = backendRepository.getCategories(backendId, accountId)
+            if (result.isSuccess) {
+                // Overlay profile-specific local filter (does NOT touch backend whitelist)
+                val config = result.getOrThrow()
+                val filtered = applyLocalFilter(accountId, config)
+                Result.success(filtered)
+            } else {
+                result
+            }
         } else {
             Timber.d("HybridCategory: using direct Xtream for categories")
             getXtreamCategories(accountId)
@@ -50,18 +60,9 @@ class HybridCategoryRepository @Inject constructor(
         val backendId = getActiveBackendId()
 
         return if (backendId != null) {
-            Timber.d("HybridCategory: updating categories via backend $backendId")
-            val updateResult = backendRepository.updateCategories(backendId, accountId, filterMode, categories)
-            if (updateResult.isSuccess) {
-                // Trigger backend-side sync so is_in_allowed_categories gets recalculated
-                val syncResult = backendRepository.triggerAccountSync(backendId, accountId)
-                syncResult.onSuccess { jobId ->
-                    Timber.i("HybridCategory: triggered backend sync after category update (jobId=$jobId)")
-                }.onFailure { e ->
-                    Timber.w(e, "HybridCategory: failed to trigger backend sync after category update (non-fatal)")
-                }
-            }
-            updateResult
+            // For backend accounts: save locally (preserves backend whitelist)
+            Timber.d("HybridCategory: saving local category filter for backend account $accountId")
+            saveLocalFilter(accountId, categories)
         } else {
             Timber.d("HybridCategory: saving categories locally")
             saveXtreamCategoriesLocally(accountId, categories)
@@ -122,6 +123,66 @@ class HybridCategoryRepository @Inject constructor(
             .filter { it.isAllowed }
             .map { "$accountId:${it.categoryType}:${it.categoryId}" }
             .toSet()
-        settingsDataStore.saveSelectedXtreamCategoryIds(selectedIds)
+        settingsDataStore.mergeSelectedXtreamCategoryIds(accountId, selectedIds)
+    }
+
+    /** Returns active profile ID, or a stable default when no profile system is in use. */
+    private suspend fun getActiveProfileId(): String =
+        profileDao.getActiveProfile()?.id ?: DEFAULT_PROFILE_ID
+
+    /**
+     * Overlay local category filter on backend categories.
+     * If no local filter exists for this profile+account, returns backend config as-is.
+     * Works with or without profiles — uses a default ID when no profile is active.
+     */
+    private suspend fun applyLocalFilter(accountId: String, config: CategoryConfig): CategoryConfig {
+        val profileId = getActiveProfileId()
+        val filter = settingsDataStore.getProfileCategoryFilter(profileId, accountId)
+            ?: return config  // No local filter → show backend's isAllowed as-is
+
+        val prefix = "$profileId:$accountId:"
+
+        // Determine which category types are present in the saved filter.
+        // Only override isAllowed for those types; leave others (e.g. "live") unchanged.
+        val filteredTypes = filter.mapTo(mutableSetOf()) { entry ->
+            entry.removePrefix(prefix).substringBefore(":")
+        }
+
+        Timber.d("HybridCategory: applying local filter for profileId=$profileId, account=$accountId (${filter.size} allowed, types=$filteredTypes)")
+        return config.copy(
+            categories = config.categories.map { cat ->
+                if (cat.categoryType in filteredTypes) {
+                    val compositeId = "$prefix${cat.categoryType}:${cat.categoryId}"
+                    cat.copy(isAllowed = compositeId in filter)
+                } else {
+                    cat // Keep backend's isAllowed for types not in the local filter
+                }
+            }
+        )
+    }
+
+    /**
+     * Save category selection locally for the current profile (or default).
+     * Does NOT update the backend whitelist or trigger sync.
+     */
+    private suspend fun saveLocalFilter(
+        accountId: String,
+        categories: List<CategorySelection>,
+    ): Result<Unit> = runCatching {
+        val profileId = getActiveProfileId()
+
+        val prefix = "$profileId:$accountId:"
+        val allowedIds = categories
+            .filter { it.isAllowed }
+            .map { "$prefix${it.categoryType}:${it.categoryId}" }
+            .toSet()
+
+        settingsDataStore.saveProfileCategoryFilter(profileId, accountId, allowedIds)
+        Timber.i("HybridCategory: saved local filter for profileId=$profileId, account=$accountId (${allowedIds.size} allowed)")
+    }
+
+    companion object {
+        /** Fallback profile ID used when no profile system is active. */
+        private const val DEFAULT_PROFILE_ID = "_default"
     }
 }

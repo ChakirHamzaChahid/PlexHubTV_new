@@ -30,6 +30,7 @@
 -keep class com.chakir.plexhubtv.core.network.model.** { *; }
 -keep class com.chakir.plexhubtv.core.network.backend.** { *; }
 -keep class com.chakir.plexhubtv.core.network.xtream.** { *; }
+-keep class com.chakir.plexhubtv.core.network.jellyfin.** { *; }
 -keepclassmembers class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }

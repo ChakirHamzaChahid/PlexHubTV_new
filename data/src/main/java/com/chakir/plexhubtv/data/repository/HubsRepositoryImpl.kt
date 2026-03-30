@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import timber.log.Timber
+import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 
 class HubsRepositoryImpl
@@ -157,7 +158,7 @@ class HubsRepositoryImpl
                             title = hubInfo.title,
                             type = "mixed",
                             hubIdentifier = hubInfo.hubIdentifier,
-                            items = items,
+                            items = items.toImmutableList(),
                             serverId = null,
                         )
                     }
@@ -189,7 +190,7 @@ class HubsRepositoryImpl
                             title = first.title,
                             type = first.type,
                             hubIdentifier = identifier,
-                            items = mediaDeduplicator.deduplicate(group.flatMap { it.items }, ownedServerIds, servers),
+                            items = mediaDeduplicator.deduplicate(group.flatMap { it.items }, ownedServerIds, servers).toImmutableList(),
                             serverId = null, // Aggregate hubs are not server-specific
                         )
                     }
@@ -331,7 +332,7 @@ class HubsRepositoryImpl
                                     baseUrl = baseUrl,
                                     accessToken = client.server.accessToken,
                                 )
-                            },
+                            }.toImmutableList(),
                         serverId = client.server.clientIdentifier,
                     )
                 } else {

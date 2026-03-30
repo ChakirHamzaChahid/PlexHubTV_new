@@ -42,9 +42,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
 import com.chakir.plexhubtv.core.designsystem.NetflixRed
 
@@ -104,7 +106,7 @@ fun ProfileFormDialog(
                 ) {
                     // Title
                     Text(
-                        text = if (isEdit) "Edit Profile" else "New Profile",
+                        text = if (isEdit) stringResource(R.string.profile_form_edit_title) else stringResource(R.string.profile_form_new_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -116,7 +118,7 @@ fun ProfileFormDialog(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Name") },
+                        label = { Text(stringResource(R.string.profile_form_name_label)) },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -136,7 +138,7 @@ fun ProfileFormDialog(
 
                     // Emoji picker
                     Text(
-                        text = "Avatar",
+                        text = stringResource(R.string.profile_form_avatar_label),
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.7f),
                         modifier = Modifier.fillMaxWidth(),
@@ -166,7 +168,7 @@ fun ProfileFormDialog(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = "Kids Profile",
+                            text = stringResource(R.string.profile_form_kids_label),
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.White,
                             modifier = Modifier.weight(1f),
@@ -188,13 +190,13 @@ fun ProfileFormDialog(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         DialogButton(
-                            text = if (isEdit) "Save" else "Create",
+                            text = if (isEdit) stringResource(R.string.profile_form_save_button) else stringResource(R.string.profile_form_create_button),
                             backgroundColor = NetflixRed,
                             enabled = name.isNotBlank(),
                             onClick = { onSubmit(name, selectedEmoji, isKids) },
                         )
                         DialogButton(
-                            text = "Cancel",
+                            text = stringResource(R.string.action_cancel),
                             backgroundColor = Color.Gray.copy(alpha = 0.5f),
                             onClick = onDismiss,
                         )
@@ -248,7 +250,7 @@ fun DeleteProfileConfirmDialog(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = "Delete profile \"$profileName\"?",
+                        text = stringResource(R.string.profile_delete_confirm_title, profileName),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -258,7 +260,7 @@ fun DeleteProfileConfirmDialog(
                     Spacer(Modifier.height(12.dp))
 
                     Text(
-                        text = "This cannot be undone.",
+                        text = stringResource(R.string.profile_delete_confirm_message),
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center,
@@ -271,13 +273,13 @@ fun DeleteProfileConfirmDialog(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         DialogButton(
-                            text = "Delete",
+                            text = stringResource(R.string.action_delete),
                             backgroundColor = NetflixRed,
                             onClick = onConfirm,
                             modifier = Modifier.focusRequester(confirmFocusRequester),
                         )
                         DialogButton(
-                            text = "Cancel",
+                            text = stringResource(R.string.action_cancel),
                             backgroundColor = Color.Gray.copy(alpha = 0.5f),
                             onClick = onDismiss,
                         )

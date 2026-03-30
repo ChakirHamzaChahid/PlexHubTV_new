@@ -26,12 +26,13 @@ import com.chakir.plexhubtv.core.di.DefaultDispatcher
 import com.chakir.plexhubtv.core.di.MainDispatcher
 import com.chakir.plexhubtv.core.network.ConnectionManager
 import com.chakir.plexhubtv.feature.player.PlayerUiState
-import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
+import com.chakir.plexhubtv.feature.player.url.PlaybackUrlBuilder
 import com.chakir.plexhubtv.core.common.util.FormatUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import com.chakir.plexhubtv.feature.player.mpv.MpvConfig
 import timber.log.Timber
+import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -49,7 +50,7 @@ class PlayerController @Inject constructor(
     private val playerTrackController: PlayerTrackController,
     private val playerScrobbler: PlayerScrobbler,
     private val playerStatsTracker: PlayerStatsTracker,
-    private val transcodeUrlBuilder: TranscodeUrlBuilder,
+    private val urlBuilders: Set<@JvmSuppressWildcards PlaybackUrlBuilder>,
     private val performanceTracker: com.chakir.plexhubtv.core.common.PerformanceTracker,
     private val connectionManager: ConnectionManager,
     private val mediaSourceResolver: com.chakir.plexhubtv.data.source.MediaSourceResolver,
@@ -349,8 +350,8 @@ class PlayerController @Inject constructor(
                 isPlaying = true,
                 isBuffering = true,
                 currentPosition = if (it.currentItem?.id != mediaItem.id) 0L else it.currentPosition,
-                audioTracks = audios,
-                subtitleTracks = subtitles,
+                audioTracks = audios.toImmutableList(),
+                subtitleTracks = subtitles.toImmutableList(),
                 selectedAudio = audios.find { t -> t.isSelected },
                 selectedSubtitle = subtitles.find { t -> t.isSelected } ?: SubtitleTrack.OFF,
             )
@@ -848,8 +849,8 @@ class PlayerController @Inject constructor(
                     nextItem = next,
                     showAutoNextPopup = false,
                     currentPosition = if (it.currentItem?.id != media.id) 0L else it.currentPosition,
-                    audioTracks = audios,
-                    subtitleTracks = subtitles,
+                    audioTracks = audios.toImmutableList(),
+                    subtitleTracks = subtitles.toImmutableList(),
                     selectedAudio = audios.find { t -> t.isSelected },
                     selectedSubtitle = subtitles.find { t -> t.isSelected } ?: SubtitleTrack.OFF
                 )
@@ -939,7 +940,7 @@ class PlayerController @Inject constructor(
 
             val urlBuildStart = System.currentTimeMillis()
             val streamUri = if (part != null) {
-                 transcodeUrlBuilder.buildUrl(
+                 urlBuilders.find { it.matches(sId) }?.buildUrl(
                      media, part, rKey, isDirectPlay, bitrate, clientId,
                      finalAudioStreamId, finalSubtitleStreamId, aIndex, sIndex
                  )
@@ -1165,49 +1166,22 @@ class PlayerController @Inject constructor(
                 }
                 modeRefreshCounter++
 
-                if (isMpvMode) {
-                    val mpv = mpvPlayer
-                    if (mpv != null) {
-                        val pos = mpv.position.value
-                        val dur = mpv.duration.value
-                        _uiState.update {
-                            it.copy(
-                                currentPosition = pos,
-                                duration = dur,
-                                isPlaying = mpv.isPlaying.value,
-                                isBuffering = mpv.isBuffering.value
-                            )
-                        }
-                        chapterMarkerManager.updatePlaybackPosition(pos)
-                        checkAutoSkipMarkers(pos, skipIntroMode, skipCreditsMode)
-                        playerScrobbler.checkAutoNext(
-                            position = pos,
-                            duration = dur,
-                            hasNextItem = _uiState.value.nextItem != null,
-                            isPopupAlreadyShown = _uiState.value.showAutoNextPopup
-                        )
-                        _uiState.value.currentItem?.let { item ->
-                            playerScrobbler.checkAutoScrobble(pos, dur, item)
-                        }
-                    }
-                } else {
-                    player?.let { p ->
-                        val pos = p.currentPosition
-                        val dur = p.duration.coerceAtLeast(0)
-                        if (p.isPlaying) {
+                try {
+                    if (isMpvMode) {
+                        val mpv = mpvPlayer
+                        if (mpv != null) {
+                            val pos = mpv.position.value
+                            val dur = mpv.duration.value
                             _uiState.update {
                                 it.copy(
                                     currentPosition = pos,
-                                    bufferedPosition = p.bufferedPosition,
-                                    duration = dur
+                                    duration = dur,
+                                    isPlaying = mpv.isPlaying.value,
+                                    isBuffering = mpv.isBuffering.value
                                 )
                             }
                             chapterMarkerManager.updatePlaybackPosition(pos)
                             checkAutoSkipMarkers(pos, skipIntroMode, skipCreditsMode)
-                        }
-                        // Check auto-next and auto-scrobble even during buffering near end of stream —
-                        // ExoPlayer may enter BUFFERING at 95%+ which previously blocked the popup
-                        if (pos > 0 && dur > 0) {
                             playerScrobbler.checkAutoNext(
                                 position = pos,
                                 duration = dur,
@@ -1218,7 +1192,40 @@ class PlayerController @Inject constructor(
                                 playerScrobbler.checkAutoScrobble(pos, dur, item)
                             }
                         }
+                    } else {
+                        player?.let { p ->
+                            val pos = p.currentPosition
+                            val dur = p.duration.coerceAtLeast(0)
+                            if (p.isPlaying) {
+                                _uiState.update {
+                                    it.copy(
+                                        currentPosition = pos,
+                                        bufferedPosition = p.bufferedPosition,
+                                        duration = dur
+                                    )
+                                }
+                                chapterMarkerManager.updatePlaybackPosition(pos)
+                                checkAutoSkipMarkers(pos, skipIntroMode, skipCreditsMode)
+                            }
+                            // Check auto-next and auto-scrobble even during buffering near end of stream —
+                            // ExoPlayer may enter BUFFERING at 95%+ which previously blocked the popup
+                            if (pos > 0 && dur > 0) {
+                                playerScrobbler.checkAutoNext(
+                                    position = pos,
+                                    duration = dur,
+                                    hasNextItem = _uiState.value.nextItem != null,
+                                    isPopupAlreadyShown = _uiState.value.showAutoNextPopup
+                                )
+                                _uiState.value.currentItem?.let { item ->
+                                    playerScrobbler.checkAutoScrobble(pos, dur, item)
+                                }
+                            }
+                        }
                     }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.w(e, "Position tracking tick failed (player may be released)")
                 }
                 delay(1000)
             }

@@ -22,12 +22,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.analytics
-import com.google.firebase.analytics.logEvent
+import com.chakir.plexhubtv.domain.service.AnalyticsService
 
 /**
  * ViewModel gérant les détails d'un média.
@@ -59,6 +58,7 @@ class MediaDetailViewModel
         private val deleteMediaUseCase: DeleteMediaUseCase,
         private val playlistRepository: PlaylistRepository,
         private val mediaDetailRepository: com.chakir.plexhubtv.domain.repository.MediaDetailRepository,
+        private val analyticsService: AnalyticsService,
         savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         private val ratingKey: String? = savedStateHandle["ratingKey"]
@@ -107,11 +107,11 @@ class MediaDetailViewModel
             when (event) {
                 is MediaDetailEvent.PlayClicked -> {
                     val media = _uiState.value.media ?: return
-                    Firebase.analytics.logEvent("video_play") {
-                        param("media_type", media.type.name)
-                        param("title", media.title.take(100))
-                        param("server_id", media.serverId)
-                    }
+                    analyticsService.logEvent("video_play", mapOf(
+                        "media_type" to media.type.name,
+                        "title" to media.title.take(100),
+                        "server_id" to media.serverId,
+                    ))
                     viewModelScope.launch {
                         val opId = "playback_movie_${media.ratingKey}_${System.currentTimeMillis()}"
                         performanceTracker.startOperation(
@@ -239,10 +239,19 @@ class MediaDetailViewModel
                         // Continue tracking from PlayClicked (find active operation)
                         val opId = performanceTracker.getSummary(com.chakir.plexhubtv.core.common.PerfCategory.PLAYBACK, 1)
                             .firstOrNull()?.id
-                        opId?.let { performanceTracker.addCheckpoint(it, "User Selected Source", mapOf("serverId" to event.source.serverId)) }
+                        opId?.let { performanceTracker.addCheckpoint(it, "User Selected Source", mapOf("serverId" to event.source.serverId, "mediaIndex" to (event.source.mediaIndex?.toString() ?: "null"))) }
 
-                        // Start playback with specific server
-                        playItem(startItem, opId, event.source.serverId)
+                        // For Plex merged versions: filter mediaParts to the selected media entry
+                        val itemForPlayback = if (event.source.mediaIndex != null) {
+                            startItem.copy(
+                                mediaParts = startItem.mediaParts.filter { it.mediaIndex == event.source.mediaIndex }
+                            )
+                        } else {
+                            startItem
+                        }
+
+                        // Start playback with specific source (serverId + ratingKey for same-server alternatives)
+                        playItem(itemForPlayback, opId, event.source.serverId, event.source.ratingKey)
                     }
                 }
                 is MediaDetailEvent.PlayExtra -> {
@@ -301,7 +310,7 @@ class MediaDetailViewModel
                             playlistRepository.refreshPlaylists()
                             // Collect current playlists snapshot
                             val playlists = playlistRepository.getPlaylists().first()
-                            _uiState.update { it.copy(availablePlaylists = playlists, isLoadingPlaylists = false) }
+                            _uiState.update { it.copy(availablePlaylists = playlists.toImmutableList(), isLoadingPlaylists = false) }
                         } catch (e: Exception) {
                             Timber.e(e, "VM: Failed to load playlists")
                             _uiState.update { it.copy(isLoadingPlaylists = false) }
@@ -359,6 +368,7 @@ class MediaDetailViewModel
             item: MediaItem,
             opId: String? = null,
             forcedServerId: String? = null,
+            forcedRatingKey: String? = null,
         ) {
             // Direct-stream sources: URL built in PlayerControlViewModel, skip detail fetch
             val targetServerId = forcedServerId ?: item.serverId
@@ -375,12 +385,15 @@ class MediaDetailViewModel
             }
 
             val finalItem =
-                if (forcedServerId != null && forcedServerId != item.serverId) {
-                    // Find the source matching forcedServerId to get its ratingKey
-                    val source = item.remoteSources.find { it.serverId == forcedServerId }
+                if (forcedServerId != null && (forcedServerId != item.serverId || forcedRatingKey != item.ratingKey)) {
+                    // Find the source matching both serverId AND ratingKey (handles same-server alternatives)
+                    val source = item.remoteSources.find {
+                        it.serverId == forcedServerId &&
+                        (forcedRatingKey == null || it.ratingKey == forcedRatingKey)
+                    }
                     if (source != null) {
-                        opId?.let { performanceTracker.addCheckpoint(it, "Server Switch", mapOf("from" to item.serverId, "to" to source.serverId)) }
-                        // Fetch full media detail from the target server to get correct
+                        opId?.let { performanceTracker.addCheckpoint(it, "Source Switch", mapOf("from" to item.serverId, "to" to source.serverId, "ratingKey" to source.ratingKey)) }
+                        // Fetch full media detail from the target source to get correct
                         // mediaParts, stream IDs, baseUrl, accessToken, and id
                         val detailResult = getMediaDetailUseCase(source.ratingKey, source.serverId).first()
                         detailResult.getOrNull()?.item ?: run {
@@ -392,7 +405,7 @@ class MediaDetailViewModel
                             )
                         }
                     } else {
-                        Timber.w("playItem: Source not found for serverId=$forcedServerId in remoteSources")
+                        Timber.w("playItem: Source not found for serverId=$forcedServerId ratingKey=$forcedRatingKey in remoteSources")
                         item
                     }
                 } else {
@@ -443,7 +456,7 @@ class MediaDetailViewModel
                         it.copy(
                             isLoading = false,
                             media = detail.item,
-                            seasons = detail.children,
+                            seasons = detail.children.toImmutableList(),
                             isEnriching = true,
                         )
                     }
@@ -511,8 +524,9 @@ class MediaDetailViewModel
          */
         private fun prefetchRemoteEpisodes(show: MediaItem) {
             viewModelScope.launch {
-                val remoteSources = show.remoteSources.filter { it.serverId != show.serverId }
-                Timber.d("VM: Prefetching episodes from ${remoteSources.size} remote server(s)")
+                // Filter by ratingKey (not serverId) to include same-server alternatives (e.g. VF/VO)
+                val remoteSources = show.remoteSources.filter { it.ratingKey != show.ratingKey }
+                Timber.d("VM: Prefetching episodes from ${remoteSources.size} remote source(s)")
                 for (source in remoteSources) {
                     try {
                         // Fetch show detail → returns seasons as children
@@ -548,7 +562,7 @@ class MediaDetailViewModel
                             items
                         }
                         Timber.d("VM: Loaded ${filtered.size} similar items for $ratingKey (${items.size} before filter)")
-                        _uiState.update { it.copy(similarItems = filtered) }
+                        _uiState.update { it.copy(similarItems = filtered.toImmutableList()) }
                     }
                     .onFailure { error ->
                         Timber.w(error, "VM: Failed to load similar items for $ratingKey")
@@ -570,12 +584,14 @@ class MediaDetailViewModel
                         // Merge seasons from other servers that are missing from the primary list
                         val existingIndices = currentState.seasons.map { it.seasonIndex ?: it.parentIndex }.toSet()
                         val supplementary = unifiedSeasons
-                            .filter { it.seasonIndex !in existingIndices && it.bestSeasonRatingKey != null && it.bestSeasonServerId != null }
-                            .map { unified ->
+                            .filter { it.seasonIndex !in existingIndices }
+                            .mapNotNull { unified ->
+                                val rk = unified.bestSeasonRatingKey ?: return@mapNotNull null
+                                val sid = unified.bestSeasonServerId ?: return@mapNotNull null
                                 MediaItem(
-                                    id = "unified-s${unified.seasonIndex}-${unified.bestSeasonServerId}",
-                                    ratingKey = unified.bestSeasonRatingKey!!,
-                                    serverId = unified.bestSeasonServerId!!,
+                                    id = "unified-s${unified.seasonIndex}-$sid",
+                                    ratingKey = rk,
+                                    serverId = sid,
                                     title = unified.title,
                                     type = MediaType.Season,
                                     thumbUrl = unified.thumbUrl,
@@ -590,7 +606,7 @@ class MediaDetailViewModel
                         } else {
                             currentState.seasons
                         }
-                        currentState.copy(unifiedSeasons = unifiedSeasons, seasons = mergedSeasons)
+                        currentState.copy(unifiedSeasons = unifiedSeasons.toImmutableList(), seasons = mergedSeasons.toImmutableList())
                     }
                 }.onFailure { error ->
                     Timber.w(error, "VM: Failed to load unified seasons")
@@ -620,7 +636,7 @@ class MediaDetailViewModel
                     }
                     Timber.d("VM: Got ${filtered.size} collection(s) from primary server (${result.size} before filter)")
 
-                    _uiState.update { it.copy(collections = filtered, isLoadingCollections = false) }
+                    _uiState.update { it.copy(collections = filtered.toImmutableList(), isLoadingCollections = false) }
                 } catch (e: Exception) {
                     Timber.e(e, "VM: Exception loading collections")
                     _uiState.update { it.copy(isLoadingCollections = false) }
@@ -654,7 +670,7 @@ class MediaDetailViewModel
 
                 if (newCollections.isNotEmpty()) {
                     Timber.d("VM: Found ${newCollections.size} additional collection(s) from remote servers")
-                    _uiState.update { it.copy(collections = it.collections + newCollections) }
+                    _uiState.update { it.copy(collections = (it.collections + newCollections).toImmutableList()) }
                 }
             }
         }

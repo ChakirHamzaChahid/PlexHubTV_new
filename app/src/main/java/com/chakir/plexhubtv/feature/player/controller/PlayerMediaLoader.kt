@@ -7,7 +7,7 @@ import com.chakir.plexhubtv.domain.repository.SettingsRepository
 import com.chakir.plexhubtv.domain.service.PlaybackManager
 import com.chakir.plexhubtv.domain.usecase.GetMediaDetailUseCase
 import com.chakir.plexhubtv.feature.player.profile.DeviceProfileService
-import com.chakir.plexhubtv.feature.player.url.TranscodeUrlBuilder
+import com.chakir.plexhubtv.feature.player.url.PlaybackUrlBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -20,7 +20,7 @@ class PlayerMediaLoader
     constructor(
         private val getMediaDetailUseCase: GetMediaDetailUseCase,
         private val settingsRepository: SettingsRepository,
-        private val transcodeUrlBuilder: TranscodeUrlBuilder,
+        private val urlBuilders: Set<@JvmSuppressWildcards PlaybackUrlBuilder>,
         private val playerTrackController: PlayerTrackController,
         private val chapterMarkerManager: ChapterMarkerManager,
         private val playerScrobbler: PlayerScrobbler,
@@ -47,6 +47,7 @@ class PlayerMediaLoader
             audioStreamId: String? = null,
             subtitleStreamId: String? = null,
             onMpvSwitchRequired: () -> Unit,
+            backgroundScope: CoroutineScope? = null,
         ): Result<MediaLoadResult> {
             val qualityPref = settingsRepository.getVideoQuality().first()
 
@@ -62,6 +63,7 @@ class PlayerMediaLoader
 
             var result: Result<MediaLoadResult>? = null
 
+            try {
             getMediaDetailUseCase(rKey, sId).collect { detailResult ->
                 detailResult.onSuccess { detail ->
                     playerScrobbler.resetAutoNext()
@@ -81,7 +83,7 @@ class PlayerMediaLoader
                     val bifToken = media.accessToken
                     val bifPartId = media.mediaParts.firstOrNull()?.id
                     if (bifBaseUrl != null && bifToken != null && bifPartId != null) {
-                        CoroutineScope(Dispatchers.IO).launch {
+                        backgroundScope?.launch(Dispatchers.IO) {
                             trickplayManager.loadBif(bifBaseUrl, bifToken, bifPartId)
                         }
                     }
@@ -95,7 +97,7 @@ class PlayerMediaLoader
                         videoStream?.codec?.equals("hevc", ignoreCase = true) == true ||
                             videoStream?.codec?.equals("h265", ignoreCase = true) == true
 
-                    val isDirectPlay = bitrate >= 200000 && part?.key != null
+                    val isDirectPlay = bitrate >= 200000 && part?.key != null && media.type != com.chakir.plexhubtv.core.model.MediaType.Clip
 
                     if (isHevc && !deviceProfileService.canDirectPlayVideo("hevc") && !isMpvMode) {
                         onMpvSwitchRequired()
@@ -129,7 +131,7 @@ class PlayerMediaLoader
 
                     val streamUri =
                         if (part != null) {
-                            transcodeUrlBuilder.buildUrl(
+                            urlBuilders.find { it.matches(sId) }?.buildUrl(
                                 media, part, rKey, isDirectPlay, bitrate, clientId,
                                 finalAudioStreamId, finalSubtitleStreamId, aIndex, sIndex,
                             )
@@ -156,6 +158,10 @@ class PlayerMediaLoader
                 }.onFailure { e ->
                     result = Result.failure(e)
                 }
+            }
+            } catch (e: Exception) {
+                Timber.e(e, "PlayerMediaLoader: media detail flow failed for $rKey/$sId")
+                return Result.failure(e)
             }
 
             return result ?: Result.failure(Exception("Unknown error loading media"))

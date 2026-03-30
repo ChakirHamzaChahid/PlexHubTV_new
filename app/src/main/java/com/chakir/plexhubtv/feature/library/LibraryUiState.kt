@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.feature.library
 
+import androidx.compose.runtime.Immutable
 import com.chakir.plexhubtv.core.model.LibrarySection
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
@@ -23,6 +24,7 @@ enum class LibraryViewMode {
     List,
 }
 
+@Immutable
 data class LibraryDisplayState(
     val isLoading: Boolean = false,
     val isLoadingMore: Boolean = false,
@@ -38,6 +40,7 @@ data class LibraryDisplayState(
     val isRefreshing: Boolean = false,
 )
 
+@Immutable
 data class LibraryFilterState(
     val currentSort: String = "Title",
     val isSortDescending: Boolean = false,
@@ -50,20 +53,25 @@ data class LibraryFilterState(
     val availableGenres: ImmutableList<String> = persistentListOf(),
     val availableServers: ImmutableList<String> = persistentListOf(),
     val availableServersMap: ImmutableMap<String, String> = persistentMapOf(),
+    /** Incremented when media_unified rebuild completes, forcing PagingSource + count refresh. */
+    val refreshVersion: Int = 0,
 )
 
+@Immutable
 data class LibrarySelectionState(
     val selectedServerId: String? = null,
     val selectedLibraryId: String? = null,
     val availableLibraries: ImmutableList<LibrarySection> = persistentListOf(),
 )
 
+@Immutable
 data class LibraryDialogState(
     val isSortDialogOpen: Boolean = false,
     val isServerFilterOpen: Boolean = false,
     val isGenreFilterOpen: Boolean = false,
 )
 
+@Immutable
 data class LibraryScrollState(
     val rawOffset: Int = 0,
     val offset: Int = 0,
@@ -78,6 +86,7 @@ data class LibraryScrollState(
  * Note: La liste des médias est gérée séparément via PagingData.
  * Les erreurs sont émises via errorEvents channel pour une gestion centralisée.
  */
+@Immutable
 data class LibraryUiState(
     val display: LibraryDisplayState = LibraryDisplayState(),
     val filter: LibraryFilterState = LibraryFilterState(),

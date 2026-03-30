@@ -1,12 +1,9 @@
 package com.chakir.plexhubtv.feature.loading
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -204,141 +201,94 @@ private fun SyncProgressContent(
     syncState: SyncGlobalState,
     globalProgress: Float,
 ) {
-    if (syncState.servers.size >= 2) {
-        // Multi-server: Row with CurrentSyncBlock + ServerRecapSidebar
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CurrentSyncBlock(
-                syncState = syncState,
-                globalProgress = globalProgress,
-                modifier = Modifier.weight(0.55f),
-            )
-
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn() + slideInHorizontally(initialOffsetX = { it / 2 }),
-            ) {
-                Row {
-                    Spacer(Modifier.width(24.dp))
-                    ServerRecapSidebar(
-                        servers = syncState.servers,
-                        currentIndex = syncState.currentServerIndex,
-                        modifier = Modifier.weight(0.35f).heightIn(max = 400.dp),
-                    )
-                }
-            }
-        }
-    } else {
-        // Single server: vertical layout with library progress list below
-        Column(
-            modifier = Modifier.fillMaxWidth(0.7f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            CurrentSyncBlock(
-                syncState = syncState,
-                globalProgress = globalProgress,
-            )
-
-            val libs = syncState.currentServer?.libraries.orEmpty()
-            if (libs.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                LibraryProgressList(libraries = libs)
-            }
-        }
-    }
-}
-
-@Composable
-private fun CurrentSyncBlock(
-    syncState: SyncGlobalState,
-    globalProgress: Float,
-    modifier: Modifier = Modifier,
-) {
     Column(
-        modifier = modifier,
+        modifier = Modifier.fillMaxWidth(0.75f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CircularProgressIndicator(
-            modifier = Modifier.testTag("loading_progress"),
+        // 1. Server counter header — "Serveur 2/24"
+        Text(
+            text = stringResource(
+                R.string.sync_server_counter,
+                syncState.completedServerCount,
+                syncState.servers.size,
+            ),
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary,
         )
 
         Spacer(Modifier.height(16.dp))
 
-        syncState.currentServer?.let { server ->
-            Text(
-                text = server.serverName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        syncState.currentLibrary?.let { lib ->
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "${lib.name} (${lib.itemsSynced}/${lib.itemsTotal})",
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-
+        // 2. Global progress bar
         LinearProgressIndicator(
             progress = { globalProgress / 100f },
             modifier = Modifier
-                .fillMaxWidth(0.8f)
+                .fillMaxWidth(0.6f)
                 .testTag("sync_progress_bar"),
         )
-
         Spacer(Modifier.height(4.dp))
-
         Text(
             text = "${globalProgress.toInt()}%",
             style = MaterialTheme.typography.labelMedium,
         )
+
+        Spacer(Modifier.height(16.dp))
+
+        // 3. Scrollable server + library list with auto-scroll
+        SyncServerLibraryList(syncState = syncState)
     }
 }
 
 @Composable
-private fun ServerRecapSidebar(
-    servers: List<SyncServerState>,
-    currentIndex: Int,
+private fun SyncServerLibraryList(
+    syncState: SyncGlobalState,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+
+    // Find the flat index of the currently running library.
+    // The flat list has: [serverHeader, lib, lib, ..., serverHeader, lib, lib, ...]
+    val runningFlatIndex = remember(syncState) {
+        var flatIdx = 0
+        for (server in syncState.servers) {
+            flatIdx++ // server header item
+            for (lib in server.libraries) {
+                if (lib.status == LibraryStatus.Running) {
+                    return@remember flatIdx
+                }
+                flatIdx++
+            }
+        }
+        -1 // no running library
+    }
+
+    // Auto-scroll to the running library when it changes
+    LaunchedEffect(runningFlatIndex) {
+        if (runningFlatIndex >= 0) {
+            listState.animateScrollToItem(index = runningFlatIndex)
+        }
+    }
+
     Surface(
-        modifier = modifier,
+        modifier = modifier.heightIn(max = 400.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         shape = RoundedCornerShape(12.dp),
     ) {
-        Column(Modifier.padding(12.dp)) {
-            // Header with counter
-            val doneCount = servers.count {
-                it.status == ServerStatus.Success || it.status == ServerStatus.PartialSuccess
-            }
-            Text(
-                text = stringResource(R.string.sync_server_recap_title_count, doneCount, servers.size),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            // Scrollable server list (handles 20+ servers on Mi Box S)
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                itemsIndexed(
-                    items = servers,
-                    key = { _, server -> server.serverId },
-                ) { index, server ->
-                    ServerRecapItem(
-                        server = server,
-                        isCurrent = index == currentIndex,
-                    )
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+        ) {
+            syncState.servers.forEach { server ->
+                // Server section header
+                item(key = "server_${server.serverId}") {
+                    ServerSectionHeader(server = server)
+                }
+                // Libraries under this server
+                server.libraries.forEach { library ->
+                    item(key = "lib_${server.serverId}_${library.key}") {
+                        LibraryPercentageRow(library = library)
+                    }
                 }
             }
         }
@@ -346,69 +296,27 @@ private fun ServerRecapSidebar(
 }
 
 @Composable
-private fun ServerRecapItem(
-    server: SyncServerState,
-    isCurrent: Boolean,
-) {
+private fun ServerSectionHeader(server: SyncServerState) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp)
-            .then(
-                if (isCurrent) Modifier.background(
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                    RoundedCornerShape(6.dp),
-                ) else Modifier
-            )
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .padding(top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Status icon
-        when (server.status) {
-            ServerStatus.Success -> Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = Color(0xFF4CAF50),
-            )
-            ServerStatus.PartialSuccess -> Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFFA726),
-            )
-            ServerStatus.Error -> Icon(
-                imageVector = Icons.Default.Error,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.error,
-            )
-            ServerStatus.Running -> CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            ServerStatus.Pending -> Icon(
-                imageVector = Icons.Default.Schedule,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            )
-        }
+        ServerStatusIcon(status = server.status)
 
         Spacer(Modifier.width(8.dp))
 
-        // Server name
         Text(
             text = server.serverName,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
 
-        // Library count badge
-        if (server.libraries.isNotEmpty() && server.status != ServerStatus.Pending) {
+        if (server.libraries.isNotEmpty()) {
             Text(
                 text = "${server.completedLibraryCount}/${server.libraries.size}",
                 style = MaterialTheme.typography.labelSmall,
@@ -419,38 +327,46 @@ private fun ServerRecapItem(
 }
 
 @Composable
-private fun LibraryProgressList(
-    libraries: List<SyncLibraryState>,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            val doneCount = libraries.count { it.status == LibraryStatus.Success }
-            Text(
-                text = stringResource(R.string.sync_library_progress_title, doneCount, libraries.size),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            libraries.forEach { lib ->
-                LibraryProgressItem(library = lib)
-            }
-        }
+private fun ServerStatusIcon(status: ServerStatus) {
+    when (status) {
+        ServerStatus.Success -> Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = Color(0xFF4CAF50),
+        )
+        ServerStatus.PartialSuccess -> Icon(
+            imageVector = Icons.Default.Warning,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = Color(0xFFFFA726),
+        )
+        ServerStatus.Error -> Icon(
+            imageVector = Icons.Default.Error,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.error,
+        )
+        ServerStatus.Running -> CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+            strokeWidth = 2.dp,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        ServerStatus.Pending -> Icon(
+            imageVector = Icons.Default.Schedule,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+        )
     }
 }
 
 @Composable
-private fun LibraryProgressItem(library: SyncLibraryState) {
+private fun LibraryPercentageRow(library: SyncLibraryState) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp)
+            .padding(start = 26.dp, top = 2.dp, bottom = 2.dp)
             .then(
                 if (library.status == LibraryStatus.Running) Modifier.background(
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
@@ -460,33 +376,9 @@ private fun LibraryProgressItem(library: SyncLibraryState) {
             .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        when (library.status) {
-            LibraryStatus.Success -> Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = Color(0xFF4CAF50),
-            )
-            LibraryStatus.Error -> Icon(
-                imageVector = Icons.Default.Error,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.error,
-            )
-            LibraryStatus.Running -> CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            LibraryStatus.Pending -> Icon(
-                imageVector = Icons.Default.Schedule,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            )
-        }
+        LibraryStatusIcon(status = library.status)
 
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
 
         Text(
             text = library.name,
@@ -496,12 +388,41 @@ private fun LibraryProgressItem(library: SyncLibraryState) {
             modifier = Modifier.weight(1f),
         )
 
-        if (library.status != LibraryStatus.Pending && library.itemsTotal > 0) {
+        if (library.status != LibraryStatus.Pending) {
             Text(
-                text = "${library.itemsSynced}/${library.itemsTotal}",
+                text = "\u2014 ${library.progressPercent}%",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun LibraryStatusIcon(status: LibraryStatus) {
+    when (status) {
+        LibraryStatus.Success -> Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = Color(0xFF4CAF50),
+        )
+        LibraryStatus.Error -> Icon(
+            imageVector = Icons.Default.Error,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.error,
+        )
+        LibraryStatus.Running -> CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            strokeWidth = 1.5.dp,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        LibraryStatus.Pending -> Icon(
+            imageVector = Icons.Default.Schedule,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+        )
     }
 }

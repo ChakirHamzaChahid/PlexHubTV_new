@@ -4,6 +4,7 @@ import com.chakir.plexhubtv.core.di.IoDispatcher
 import com.chakir.plexhubtv.core.model.AudioStream
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.core.model.VideoStream
 import com.chakir.plexhubtv.domain.repository.MediaDetailRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -148,7 +149,7 @@ class GetMediaDetailUseCase
 
                 // Pick the "best" episode (from Plex if available) as the base
                 val (baseEpisode, baseSources) = episodesWithSources
-                    .find { (ep, src) -> !src.serverId.startsWith("xtream_") && !src.serverId.startsWith("backend_") }
+                    .find { (ep, src) -> !SourcePrefix.isNonPlex(src.serverId) }
                     ?: episodesWithSources.firstOrNull()
                     ?: return@mapNotNull null
 

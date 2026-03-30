@@ -1,6 +1,9 @@
 package com.chakir.plexhubtv.feature.auth
 
+import androidx.compose.runtime.Immutable
 import com.chakir.plexhubtv.core.model.Server
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * États de l'interface d'authentification.
@@ -20,7 +23,8 @@ sealed interface AuthUiState {
 
     data class Error(val message: String) : AuthUiState
 
-    data class Success(val servers: List<Server>) : AuthUiState
+    @Immutable
+    data class Success(val servers: ImmutableList<Server> = persistentListOf()) : AuthUiState
 }
 
 sealed interface AuthEvent {

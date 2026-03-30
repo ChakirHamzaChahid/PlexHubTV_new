@@ -27,6 +27,7 @@ fun SettingsRoute(
     onNavigateToPlexHomeSwitch: () -> Unit = {},
     onNavigateToAppProfiles: () -> Unit = {},
     onNavigateToLibrarySelection: () -> Unit = {},
+    onNavigateToJellyfinSetup: () -> Unit = {},
     onNavigateToXtreamSetup: () -> Unit = {},
     onNavigateToXtreamCategorySelection: (String) -> Unit = {},
     onNavigateToSubtitleStyle: () -> Unit = {},
@@ -44,6 +45,7 @@ fun SettingsRoute(
                 is SettingsNavigationEvent.NavigateToPlexHomeSwitch -> onNavigateToPlexHomeSwitch()
                 is SettingsNavigationEvent.NavigateToAppProfiles -> onNavigateToAppProfiles()
                 is SettingsNavigationEvent.NavigateToLibrarySelection -> onNavigateToLibrarySelection()
+                is SettingsNavigationEvent.NavigateToJellyfinSetup -> onNavigateToJellyfinSetup()
                 is SettingsNavigationEvent.NavigateToXtreamSetup -> onNavigateToXtreamSetup()
                 is SettingsNavigationEvent.NavigateToXtreamCategorySelection -> onNavigateToXtreamCategorySelection(event.accountId)
                 is SettingsNavigationEvent.NavigateToSubtitleStyle -> onNavigateToSubtitleStyle()

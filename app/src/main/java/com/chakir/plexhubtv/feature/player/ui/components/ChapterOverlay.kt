@@ -1,5 +1,6 @@
 package com.chakir.plexhubtv.feature.player.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -35,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -73,6 +75,8 @@ fun ChapterOverlay(
     LaunchedEffect(Unit) {
         try { focusRequester.requestFocus() } catch (_: Exception) { }
     }
+
+    BackHandler(onBack = onDismiss)
 
     Box(
         modifier = modifier
@@ -126,7 +130,8 @@ fun ChapterOverlay(
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .weight(1f)
+                    .focusProperties { down = FocusRequester.Cancel },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 itemsIndexed(chapters) { index, chapter ->

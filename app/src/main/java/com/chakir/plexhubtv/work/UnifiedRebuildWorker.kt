@@ -25,12 +25,12 @@ class UnifiedRebuildWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            Timber.i("UNIFIED_REBUILD: Starting full rebuild...")
+            Timber.w("JELLYFIN_TRACE [UnifiedRebuildWorker] Starting full rebuild...")
             aggregationService.rebuildAll()
-            Timber.i("UNIFIED_REBUILD: Complete")
+            Timber.w("JELLYFIN_TRACE [UnifiedRebuildWorker] Complete")
             Result.success()
         } catch (e: Exception) {
-            Timber.e(e, "UNIFIED_REBUILD: Failed")
+            Timber.e(e, "JELLYFIN_TRACE [UnifiedRebuildWorker] FAILED: ${e.message}")
             Result.retry()
         }
     }

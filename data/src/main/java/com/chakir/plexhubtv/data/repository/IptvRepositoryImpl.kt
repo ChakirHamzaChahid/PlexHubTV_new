@@ -36,6 +36,8 @@ class IptvRepositoryImpl
 
         override fun getChannels(): Flow<List<IptvChannel>> = _channels.asStateFlow()
 
+        override fun observeM3uUrl(): Flow<String?> = settingsRepository.iptvPlaylistUrl
+
         override suspend fun refreshChannels(url: String): Result<Unit> =
             withContext(ioDispatcher) {
                 val scheme = Uri.parse(url).scheme?.lowercase()

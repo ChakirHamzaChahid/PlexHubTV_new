@@ -14,6 +14,8 @@ import com.chakir.plexhubtv.core.model.Category
 import com.chakir.plexhubtv.core.model.CategoryConfig
 import com.chakir.plexhubtv.core.model.CategorySelection
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.XtreamAccount
+import com.chakir.plexhubtv.core.model.XtreamAccountStatus
 import com.chakir.plexhubtv.core.network.backend.BackendAccountCreate
 import com.chakir.plexhubtv.core.network.backend.BackendApiClient
 import com.chakir.plexhubtv.core.network.backend.BackendCategoryUpdate
@@ -427,6 +429,138 @@ class BackendRepositoryImpl @Inject constructor(
                 Unit
             }
         }
+
+    override suspend fun getXtreamAccounts(backendId: String): Result<List<XtreamAccount>> =
+        safeApiCall("BackendRepository.getXtreamAccounts") {
+            withContext(ioDispatcher) {
+                val backend = backendServerDao.getById(backendId)
+                    ?: throw IllegalStateException("Backend server $backendId not found")
+                val service = backendApiClient.getService(backend.baseUrl)
+                service.getAccounts().map { dto ->
+                    XtreamAccount(
+                        id = dto.id,
+                        label = dto.label,
+                        baseUrl = dto.baseUrl,
+                        port = dto.port,
+                        username = dto.username,
+                        status = XtreamAccountStatus.fromApiStatus(dto.status),
+                        expirationDate = dto.expirationDate,
+                        maxConnections = dto.maxConnections,
+                        allowedFormats = dto.allowedFormats.split(",").filter { it.isNotBlank() },
+                        serverUrl = dto.serverUrl,
+                        httpsPort = dto.httpsPort,
+                    )
+                }
+            }
+        }
+
+    override suspend fun getLiveChannels(
+        backendId: String,
+        limit: Int,
+        offset: Int,
+        sort: String,
+        categoryId: String?,
+        search: String?,
+    ): Result<Pair<List<com.chakir.plexhubtv.core.model.LiveChannel>, Boolean>> =
+        safeApiCall("BackendRepository.getLiveChannels") {
+            withContext(ioDispatcher) {
+                val backend = backendServerDao.getById(backendId)
+                    ?: throw IllegalStateException("Backend server $backendId not found")
+                val service = backendApiClient.getService(backend.baseUrl)
+
+                val response = service.getLiveChannels(limit, offset, sort, null, categoryId, search)
+                val channels = response.items.map { dto ->
+                    com.chakir.plexhubtv.core.model.LiveChannel(
+                        streamId = dto.streamId,
+                        serverId = dto.serverId,
+                        name = dto.name,
+                        logoUrl = dto.streamIcon,
+                        categoryId = dto.categoryId,
+                        categoryName = null,
+                        epgChannelId = dto.epgChannelId,
+                        containerExtension = dto.containerExtension,
+                        tvArchive = dto.tvArchive,
+                        tvArchiveDuration = dto.tvArchiveDuration,
+                        isAdult = dto.isAdult,
+                        nowPlaying = null,
+                        addedAt = dto.addedAt,
+                        updatedAt = dto.updatedAt,
+                    )
+                }
+                channels to response.hasMore
+            }
+        }
+
+    override suspend fun getChannelEpg(
+        backendId: String,
+        serverId: String,
+        streamId: Int,
+    ): Result<List<com.chakir.plexhubtv.core.model.EpgEntry>> =
+        safeApiCall("BackendRepository.getChannelEpg") {
+            withContext(ioDispatcher) {
+                val backend = backendServerDao.getById(backendId)
+                    ?: throw IllegalStateException("Backend server $backendId not found")
+                val service = backendApiClient.getService(backend.baseUrl)
+
+                val response = service.getChannelEpg(streamId, serverId)
+                response.items.map { dto ->
+                    com.chakir.plexhubtv.core.model.EpgEntry(
+                        id = dto.id,
+                        streamId = dto.streamId,
+                        title = dto.title,
+                        description = dto.description,
+                        startTime = normalizeEpgTimestamp(dto.startTime),
+                        endTime = normalizeEpgTimestamp(dto.endTime),
+                        lang = dto.lang,
+                    )
+                }
+            }
+        }
+
+    override suspend fun getLiveStream(
+        backendId: String,
+        serverId: String,
+        streamId: Int,
+    ): Result<String> = safeApiCall("BackendRepository.getLiveStream") {
+        withContext(ioDispatcher) {
+            val backend = backendServerDao.getById(backendId)
+                ?: throw IllegalStateException("Backend server $backendId not found")
+            val service = backendApiClient.getService(backend.baseUrl)
+
+            val response = service.getLiveStream(streamId, serverId)
+            response.url
+        }
+    }
+
+    override suspend fun getCurrentEpg(
+        backendId: String,
+        serverId: String,
+    ): Result<Map<Int, com.chakir.plexhubtv.core.model.EpgEntry>> =
+        safeApiCall("BackendRepository.getCurrentEpg") {
+            withContext(ioDispatcher) {
+                val backend = backendServerDao.getById(backendId)
+                    ?: throw IllegalStateException("Backend server $backendId not found")
+                val service = backendApiClient.getService(backend.baseUrl)
+
+                val response = service.getCurrentEpg(serverId, limit = 5000)
+                Timber.d("getCurrentEpg: serverId=$serverId returned ${response.items.size} entries")
+                response.items.associate { dto ->
+                    dto.streamId to com.chakir.plexhubtv.core.model.EpgEntry(
+                        id = dto.id,
+                        streamId = dto.streamId,
+                        title = dto.title,
+                        description = dto.description,
+                        startTime = normalizeEpgTimestamp(dto.startTime),
+                        endTime = normalizeEpgTimestamp(dto.endTime),
+                        lang = dto.lang,
+                    )
+                }
+            }
+        }
+
+    /** Backends typically send Unix timestamps in seconds; convert to ms if needed. */
+    private fun normalizeEpgTimestamp(ts: Long): Long =
+        if (ts in 1..9_999_999_999L) ts * 1000 else ts
 
     private suspend fun populateIdBridge(entities: List<com.chakir.plexhubtv.core.database.MediaEntity>) {
         val bridgeEntries = entities.mapNotNull { entity ->

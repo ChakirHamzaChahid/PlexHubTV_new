@@ -26,6 +26,7 @@ import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import kotlinx.collections.immutable.toImmutableList
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.MediaRowSkeleton
@@ -189,7 +190,7 @@ fun NetflixSearchScreen(
                                 }
                                 NetflixContentRow(
                                     title = title,
-                                    items = items,
+                                    items = items.toImmutableList(),
                                     cardType = cardType,
                                     onItemClick = { onAction(SearchAction.OpenMedia(it)) },
                                     onItemPlay = { onAction(SearchAction.OpenMedia(it)) },

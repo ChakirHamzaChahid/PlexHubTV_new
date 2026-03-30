@@ -25,7 +25,11 @@ android {
         minSdk = 27
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0.15"
+        versionName = "1.0.16"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+        }
     }
 
     signingConfigs {
@@ -38,6 +42,8 @@ android {
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
+                enableV1Signing = true
+                enableV2Signing = true
             }
         }
     }
@@ -75,17 +81,9 @@ android {
                 }
             buildConfigField("String", "API_BASE_URL", "\"https://plex.tv/\"")
             buildConfigField("String", "PLEX_TOKEN", "\"\"")
-            val releaseLocalProperties = Properties()
-            val releaseLocalPropertiesFile = rootProject.file("local.properties")
-            if (releaseLocalPropertiesFile.exists()) {
-                releaseLocalProperties.load(FileInputStream(releaseLocalPropertiesFile))
-            }
-            val releaseIptvUrl = releaseLocalProperties.getProperty("IPTV_PLAYLIST_URL") ?: ""
-            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"$releaseIptvUrl\"")
-            val releaseTmdbApiKey = releaseLocalProperties.getProperty("TMDB_API_KEY") ?: ""
-            buildConfigField("String", "TMDB_API_KEY", "\"$releaseTmdbApiKey\"")
-            val releaseOmdbApiKey = releaseLocalProperties.getProperty("OMDB_API_KEY") ?: ""
-            buildConfigField("String", "OMDB_API_KEY", "\"$releaseOmdbApiKey\"")
+            buildConfigField("String", "IPTV_PLAYLIST_URL", "\"\"")
+            buildConfigField("String", "TMDB_API_KEY", "\"\"")
+            buildConfigField("String", "OMDB_API_KEY", "\"\"")
         }
     }
 
@@ -130,14 +128,7 @@ android {
         }
     }
 
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-            isUniversalApk = true
-        }
-    }
+    // No ABI splits — single universal APK (ARM only, x86 excluded via ndk.abiFilters)
 }
 
 dependencies {
@@ -231,6 +222,13 @@ dependencies {
     testImplementation(libs.truth)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation("org.robolectric:robolectric:4.11.1")
+
+    // --- INSTRUMENTED UI TESTS ---
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.truth)
 
     // --- Security Resilience ---
     implementation(libs.play.services.basement)

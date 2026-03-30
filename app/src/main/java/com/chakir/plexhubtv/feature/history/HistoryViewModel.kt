@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.feature.history
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.usecase.GetWatchHistoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import timber.log.Timber
@@ -17,7 +17,7 @@ class HistoryViewModel
     @Inject
     constructor(
         getWatchHistoryUseCase: GetWatchHistoryUseCase,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         val pagedHistory = getWatchHistoryUseCase()
             .cachedIn(viewModelScope)
 

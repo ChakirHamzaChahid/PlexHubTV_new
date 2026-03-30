@@ -1,9 +1,14 @@
 package com.chakir.plexhubtv.feature.debug
 
+import androidx.compose.runtime.Immutable
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+
 /**
  * État de l'UI pour l'écran de debug.
  * Regroupe toutes les informations de débogage système, réseau, base de données, etc.
  */
+@Immutable
 data class DebugUiState(
     val isLoading: Boolean = true,
     val systemInfo: SystemInfo = SystemInfo(),
@@ -19,6 +24,7 @@ data class DebugUiState(
 /**
  * Informations système (Device, Android)
  */
+@Immutable
 data class SystemInfo(
     val deviceModel: String = "",
     val deviceManufacturer: String = "",
@@ -34,6 +40,7 @@ data class SystemInfo(
 /**
  * Informations application
  */
+@Immutable
 data class AppInfo(
     val appVersion: String = "",
     val versionCode: Long = 0,
@@ -46,12 +53,14 @@ data class AppInfo(
 /**
  * Informations serveurs Plex
  */
+@Immutable
 data class ServerInfo(
-    val connectedServers: List<ServerDetail> = emptyList(),
+    val connectedServers: ImmutableList<ServerDetail> = persistentListOf(),
     val primaryServer: String? = null,
     val totalServers: Int = 0,
 )
 
+@Immutable
 data class ServerDetail(
     val serverId: String,
     val name: String,
@@ -64,6 +73,7 @@ data class ServerDetail(
 /**
  * Informations cache (Images, Métadonnées)
  */
+@Immutable
 data class CacheInfo(
     val imageCacheSizeMb: Long = 0,
     val imageCacheItemCount: Int = 0,
@@ -75,6 +85,7 @@ data class CacheInfo(
 /**
  * Informations base de données
  */
+@Immutable
 data class DatabaseInfo(
     val databaseSizeMb: Long = 0,
     val mediaItemsCount: Int = 0,
@@ -87,6 +98,7 @@ data class DatabaseInfo(
 /**
  * Informations réseau
  */
+@Immutable
 data class NetworkInfo(
     val isConnected: Boolean = false,
     val connectionType: String = "",
@@ -99,6 +111,7 @@ data class NetworkInfo(
 /**
  * Informations lecture
  */
+@Immutable
 data class PlaybackInfo(
     val playerEngine: String = "",
     val currentCodec: String = "",
@@ -109,6 +122,7 @@ data class PlaybackInfo(
     val playbackSessions: Int = 0,
 )
 
+@Immutable
 data class DeviceProfileInfo(
     val videoCodecs: String = "",
     val audioCodecs: String = "",

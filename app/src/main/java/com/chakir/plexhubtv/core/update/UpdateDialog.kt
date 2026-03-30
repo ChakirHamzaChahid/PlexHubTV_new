@@ -16,8 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.chakir.plexhubtv.R
 
 @Composable
 fun UpdateDialog(
@@ -34,20 +36,20 @@ fun UpdateDialog(
         },
         title = {
             Text(
-                text = "Update Available",
+                text = stringResource(R.string.update_dialog_title),
                 fontWeight = FontWeight.Bold,
             )
         },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    text = "Version ${updateInfo.versionName} is available.",
+                    text = stringResource(R.string.update_dialog_version_available, updateInfo.versionName),
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 if (updateInfo.releaseNotes.isNotBlank()) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "What's new:",
+                        text = stringResource(R.string.update_dialog_whats_new),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -63,7 +65,7 @@ fun UpdateDialog(
                 if (updateInfo.apkSize > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Size: ${formatSize(updateInfo.apkSize)}",
+                        text = stringResource(R.string.update_dialog_size, formatSize(updateInfo.apkSize)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -79,7 +81,7 @@ fun UpdateDialog(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Downloading… ${(state.progress * 100).toInt()}%",
+                            text = stringResource(R.string.update_dialog_downloading, (state.progress * 100).toInt()),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -105,7 +107,7 @@ fun UpdateDialog(
                     TextButton(onClick = {
                         apkInstaller.reset()
                     }) {
-                        Text("Retry")
+                        Text(stringResource(R.string.update_dialog_retry))
                     }
                 }
                 else -> {
@@ -116,14 +118,14 @@ fun UpdateDialog(
                                 updateInfo.versionName,
                             )
                         }) {
-                            Text("Install")
+                            Text(stringResource(R.string.update_dialog_install))
                         }
                     } else {
                         TextButton(onClick = {
                             apkInstaller.openInBrowser(updateInfo.htmlUrl)
                             onDismiss()
                         }) {
-                            Text("Download")
+                            Text(stringResource(R.string.update_dialog_download))
                         }
                     }
                 }
@@ -135,7 +137,7 @@ fun UpdateDialog(
                     apkInstaller.reset()
                     onDismiss()
                 }) {
-                    Text("Later")
+                    Text(stringResource(R.string.update_dialog_later))
                 }
             }
         },

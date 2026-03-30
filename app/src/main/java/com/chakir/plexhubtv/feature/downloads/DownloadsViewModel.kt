@@ -1,8 +1,8 @@
 package com.chakir.plexhubtv.feature.downloads
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chakir.plexhubtv.core.common.safeCollectIn
+import com.chakir.plexhubtv.feature.common.BaseViewModel
 import com.chakir.plexhubtv.domain.repository.DownloadsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -24,7 +25,7 @@ class DownloadsViewModel
     @Inject
     constructor(
         private val downloadsRepository: DownloadsRepository,
-    ) : ViewModel() {
+    ) : BaseViewModel() {
         private val _uiState = MutableStateFlow(DownloadsUiState(isLoading = true))
         val uiState: StateFlow<DownloadsUiState> = _uiState.asStateFlow()
 
@@ -85,7 +86,7 @@ class DownloadsViewModel
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        downloads = items,
+                        downloads = items.toImmutableList(),
                     )
                 }
             }

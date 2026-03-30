@@ -199,6 +199,12 @@ fun SeasonDetailScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = NetflixLightGray,
                             )
+                            Spacer(Modifier.height(24.dp))
+                            Button(
+                                onClick = { onAction(SeasonDetailEvent.Retry) },
+                            ) {
+                                Text("Retry")
+                            }
                         }
                     }
                 }
@@ -513,7 +519,7 @@ fun EnhancedEpisodeItem(
                     .data(episode.thumbUrl)
                     .size(360, 202)
                     .build(),
-                contentDescription = null,
+                contentDescription = episode.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )

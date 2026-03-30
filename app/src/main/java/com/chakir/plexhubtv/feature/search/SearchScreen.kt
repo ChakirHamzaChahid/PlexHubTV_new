@@ -186,7 +186,7 @@ fun SearchResultItem(
         ) {
             AsyncImage(
                 model = item.thumbUrl,
-                contentDescription = null,
+                contentDescription = item.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -230,7 +230,7 @@ fun PreviewSearchLoading() {
 @Composable
 fun PreviewSearchResults() {
     val items =
-        listOf(
+        kotlinx.collections.immutable.persistentListOf(
             MediaItem(id = "1", ratingKey = "1", serverId = "s1", title = "Avatar", type = MediaType.Movie, year = 2009, thumbUrl = ""),
             MediaItem(
                 id = "2",

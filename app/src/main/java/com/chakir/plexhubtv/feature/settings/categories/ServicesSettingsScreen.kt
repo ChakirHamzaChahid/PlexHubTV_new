@@ -135,6 +135,25 @@ fun ServicesSettingsScreen(
                                 null
                             },
                         )
+
+                        // Backend-managed Xtream accounts — category management
+                        val backendAccounts = state.xtreamAccounts.filter { it.isBackendManaged }
+                        if (backendAccounts.isNotEmpty()) {
+                            backendAccounts.forEach { account ->
+                                val summary = state.xtreamCategorySummaries[account.id]
+                                val subtitle = if (summary != null && (summary.first > 0 || summary.second > 0)) {
+                                    stringResource(R.string.xtream_category_summary, summary.first, summary.second)
+                                } else {
+                                    stringResource(R.string.settings_xtream_categories_subtitle)
+                                }
+                                SettingsTile(
+                                    title = "${account.label} - ${stringResource(R.string.settings_xtream_categories)}",
+                                    subtitle = subtitle,
+                                    icon = Icons.Filled.LiveTv,
+                                    onClick = { onAction(SettingsAction.ManageXtreamCategories(account.id)) },
+                                )
+                            }
+                        }
                     }
 
                     state.backendConfigMessage?.let { msg ->
@@ -148,7 +167,46 @@ fun ServicesSettingsScreen(
                 }
             }
 
-            // --- IPTV & Xtream ---
+            // --- Jellyfin ---
+            item {
+                SettingsSection("Jellyfin Servers") {
+                    state.jellyfinServers.forEach { server ->
+                        SettingsTile(
+                            title = server.name,
+                            subtitle = "${server.baseUrl} (${server.userName})",
+                            icon = Icons.Filled.Dns,
+                            onClick = {},
+                        )
+                    }
+
+                    SettingsTile(
+                        title = "Manage Jellyfin Servers",
+                        subtitle = if (state.jellyfinServers.isEmpty()) "Add a Jellyfin server" else "${state.jellyfinServers.size} server(s) configured",
+                        icon = Icons.Filled.AddCircle,
+                        onClick = { onAction(SettingsAction.ManageJellyfinServers) },
+                    )
+
+                    if (state.jellyfinServers.isNotEmpty()) {
+                        SettingsTile(
+                            title = "Sync Jellyfin",
+                            subtitle = if (state.isSyncingJellyfin) {
+                                stringResource(R.string.settings_syncing_message)
+                            } else {
+                                state.jellyfinSyncMessage ?: "Sync all Jellyfin libraries"
+                            },
+                            icon = Icons.Filled.Cached,
+                            onClick = { if (!state.isSyncingJellyfin) onAction(SettingsAction.SyncJellyfin) },
+                            trailingContent = if (state.isSyncingJellyfin) {
+                                { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                }
+            }
+
+            // --- IPTV & Xtream (direct accounts only, no backend) ---
             item {
                 SettingsSection(stringResource(R.string.settings_section_iptv)) {
                     SettingsTile(
@@ -158,10 +216,18 @@ fun ServicesSettingsScreen(
                         onClick = { onAction(SettingsAction.ManageXtreamAccounts) },
                     )
 
-                    state.xtreamAccounts.forEach { account ->
+                    // Only show direct Xtream accounts here (not backend-managed ones)
+                    val directAccounts = state.xtreamAccounts.filter { !it.isBackendManaged }
+                    directAccounts.forEach { account ->
+                        val summary = state.xtreamCategorySummaries[account.id]
+                        val subtitle = if (summary != null && (summary.first > 0 || summary.second > 0)) {
+                            stringResource(R.string.xtream_category_summary, summary.first, summary.second)
+                        } else {
+                            stringResource(R.string.settings_xtream_categories_subtitle)
+                        }
                         SettingsTile(
-                            title = "${account.label} - Categories",
-                            subtitle = stringResource(R.string.settings_xtream_categories_subtitle),
+                            title = "${account.label} - ${stringResource(R.string.settings_xtream_categories)}",
+                            subtitle = subtitle,
                             icon = Icons.Filled.LiveTv,
                             onClick = { onAction(SettingsAction.ManageXtreamCategories(account.id)) },
                         )

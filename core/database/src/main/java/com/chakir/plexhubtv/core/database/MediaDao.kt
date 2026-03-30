@@ -112,6 +112,7 @@ interface MediaDao {
     @Query("DELETE FROM media WHERE serverId = :serverId")
     suspend fun deleteAllMediaByServerId(serverId: String)
 
+    @Deprecated("Use searchMediaFts for better performance on large libraries", replaceWith = ReplaceWith("searchMediaFts(query, type)"))
     @Query("SELECT * FROM media WHERE type = :type AND title LIKE '%' || :query || '%' ORDER BY title ASC")
     suspend fun searchMedia(
         query: String,
@@ -188,6 +189,21 @@ interface MediaDao {
         rating: Double,
     ): Int
 
+    /** Lightweight projection for navigation: only ratingKey + serverId. */
+    data class MediaRef(val ratingKey: String, val serverId: String)
+
+    /**
+     * Find the best local media match by TMDB ID and type.
+     * Returns the instance with the highest metadataScore (same winner logic as unified queries).
+     * Uses composite index (type, tmdbId).
+     */
+    @Query(
+        "SELECT ratingKey, serverId FROM media " +
+            "WHERE tmdbId = :tmdbId AND type = :type AND isHidden = 0 " +
+            "ORDER BY metadataScore DESC LIMIT 1",
+    )
+    suspend fun findRefByTmdbId(tmdbId: String, type: String): MediaRef?
+
     @Query(
         "SELECT ratingKey, serverId, librarySectionId, title, titleSortable, " +
         "filter, sortOrder, pageOffset, type, thumbUrl, artUrl, year, duration, summary, " +
@@ -242,6 +258,12 @@ interface MediaDao {
     @Query("SELECT COUNT(*) FROM media WHERE type = :type")
     suspend fun getRawCountByType(type: String): Int
 
+    @Query("SELECT COUNT(*) FROM media WHERE serverId = :serverId AND type = :type")
+    suspend fun getRawCountByServerAndType(serverId: String, type: String): Int
+
+    @Query("SELECT COUNT(*) FROM media WHERE serverId LIKE :serverIdPrefix || '%' AND type = :type")
+    suspend fun getRawCountByServerPrefixAndType(serverIdPrefix: String, type: String): Int
+
     // Dynamic Query for Paging
     @androidx.room.RawQuery(observedEntities = [MediaEntity::class])
     fun getMediaPagedRaw(query: androidx.sqlite.db.SupportSQLiteQuery): androidx.paging.PagingSource<Int, MediaEntity>
@@ -250,22 +272,22 @@ interface MediaDao {
     @androidx.room.RawQuery
     suspend fun getMediaCountRaw(query: androidx.sqlite.db.SupportSQLiteQuery): Int
 
-    // REMOTE SOURCES: Find same media on other servers via unificationId (for enrichment)
+    // REMOTE SOURCES: Find same media on ANY server (including same-server duplicates like VF/VO)
     @Query(
         """
         SELECT * FROM media
         WHERE unificationId = :unificationId
         AND unificationId != ''
-        AND serverId != :excludeServerId
-        GROUP BY serverId
+        AND NOT (ratingKey = :excludeRatingKey AND serverId = :excludeServerId)
     """,
     )
     suspend fun findRemoteSources(
         unificationId: String,
+        excludeRatingKey: String,
         excludeServerId: String,
     ): List<MediaEntity>
 
-    // REMOTE SOURCES: Find same episode on other servers by show title + season index + episode index
+    // REMOTE SOURCES: Find same episode on ANY server (including same-server duplicates)
     @Query(
         """
         SELECT * FROM media
@@ -273,36 +295,36 @@ interface MediaDao {
         AND grandparentTitle = :showTitle
         AND parentIndex = :seasonIndex
         AND `index` = :episodeIndex
-        AND serverId != :excludeServerId
-        GROUP BY serverId
+        AND NOT (ratingKey = :excludeRatingKey AND serverId = :excludeServerId)
     """,
     )
     suspend fun findRemoteEpisodeSources(
         showTitle: String,
         seasonIndex: Int,
         episodeIndex: Int,
+        excludeRatingKey: String,
         excludeServerId: String,
     ): List<MediaEntity>
 
-    // REMOTE SOURCES: Find same episode on other servers via parent show's unificationId
+    // REMOTE SOURCES: Find same episode on ANY server via parent show's unificationId
     @Query("""
         SELECT * FROM media
         WHERE type = 'episode'
         AND parentIndex = :seasonIndex
         AND `index` = :episodeIndex
-        AND serverId != :excludeServerId
+        AND NOT (ratingKey = :excludeRatingKey AND serverId = :excludeServerId)
         AND grandparentRatingKey IN (
             SELECT ratingKey FROM media
             WHERE type = 'show'
             AND unificationId = :showUnificationId
             AND unificationId != ''
         )
-        GROUP BY serverId
     """)
     suspend fun findRemoteEpisodesByShowUnificationId(
         showUnificationId: String,
         seasonIndex: Int,
         episodeIndex: Int,
+        excludeRatingKey: String,
         excludeServerId: String,
     ): List<MediaEntity>
 

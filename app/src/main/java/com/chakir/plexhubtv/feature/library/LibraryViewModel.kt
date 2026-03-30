@@ -66,6 +66,7 @@ class LibraryViewModel
         private val getLibraryIndexUseCase: com.chakir.plexhubtv.domain.usecase.GetLibraryIndexUseCase,
         private val xtreamAccountRepository: com.chakir.plexhubtv.domain.repository.XtreamAccountRepository,
         private val backendRepository: com.chakir.plexhubtv.domain.repository.BackendRepository,
+        private val jellyfinServerRepository: com.chakir.plexhubtv.domain.repository.JellyfinServerRepository,
         private val savedStateHandle: SavedStateHandle,
     ) : BaseViewModel() {
         // État de l'UI exposé de manière immuable (StateFlow)
@@ -112,6 +113,7 @@ class LibraryViewModel
                         excludedServerIds = state.filter.excludedServerIds.toList(),
                         initialScrollIndex = state.scroll.initialScrollIndex,
                         query = state.filter.searchQuery.ifBlank { null },
+                        refreshVersion = state.filter.refreshVersion,
                     )
                 }
                 .distinctUntilChanged { old, new ->
@@ -181,6 +183,7 @@ class LibraryViewModel
             val excludedServerIds: List<String> = emptyList(),
             val initialScrollIndex: Int? = null,
             val query: String? = null,
+            val refreshVersion: Int = 0,
         )
 
         /** Params for filtered count (excludes initialScrollIndex to avoid unnecessary recomputation). */
@@ -195,6 +198,7 @@ class LibraryViewModel
             val serverFilterId: String?,
             val excludedServerIds: List<String>,
             val query: String?,
+            val refreshVersion: Int = 0,
         )
 
         init {
@@ -264,6 +268,10 @@ class LibraryViewModel
                 // already uses the correct selectedServerId (set by single-server fast path).
                 launchFilteredCountObserver()
             }
+
+            // Observe media_unified rebuild completion (PostSyncChain / startup rebuild)
+            // to refresh PagingSource + counts when the table gets populated after first sync.
+            observeUnifiedRebuildCompletion()
         }
 
         /**
@@ -292,6 +300,7 @@ class LibraryViewModel
                             serverFilterId = serverFilterId,
                             excludedServerIds = state.filter.excludedServerIds.toList(),
                             query = state.filter.searchQuery.ifBlank { null },
+                            refreshVersion = state.filter.refreshVersion,
                         )
                     }
                     .distinctUntilChanged()
@@ -314,6 +323,34 @@ class LibraryViewModel
                             Timber.e(e, "Failed to compute filtered count")
                         }
                     }
+            }
+        }
+
+        /**
+         * Observes WorkManager completion of the PostSyncChain (CollectionSync → UnifiedRebuild)
+         * and startup rebuild. When the media_unified table is rebuilt, increments refreshVersion
+         * to force PagingSource recreation + count refresh, and re-runs loadMetadata for totalItems.
+         */
+        private fun observeUnifiedRebuildCompletion() {
+            listOf("PostSyncChain", "UnifiedRebuild_Startup").forEach { workName ->
+                viewModelScope.launch {
+                    workManager.getWorkInfosForUniqueWorkFlow(workName)
+                        .map { workInfos ->
+                            workInfos.isNotEmpty() && workInfos.all {
+                                it.state == androidx.work.WorkInfo.State.SUCCEEDED
+                            }
+                        }
+                        .distinctUntilChanged()
+                        .collect { allSucceeded ->
+                            if (allSucceeded) {
+                                Timber.i("$workName completed — refreshing library data (refreshVersion++)")
+                                _uiState.update {
+                                    it.copy(filter = it.filter.copy(refreshVersion = it.filter.refreshVersion + 1))
+                                }
+                                loadMetadata(_uiState.value.display.mediaType)
+                            }
+                        }
+                }
             }
         }
 
@@ -358,13 +395,30 @@ class LibraryViewModel
                     Timber.w("Failed to load Backend servers for filter: ${e.message}")
                 }
 
+                // Include Jellyfin servers
+                try {
+                    val jellyfinServers = jellyfinServerRepository.getServers()
+                    Timber.w("JELLYFIN_TRACE [loadMetadata] jellyfinServers: ${jellyfinServers.size}, details=${jellyfinServers.map { "${it.name}(id=${it.id}, prefixed=${it.prefixedServerId}, active=${it.isActive})" }}")
+                    jellyfinServers.forEach { jfServer ->
+                        serverNames.add(jfServer.name)
+                        serverMap[jfServer.name] = jfServer.prefixedServerId
+                    }
+                } catch (e: Exception) {
+                    Timber.e("JELLYFIN_TRACE [loadMetadata] Failed to load Jellyfin servers: ${e.message}", e)
+                }
+
+                Timber.w("JELLYFIN_TRACE [loadMetadata] plexServers=${servers.size}, totalServerNames=${serverNames.size}, serverNames=$serverNames, serverMap=$serverMap")
+
                 // Single-server fast path: skip unified query when only one source exists
                 if (servers.size == 1 && serverNames.size == 1) {
+                    Timber.w("JELLYFIN_TRACE [loadMetadata] SINGLE-SERVER FAST PATH activated: serverId=${servers[0].clientIdentifier}")
                     _uiState.update { it.copy(
                         selection = it.selection.copy(
                             selectedServerId = servers[0].clientIdentifier
                         )
                     ) }
+                } else {
+                    Timber.w("JELLYFIN_TRACE [loadMetadata] UNIFIED PATH: plexServers=${servers.size}, serverNames=${serverNames.size} → serverId will be 'all'")
                 }
 
                 // Utilisation des groupes de genres définis statiquement (UI_LABELS)

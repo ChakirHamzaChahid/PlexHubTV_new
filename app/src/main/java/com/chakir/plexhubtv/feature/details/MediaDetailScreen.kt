@@ -51,6 +51,7 @@ import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.HandleErrors
+import kotlinx.collections.immutable.toImmutableList
 import com.chakir.plexhubtv.core.ui.DetailHeroSkeleton
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.feature.details.components.SourceSelectionDialog
@@ -154,6 +155,27 @@ fun MediaDetailScreen(
                     onAction = onAction,
                     onCollectionClicked = onCollectionClicked,
                 )
+            } else {
+                // Content not found state
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            stringResource(com.chakir.plexhubtv.core.ui.R.string.error_media_not_found),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White,
+                        )
+                    }
+                }
             }
         }
     
@@ -451,7 +473,7 @@ fun PreviewMediaDetailShow() {
             MediaItem(id = "s2", ratingKey = "s2", serverId = "s1", title = "Season 2", type = MediaType.Season, thumbUrl = ""),
         )
     MediaDetailScreen(
-        state = MediaDetailUiState(media = show, seasons = seasons),
+        state = MediaDetailUiState(media = show, seasons = seasons.toImmutableList()),
         onAction = {},
         onCollectionClicked = { _, _ -> },
         snackbarHostState = remember { SnackbarHostState() },

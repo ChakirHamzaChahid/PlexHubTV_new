@@ -129,6 +129,37 @@ class XtreamAccountRepositoryImpl @Inject constructor(
         return md5.joinToString("") { "%02x".format(it) }.take(8)
     }
 
+    override suspend fun importFromBackend(
+        backendId: String,
+        accounts: List<XtreamAccount>,
+    ) = withContext(ioDispatcher) {
+        accounts.forEach { account ->
+            val entity = XtreamAccountEntity(
+                id = account.id,
+                label = account.label,
+                baseUrl = account.baseUrl,
+                port = account.port,
+                username = account.username,
+                passwordKey = "",
+                status = account.status.name,
+                expirationDate = account.expirationDate,
+                maxConnections = account.maxConnections,
+                allowedFormatsJson = account.allowedFormats.joinToString(","),
+                serverUrl = account.serverUrl,
+                httpsPort = account.httpsPort,
+                backendId = backendId,
+            )
+            dao.upsert(entity)
+        }
+        Timber.i("XTREAM [Account] Imported ${accounts.size} accounts from backend $backendId")
+    }
+
+    override suspend fun cleanupBackendAccounts(backendId: String) =
+        withContext(ioDispatcher) {
+            dao.deleteByBackendId(backendId)
+            Timber.i("XTREAM [Account] Cleaned up accounts for backend $backendId")
+        }
+
     private fun XtreamAccountEntity.toDomain(): XtreamAccount = XtreamAccount(
         id = id,
         label = label,
@@ -141,5 +172,6 @@ class XtreamAccountRepositoryImpl @Inject constructor(
         allowedFormats = allowedFormatsJson.split(",").filter { it.isNotBlank() },
         serverUrl = serverUrl,
         httpsPort = httpsPort,
+        backendId = backendId,
     )
 }

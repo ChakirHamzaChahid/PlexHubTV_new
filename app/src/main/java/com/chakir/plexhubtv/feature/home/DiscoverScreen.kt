@@ -138,14 +138,14 @@ fun DiscoverScreen(
                         totalLibraries = state.syncTotalLibraries,
                     )
                 state.isLoading -> LoadingState()
-                state.onDeck.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
+                state.onDeck.isEmpty() && state.hubs.isEmpty() -> EmptyState { onAction(HomeAction.Refresh) }
                 else ->
                     NetflixHomeContent(
                         focusedItem = state.focusedItem,
                         hubs = state.hubs,
                         favorites = state.favorites,
                         suggestions = state.suggestions,
-                        onDeck = state.onDeck.toList(),
+                        onDeck = state.onDeck,
                         onAction = onAction,
                         showContinueWatching = state.showContinueWatching,
                         showMyList = state.showMyList,
@@ -264,6 +264,7 @@ fun AnimatedBackground(
                 model =
                     coil3.request.ImageRequest.Builder(LocalContext.current)
                         .data(targetUrl)
+                        .size(640, 360)
                         .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,

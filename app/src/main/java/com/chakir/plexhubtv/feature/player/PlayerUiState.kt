@@ -1,13 +1,19 @@
 package com.chakir.plexhubtv.feature.player
 
+import androidx.compose.runtime.Immutable
+import androidx.media3.ui.AspectRatioFrameLayout
 import com.chakir.plexhubtv.core.model.AudioTrack
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.SubtitleTrack
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * État de l'UI pour le lecteur vidéo.
  * Contient les informations de lecture (position, durée, buffering), les pistes audio/sous-titres et les métadonnées.
  */
+@Immutable
 data class PlayerUiState(
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
@@ -19,11 +25,11 @@ data class PlayerUiState(
     val nextItem: MediaItem? = null,
     val showAutoNextPopup: Boolean = false,
     // Tracks
-    val audioTracks: List<AudioTrack> = emptyList(),
-    val subtitleTracks: List<SubtitleTrack> = emptyList(),
+    val audioTracks: ImmutableList<AudioTrack> = persistentListOf(),
+    val subtitleTracks: ImmutableList<SubtitleTrack> = persistentListOf(),
     val selectedAudio: AudioTrack? = null,
     val selectedSubtitle: SubtitleTrack? = null,
-    val availableQualities: List<VideoQuality> =
+    val availableQualities: ImmutableList<VideoQuality> =
         listOf(
             VideoQuality("Maximum", 200000),
             VideoQuality("20 Mbps (1080p)", 20000),
@@ -32,7 +38,7 @@ data class PlayerUiState(
             VideoQuality("4 Mbps (720p)", 4000),
             VideoQuality("3 Mbps (720p)", 3000),
             VideoQuality("2 Mbps (480p)", 2000),
-        ),
+        ).toImmutableList(),
     val selectedQuality: VideoQuality = VideoQuality("Maximum", 200000),
     val showSettings: Boolean = false,
     val showAudioSelection: Boolean = false,
@@ -62,8 +68,10 @@ data class PlayerUiState(
     val showChapterOverlay: Boolean = false,
     // Queue overlay
     val showQueueOverlay: Boolean = false,
-    val playQueue: List<MediaItem> = emptyList(),
+    val playQueue: ImmutableList<MediaItem> = persistentListOf(),
     val currentQueueIndex: Int = -1,
+    // Aspect ratio mode
+    val aspectRatioMode: AspectRatioMode = AspectRatioMode.FIT,
 )
 
 data class PlayerStats(
@@ -97,6 +105,15 @@ enum class PlayerErrorType {
     Network,        // Erreur réseau (timeout, host unreachable, etc.)
     Codec,          // Erreur de codec/décodage
     Generic         // Autre erreur
+}
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+enum class AspectRatioMode(val label: String, val exoResizeMode: Int) {
+    FIT("Fit", AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    FILL("Fill", AspectRatioFrameLayout.RESIZE_MODE_FILL),
+    ZOOM("Zoom", AspectRatioFrameLayout.RESIZE_MODE_ZOOM);
+
+    fun next(): AspectRatioMode = entries[(ordinal + 1) % entries.size]
 }
 
 sealed interface PlayerAction {
@@ -150,6 +167,8 @@ sealed interface PlayerAction {
 
     data object DismissDialog : PlayerAction // Close any open dialog without stopping playback
 
+    data object DismissCurrentOverlay : PlayerAction // Close only the topmost overlay (layered back)
+
     data object RetryPlayback : PlayerAction // Retry playback after network error
 
     data object SwitchToMpv : PlayerAction // Manually switch to MPV player
@@ -177,4 +196,6 @@ sealed interface PlayerAction {
     data class SeekToChapter(val chapter: com.chakir.plexhubtv.core.model.Chapter) : PlayerAction
 
     data class PlayQueueItem(val index: Int) : PlayerAction
+
+    data object CycleAspectRatio : PlayerAction
 }

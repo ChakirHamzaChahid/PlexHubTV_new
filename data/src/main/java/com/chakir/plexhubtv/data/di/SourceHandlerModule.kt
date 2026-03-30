@@ -1,6 +1,7 @@
 package com.chakir.plexhubtv.data.di
 
 import com.chakir.plexhubtv.data.source.BackendSourceHandler
+import com.chakir.plexhubtv.data.source.JellyfinSourceHandler
 import com.chakir.plexhubtv.data.source.PlexSourceHandler
 import com.chakir.plexhubtv.data.source.XtreamSourceHandler
 import com.chakir.plexhubtv.domain.source.MediaSourceHandler
@@ -24,4 +25,8 @@ abstract class SourceHandlerModule {
     @Binds
     @IntoSet
     abstract fun bindBackendHandler(impl: BackendSourceHandler): MediaSourceHandler
+
+    @Binds
+    @IntoSet
+    abstract fun bindJellyfinHandler(impl: JellyfinSourceHandler): MediaSourceHandler
 }

@@ -18,6 +18,12 @@
 # Keep all cache implementations (injected by Dagger)
 -keep class com.chakir.plexhubtv.data.cache.** { *; }
 
+# Keep all playback reporters (injected by Dagger with @IntoSet multibinding)
+-keep class com.chakir.plexhubtv.data.playback.** { *; }
+
+# Keep DI modules (Hilt bindings)
+-keep class com.chakir.plexhubtv.data.di.** { *; }
+
 # Keep MediaUrlResolver (in core.util, injected by Dagger)
 -keep interface com.chakir.plexhubtv.core.util.MediaUrlResolver { *; }
 -keep class com.chakir.plexhubtv.core.util.DefaultMediaUrlResolver { *; }

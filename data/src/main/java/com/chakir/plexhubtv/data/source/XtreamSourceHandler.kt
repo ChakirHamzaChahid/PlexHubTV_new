@@ -3,6 +3,7 @@ package com.chakir.plexhubtv.data.source
 import com.chakir.plexhubtv.core.database.MediaDao
 import com.chakir.plexhubtv.core.model.AppError
 import com.chakir.plexhubtv.core.model.MediaItem
+import com.chakir.plexhubtv.core.model.SourcePrefix
 import com.chakir.plexhubtv.data.mapper.MediaMapper
 import com.chakir.plexhubtv.domain.repository.XtreamSeriesRepository
 import com.chakir.plexhubtv.domain.repository.XtreamVodRepository
@@ -29,7 +30,7 @@ class XtreamSourceHandler @Inject constructor(
     private val seriesDetailCache = ConcurrentHashMap<String, Pair<Long, MediaDetail>>()
     private val seriesDetailCacheTtlMs = 60 * 1000L
 
-    override fun matches(serverId: String): Boolean = serverId.startsWith("xtream_")
+    override fun matches(serverId: String): Boolean = serverId.startsWith(SourcePrefix.XTREAM)
 
     override suspend fun getDetail(ratingKey: String, serverId: String): Result<MediaItem> {
         // Room first

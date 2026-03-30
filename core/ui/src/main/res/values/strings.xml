@@ -16,6 +16,49 @@
     <!-- Error messages -->
     <string name="error_fragment_message">An error occurred</string>
     <string name="dismiss_error">Dismiss</string>
+    <string name="error_action_retry">Retry</string>
+    <string name="error_action_ok">OK</string>
+
+    <!-- Network errors -->
+    <string name="error_network_no_connection">Unable to connect to the network. Check your internet connection.</string>
+    <string name="error_network_timeout">The request took too long. Please try again.</string>
+    <string name="error_network_server">Server error. Please try again later.</string>
+    <string name="error_network_not_found">Content not found.</string>
+    <string name="error_network_unauthorized">Unauthorized access. Please sign in again.</string>
+
+    <!-- Auth errors -->
+    <string name="error_auth_invalid_token">Invalid authentication token. Please sign in again.</string>
+    <string name="error_auth_session_expired">Your session has expired. Please sign in again.</string>
+    <string name="error_auth_no_servers">No Plex servers found. Check your Plex account.</string>
+    <string name="error_auth_pin_failed">Unable to generate PIN code. Please try again.</string>
+    <string name="error_auth_invalid_credentials">Invalid credentials. Check your username and password.</string>
+
+    <!-- Media errors -->
+    <string name="error_media_not_found">Media not found.</string>
+    <string name="error_media_load_failed">Unable to load media. Please try again.</string>
+    <string name="error_media_no_playable">No playable content found for this media.</string>
+    <string name="error_media_unsupported">Unsupported media format.</string>
+    <string name="error_media_not_in_library">This title is not available in your library.</string>
+
+    <!-- Playback errors -->
+    <string name="error_playback_init">Unable to initialize the player. Please try again.</string>
+    <string name="error_playback_streaming">Playback error. Check your connection.</string>
+    <string name="error_playback_codec">Video codec not supported by your device.</string>
+    <string name="error_playback_drm">DRM protection error. Unable to play this content.</string>
+
+    <!-- Search errors -->
+    <string name="error_search_too_short">Your search must contain at least 2 characters.</string>
+    <string name="error_search_no_results">No results found for your search.</string>
+    <string name="error_search_failed">Search failed. Please try again.</string>
+
+    <!-- Storage errors -->
+    <string name="error_storage_disk_full">Insufficient storage space.</string>
+    <string name="error_storage_read">Unable to read cache data.</string>
+    <string name="error_storage_write">Unable to write to cache.</string>
+
+    <!-- Generic errors -->
+    <string name="error_validation">Invalid data.</string>
+    <string name="error_unknown">An unexpected error occurred. Please try again.</string>
 
     <!-- Top Bar -->
     <string name="topbar_title">PlexHub TV</string>

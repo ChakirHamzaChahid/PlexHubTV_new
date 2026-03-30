@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.core.model.Hub
 import com.chakir.plexhubtv.core.model.MediaItem
+import kotlinx.collections.immutable.toImmutableList
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.ErrorSnackbarHost
 import com.chakir.plexhubtv.core.ui.HomeScreenSkeleton
@@ -180,7 +181,7 @@ fun HubContent(
             item(key = "continue_watching") {
                 NetflixContentRow(
                     title = "Continue Watching",
-                    items = continueWatchingItems,
+                    items = continueWatchingItems.toImmutableList(),
                     cardType = CardType.WIDE,
                     onItemClick = { onAction(HubAction.OpenMedia(it)) },
                     onItemPlay = { onAction(HubAction.PlayMedia(it)) },
@@ -196,7 +197,7 @@ fun HubContent(
             item(key = "my_list") {
                 NetflixContentRow(
                     title = "My List",
-                    items = favorites,
+                    items = favorites.toImmutableList(),
                     cardType = CardType.POSTER,
                     onItemClick = { onAction(HubAction.OpenMedia(it)) },
                     onItemPlay = { onAction(HubAction.PlayMedia(it)) },
