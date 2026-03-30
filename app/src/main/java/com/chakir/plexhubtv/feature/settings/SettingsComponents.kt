@@ -28,9 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
-
-private val DialogBackground = Color(0xFF1A1A1A)
 
 /**
  * Section container with a title.
@@ -184,6 +181,8 @@ fun SettingsDialog(
         try { firstItemFocusRequester.requestFocus() } catch (_: Exception) { }
     }
 
+    val cs = MaterialTheme.colorScheme
+
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -191,13 +190,13 @@ fun SettingsDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(0.4f),
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     // Header
@@ -210,13 +209,13 @@ fun SettingsDialog(
                             title,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = cs.onBackground,
                         )
                         IconButton(onClick = onDismissRequest) {
                             Icon(
                                 imageVector = Icons.Outlined.Close,
                                 contentDescription = "Close",
-                                tint = NetflixLightGray,
+                                tint = cs.onSurfaceVariant,
                             )
                         }
                     }
@@ -245,8 +244,8 @@ fun SettingsDialog(
                                     .fillMaxWidth()
                                     .background(
                                         when {
-                                            isFocused -> Color.White
-                                            isSelected -> Color.White.copy(alpha = 0.08f)
+                                            isFocused -> cs.onBackground
+                                            isSelected -> cs.onBackground.copy(alpha = 0.08f)
                                             else -> Color.Transparent
                                         },
                                         RoundedCornerShape(8.dp),
@@ -263,15 +262,15 @@ fun SettingsDialog(
                                     selected = isSelected,
                                     onClick = null,
                                     colors = RadioButtonDefaults.colors(
-                                        selectedColor = if (isFocused) Color.Black else Color.White,
-                                        unselectedColor = if (isFocused) Color.Black.copy(alpha = 0.6f) else NetflixLightGray,
+                                        selectedColor = if (isFocused) cs.background else cs.onBackground,
+                                        unselectedColor = if (isFocused) cs.background.copy(alpha = 0.6f) else cs.onSurfaceVariant,
                                     ),
                                 )
                                 Spacer(Modifier.width(12.dp))
                                 Text(
                                     text = option,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = if (isFocused) Color.Black else Color.White,
+                                    color = if (isFocused) cs.background else cs.onBackground,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 )
                             }

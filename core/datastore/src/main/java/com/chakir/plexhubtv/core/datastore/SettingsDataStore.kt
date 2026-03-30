@@ -193,7 +193,7 @@ class SettingsDataStore
 
         val appTheme: Flow<String> =
             dataStore.data
-                .map { preferences -> preferences[APP_THEME] ?: "MonoDark" }
+                .map { preferences -> preferences[APP_THEME] ?: "CinemaGold" }
 
         val showYearOnCards: Flow<Boolean> =
             dataStore.data

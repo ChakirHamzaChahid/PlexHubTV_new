@@ -12,7 +12,7 @@ import kotlinx.collections.immutable.persistentMapOf
  */
 @Immutable
 data class SettingsUiState(
-    val theme: AppTheme = AppTheme.MonoDark,
+    val theme: AppTheme = AppTheme.CinemaGold,
     val videoQuality: String = "Original",
     val isCacheEnabled: Boolean = true,
     val cacheSize: String = "0 MB",
@@ -90,6 +90,7 @@ enum class AppTheme {
     MonoLight,
     Morocco,
     OLEDBlack,
+    CinemaGold,
 }
 
 sealed interface SettingsAction {

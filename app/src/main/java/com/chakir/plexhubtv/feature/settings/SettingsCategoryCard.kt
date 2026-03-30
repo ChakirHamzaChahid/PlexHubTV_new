@@ -41,7 +41,8 @@ fun SettingsCategoryCard(
         label = "card_scale",
     )
 
-    val borderColor = if (isFocused) Color.White else Color.Transparent
+    val cs = MaterialTheme.colorScheme
+    val borderColor = if (isFocused) cs.onBackground else Color.Transparent
 
     Box(
         modifier = modifier
@@ -74,7 +75,7 @@ fun SettingsCategoryCard(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (isFocused) Color.White else MaterialTheme.colorScheme.onSurface,
+                    color = if (isFocused) cs.onBackground else cs.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -82,7 +83,7 @@ fun SettingsCategoryCard(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isFocused) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isFocused) cs.onBackground.copy(alpha = 0.8f) else cs.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
