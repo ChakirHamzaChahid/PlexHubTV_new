@@ -57,8 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.designsystem.PlexHubTheme
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
@@ -139,8 +137,9 @@ fun NetflixHeroBillboard(
         // LazyColumn scroll conflicts when recycled off-screen.
         // Initial focus now goes directly to the Play button (like Netflix).
 
-        // Gradient Overlay (Scrims) — uses dynamic backdrop colors when available
-        val gradientBase = if (backdropColors.isDefault) NetflixBlack else backdropColors.secondary
+        // === CINEMA GOLD REFONTE ===
+        val cs = MaterialTheme.colorScheme
+        val gradientBase = if (backdropColors.isDefault) cs.background else backdropColors.secondary
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -185,7 +184,7 @@ fun NetflixHeroBillboard(
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                color = NetflixWhite
+                color = cs.onBackground
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -193,18 +192,18 @@ fun NetflixHeroBillboard(
             // Metadata Line
             Row(verticalAlignment = Alignment.CenterVertically) {
                 currentItem.year?.let {
-                    Text(text = it.toString(), color = NetflixWhite.copy(alpha = 0.8f))
+                    Text(text = it.toString(), color = cs.onBackground.copy(alpha = 0.8f))
                     Spacer(modifier = Modifier.width(12.dp))
                 }
                 currentItem.contentRating?.let {
                     Box(
                         modifier = Modifier
-                            .background(Color.Gray.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
+                            .background(cs.onSurfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
                             .padding(horizontal = 4.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = it,
-                            color = NetflixWhite,
+                            color = cs.onBackground,
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
@@ -217,7 +216,7 @@ fun NetflixHeroBillboard(
             Text(
                 text = currentItem.summary ?: "No description available.",
                 style = MaterialTheme.typography.bodyLarge,
-                color = NetflixWhite.copy(alpha = 0.9f),
+                color = cs.onBackground.copy(alpha = 0.9f),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
@@ -267,7 +266,7 @@ fun NetflixHeroBillboard(
                         .height(8.dp)
                         .width(indicatorWidth)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color.White.copy(alpha = alpha))
+                        .background(cs.onBackground.copy(alpha = alpha))
                 )
             }
         }
@@ -283,14 +282,15 @@ fun NetflixPlayButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val cs = MaterialTheme.colorScheme
     val playDescription = stringResource(R.string.hero_play_description)
     val playText = stringResource(R.string.hero_play_button)
 
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isFocused) Color.White else Color.White.copy(alpha = 0.15f),
-            contentColor = if (isFocused) Color.Black else Color.White
+            containerColor = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.15f),
+            contentColor = if (isFocused) cs.background else cs.onBackground
         ),
         interactionSource = interactionSource,
         contentPadding = ButtonDefaults.ContentPadding,
@@ -338,14 +338,15 @@ fun NetflixInfoButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val cs = MaterialTheme.colorScheme
     val moreInfoDescription = stringResource(R.string.hero_more_info_description)
     val moreInfoText = stringResource(R.string.hero_more_info_button)
 
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isFocused) Color.White else Color.White.copy(alpha = 0.15f),
-            contentColor = if (isFocused) Color.Black else Color.White
+            containerColor = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.15f),
+            contentColor = if (isFocused) cs.background else cs.onBackground
         ),
         interactionSource = interactionSource,
         modifier = modifier

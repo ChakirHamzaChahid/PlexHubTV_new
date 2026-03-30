@@ -25,7 +25,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
 
 /**
@@ -51,6 +50,8 @@ fun HomeHeader(
             animationSpec = tween(400),
             label = "header_crossfade"
         ) { media ->
+            // === CINEMA GOLD REFONTE ===
+            val cs = MaterialTheme.colorScheme
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
@@ -64,7 +65,7 @@ fun HomeHeader(
                         fontWeight = FontWeight.ExtraBold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        color = NetflixWhite
+                        color = cs.onBackground
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -72,21 +73,21 @@ fun HomeHeader(
                     // Metadata Line
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         media.year?.let {
-                            Text(text = it.toString(), color = NetflixWhite.copy(alpha = 0.8f))
+                            Text(text = it.toString(), color = cs.onBackground.copy(alpha = 0.8f))
                             Spacer(modifier = Modifier.width(12.dp))
                         }
                         media.contentRating?.let {
                             Box(
                                 modifier = Modifier
                                     .background(
-                                        Color.Gray.copy(alpha = 0.4f),
+                                        cs.onSurfaceVariant.copy(alpha = 0.4f),
                                         RoundedCornerShape(2.dp)
                                     )
                                     .padding(horizontal = 4.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = it,
-                                    color = NetflixWhite,
+                                    color = cs.onBackground,
                                     style = MaterialTheme.typography.labelSmall
                                 )
                             }
@@ -96,7 +97,7 @@ fun HomeHeader(
                         if (rating != null && rating > 0) {
                             Text(
                                 text = String.format("%.1f", rating),
-                                color = Color(0xFFFFD700),
+                                color = cs.tertiary,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                             )
@@ -108,7 +109,7 @@ fun HomeHeader(
                     Text(
                         text = media.summary ?: "",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = NetflixWhite.copy(alpha = 0.9f),
+                        color = cs.onBackground.copy(alpha = 0.9f),
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )

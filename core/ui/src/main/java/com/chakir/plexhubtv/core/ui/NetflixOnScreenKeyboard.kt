@@ -25,9 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.scale
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
-import com.chakir.plexhubtv.core.designsystem.NetflixWhite
+import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun NetflixOnScreenKeyboard(
@@ -100,6 +98,7 @@ private fun KeyButton(
     modifier: Modifier = Modifier,
     isSearchButton: Boolean = false
 ) {
+    val cs = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val scale by androidx.compose.animation.core.animateFloatAsState(if (isFocused) 1.05f else 1f, label = "scale")
@@ -109,12 +108,12 @@ private fun KeyButton(
             .height(if (isSearchButton) 48.dp else 44.dp) // Reduced height for better fit
             .scale(scale)
             .background(
-                color = if (isSearchButton) NetflixRed else if (isFocused) NetflixRed else NetflixBlack, // Always red for search
+                color = if (isSearchButton) cs.primary else if (isFocused) cs.primary else cs.background,
                 shape = RoundedCornerShape(6.dp)
             )
             .border(
                 width = if (isFocused) 2.dp else if (isSearchButton) 2.dp else 0.dp, // Permanent border for search
-                color = if (isFocused) NetflixWhite else if (isSearchButton) NetflixWhite.copy(alpha = 0.5f) else Color.Transparent,
+                color = if (isFocused) cs.onBackground else if (isSearchButton) cs.onBackground.copy(alpha = 0.5f) else Color.Transparent,
                 shape = RoundedCornerShape(6.dp)
             )
             .clickable(
@@ -128,17 +127,17 @@ private fun KeyButton(
                 " " -> Icon(
                     imageVector = Icons.Default.SpaceBar,
                     contentDescription = "Space",
-                    tint = NetflixWhite
+                    tint = cs.onBackground
                 )
                 "⌫" -> Icon(
                     imageVector = Icons.Default.Backspace,
                     contentDescription = "Backspace",
-                    tint = NetflixWhite
+                    tint = cs.onBackground
                 )
                 "✕" -> Icon(
                     imageVector = Icons.Default.Clear,
                     contentDescription = "Clear",
-                    tint = NetflixWhite
+                    tint = cs.onBackground
                 )
                 "SEARCH" -> {
                     // Large prominent search button with icon + text
@@ -150,7 +149,7 @@ private fun KeyButton(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = NetflixWhite,
+                            tint = cs.onPrimary,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -158,7 +157,7 @@ private fun KeyButton(
                             text = "SEARCH",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = NetflixWhite
+                            color = cs.onPrimary
                         )
                     }
                 }
@@ -166,7 +165,7 @@ private fun KeyButton(
                     text = key,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NetflixWhite
+                    color = cs.onBackground
                 )
             }
     }

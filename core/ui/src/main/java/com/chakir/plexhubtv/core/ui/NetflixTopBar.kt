@@ -61,7 +61,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.ui.R
 import androidx.compose.ui.ExperimentalComposeUiApi
 
@@ -81,8 +80,9 @@ fun NetflixTopBar(
     contentFocusRequester: FocusRequester? = null, // UX23: Focus target for DOWN navigation
     onFocusChanged: (Boolean) -> Unit = {},
 ) {
-    // TopBar always has opaque background (does not merge with home screen)
-    val backgroundColor = Color.Black.copy(alpha = 0.95f)
+    // === CINEMA GOLD REFONTE ===
+    val cs = MaterialTheme.colorScheme
+    val backgroundColor = cs.surface.copy(alpha = 0.95f)
 
     // Individual focus requesters for each navigation item
     val homeFocusRequester = remember { FocusRequester() }
@@ -174,7 +174,7 @@ fun NetflixTopBar(
                             .size(40.dp)
                             .background(
                                 brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                    colors = listOf(Color(0xFFE50914), Color(0xFFB81D24))
+                                    colors = listOf(cs.primary, cs.primary.copy(alpha = 0.7f))
                                 ),
                                 shape = RoundedCornerShape(8.dp)
                             ),
@@ -184,7 +184,7 @@ fun NetflixTopBar(
                             text = "P",
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = cs.onPrimary
                             )
                         )
                     }
@@ -272,13 +272,14 @@ private fun NetflixNavItem(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val cs = MaterialTheme.colorScheme
 
-    // Different colors for selected vs focused vs normal
+    // === CINEMA GOLD REFONTE ===
     val textColor = when {
-        isFocused && isSelected -> NetflixRed // Both focused and selected: Red (for clarity)
-        isFocused -> NetflixRed // Focused during navigation: Red
-        isSelected -> Color.White // Selected (active screen): White
-        else -> Color.White.copy(alpha = 0.7f) // Not selected/focused: Transparent white
+        isFocused && isSelected -> cs.primary
+        isFocused -> cs.primary
+        isSelected -> cs.onBackground
+        else -> cs.onBackground.copy(alpha = 0.7f)
     }
 
     val fontWeight = when {
@@ -311,10 +312,10 @@ private fun NetflixSearchIcon(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val cs = MaterialTheme.colorScheme
 
-    // Match NavItem behavior: Red when focused, transparent white otherwise
     val iconColor by animateColorAsState(
-        targetValue = if (isFocused) NetflixRed else Color.White.copy(alpha = 0.7f),
+        targetValue = if (isFocused) cs.primary else cs.onBackground.copy(alpha = 0.7f),
         animationSpec = tween(150),
         label = "searchIconColor"
     )
@@ -350,9 +351,10 @@ private fun NetflixSettingsIcon(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val cs = MaterialTheme.colorScheme
 
     val iconColor by animateColorAsState(
-        targetValue = if (isFocused) NetflixRed else Color.White.copy(alpha = 0.7f),
+        targetValue = if (isFocused) cs.primary else cs.onBackground.copy(alpha = 0.7f),
         animationSpec = tween(150),
         label = "settingsIconColor"
     )
@@ -388,9 +390,9 @@ private fun NetflixProfileAvatar(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val cs = MaterialTheme.colorScheme
 
-    // Settings icon with Netflix-style background
-    val borderColor = if (isFocused) Color.White else Color.Transparent
+    val borderColor = if (isFocused) cs.onBackground else Color.Transparent
     val scale = if (isFocused) 1.1f else 1f
 
     Box(
@@ -400,9 +402,9 @@ private fun NetflixProfileAvatar(
             .clip(CircleShape)
             .background(
                 brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                    colors = listOf(Color(0xFFE50914), Color(0xFFB81D24))
+                    colors = listOf(cs.primary, cs.primary.copy(alpha = 0.7f))
                 )
-            ) // Netflix Red Gradient
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -416,7 +418,7 @@ private fun NetflixProfileAvatar(
         Icon(
             imageVector = Icons.Default.AccountCircle,
             contentDescription = stringResource(R.string.topbar_profile_description),
-            tint = Color.White,
+            tint = cs.onPrimary,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -437,7 +439,7 @@ private fun TopBarClock() {
     Text(
         text = timeText,
         style = MaterialTheme.typography.titleMedium,
-        color = Color.White.copy(alpha = 0.9f),
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
         fontWeight = FontWeight.Medium,
     )
 }
