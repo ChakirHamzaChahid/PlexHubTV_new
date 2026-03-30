@@ -54,7 +54,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.Chapter
 import com.chakir.plexhubtv.core.model.Marker
 import com.chakir.plexhubtv.core.model.MediaItem
@@ -234,7 +233,7 @@ fun NetflixPlayerControls(
                     chapters = chapters,
                     markers = markers,
                     onSeek = onSeek,
-                    playedColor = NetflixRed,
+                    playedColor = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.fillMaxWidth(),
                     getFrameBitmap = getFrameBitmap,
                     onInteraction = onInteraction,

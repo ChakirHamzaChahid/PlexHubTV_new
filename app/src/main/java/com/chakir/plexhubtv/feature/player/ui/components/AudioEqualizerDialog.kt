@@ -50,10 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.feature.player.controller.EqualizerState
-
-private val DialogBackground = Color(0xFF1A1A1A)
 
 @Composable
 fun AudioEqualizerDialog(
@@ -63,6 +60,7 @@ fun AudioEqualizerDialog(
     onEnabledChanged: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val cs = MaterialTheme.colorScheme
     val title = stringResource(R.string.player_equalizer_title)
 
     Dialog(
@@ -72,12 +70,12 @@ fun AudioEqualizerDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
                 modifier = Modifier
                     .fillMaxWidth(0.55f)
                     .heightIn(max = 520.dp)
@@ -96,7 +94,7 @@ fun AudioEqualizerDialog(
                                 title,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = cs.onBackground,
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Switch(
@@ -105,8 +103,8 @@ fun AudioEqualizerDialog(
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = MaterialTheme.colorScheme.primary,
                                     checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                    uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                    uncheckedTrackColor = Color.White.copy(alpha = 0.1f),
+                                    uncheckedThumbColor = cs.onBackground.copy(alpha = 0.6f),
+                                    uncheckedTrackColor = cs.onBackground.copy(alpha = 0.1f),
                                 ),
                             )
                         }
@@ -114,7 +112,7 @@ fun AudioEqualizerDialog(
                             Icon(
                                 imageVector = Icons.Outlined.Close,
                                 contentDescription = stringResource(R.string.action_close),
-                                tint = NetflixLightGray,
+                                tint = cs.onSurfaceVariant,
                             )
                         }
                     }
@@ -125,7 +123,7 @@ fun AudioEqualizerDialog(
                     Text(
                         text = stringResource(R.string.player_equalizer_presets),
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = cs.onBackground.copy(alpha = 0.6f),
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
 
@@ -143,9 +141,9 @@ fun AudioEqualizerDialog(
                                 onClick = { onPresetSelected(index) },
                                 shape = RoundedCornerShape(8.dp),
                                 color = when {
-                                    isFocused -> Color.White
+                                    isFocused -> cs.onBackground
                                     isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                                    else -> Color.White.copy(alpha = 0.08f)
+                                    else -> cs.onBackground.copy(alpha = 0.08f)
                                 },
                                 interactionSource = interactionSource,
                                 modifier = Modifier
@@ -161,9 +159,9 @@ fun AudioEqualizerDialog(
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                         color = when {
-                                            isFocused -> Color.Black
+                                            isFocused -> cs.background
                                             isSelected -> MaterialTheme.colorScheme.primary
-                                            else -> Color.White
+                                            else -> cs.onBackground
                                         },
                                     )
                                 }
@@ -178,7 +176,7 @@ fun AudioEqualizerDialog(
                         Text(
                             text = stringResource(R.string.player_equalizer_bands),
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color.White.copy(alpha = 0.6f),
+                            color = cs.onBackground.copy(alpha = 0.6f),
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
 
@@ -216,6 +214,7 @@ private fun BandColumn(
     onLevelChanged: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val freqLabel = if (frequency >= 1_000_000) {
         "${frequency / 1_000_000}kHz"
     } else {
@@ -235,7 +234,7 @@ private fun BandColumn(
         Text(
             text = dbLabel,
             fontSize = 10.sp,
-            color = if (enabled) Color.White else Color.White.copy(alpha = 0.3f),
+            color = if (enabled) cs.onBackground else cs.onBackground.copy(alpha = 0.3f),
             textAlign = TextAlign.Center,
         )
 
@@ -248,7 +247,7 @@ private fun BandColumn(
         Surface(
             onClick = {},
             shape = RoundedCornerShape(6.dp),
-            color = if (isFocused) Color.White else Color.White.copy(alpha = 0.05f),
+            color = if (isFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.05f),
             interactionSource = interactionSource,
             modifier = Modifier
                 .height(140.dp)
@@ -280,10 +279,10 @@ private fun BandColumn(
                         .height((140 * normalizedLevel).dp)
                         .background(
                             color = if (enabled) {
-                                if (isFocused) Color.Black.copy(alpha = 0.3f)
+                                if (isFocused) cs.background.copy(alpha = 0.3f)
                                 else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                             } else {
-                                Color.White.copy(alpha = 0.1f)
+                                cs.onBackground.copy(alpha = 0.1f)
                             },
                             shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
                         ),
@@ -297,7 +296,7 @@ private fun BandColumn(
         Text(
             text = freqLabel,
             fontSize = 9.sp,
-            color = Color.White.copy(alpha = 0.5f),
+            color = cs.onBackground.copy(alpha = 0.5f),
             textAlign = TextAlign.Center,
         )
     }

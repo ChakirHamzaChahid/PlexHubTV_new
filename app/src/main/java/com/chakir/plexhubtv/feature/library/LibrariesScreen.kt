@@ -95,8 +95,6 @@ import com.chakir.plexhubtv.feature.home.MediaCard
 
 
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 
@@ -241,10 +239,10 @@ fun LibrariesScreen(
         listState.scrollToItem(0)
     }
     Scaffold(
-        containerColor = NetflixBlack, // Set Scaffold background
+        containerColor = MaterialTheme.colorScheme.background, // Set Scaffold background
         snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
         topBar = {
-            Column(modifier = Modifier.background(NetflixBlack)) { // Update TopBar background
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) { // Update TopBar background
                 // Main Top Bar
                 if (state.filter.isSearchVisible) {
                     SearchAppBar(
@@ -371,13 +369,13 @@ fun LibrariesScreen(
                         selectedTabIndex = selectedTabIndex,
                         edgePadding = 58.dp, // Align with content
                         containerColor = Color.Transparent,
-                        contentColor = NetflixRed,
+                        contentColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.height(48.dp),
                         indicator = { tabPositions ->
                             if (selectedTabIndex < tabPositions.size) {
                                 TabRowDefaults.SecondaryIndicator(
                                     Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                    color = NetflixRed,
+                                    color = MaterialTheme.colorScheme.primary,
                                     height = 2.dp,
                                 )
                             }
@@ -413,7 +411,7 @@ fun LibrariesScreen(
                     .semantics {
                         contentDescription = if (state.display.mediaType == MediaType.Movie) "Écran de films" else "Écran de séries"
                     }
-                    .background(NetflixBlack),
+                    .background(MaterialTheme.colorScheme.background),
         ) {
             // ... (Dialogs preserved)
             if (state.dialog.isServerFilterOpen) {

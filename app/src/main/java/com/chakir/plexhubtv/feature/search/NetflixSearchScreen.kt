@@ -22,8 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chakir.plexhubtv.R
 import androidx.compose.foundation.lazy.LazyColumn
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
-import com.chakir.plexhubtv.core.designsystem.NetflixWhite
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 import kotlinx.collections.immutable.toImmutableList
@@ -58,7 +56,7 @@ fun NetflixSearchScreen(
             .testTag("screen_search")
             .semantics { contentDescription = screenDesc },
         snackbarHost = { ErrorSnackbarHost(snackbarHostState) },
-        containerColor = NetflixBlack
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Row(
             modifier = Modifier
@@ -82,7 +80,7 @@ fun NetflixSearchScreen(
                 text = if (state.query.isEmpty()) searchTitle else state.query,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = NetflixWhite,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier
                     .padding(bottom = 24.dp)
                     .testTag("search_input")
@@ -122,7 +120,7 @@ fun NetflixSearchScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.search_idle_message),
-                            color = NetflixWhite.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                             fontSize = 18.sp,
                             textAlign = TextAlign.Center
                         )
@@ -146,7 +144,7 @@ fun NetflixSearchScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.search_no_results, state.query),
-                            color = NetflixWhite.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                             fontSize = 18.sp,
                             textAlign = TextAlign.Center
                         )
@@ -161,7 +159,7 @@ fun NetflixSearchScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.search_error_message),
-                            color = NetflixWhite.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                             fontSize = 18.sp,
                             textAlign = TextAlign.Center
                         )

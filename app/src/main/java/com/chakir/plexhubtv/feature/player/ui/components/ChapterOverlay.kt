@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.common.util.FormatUtils
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.Chapter
 
 @Composable
@@ -60,6 +59,7 @@ fun ChapterOverlay(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val listState = rememberLazyListState()
     val currentIndex = chapters.indexOfFirst { it == currentChapter }.coerceAtLeast(0)
 
@@ -81,7 +81,7 @@ fun ChapterOverlay(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.85f))
+            .background(cs.background.copy(alpha = 0.85f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -107,20 +107,20 @@ fun ChapterOverlay(
                     text = stringResource(R.string.player_chapters_title) + " (${chapters.size})",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = cs.onBackground,
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = null,
-                        tint = NetflixLightGray,
+                        tint = cs.onSurfaceVariant,
                     )
                 }
             }
 
             HorizontalDivider(
-                color = Color.White.copy(alpha = 0.1f),
+                color = cs.onBackground.copy(alpha = 0.1f),
                 modifier = Modifier.padding(vertical = 12.dp),
             )
 
@@ -164,7 +164,7 @@ fun ChapterOverlay(
                             border = if (isCurrent || isFocused) {
                                 androidx.compose.foundation.BorderStroke(
                                     2.dp,
-                                    if (isFocused) Color.White else MaterialTheme.colorScheme.primary,
+                                    if (isFocused) cs.onBackground else MaterialTheme.colorScheme.primary,
                                 )
                             } else {
                                 null
@@ -188,7 +188,7 @@ fun ChapterOverlay(
                                     Text(
                                         text = chapter.title,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = NetflixLightGray,
+                                        color = cs.onSurfaceVariant,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(8.dp),
                                     )
@@ -203,8 +203,8 @@ fun ChapterOverlay(
                             text = if (isCurrent) "► ${chapter.title}" else chapter.title,
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (isCurrent) MaterialTheme.colorScheme.primary
-                            else if (isFocused) Color.White
-                            else NetflixLightGray,
+                            else if (isFocused) cs.onBackground
+                            else cs.onSurfaceVariant,
                             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -216,7 +216,7 @@ fun ChapterOverlay(
                         Text(
                             text = FormatUtils.formatDurationTimestamp(chapter.startTime),
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isFocused) Color.White.copy(alpha = 0.8f) else NetflixLightGray.copy(alpha = 0.7f),
+                            color = if (isFocused) cs.onBackground.copy(alpha = 0.8f) else cs.onSurfaceVariant.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center,
                         )
                     }

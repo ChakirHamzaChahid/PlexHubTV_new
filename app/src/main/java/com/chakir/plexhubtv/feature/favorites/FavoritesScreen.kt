@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.model.FavoriteActor
 import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import com.chakir.plexhubtv.core.ui.NetflixMediaCard
@@ -110,7 +109,7 @@ fun FavoritesScreen(
                 .fillMaxSize()
                 .testTag("screen_favorites")
                 .semantics { contentDescription = screenDescription }
-                .background(NetflixBlack)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(start = 58.dp, end = 58.dp, top = 80.dp),
     ) {
         Text(

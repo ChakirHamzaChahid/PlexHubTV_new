@@ -51,13 +51,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.AudioTrack
 import com.chakir.plexhubtv.core.model.SubtitleTrack
 import com.chakir.plexhubtv.feature.player.PlayerUiState
 import com.chakir.plexhubtv.feature.player.VideoQuality
-
-private val DialogBackground = Color(0xFF1A1A1A)
 
 private enum class SettingsTab { Video, Subtitles, Audio, Advanced }
 
@@ -73,6 +70,7 @@ fun PlayerSettingsDialog(
     onSelectSpeed: (Float) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
+    val cs = MaterialTheme.colorScheme
     var selectedTab by remember { mutableStateOf(SettingsTab.Video) }
     val qualityDescription = stringResource(R.string.player_settings_quality_description)
 
@@ -83,12 +81,12 @@ fun PlayerSettingsDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
                 modifier = Modifier
                     .fillMaxWidth(0.45f)
                     .heightIn(max = 550.dp)
@@ -209,7 +207,7 @@ fun PlayerSettingsDialog(
                                     Text(
                                         text = stringResource(R.string.player_settings_playback_speed),
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = Color.White.copy(alpha = 0.6f),
+                                        color = cs.onBackground.copy(alpha = 0.6f),
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                     )
                                     speeds.forEachIndexed { index, speed ->
@@ -223,7 +221,7 @@ fun PlayerSettingsDialog(
                                 }
                                 item {
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                                    HorizontalDivider(color = cs.onBackground.copy(alpha = 0.08f))
                                     Spacer(modifier = Modifier.height(4.dp))
                                     SettingItem(
                                         text = stringResource(R.string.player_settings_show_stats),
@@ -247,6 +245,7 @@ private fun TabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
@@ -254,8 +253,8 @@ private fun TabButton(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = when {
-            isFocused -> Color.White
-            isSelected -> Color.White.copy(alpha = 0.15f)
+            isFocused -> cs.onBackground
+            isSelected -> cs.onBackground.copy(alpha = 0.15f)
             else -> Color.Transparent
         },
         interactionSource = interactionSource,
@@ -266,7 +265,7 @@ private fun TabButton(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isFocused) Color.Black else Color.White,
+                color = if (isFocused) cs.background else cs.onBackground,
             )
         }
     }
@@ -342,6 +341,7 @@ fun <T> SelectionDialog(
     onDismiss: () -> Unit,
     dialogTestTag: String = "dialog_selection"
 ) {
+    val cs = MaterialTheme.colorScheme
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -349,12 +349,12 @@ fun <T> SelectionDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
                 modifier = Modifier
                     .fillMaxWidth(0.35f)
                     .heightIn(max = 500.dp)
@@ -397,6 +397,7 @@ fun SyncSettingsDialog(
     onDelayChanged: (Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val cs = MaterialTheme.colorScheme
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -404,12 +405,12 @@ fun SyncSettingsDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f)),
+                .background(cs.background.copy(alpha = 0.7f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = DialogBackground,
+                color = cs.surface,
                 modifier = Modifier
                     .fillMaxWidth(0.45f)
                     .heightIn(max = 400.dp)
@@ -429,7 +430,7 @@ fun SyncSettingsDialog(
                     // Current delay display
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.White.copy(alpha = 0.05f),
+                        color = cs.onBackground.copy(alpha = 0.05f),
                         modifier = Modifier.fillMaxWidth().height(64.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -437,7 +438,7 @@ fun SyncSettingsDialog(
                                 text = "${if (currentDelayMs > 0) "+" else ""}$currentDelayMs ms",
                                 style = MaterialTheme.typography.displaySmall,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = cs.onBackground,
                             )
                         }
                     }
@@ -477,7 +478,7 @@ fun SyncSettingsDialog(
                     Text(
                         text = stringResource(R.string.player_settings_adjust_hint),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.4f),
+                        color = cs.onBackground.copy(alpha = 0.4f),
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -489,8 +490,8 @@ fun SyncSettingsDialog(
                         Button(
                             onClick = onDismiss,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White,
-                                contentColor = Color.Black,
+                                containerColor = cs.onBackground,
+                                contentColor = cs.background,
                             ),
                         ) {
                             Text(stringResource(R.string.action_close))
@@ -509,6 +510,7 @@ private fun DelayButton(
     isHighlighted: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
@@ -516,9 +518,9 @@ private fun DelayButton(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = when {
-            isFocused -> Color.White
-            isHighlighted -> Color.White.copy(alpha = 0.15f)
-            else -> Color.White.copy(alpha = 0.08f)
+            isFocused -> cs.onBackground
+            isHighlighted -> cs.onBackground.copy(alpha = 0.15f)
+            else -> cs.onBackground.copy(alpha = 0.08f)
         },
         interactionSource = interactionSource,
         modifier = modifier.height(44.dp),
@@ -528,7 +530,7 @@ private fun DelayButton(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
-                color = if (isFocused) Color.Black else Color.White,
+                color = if (isFocused) cs.background else cs.onBackground,
             )
         }
     }
@@ -541,6 +543,7 @@ private fun DialogHeader(
     title: String,
     onDismiss: () -> Unit,
 ) {
+    val cs = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -550,13 +553,13 @@ private fun DialogHeader(
             title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = cs.onBackground,
         )
         IconButton(onClick = onDismiss) {
             Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = stringResource(R.string.action_close),
-                tint = NetflixLightGray,
+                tint = cs.onSurfaceVariant,
             )
         }
     }
@@ -569,6 +572,7 @@ fun SettingItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
@@ -576,8 +580,8 @@ fun SettingItem(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = when {
-            isFocused -> Color.White
-            isSelected -> Color.White.copy(alpha = 0.08f)
+            isFocused -> cs.onBackground
+            isSelected -> cs.onBackground.copy(alpha = 0.08f)
             else -> Color.Transparent
         },
         interactionSource = interactionSource,
@@ -591,14 +595,14 @@ fun SettingItem(
             Text(
                 text,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (isFocused) Color.Black else Color.White,
+                color = if (isFocused) cs.background else cs.onBackground,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             )
             if (isSelected) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
-                    tint = if (isFocused) Color.Black else Color.White,
+                    tint = if (isFocused) cs.background else cs.onBackground,
                 )
             }
         }

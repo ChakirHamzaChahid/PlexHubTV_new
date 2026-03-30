@@ -47,7 +47,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixBlack
 import com.chakir.plexhubtv.core.model.Playlist
 import com.chakir.plexhubtv.core.ui.LibraryGridSkeleton
 import coil3.compose.AsyncImage
@@ -77,14 +76,14 @@ fun PlaylistListScreen(
             .fillMaxSize()
             .testTag("screen_playlists")
             .semantics { contentDescription = screenDescription }
-            .background(NetflixBlack)
+            .background(MaterialTheme.colorScheme.background)
             .padding(start = 58.dp, end = 58.dp, top = 80.dp),
     ) {
         Text(
             text = stringResource(R.string.playlist_title_with_count, uiState.playlists.size),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.height(24.dp))
 

@@ -46,10 +46,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.chakir.plexhubtv.R
 import com.chakir.plexhubtv.core.common.util.FormatUtils
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
 import com.chakir.plexhubtv.core.model.MediaItem
-
-private val PanelBackground = Color(0xFF1A1A1A)
 
 @Composable
 fun QueueOverlay(
@@ -59,6 +56,7 @@ fun QueueOverlay(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     val listState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
 
@@ -75,7 +73,7 @@ fun QueueOverlay(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(cs.background.copy(alpha = 0.5f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -93,7 +91,7 @@ fun QueueOverlay(
                     onClick = {}, // Consume click
                 ),
             shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
-            color = PanelBackground.copy(alpha = 0.95f),
+            color = cs.surface.copy(alpha = 0.95f),
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 // Header
@@ -106,20 +104,20 @@ fun QueueOverlay(
                             " (${stringResource(R.string.player_queue_count, queue.size)})",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = cs.onBackground,
                         modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
                             contentDescription = null,
-                            tint = NetflixLightGray,
+                            tint = cs.onSurfaceVariant,
                         )
                     }
                 }
 
                 HorizontalDivider(
-                    color = Color.White.copy(alpha = 0.1f),
+                    color = cs.onBackground.copy(alpha = 0.1f),
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
 
@@ -141,7 +139,7 @@ fun QueueOverlay(
                                 .fillMaxWidth()
                                 .background(
                                     when {
-                                        isFocused -> Color.White
+                                        isFocused -> cs.onBackground
                                         isCurrent -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                                         else -> Color.Transparent
                                     },
@@ -162,7 +160,7 @@ fun QueueOverlay(
                                         .size(8.dp)
                                         .clip(CircleShape)
                                         .background(
-                                            if (isFocused) Color.Black
+                                            if (isFocused) cs.background
                                             else MaterialTheme.colorScheme.primary,
                                         ),
                                 )
@@ -192,9 +190,9 @@ fun QueueOverlay(
                                 Text(
                                     text = item.title,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = if (isFocused) Color.Black
-                                    else if (isCurrent) Color.White
-                                    else NetflixLightGray,
+                                    color = if (isFocused) cs.background
+                                    else if (isCurrent) cs.onBackground
+                                    else cs.onSurfaceVariant,
                                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -203,7 +201,7 @@ fun QueueOverlay(
                                     Text(
                                         text = stringResource(R.string.player_queue_now_playing),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = if (isFocused) Color.Black.copy(alpha = 0.7f)
+                                        color = if (isFocused) cs.background.copy(alpha = 0.7f)
                                         else MaterialTheme.colorScheme.primary,
                                     )
                                 }
@@ -215,15 +213,15 @@ fun QueueOverlay(
                                 Text(
                                     text = FormatUtils.formatDurationTimestamp(durationMs),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (isFocused) Color.Black.copy(alpha = 0.6f)
-                                    else NetflixLightGray.copy(alpha = 0.7f),
+                                    color = if (isFocused) cs.background.copy(alpha = 0.6f)
+                                    else cs.onSurfaceVariant.copy(alpha = 0.7f),
                                 )
                             }
                         }
 
                         if (index < queue.size - 1) {
                             HorizontalDivider(
-                                color = Color.White.copy(alpha = 0.05f),
+                                color = cs.onBackground.copy(alpha = 0.05f),
                                 modifier = Modifier.padding(horizontal = 12.dp),
                             )
                         }

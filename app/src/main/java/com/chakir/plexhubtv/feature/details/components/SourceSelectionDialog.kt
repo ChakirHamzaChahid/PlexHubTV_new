@@ -51,9 +51,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
-import com.chakir.plexhubtv.core.designsystem.NetflixLightGray
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 import com.chakir.plexhubtv.core.model.MediaSource
 import timber.log.Timber
 
@@ -89,6 +86,8 @@ fun SourceSelectionDialog(
         }
     }
 
+    val cs = MaterialTheme.colorScheme
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -97,7 +96,7 @@ fun SourceSelectionDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.75f)),
+                .background(cs.background.copy(alpha = 0.75f)),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
@@ -105,7 +104,7 @@ fun SourceSelectionDialog(
                     .fillMaxWidth(0.55f)
                     .shadow(24.dp, RoundedCornerShape(16.dp)),
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF1A1A1A),
+                color = cs.surface,
                 tonalElevation = 8.dp,
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
@@ -119,7 +118,7 @@ fun SourceSelectionDialog(
                             Icon(
                                 imageVector = Icons.Outlined.Dns,
                                 contentDescription = null,
-                                tint = NetflixRed,
+                                tint = cs.primary,
                                 modifier = Modifier.size(22.dp),
                             )
                             Spacer(modifier = Modifier.width(10.dp))
@@ -127,14 +126,14 @@ fun SourceSelectionDialog(
                                 "Select Source",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = cs.onBackground,
                             )
                         }
                         IconButton(onClick = onDismiss) {
                             Icon(
                                 imageVector = Icons.Outlined.Close,
                                 contentDescription = "Close",
-                                tint = NetflixLightGray,
+                                tint = cs.onSurfaceVariant,
                             )
                         }
                     }
@@ -148,12 +147,12 @@ fun SourceSelectionDialog(
                                 val interactionSource = remember { MutableInteractionSource() }
                                 val isFocused by interactionSource.collectIsFocusedAsState()
                                 val bgColor by animateColorAsState(
-                                    targetValue = if (isFocused) Color.White.copy(alpha = 0.1f) else Color.Transparent,
+                                    targetValue = if (isFocused) cs.onBackground.copy(alpha = 0.1f) else Color.Transparent,
                                     animationSpec = tween(200),
                                     label = "sourceBg",
                                 )
                                 val borderColor by animateColorAsState(
-                                    targetValue = if (isFocused) NetflixRed else Color.Transparent,
+                                    targetValue = if (isFocused) cs.primary else Color.Transparent,
                                     animationSpec = tween(200),
                                     label = "sourceBorder",
                                 )
@@ -188,7 +187,7 @@ fun SourceSelectionDialog(
                                                     source.serverName,
                                                     style = MaterialTheme.typography.bodyLarge,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = Color.White,
+                                                    color = cs.onBackground,
                                                 )
                                                 if (source.viewOffset > 0) {
                                                     Spacer(modifier = Modifier.width(8.dp))
@@ -204,7 +203,7 @@ fun SourceSelectionDialog(
                                                 Text(
                                                     title,
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = NetflixLightGray,
+                                                    color = cs.onSurfaceVariant,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis,
                                                 )
@@ -222,7 +221,7 @@ fun SourceSelectionDialog(
                                                 val is4K = resolution.contains("4k", ignoreCase = true) || resolution.startsWith("2160")
                                                 TechBadge(
                                                     text = resolution.uppercase(),
-                                                    color = if (is4K) NetflixRed else NetflixLightGray,
+                                                    color = if (is4K) cs.primary else cs.onSurfaceVariant,
                                                     filled = is4K,
                                                 )
                                             }
@@ -296,14 +295,14 @@ fun SourceSelectionDialog(
                                                     Icon(
                                                         imageVector = Icons.Outlined.Language,
                                                         contentDescription = null,
-                                                        tint = NetflixLightGray.copy(alpha = 0.7f),
+                                                        tint = cs.onSurfaceVariant.copy(alpha = 0.7f),
                                                         modifier = Modifier.size(14.dp),
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     Text(
                                                         languages,
                                                         style = MaterialTheme.typography.labelSmall,
-                                                        color = NetflixLightGray.copy(alpha = 0.8f),
+                                                        color = cs.onSurfaceVariant.copy(alpha = 0.8f),
                                                     )
                                                 }
                                             }
@@ -331,7 +330,7 @@ fun SourceSelectionDialog(
                                 if (index < sortedSources.size - 1) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     HorizontalDivider(
-                                        color = Color.White.copy(alpha = 0.08f),
+                                        color = cs.onBackground.copy(alpha = 0.08f),
                                         modifier = Modifier.padding(horizontal = 8.dp),
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -351,6 +350,7 @@ private fun TechBadge(
     color: Color,
     filled: Boolean = false,
 ) {
+    val cs = MaterialTheme.colorScheme
     Surface(
         shape = RoundedCornerShape(4.dp),
         color = if (filled) color else Color.Transparent,
@@ -361,7 +361,7 @@ private fun TechBadge(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = if (filled) Color.Black else color,
+            color = if (filled) cs.background else color,
         )
     }
 }

@@ -47,8 +47,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.R
-import com.chakir.plexhubtv.core.designsystem.NetflixDarkGray
-import com.chakir.plexhubtv.core.designsystem.NetflixRed
 
 private val AVATAR_EMOJIS = listOf(
     "\uD83D\uDE0A", "\uD83D\uDE0E", "\uD83C\uDFAC", "\uD83C\uDFAE", "\uD83C\uDFAF", "\uD83D\uDC64",
@@ -81,7 +79,7 @@ fun ProfileFormDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f))
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -91,7 +89,7 @@ fun ProfileFormDialog(
         ) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = NetflixDarkGray,
+                color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier
                     .width(450.dp)
                     .clickable(
@@ -109,7 +107,7 @@ fun ProfileFormDialog(
                         text = if (isEdit) stringResource(R.string.profile_form_edit_title) else stringResource(R.string.profile_form_new_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
 
                     Spacer(Modifier.height(20.dp))
@@ -125,12 +123,12 @@ fun ProfileFormDialog(
                             .focusRequester(nameFocusRequester),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                            focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
                             cursorColor = MaterialTheme.colorScheme.primary,
                             focusedLabelColor = MaterialTheme.colorScheme.primary,
-                            unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                         ),
                     )
 
@@ -140,7 +138,7 @@ fun ProfileFormDialog(
                     Text(
                         text = stringResource(R.string.profile_form_avatar_label),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         modifier = Modifier.fillMaxWidth(),
                     )
 
@@ -170,15 +168,15 @@ fun ProfileFormDialog(
                         Text(
                             text = stringResource(R.string.profile_form_kids_label),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.weight(1f),
                         )
                         Switch(
                             checked = isKids,
                             onCheckedChange = { isKids = it },
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = NetflixRed,
+                                checkedThumbColor = MaterialTheme.colorScheme.onBackground,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
                             ),
                         )
                     }
@@ -191,13 +189,13 @@ fun ProfileFormDialog(
                     ) {
                         DialogButton(
                             text = if (isEdit) stringResource(R.string.profile_form_save_button) else stringResource(R.string.profile_form_create_button),
-                            backgroundColor = NetflixRed,
+                            backgroundColor = MaterialTheme.colorScheme.primary,
                             enabled = name.isNotBlank(),
                             onClick = { onSubmit(name, selectedEmoji, isKids) },
                         )
                         DialogButton(
                             text = stringResource(R.string.action_cancel),
-                            backgroundColor = Color.Gray.copy(alpha = 0.5f),
+                            backgroundColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             onClick = onDismiss,
                         )
                     }
@@ -226,7 +224,7 @@ fun DeleteProfileConfirmDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f))
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -236,7 +234,7 @@ fun DeleteProfileConfirmDialog(
         ) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = NetflixDarkGray,
+                color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier
                     .width(400.dp)
                     .clickable(
@@ -253,7 +251,7 @@ fun DeleteProfileConfirmDialog(
                         text = stringResource(R.string.profile_delete_confirm_title, profileName),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         textAlign = TextAlign.Center,
                     )
 
@@ -262,7 +260,7 @@ fun DeleteProfileConfirmDialog(
                     Text(
                         text = stringResource(R.string.profile_delete_confirm_message),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center,
                         fontSize = 14.sp,
                     )
@@ -274,13 +272,13 @@ fun DeleteProfileConfirmDialog(
                     ) {
                         DialogButton(
                             text = stringResource(R.string.action_delete),
-                            backgroundColor = NetflixRed,
+                            backgroundColor = MaterialTheme.colorScheme.primary,
                             onClick = onConfirm,
                             modifier = Modifier.focusRequester(confirmFocusRequester),
                         )
                         DialogButton(
                             text = stringResource(R.string.action_cancel),
-                            backgroundColor = Color.Gray.copy(alpha = 0.5f),
+                            backgroundColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             onClick = onDismiss,
                         )
                     }
@@ -300,7 +298,7 @@ private fun EmojiOption(
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     val borderColor = when {
-        isSelected -> NetflixRed
+        isSelected -> MaterialTheme.colorScheme.primary
         isFocused -> MaterialTheme.colorScheme.primary
         else -> Color.Transparent
     }
@@ -310,8 +308,8 @@ private fun EmojiOption(
             .size(48.dp)
             .clip(CircleShape)
             .background(
-                if (isSelected) NetflixRed.copy(alpha = 0.2f)
-                else Color.White.copy(alpha = 0.1f)
+                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
             )
             .border(2.dp, borderColor, CircleShape)
             .clickable(
@@ -354,7 +352,7 @@ private fun DialogButton(
             text = text,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = effectiveAlpha),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = effectiveAlpha),
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
         )
     }
