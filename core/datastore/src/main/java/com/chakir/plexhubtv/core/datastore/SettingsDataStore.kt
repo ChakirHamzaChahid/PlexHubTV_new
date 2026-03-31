@@ -45,6 +45,7 @@ class SettingsDataStore
         private val CURRENT_USER_UUID = stringPreferencesKey("current_user_uuid")
         private val CURRENT_USER_NAME = stringPreferencesKey("current_user_name")
         private val SHOW_HERO_SECTION = stringPreferencesKey("show_hero_section")
+        private val USE_SPOTLIGHT_GRID = stringPreferencesKey("use_spotlight_grid")
         private val EPISODE_POSTER_MODE = stringPreferencesKey("episode_poster_mode")
         private val APP_THEME = stringPreferencesKey("app_theme")
         private val SHOW_YEAR_ON_CARDS = stringPreferencesKey("show_year_on_cards")
@@ -186,6 +187,10 @@ class SettingsDataStore
         val showHeroSection: Flow<Boolean> =
             dataStore.data
                 .map { preferences -> preferences[SHOW_HERO_SECTION]?.toBoolean() ?: true }
+
+        val useSpotlightGrid: Flow<Boolean> =
+            dataStore.data
+                .map { preferences -> preferences[USE_SPOTLIGHT_GRID]?.toBoolean() ?: false }
 
         val episodePosterMode: Flow<String> =
             dataStore.data
@@ -396,6 +401,12 @@ class SettingsDataStore
         suspend fun saveShowHeroSection(show: Boolean) {
             dataStore.edit { preferences ->
                 preferences[SHOW_HERO_SECTION] = show.toString()
+            }
+        }
+
+        suspend fun saveUseSpotlightGrid(use: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[USE_SPOTLIGHT_GRID] = use.toString()
             }
         }
 

@@ -1,7 +1,6 @@
 package com.chakir.plexhubtv.core.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -88,24 +87,18 @@ fun NetflixMediaCard(
     // Notify parent of focus changes only when focus state actually changes
     LaunchedEffect(isFocused) { onFocus(isFocused) }
 
-    // Animations
-    val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.08f else 1f,
-        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-        label = "scale"
-    )
+    // Animations — scale varies by card type for visual hierarchy
+    val focusScale = when (cardType) {
+        CardType.POSTER, CardType.TOP_TEN -> 1.06f
+        CardType.WIDE -> 1.05f
+    }
+    val scale = animateFocusScale(isFocused, targetScale = focusScale)
     // === CINEMA GOLD REFONTE ===
     val cs = MaterialTheme.colorScheme
     val borderColor by animateColorAsState(
         targetValue = if (isFocused) cs.primary else Color.Transparent,
         animationSpec = tween(durationMillis = 200),
         label = "border"
-    )
-    // Gold glow behind focused card
-    val glowAlpha by animateFloatAsState(
-        targetValue = if (isFocused) 0.15f else 0f,
-        animationSpec = tween(durationMillis = 250),
-        label = "glow"
     )
 
     // Dimensions based on CardType
@@ -123,14 +116,6 @@ fun NetflixMediaCard(
     Column(
         modifier = modifier
             .then(if (compact) Modifier.fillMaxWidth() else Modifier.width(cardWidth))
-            .graphicsLayer {
-                // Gold glow shadow behind focused cards
-                if (glowAlpha > 0f) {
-                    shadowElevation = 16f
-                    ambientShadowColor = cs.primary.copy(alpha = glowAlpha)
-                    spotShadowColor = cs.primary.copy(alpha = glowAlpha)
-                }
-            }
             .testTag("media_card_${media.ratingKey}")
             .semantics {
                 contentDescription = when (media.type) {
@@ -474,7 +459,7 @@ private fun WatchedBadge(modifier: Modifier = Modifier) {
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = null,
-                tint = Color(0xFF66BB6A), // Keep green — universal semantic "watched"
+                tint = cs.tertiary,
                 modifier = Modifier.size(12.dp),
             )
             Spacer(Modifier.width(3.dp))

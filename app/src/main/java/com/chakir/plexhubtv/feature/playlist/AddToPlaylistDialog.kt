@@ -125,7 +125,7 @@ fun AddToPlaylistDialog(
                                             indication = null,
                                         ) { onAddToPlaylist(playlist.id, playlist.serverId) }
                                         .scale(if (itemFocused) 1.02f else 1f),
-                                    color = if (itemFocused) Color.White.copy(alpha = 0.1f) else Color.Transparent,
+                                    color = if (itemFocused) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f) else Color.Transparent,
                                     shape = RoundedCornerShape(8.dp),
                                 ) {
                                     Row(
@@ -136,7 +136,7 @@ fun AddToPlaylistDialog(
                                             Icons.AutoMirrored.Filled.PlaylistPlay,
                                             contentDescription = null,
                                             modifier = Modifier.size(24.dp),
-                                            tint = Color.White.copy(alpha = 0.7f),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {

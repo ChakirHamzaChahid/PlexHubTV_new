@@ -83,7 +83,7 @@ fun NetflixTopBar(
 ) {
     // === CINEMA GOLD REFONTE ===
     val cs = MaterialTheme.colorScheme
-    val backgroundColor = cs.surface.copy(alpha = 0.95f)
+    val backgroundColor = cs.background.copy(alpha = if (isScrolled) 0.95f else 0.4f)
 
     // Individual focus requesters for each navigation item
     val homeFocusRequester = remember { FocusRequester() }
@@ -451,7 +451,7 @@ private fun TopBarClock() {
     Text(
         text = timeText,
         style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.Medium,
     )
 }

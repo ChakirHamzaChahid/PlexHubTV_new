@@ -175,7 +175,7 @@ fun DebugScreen(
                         DebugInfoRow(
                             "Status",
                             if (state.networkInfo.isConnected) "Connected" else "Disconnected",
-                            valueColor = if (state.networkInfo.isConnected) Color.Green else Color.Red
+                            valueColor = if (state.networkInfo.isConnected) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
                         )
                         DebugInfoRow("Type", state.networkInfo.connectionType)
                         if (state.networkInfo.downloadSpeedMbps > 0) {
@@ -205,7 +205,7 @@ fun DebugScreen(
                         DebugInfoRow(
                             "HDR",
                             if (state.deviceProfileInfo.supportsHDR) "Supported" else "Not supported",
-                            valueColor = if (state.deviceProfileInfo.supportsHDR) Color.Green else MaterialTheme.colorScheme.onSurface,
+                            valueColor = if (state.deviceProfileInfo.supportsHDR) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface,
                         )
                         DebugInfoRow("Max Bit Depth", "${state.deviceProfileInfo.maxBitDepth}-bit")
                     }
@@ -226,7 +226,7 @@ fun DebugScreen(
                                     DebugInfoRow(
                                         "Status",
                                         if (server.isConnected) "Connected" else "Disconnected",
-                                        valueColor = if (server.isConnected) Color.Green else Color.Red
+                                        valueColor = if (server.isConnected) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
                                     )
                                     DebugInfoRow("Response Time", "${server.responseTimeMs}ms")
                                     DebugInfoRow("Libraries", "${server.librariesCount}")

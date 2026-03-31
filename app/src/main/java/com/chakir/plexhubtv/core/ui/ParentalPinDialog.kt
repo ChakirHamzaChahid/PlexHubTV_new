@@ -78,7 +78,7 @@ fun ParentalPinDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f))
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -105,7 +105,7 @@ fun ParentalPinDialog(
                         text = title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         textAlign = TextAlign.Center,
                     )
 
@@ -185,7 +185,7 @@ fun ParentalPinDialog(
                         // Backspace
                         PinActionButton(
                             text = stringResource(R.string.parental_pin_backspace),
-                            backgroundColor = Color.Gray.copy(alpha = 0.5f),
+                            backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
                             onClick = {
                                 if (isConfirmStep) {
                                     if (confirmPin.isNotEmpty()) confirmPin = confirmPin.dropLast(1)
@@ -221,7 +221,7 @@ fun ParentalPinDialog(
                         // Cancel
                         PinActionButton(
                             text = stringResource(R.string.parental_pin_cancel),
-                            backgroundColor = Color.Gray.copy(alpha = 0.5f),
+                            backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
                             onClick = onDismiss,
                         )
                     }
@@ -242,7 +242,7 @@ private fun PinDot(filled: Boolean) {
         modifier = Modifier
             .size(16.dp)
             .background(
-                if (filled) Color.White else Color.White.copy(alpha = 0.3f),
+                if (filled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
                 CircleShape,
             ),
     )
@@ -259,7 +259,7 @@ private fun NumberButton(
 
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = if (isFocused) Color.White.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.1f),
+        color = if (isFocused) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
         modifier = modifier
             .size(56.dp)
             .clickable(
@@ -273,7 +273,7 @@ private fun NumberButton(
                 text = digit,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
             )
         }
     }
@@ -308,7 +308,7 @@ private fun PinActionButton(
             text = text,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = effectiveAlpha),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = effectiveAlpha),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
     }

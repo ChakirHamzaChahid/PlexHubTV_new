@@ -115,7 +115,7 @@ private fun PlayerArea(
             .fillMaxWidth()
             .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
         when {
@@ -125,13 +125,13 @@ private fun PlayerArea(
                     Icon(
                         imageVector = Icons.Default.LiveTv,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.4f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                         modifier = Modifier.size(48.dp),
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.live_tv_select_channel),
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -139,7 +139,7 @@ private fun PlayerArea(
 
             isResolvingStream -> {
                 CircularProgressIndicator(
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.size(32.dp),
                 )
             }
@@ -176,14 +176,14 @@ private fun PlayerArea(
                         modifier = Modifier
                             .size(36.dp)
                             .background(
-                                Color.Black.copy(alpha = 0.5f),
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
                                 CircleShape,
                             ),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Fullscreen,
                             contentDescription = stringResource(R.string.live_tv_fullscreen),
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.size(20.dp),
                         )
                     }

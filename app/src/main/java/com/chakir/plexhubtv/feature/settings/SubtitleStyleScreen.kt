@@ -212,7 +212,7 @@ private fun SubtitlePreview(prefs: SubtitlePreferences) {
         modifier = Modifier
             .fillMaxWidth()
             .height(160.dp)
-            .background(Color(0xFF1A1A2E)),
+            .background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Box(

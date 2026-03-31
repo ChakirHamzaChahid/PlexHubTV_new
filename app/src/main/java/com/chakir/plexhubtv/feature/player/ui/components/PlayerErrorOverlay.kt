@@ -60,7 +60,7 @@ fun PlayerErrorOverlay(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.8f))
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.8f))
                 .testTag("player_error_overlay"),
         contentAlignment = Alignment.Center,
     ) {

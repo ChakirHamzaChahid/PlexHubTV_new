@@ -333,13 +333,13 @@ private fun ServerStatusIcon(status: ServerStatus) {
             imageVector = Icons.Default.CheckCircle,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
-            tint = Color(0xFF4CAF50),
+            tint = MaterialTheme.colorScheme.tertiary,
         )
         ServerStatus.PartialSuccess -> Icon(
             imageVector = Icons.Default.Warning,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
-            tint = Color(0xFFFFA726),
+            tint = MaterialTheme.colorScheme.secondary,
         )
         ServerStatus.Error -> Icon(
             imageVector = Icons.Default.Error,
@@ -405,7 +405,7 @@ private fun LibraryStatusIcon(status: LibraryStatus) {
             imageVector = Icons.Default.CheckCircle,
             contentDescription = null,
             modifier = Modifier.size(14.dp),
-            tint = Color(0xFF4CAF50),
+            tint = MaterialTheme.colorScheme.tertiary,
         )
         LibraryStatus.Error -> Icon(
             imageVector = Icons.Default.Error,

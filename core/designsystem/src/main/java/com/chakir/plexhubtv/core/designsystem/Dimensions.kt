@@ -47,4 +47,14 @@ object Dims {
     val KeySize = 48.dp
     val KeySpacing = 6.dp
     val KeyRadius = 8.dp
+
+    // Section Title
+    val SectionBarW = 3.dp
+    val SectionBarH = 14.dp
+
+    // Focus extras
+    val FocusOffset = 2.dp
+
+    // SpotlightGrid (Phase 7)
+    val SpotlightH = 360.dp
 }

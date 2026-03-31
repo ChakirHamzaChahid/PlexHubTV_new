@@ -151,6 +151,7 @@ fun DiscoverScreen(
                         showMyList = state.showMyList,
                         showSuggestions = state.showSuggestions,
                         homeRowOrder = state.homeRowOrder,
+                        useSpotlightGrid = state.useSpotlightGrid,
                         onNavigateUp = onNavigateUp,
                         onFocusChanged = { item -> onAction(HomeAction.FocusMedia(item)) },
                     )

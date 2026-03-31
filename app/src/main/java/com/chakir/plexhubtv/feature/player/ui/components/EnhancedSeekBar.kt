@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,11 +57,13 @@ fun EnhancedSeekBar(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
     isDragging: Boolean = false,
-    playedColor: Color = Color(0xFFE5A00D),
+    playedColor: Color = Color.Unspecified,
     getFrameBitmap: ((Long) -> Bitmap?)? = null,
     onInteraction: () -> Unit = {},
 ) {
     if (duration <= 0L) return
+    val cs = MaterialTheme.colorScheme
+    val resolvedPlayedColor = if (playedColor == Color.Unspecified) cs.primary else playedColor
 
     var isDrag by remember { mutableStateOf(false) }
     var dragPosition by remember { mutableStateOf(currentPosition) }
@@ -149,7 +152,7 @@ fun EnhancedSeekBar(
                                         .width(thumbWidth)
                                         .height(90.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color.DarkGray),
+                                        .background(cs.surfaceVariant),
                                 )
                             }
                             // Priority 2: BIF trickplay frame
@@ -162,7 +165,7 @@ fun EnhancedSeekBar(
                                         .width(thumbWidth)
                                         .height(90.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color.DarkGray),
+                                        .background(cs.surfaceVariant),
                                 )
                             }
                             // Priority 3: Chapter title fallback
@@ -172,12 +175,12 @@ fun EnhancedSeekBar(
                                         .width(thumbWidth)
                                         .height(90.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color.DarkGray.copy(alpha = 0.9f)),
+                                        .background(cs.surfaceVariant.copy(alpha = 0.9f)),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
                                         text = scrubChapter.title,
-                                        color = Color.White,
+                                        color = cs.onBackground,
                                         fontSize = 12.sp,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(8.dp),
@@ -194,7 +197,7 @@ fun EnhancedSeekBar(
                         }
                         Text(
                             text = label,
-                            color = Color(0xFFE5A00D),
+                            color = cs.primary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
@@ -306,7 +309,7 @@ fun EnhancedSeekBar(
                         .fillMaxWidth()
                         .height(if (isFocused) 6.dp else 4.dp)
                         .background(
-                            if (isFocused) Color.Gray else Color.Gray.copy(alpha = 0.5f),
+                            if (isFocused) cs.outlineVariant else cs.outlineVariant.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(2.dp),
                         ),
             )
@@ -318,7 +321,7 @@ fun EnhancedSeekBar(
                     modifier = Modifier
                         .height(if (isFocused) 6.dp else 4.dp)
                         .fillMaxWidth(bufferedFraction)
-                        .background(Color.White.copy(alpha = 0.3f), shape = RoundedCornerShape(2.dp)),
+                        .background(cs.onBackground.copy(alpha = 0.3f), shape = RoundedCornerShape(2.dp)),
                 )
             }
 
@@ -331,7 +334,7 @@ fun EnhancedSeekBar(
                             .height(if (isFocused) 6.dp else 4.dp)
                             .width(2.dp)
                             .offset { IntOffset((chapterPos * boxWidth).roundToInt(), 0) }
-                            .background(Color.White.copy(alpha = 0.6f)),
+                            .background(cs.onBackground.copy(alpha = 0.6f)),
                     )
                 }
             }
@@ -342,7 +345,7 @@ fun EnhancedSeekBar(
                     Modifier
                         .height(if (isFocused) 6.dp else 4.dp)
                         .fillMaxWidth(progress)
-                        .background(playedColor, shape = RoundedCornerShape(2.dp)),
+                        .background(resolvedPlayedColor, shape = RoundedCornerShape(2.dp)),
             )
 
             // Markers (Intro/Credits)
@@ -353,7 +356,7 @@ fun EnhancedSeekBar(
                         Modifier
                             .height(if (isFocused) 6.dp else 4.dp)
                             .width(4.dp)
-                            .background(Color.Green)
+                            .background(cs.tertiary)
                             .offset { IntOffset((markerStart * boxWidth).roundToInt(), 0) },
                 )
             }
@@ -364,7 +367,7 @@ fun EnhancedSeekBar(
                         Modifier
                             .height(if (isFocused) 6.dp else 4.dp)
                             .width(4.dp)
-                            .background(Color.Red)
+                            .background(cs.error)
                             .offset { IntOffset((markerStart * boxWidth).roundToInt(), 0) },
                 )
             }
@@ -379,16 +382,16 @@ fun EnhancedSeekBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = formatTime(displayPosition), color = Color.White, fontSize = 12.sp)
+            Text(text = formatTime(displayPosition), color = cs.onBackground, fontSize = 12.sp)
 
             // Current chapter display
             if (!isDrag) {
                 scrubChapter?.let { chapter ->
-                    Text(text = chapter.title, color = Color(0xFFE5A00D), fontSize = 12.sp)
+                    Text(text = chapter.title, color = cs.primary, fontSize = 12.sp)
                 }
             }
 
-            Text(text = formatTime(duration), color = Color.White, fontSize = 12.sp)
+            Text(text = formatTime(duration), color = cs.onBackground, fontSize = 12.sp)
         }
 
         // Chapter indicators legend
@@ -400,7 +403,7 @@ fun EnhancedSeekBar(
                         .padding(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-            ) { Text(text = chaptersLabel, color = Color.Gray, fontSize = 12.sp) }
+            ) { Text(text = chaptersLabel, color = cs.onSurfaceVariant, fontSize = 12.sp) }
         }
     }
 }

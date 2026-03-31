@@ -441,7 +441,7 @@ private fun SeasonActionButton(
             Icon(
                 icon,
                 contentDescription = label,
-                tint = if (isFavorite) Color.Red else cs.onBackground,
+                tint = if (isFavorite) cs.error else cs.onBackground,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(12.dp),
@@ -668,13 +668,13 @@ fun EnhancedEpisodeItem(
                         Icons.Filled.Check,
                         contentDescription = "Watched",
                         modifier = Modifier.size(14.dp),
-                        tint = Color(0xFF66BB6A),
+                        tint = cs.tertiary,
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
                         "Watched",
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
-                        color = Color(0xFF66BB6A),
+                        color = cs.tertiary,
                     )
                 }
             }
@@ -699,8 +699,8 @@ fun DownloadStatusIcon(state: DownloadState) {
                 }
                 return
             }
-            is DownloadState.Paused -> Icons.Filled.PauseCircleOutline to Color(0xFFFFA726)
-            is DownloadState.Completed -> Icons.Filled.FileDownloadDone to Color(0xFF66BB6A)
+            is DownloadState.Paused -> Icons.Filled.PauseCircleOutline to MaterialTheme.colorScheme.tertiary
+            is DownloadState.Completed -> Icons.Filled.FileDownloadDone to MaterialTheme.colorScheme.tertiary
             is DownloadState.Failed -> Icons.Filled.ErrorOutline to MaterialTheme.colorScheme.error
             is DownloadState.Cancelled -> Icons.Filled.Cancel to MaterialTheme.colorScheme.onSurfaceVariant
             else -> return

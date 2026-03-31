@@ -27,6 +27,7 @@ import com.chakir.plexhubtv.core.model.MediaType
 import com.chakir.plexhubtv.core.ui.CardType
 import com.chakir.plexhubtv.core.ui.HomeHeader
 import com.chakir.plexhubtv.core.ui.NetflixContentRow
+import com.chakir.plexhubtv.core.ui.SpotlightGrid
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -43,6 +44,7 @@ fun NetflixHomeContent(
     showMyList: Boolean = true,
     showSuggestions: Boolean = true,
     homeRowOrder: ImmutableList<String> = persistentListOf("continue_watching", "my_list", "suggestions"),
+    useSpotlightGrid: Boolean = false,
     onNavigateUp: (() -> Unit)? = null,
     onFocusChanged: ((MediaItem?) -> Unit)? = null,
 ) {
@@ -85,11 +87,29 @@ fun NetflixHomeContent(
             .testTag("screen_home")
             .semantics { contentDescription = "Écran d'accueil" }
     ) {
-        // Fixed header — purely informational, shows metadata of focused item
-        HomeHeader(
-            item = focusedItem,
-            modifier = Modifier.fillMaxHeight(0.40f),
-        )
+        // Hero section — SpotlightGrid (interactive) or HomeHeader (passive)
+        val spotlightItems = remember(onDeck, hubs) {
+            val candidates = mutableListOf<MediaItem>()
+            candidates.addAll(onDeck.take(3))
+            if (candidates.size < 3) {
+                hubs.flatMap { it.items }.take(3 - candidates.size).let { candidates.addAll(it) }
+            }
+            candidates.take(3)
+        }
+
+        if (useSpotlightGrid && spotlightItems.size >= 3) {
+            SpotlightGrid(
+                items = spotlightItems,
+                onItemClick = { onAction(HomeAction.OpenMedia(it)) },
+                onItemFocused = { onFocusChanged?.invoke(it) },
+                modifier = Modifier.fillMaxHeight(0.45f),
+            )
+        } else {
+            HomeHeader(
+                item = focusedItem,
+                modifier = Modifier.fillMaxHeight(0.40f),
+            )
+        }
 
         // Scrollable content rows
         LazyColumn(

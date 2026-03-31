@@ -37,7 +37,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -105,19 +104,19 @@ fun PlaylistListScreen(
                         Icons.AutoMirrored.Filled.PlaylistPlay,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
-                        tint = Color.White.copy(alpha = 0.4f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
                         text = stringResource(R.string.playlist_empty),
                         style = MaterialTheme.typography.titleLarge,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.playlist_empty_hint),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.4f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     )
                 }
             }
@@ -167,7 +166,7 @@ private fun PlaylistCard(
             .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (isFocused) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+                if (isFocused) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f),
             )
             .scale(if (isFocused) 1.05f else 1f)
             .focusable(interactionSource = interactionSource)
@@ -189,7 +188,7 @@ private fun PlaylistCard(
                     Icons.AutoMirrored.Filled.PlaylistPlay,
                     contentDescription = null,
                     modifier = Modifier.size(48.dp),
-                    tint = Color.White.copy(alpha = 0.3f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -200,7 +199,7 @@ private fun PlaylistCard(
                 .fillMaxWidth()
                 .align(Alignment.BottomStart)
                 .background(
-                    Color.Black.copy(alpha = 0.7f),
+                    MaterialTheme.colorScheme.background.copy(alpha = 0.7f),
                     RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp),
                 )
                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -210,14 +209,14 @@ private fun PlaylistCard(
                     text = playlist.title,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = stringResource(R.string.playlist_item_count, playlist.itemCount),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

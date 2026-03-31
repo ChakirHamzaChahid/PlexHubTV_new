@@ -402,7 +402,7 @@ fun MainScreen(
 @Composable
 private fun AppBackdrop(imageUrl: String?) {
     val backdropColors = rememberBackdropColors(imageUrl)
-    val gradientBase = if (backdropColors.isDefault) Color.Black else backdropColors.secondary
+    val gradientBase = if (backdropColors.isDefault) MaterialTheme.colorScheme.background else backdropColors.secondary
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Background image with crossfade

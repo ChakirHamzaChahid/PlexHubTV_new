@@ -116,7 +116,7 @@ fun FavoritesScreen(
             text = stringResource(R.string.favorites_title_with_count, activeCount),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -296,7 +296,7 @@ private fun ActorCard(
             ),
     ) {
         val borderModifier = if (isFocused) {
-            Modifier.border(3.dp, Color.White, CircleShape)
+            Modifier.border(3.dp, MaterialTheme.colorScheme.onBackground, CircleShape)
         } else {
             Modifier
         }
@@ -316,14 +316,14 @@ private fun ActorCard(
                 modifier = Modifier
                     .size(120.dp)
                     .clip(CircleShape)
-                    .background(Color.DarkGray)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .then(borderModifier),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = actor.name.firstOrNull()?.uppercase() ?: "?",
                     style = typography.headlineLarge,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -331,7 +331,7 @@ private fun ActorCard(
         Text(
             text = actor.name,
             style = typography.bodyMedium,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
@@ -341,7 +341,7 @@ private fun ActorCard(
             Text(
                 text = knownFor,
                 style = typography.bodySmall,
-                color = Color.White.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
@@ -370,19 +370,19 @@ private fun FavoritesEmptyState(
                 icon,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = Color.White.copy(alpha = 0.4f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             )
             Spacer(Modifier.height(16.dp))
             Text(
                 text = message,
                 style = typography.titleLarge,
-                color = Color.White.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = hint,
                 style = typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.4f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             )
         }
     }
@@ -399,14 +399,14 @@ private fun CategoryChip(
         onClick = onClick,
         label = { Text(label) },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = Color.White.copy(alpha = 0.2f),
-            selectedLabelColor = Color.White,
+            selectedContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f),
+            selectedLabelColor = MaterialTheme.colorScheme.onBackground,
             containerColor = Color.Transparent,
-            labelColor = Color.White.copy(alpha = 0.5f),
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
         border = FilterChipDefaults.filterChipBorder(
-            borderColor = Color.White.copy(alpha = 0.3f),
-            selectedBorderColor = Color.White.copy(alpha = 0.5f),
+            borderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+            selectedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
             enabled = true,
             selected = selected,
         ),
@@ -433,13 +433,13 @@ private fun FavoritesSortChip(
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onBackground,
                     )
                 }
             },
             colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = Color.White.copy(alpha = 0.15f),
-                selectedLabelColor = Color.White,
+                selectedContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f),
+                selectedLabelColor = MaterialTheme.colorScheme.onBackground,
             ),
         )
 
@@ -495,13 +495,13 @@ private fun ActorSortChip(
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onBackground,
                     )
                 }
             },
             colors = FilterChipDefaults.filterChipColors(
-                selectedContainerColor = Color.White.copy(alpha = 0.15f),
-                selectedLabelColor = Color.White,
+                selectedContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f),
+                selectedLabelColor = MaterialTheme.colorScheme.onBackground,
             ),
         )
 

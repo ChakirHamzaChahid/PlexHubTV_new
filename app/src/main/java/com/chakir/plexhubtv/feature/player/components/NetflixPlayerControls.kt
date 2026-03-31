@@ -93,6 +93,7 @@ fun NetflixPlayerControls(
     val nextChapterDesc = stringResource(R.string.player_next_chapter)
     val controlsDesc = stringResource(R.string.player_controls_description)
     val unknownTitle = stringResource(R.string.player_unknown_title)
+    val cs = MaterialTheme.colorScheme
     val server = stringResource(R.string.player_server)
     val backDesc = stringResource(R.string.player_back)
     val pauseDesc = stringResource(R.string.player_pause)
@@ -116,7 +117,7 @@ fun NetflixPlayerControls(
                 .fillMaxSize()
                 .testTag("player_controls")
                 .semantics { contentDescription = controlsDesc }
-                .background(Color.Black.copy(alpha = 0.4f)) // Dim background
+                .background(cs.background.copy(alpha = 0.4f)) // Dim background
         ) {
             // Top Bar: Back & Title
             Column(
@@ -125,7 +126,7 @@ fun NetflixPlayerControls(
                     .align(Alignment.TopCenter)
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
+                            colors = listOf(cs.background.copy(alpha = 0.8f), Color.Transparent)
                         )
                     )
                     .padding(16.dp)
@@ -138,7 +139,7 @@ fun NetflixPlayerControls(
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = backDesc,
-                            tint = Color.White
+                            tint = cs.onBackground
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
@@ -160,7 +161,7 @@ fun NetflixPlayerControls(
                         Text(
                             text = headerTitle,
                             style = MaterialTheme.typography.titleLarge,
-                            color = Color.White,
+                            color = cs.onBackground,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -173,7 +174,7 @@ fun NetflixPlayerControls(
                             Text(
                                 text = serverName,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.7f)
+                                color = cs.onBackground.copy(alpha = 0.7f)
                             )
                         }
                     }
@@ -190,7 +191,7 @@ fun NetflixPlayerControls(
                         .size(80.dp)
                         .testTag("player_playpause_button")
                         .focusable(false),
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)
+                    colors = IconButtonDefaults.iconButtonColors(contentColor = cs.onBackground)
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -220,7 +221,7 @@ fun NetflixPlayerControls(
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
+                            colors = listOf(Color.Transparent, cs.background.copy(alpha = 0.9f))
                         )
                     )
                     .padding(32.dp)
@@ -253,7 +254,7 @@ fun NetflixPlayerControls(
                             onClick = onPreviousChapter,
                             modifier = Modifier.testTag("player_prev_chapter")
                         ) {
-                            Icon(Icons.Default.SkipPrevious, prevChapterDesc, tint = Color.White)
+                            Icon(Icons.Default.SkipPrevious, prevChapterDesc, tint = cs.onBackground)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                     }
@@ -262,7 +263,7 @@ fun NetflixPlayerControls(
                         onClick = onSkipBackward,
                         modifier = Modifier.testTag("player_skip_backward")
                     ) {
-                        Icon(Icons.Default.FastRewind, rewindDesc, tint = Color.White)
+                        Icon(Icons.Default.FastRewind, rewindDesc, tint = cs.onBackground)
                     }
                     Spacer(modifier = Modifier.width(24.dp))
 
@@ -277,7 +278,7 @@ fun NetflixPlayerControls(
                          Icon(
                             if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             playPauseDesc,
-                            tint = Color.White
+                            tint = cs.onBackground
                         )
                     }
 
@@ -286,7 +287,7 @@ fun NetflixPlayerControls(
                         onClick = onSkipForward,
                         modifier = Modifier.testTag("player_skip_forward")
                     ) {
-                        Icon(Icons.Default.FastForward, forwardDesc, tint = Color.White)
+                        Icon(Icons.Default.FastForward, forwardDesc, tint = cs.onBackground)
                     }
 
                     // Chapter: Next
@@ -296,7 +297,7 @@ fun NetflixPlayerControls(
                             onClick = onNextChapter,
                             modifier = Modifier.testTag("player_next_chapter")
                         ) {
-                            Icon(Icons.Default.SkipNext, nextChapterDesc, tint = Color(0xFFE5A00D))
+                            Icon(Icons.Default.SkipNext, nextChapterDesc, tint = cs.primary)
                         }
                     }
 
@@ -306,7 +307,7 @@ fun NetflixPlayerControls(
                         modifier = Modifier.testTag("player_next_button")
                      ) {
                         val nextEpisodeDesc = stringResource(R.string.player_next_episode)
-                        Icon(Icons.Default.SkipNext, nextEpisodeDesc, tint = Color.White)
+                        Icon(Icons.Default.SkipNext, nextEpisodeDesc, tint = cs.onBackground)
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -314,7 +315,7 @@ fun NetflixPlayerControls(
                         onClick = onStop,
                         modifier = Modifier.testTag("player_stop_button")
                      ) {
-                        Icon(Icons.Default.Stop, stopDesc, tint = Color.White)
+                        Icon(Icons.Default.Stop, stopDesc, tint = cs.onBackground)
                     }
 
                     Spacer(modifier = Modifier.width(32.dp))
@@ -322,21 +323,21 @@ fun NetflixPlayerControls(
                         onClick = onShowSubtitles,
                         modifier = Modifier.testTag("player_subtitles_button")
                     ) {
-                        Icon(Icons.Default.Subtitles, subtitlesDesc, tint = Color.White)
+                        Icon(Icons.Default.Subtitles, subtitlesDesc, tint = cs.onBackground)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     IconButton(
                         onClick = onShowAudio,
                         modifier = Modifier.testTag("player_audio_button")
                     ) {
-                        Icon(Icons.Default.VolumeUp, audioDesc, tint = Color.White)
+                        Icon(Icons.Default.VolumeUp, audioDesc, tint = cs.onBackground)
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     IconButton(
                         onClick = onShowMore,
                         modifier = Modifier.testTag("player_more_button")
                     ) {
-                        Icon(Icons.Default.MoreVert, moreDesc, tint = Color.White)
+                        Icon(Icons.Default.MoreVert, moreDesc, tint = cs.onBackground)
                     }
                 }
             }

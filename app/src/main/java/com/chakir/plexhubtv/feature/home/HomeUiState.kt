@@ -29,6 +29,7 @@ data class HomeUiState(
     val showMyList: Boolean = true,
     val showSuggestions: Boolean = true,
     val homeRowOrder: ImmutableList<String> = persistentListOf("continue_watching", "my_list", "suggestions"),
+    val useSpotlightGrid: Boolean = false,
 )
 
 sealed interface HomeAction {

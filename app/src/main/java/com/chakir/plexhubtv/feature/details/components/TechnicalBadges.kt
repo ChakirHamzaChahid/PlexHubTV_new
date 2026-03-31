@@ -57,10 +57,10 @@ fun TechnicalBadges(
             // Plex usually puts "HDR" or "Dolby Vision" in displayTitle or sometimes 'colorSpace' but we don't have that yet?
             // Let's assume if displayTitle string contains HDR.
             if (video.displayTitle?.contains("HDR", ignoreCase = true) == true) {
-                Badge(text = stringResource(R.string.badge_hdr), color = Color(0xFFFFD700)) // Gold
+                Badge(text = stringResource(R.string.badge_hdr), color = com.chakir.plexhubtv.core.designsystem.CinemaBadgeHdr)
             }
             if (video.displayTitle?.contains("Dolby Vision", ignoreCase = true) == true || video.displayTitle?.contains("DoVi", ignoreCase = true) == true) {
-                Badge(text = stringResource(R.string.badge_dolby_vision), color = Color(0xFFE91E63)) // Pinkish
+                Badge(text = stringResource(R.string.badge_dolby_vision), color = com.chakir.plexhubtv.core.designsystem.CinemaBadgeDolbyVision)
             }
         }
 
@@ -93,7 +93,7 @@ fun TechnicalBadges(
 
             // Atmos Check
             if (audio.displayTitle?.contains("Atmos", ignoreCase = true) == true) {
-                Badge(text = stringResource(R.string.badge_atmos), color = Color(0xFF00B0FF)) // Blue
+                Badge(text = stringResource(R.string.badge_atmos), color = com.chakir.plexhubtv.core.designsystem.CinemaBadgeAtmos)
             }
         }
     }

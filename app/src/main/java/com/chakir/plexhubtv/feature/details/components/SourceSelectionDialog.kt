@@ -54,13 +54,13 @@ import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.core.model.MediaSource
 import timber.log.Timber
 
-// Accent colors for technical badges
-private val VideoColor = Color(0xFF64B5F6) // Light blue
-private val AudioColor = Color(0xFFCE93D8) // Light purple
-private val ContainerColor = Color(0xFF90A4AE) // Blue-gray
-private val FileSizeColor = Color(0xFF81C784) // Light green
-private val HdrGold = Color(0xFFFFD700)
-private val ResumeColor = Color(0xFFFFA726) // Orange for resume indicator
+// Accent colors for technical badges — centralized in Color.kt
+private val VideoColor = com.chakir.plexhubtv.core.designsystem.CinemaBadgeVideo
+private val AudioColor = com.chakir.plexhubtv.core.designsystem.CinemaBadgeAudio
+private val ContainerColor = com.chakir.plexhubtv.core.designsystem.CinemaBadgeContainer
+private val FileSizeColor = com.chakir.plexhubtv.core.designsystem.CinemaBadgeFileSize
+private val HdrGold = com.chakir.plexhubtv.core.designsystem.CinemaBadgeHdr
+private val ResumeColor = com.chakir.plexhubtv.core.designsystem.CinemaBadgeResume
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

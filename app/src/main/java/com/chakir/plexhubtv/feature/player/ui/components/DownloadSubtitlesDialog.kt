@@ -275,7 +275,7 @@ fun DownloadSubtitlesDialog(
                             ) {
                                 Text(
                                     errorMessage ?: "",
-                                    color = Color(0xFFEF5350),
+                                    color = MaterialTheme.colorScheme.error,
                                     fontSize = 14.sp,
                                 )
                             }

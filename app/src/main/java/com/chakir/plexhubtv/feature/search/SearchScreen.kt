@@ -164,7 +164,7 @@ fun SearchResultItem(
                 .fillMaxWidth()
                 .onFocusChanged { isFocused = it.isFocused }
                 .scale(scale)
-                .background(if (isFocused) Color.White.copy(alpha = 0.05f) else Color.Transparent)
+                .background(if (isFocused) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f) else Color.Transparent)
                 .then(
                     if (isFocused) {
                         Modifier.border(
@@ -202,7 +202,7 @@ fun SearchResultItem(
                 Text(
                     text = it.toString(),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (isFocused) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isFocused) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(

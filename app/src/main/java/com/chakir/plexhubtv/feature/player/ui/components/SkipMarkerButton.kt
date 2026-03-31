@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -46,11 +47,12 @@ fun SkipMarkerButton(
             else -> stringResource(R.string.player_skip)
         }
 
+    val cs = MaterialTheme.colorScheme
     val buttonColor =
         when (markerType) {
-            "intro" -> Color(0xFF4CAF50)
-            "credits" -> Color(0xFFFF9800)
-            else -> Color(0xFF2196F3)
+            "intro" -> cs.tertiary
+            "credits" -> cs.secondary
+            else -> cs.primary
         }
 
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -82,12 +84,12 @@ fun SkipMarkerButton(
                 Icon(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = displayText,
-                    tint = Color.White,
+                    tint = cs.onPrimary,
                     modifier = Modifier,
                 )
                 Text(
                     text = displayText,
-                    color = Color.White,
+                    color = cs.onPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                 )

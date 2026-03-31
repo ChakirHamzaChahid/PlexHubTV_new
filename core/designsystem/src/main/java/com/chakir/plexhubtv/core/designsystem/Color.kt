@@ -59,24 +59,37 @@ val NetflixLightGray = Color(0xFFB3B3B3)
 val NetflixWhite = Color(0xFFFFFFFF)
 
 // === CINEMA GOLD THEME ===
-// Fonds
-val CinemaBackground = Color(0xFF070B0F) // Noir bleuté profond — fond principal
-val CinemaSurface = Color(0xFF0F1520) // Surface cards — bleu nuit
-val CinemaSurfaceHigh = Color(0xFF1A2336) // Surface élevée — hover/focus
+// Fonds — couleurs opaques pré-calculées (alpha-blend E8E2D6 sur #06060A)
+val CinemaBackground = Color(0xFF06060A) // Noir profond — fond principal
+val CinemaSurface = Color(0xFF0D0D10)    // Surface cards — 3% crème sur noir (opaque)
+val CinemaSurfaceHigh = Color(0xFF131316) // Surface élevée — 6% crème sur noir (opaque)
 
 // Accents
-val CinemaGold = Color(0xFFFFB938) // Accent principal — or ambré premium
-val CinemaGoldDim = Color(0xFF8A6520) // Or atténué — states secondaires
+val CinemaGold = Color(0xFFC9952E)       // Accent principal — doré cinéma
+val CinemaGoldDim = Color(0xFFA37A22)    // Doré foncé — states secondaires
+val CinemaAccentLight = Color(0xFFD4A94A) // Doré clair — highlights
 
 // Texte
-val CinemaWhite = Color(0xFFF2F2F2) // Texte principal
-val CinemaGray = Color(0xFF8B95A5) // Texte secondaire — bleuté
-val CinemaGrayDark = Color(0xFF3D4A5C) // Séparateurs, bordures, tertiaire
+val CinemaWhite = Color(0xFFE8E2D6)      // Texte principal — crème chaud
+val CinemaGray = Color(0x8CE8E2D6)       // Texte atténué — 55% opacity
+val CinemaGrayDark = Color(0x14E8E2D6)   // Bordures — 8% opacity
+val CinemaTextDim = Color(0x4DE8E2D6)    // Texte discret — 30% opacity
 
 // Sémantique
-val CinemaError = Color(0xFFFF5252) // Erreurs / Destructif
-val CinemaSuccess = Color(0xFF4CAF50) // Succès
+val CinemaError = Color(0xFFE53935)      // Erreurs / Live
+val CinemaSuccess = Color(0xFF43A047)    // Succès / Connecté
+val CinemaRed = CinemaError              // Alias pour badges EN DIRECT
+val CinemaGreen = CinemaSuccess          // Alias pour statut connecté
 
 // Effets
-val CinemaGlow = Color(0x33FFB938) // Lueur dorée focus (20% opacité)
-val CinemaOverlay = Color(0xCC070B0F) // Overlay scrim (80% opacité)
+val CinemaOverlay = Color(0xCC06060A)    // Overlay scrim — 80% opacity
+
+// Badges techniques (SourceSelectionDialog, TechnicalBadges)
+val CinemaBadgeHdr = Color(0xFFD4A94A)       // HDR badge — doré clair (CinemaAccentLight)
+val CinemaBadgeDolbyVision = Color(0xFFE91E63) // Dolby Vision — rose
+val CinemaBadgeAtmos = Color(0xFF00B0FF)     // Dolby Atmos — bleu
+val CinemaBadgeVideo = Color(0xFF64B5F6)     // Video codec — bleu clair
+val CinemaBadgeAudio = Color(0xFFCE93D8)     // Audio codec — violet clair
+val CinemaBadgeContainer = Color(0xFF90A4AE) // Container format — gris-bleu
+val CinemaBadgeFileSize = Color(0xFF81C784)  // File size — vert clair
+val CinemaBadgeResume = Color(0xFFFFA726)    // Resume indicator — orange

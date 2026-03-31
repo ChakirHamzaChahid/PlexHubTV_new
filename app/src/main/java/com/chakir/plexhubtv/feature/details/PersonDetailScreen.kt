@@ -206,7 +206,7 @@ private fun PersonFixedHeader(
                         Icon(
                             imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = stringResource(if (isFavorite) R.string.person_remove_favorite else R.string.person_add_favorite),
-                            tint = if (isFavorite) Color(0xFFE91E63) else cs.onBackground.copy(alpha = 0.7f),
+                            tint = if (isFavorite) cs.error else cs.onBackground.copy(alpha = 0.7f),
                             modifier = Modifier.size(28.dp),
                         )
                     }

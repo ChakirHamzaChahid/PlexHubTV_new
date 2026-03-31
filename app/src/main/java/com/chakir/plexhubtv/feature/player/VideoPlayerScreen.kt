@@ -705,7 +705,7 @@ fun AutoNextPopup(
 
     Surface(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-        color = Color.Black.copy(alpha = 0.85f),
+        color = MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
         modifier = modifier
             .width(300.dp)
@@ -735,7 +735,7 @@ fun AutoNextPopup(
                     Text(
                         text = item.title,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
@@ -783,14 +783,14 @@ fun AutoNextPopup(
                         border =
                             androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (isCancelFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f),
+                                if (isCancelFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
                             ),
                         interactionSource = cancelInteractionSource,
                     ) {
                         Text(
                             stringResource(R.string.action_cancel),
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isCancelFocused) MaterialTheme.colorScheme.primary else Color.White,
+                            color = if (isCancelFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
                         )
                     }
                 }
@@ -822,12 +822,12 @@ private fun ResumeToast(
     Surface(
         modifier = modifier.testTag("player_resume_toast"),
         shape = RoundedCornerShape(8.dp),
-        color = Color.Black.copy(alpha = 0.75f),
+        color = MaterialTheme.colorScheme.background.copy(alpha = 0.75f),
         shadowElevation = 4.dp,
     ) {
         Text(
             text = stringResource(R.string.player_resuming_from, formattedTime),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),

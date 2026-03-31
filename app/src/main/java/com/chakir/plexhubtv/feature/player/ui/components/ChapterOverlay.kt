@@ -160,7 +160,7 @@ fun ChapterOverlay(
                         // Thumbnail
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF2A2A2A),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             border = if (isCurrent || isFocused) {
                                 androidx.compose.foundation.BorderStroke(
                                     2.dp,

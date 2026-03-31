@@ -155,7 +155,7 @@ private val CinemaGoldColorScheme =
         error = CinemaError,
         onError = CinemaWhite,
         outline = CinemaGrayDark,
-        outlineVariant = CinemaGrayDark.copy(alpha = 0.5f),
+        outlineVariant = CinemaTextDim, // 30% opacity — subtler borders
     )
 
 /**

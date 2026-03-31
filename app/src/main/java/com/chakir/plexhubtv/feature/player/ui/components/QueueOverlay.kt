@@ -170,7 +170,7 @@ fun QueueOverlay(
                             // Thumbnail
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFF2A2A2A),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.size(80.dp, 45.dp),
                             ) {
                                 item.thumbUrl?.let { url ->

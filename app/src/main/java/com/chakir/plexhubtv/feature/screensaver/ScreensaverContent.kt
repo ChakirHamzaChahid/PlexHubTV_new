@@ -20,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -64,7 +63,7 @@ fun ScreensaverContent(viewModel: ScreensaverViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(MaterialTheme.colorScheme.background),
     ) {
         if (artworkUrls.isNotEmpty()) {
             val url = artworkUrls.getOrNull(currentIndex % artworkUrls.size)
@@ -96,7 +95,7 @@ fun ScreensaverContent(viewModel: ScreensaverViewModel) {
         if (showClock && currentTime.isNotEmpty()) {
             Text(
                 text = currentTime,
-                color = Color.White.copy(alpha = 0.85f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Light,
                 modifier = Modifier

@@ -42,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -101,7 +100,7 @@ fun PlaylistDetailScreen(
                             Text(
                                 text = stringResource(R.string.playlist_item_count, playlist.items.size),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.5f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -119,18 +118,18 @@ fun PlaylistDetailScreen(
                         Icon(
                             Icons.Outlined.Delete,
                             contentDescription = stringResource(R.string.playlist_delete),
-                            tint = Color.White.copy(alpha = 0.7f),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
                 ),
             )
         },
-        containerColor = Color.Black,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -138,7 +137,7 @@ fun PlaylistDetailScreen(
                 .testTag("screen_playlist_detail")
                 .semantics { contentDescription = screenDesc }
                 .padding(paddingValues)
-                .background(Color.Black),
+                .background(MaterialTheme.colorScheme.background),
         ) {
             if (state.isLoading) {
                 LibraryGridSkeleton(
@@ -149,7 +148,7 @@ fun PlaylistDetailScreen(
             } else if (state.error != null) {
                 Text(
                     text = state.error,
-                    color = Color.Red,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
                         .align(Alignment.Center)
                         .testTag("playlist_error"),
@@ -165,7 +164,7 @@ fun PlaylistDetailScreen(
                         ) {
                             Text(
                                 text = stringResource(R.string.playlist_detail_empty),
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     } else {
@@ -175,7 +174,7 @@ fun PlaylistDetailScreen(
                                     Text(
                                         text = summary,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = Color.White.copy(alpha = 0.7f),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
                                         maxLines = 5,
                                     )

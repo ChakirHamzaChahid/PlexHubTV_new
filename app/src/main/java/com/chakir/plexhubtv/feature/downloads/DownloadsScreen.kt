@@ -176,7 +176,7 @@ fun DownloadItem(
                 .semantics { contentDescription = "Téléchargement: ${item.title}" }
                 .onFocusChanged { isFocused = it.isFocused }
                 .scale(scale)
-                .background(if (isFocused) Color.White.copy(alpha = 0.05f) else Color.Transparent)
+                .background(if (isFocused) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f) else Color.Transparent)
                 .then(
                     if (isFocused) {
                         Modifier.border(1.dp, borderColor, MaterialTheme.shapes.small)

@@ -268,7 +268,7 @@ fun LibrariesScreen(
                                 text = stringResource(if (state.display.mediaType == MediaType.Movie) R.string.library_movies else R.string.library_tv_shows),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                             if (state.display.totalItems > 0) {
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -280,7 +280,7 @@ fun LibrariesScreen(
                                         stringResource(R.string.library_title_count, state.display.totalItems)
                                     },
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = Color.White.copy(alpha = 0.5f),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -326,13 +326,13 @@ fun LibrariesScreen(
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(20.dp),
                                         strokeWidth = 2.dp,
-                                        color = Color.White.copy(alpha = 0.5f),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.Refresh,
                                         contentDescription = stringResource(R.string.library_refresh_description),
-                                        tint = Color.White
+                                        tint = MaterialTheme.colorScheme.onBackground
                                     )
                                 }
                             }
@@ -356,7 +356,7 @@ fun LibrariesScreen(
                                         LibraryViewMode.List -> Icons.Default.GridView
                                     },
                                     contentDescription = stringResource(R.string.library_view_mode_description),
-                                    tint = Color.White
+                                    tint = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                         }
@@ -392,7 +392,7 @@ fun LibrariesScreen(
                                         text = tab.title,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = if (index == selectedTabIndex) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (index == selectedTabIndex) Color.White else Color.White.copy(alpha = 0.6f)
+                                        color = if (index == selectedTabIndex) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 },
                             )
@@ -503,10 +503,11 @@ fun FilterButton(
     testTag: String = "",
     focusRequester: androidx.compose.ui.focus.FocusRequester? = null,
 ) {
-    // Netflix style chips: Dark grey background, White text.
-    val containerColor = if (isActive) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
-    val contentColor = Color.White
-    val borderStroke = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, Color.White) else null
+    // Cinema Gold filter chips: surface bg, theme text
+    val cs = MaterialTheme.colorScheme
+    val containerColor = if (isActive) cs.surfaceVariant else cs.surface
+    val contentColor = if (isActive) cs.onSurface else cs.onSurfaceVariant
+    val borderStroke = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, cs.primary) else null
 
     OutlinedButton(
         onClick = onClick,
@@ -614,7 +615,7 @@ fun LibraryContent(
                                         Modifier
                                             .fillMaxWidth()
                                             .height(if (isCompact) 135.dp else 250.dp)
-                                            .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)),
+                                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp)),
                                 )
                             }
                         }
@@ -661,20 +662,20 @@ fun LibraryContent(
                                                 if (shouldRestoreFocus) Modifier.focusRequester(focusRestorationRequester) else Modifier
                                             )
                                             .clickable { onItemClick(item) }
-                                            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
                                             .padding(8.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Thumbnail(url = item.thumbUrl, modifier = Modifier.size(60.dp, 90.dp), contentDescription = item.title)
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Column {
-                                        Text(text = item.title, style = MaterialTheme.typography.titleMedium, color = Color.White)
-                                        Text(text = "${item.year ?: ""}", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
+                                        Text(text = item.title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+                                        Text(text = "${item.year ?: ""}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             } else {
                                 // Placeholder
-                                Box(modifier = Modifier.height(80.dp).fillMaxWidth().background(Color.White.copy(alpha = 0.1f)))
+                                Box(modifier = Modifier.height(80.dp).fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant))
                             }
                         }
                         if (pagedItems.loadState.append is LoadState.Loading) {

@@ -232,8 +232,8 @@ fun LibrarySelectionScreen(
                         enabled = selectedCount > 0 && !state.isConfirming,
                         interactionSource = confirmInteractionSource,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isConfirmFocused) Color(0xFF00C853) else MaterialTheme.colorScheme.primary,
-                            contentColor = if (isConfirmFocused) Color.White else MaterialTheme.colorScheme.onPrimary,
+                            containerColor = if (isConfirmFocused) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                            contentColor = if (isConfirmFocused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary,
                         ),
                         modifier = Modifier
                             .fillMaxWidth()

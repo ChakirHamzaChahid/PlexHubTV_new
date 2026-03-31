@@ -37,7 +37,7 @@ fun PerformanceOverlay(
                 .testTag("player_performance_overlay")
                 .semantics { contentDescription = statsDesc }
                 .padding(16.dp)
-                .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
                 .padding(12.dp),
     ) {
         Column(
@@ -91,7 +91,7 @@ private fun StatSectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
         fontWeight = FontWeight.SemiBold,
-        color = Color.Cyan.copy(alpha = 0.7f),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
         fontFamily = FontFamily.Monospace,
     )
 }
@@ -99,7 +99,7 @@ private fun StatSectionHeader(title: String) {
 @Composable
 private fun DividerLine() {
     HorizontalDivider(
-        color = Color.White.copy(alpha = 0.15f),
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f),
         thickness = 0.5.dp,
         modifier = Modifier.padding(vertical = 2.dp),
     )
@@ -122,13 +122,13 @@ private fun StatRow(
         Text(
             text = "$label: ",
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-            color = Color.White.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             fontFamily = FontFamily.Monospace,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-            color = Color.Green,
+            color = MaterialTheme.colorScheme.tertiary,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
         )

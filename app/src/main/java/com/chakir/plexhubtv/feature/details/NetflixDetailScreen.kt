@@ -71,7 +71,6 @@ import com.chakir.plexhubtv.core.model.VideoStream
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.text.font.FontStyle
-import java.util.Calendar
 
 private enum class DetailFocusTarget { PlayButton, Tabs, ContentRow }
 
@@ -108,63 +107,43 @@ fun NetflixDetailScreen(
     val gradientBase = if (backdropColors.isDefault) cs.background else backdropColors.secondary
 
     Box(modifier = Modifier.fillMaxSize().background(gradientBase)) {
-        // 1. Full Screen Backdrop with Gradient
-        Box(modifier = Modifier.fillMaxSize()) {
+        // 1. Banner backdrop (reduced height with palette tint)
+        Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(media.artUrl ?: media.thumbUrl)
-                    .size(1920, 1080)
+                    .size(1920, 540)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().zIndex(0f)
+                modifier = Modifier.fillMaxSize(),
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
+                    Color.Black.copy(alpha = 0.4f),
+                    androidx.compose.ui.graphics.BlendMode.Darken,
+                ),
             )
-
-            // Gradient Overlays
+            // Bottom gradient fading into background
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                gradientBase.copy(alpha = 0.5f),
-                                gradientBase.copy(alpha = 0.9f),
-                                gradientBase
-                            ),
-                            startY = 0f,
-                            endY = Float.POSITIVE_INFINITY
+                            colors = listOf(Color.Transparent, gradientBase)
                         )
                     )
-                    .zIndex(1f)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                gradientBase.copy(alpha = 0.9f),
-                                gradientBase.copy(alpha = 0.5f),
-                                if (backdropColors.isDefault) Color.Transparent else backdropColors.primary
-                            ),
-                            startX = 0f,
-                            endX = 1500f
-                        )
-                    )
-                    .zIndex(1f)
             )
         }
 
-        // 2. Content — Fixed header + scrollable body
+        // 2. Content overlapping the banner
         Column(
             modifier = Modifier.fillMaxSize().zIndex(2f),
         ) {
-            // ── FIXED HEADER: Title + Meta + Genres (always visible) ──
-            DetailFixedHeader(
+            // ── HERO: Poster overlapping banner + Metadata ──
+            DetailHeroSection(
                 media = media,
                 seasons = seasons,
-                modifier = Modifier.padding(top = 24.dp),
             )
 
             // ── SCROLLABLE BODY: Buttons, tech info, summary, tabs, content ──
@@ -361,21 +340,76 @@ fun NetflixDetailScreen(
 }
 
 /**
- * Fixed header — always visible at the top of the detail screen.
- * Shows title, meta row (year, duration, remaining, rating), and genres.
+ * Hero section — poster overlapping the banner + metadata beside it.
  */
 @Composable
-private fun DetailFixedHeader(
+private fun DetailHeroSection(
     media: MediaItem,
     seasons: List<MediaItem>,
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
-    Box(
-        modifier = modifier.fillMaxWidth().padding(start = 50.dp, end = 50.dp, bottom = 8.dp),
-        contentAlignment = Alignment.TopStart,
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 80.dp, start = 50.dp, end = 50.dp, bottom = 16.dp),
     ) {
-        Column {
+        // Poster (overlaps ~80dp into the banner above)
+        Box {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(media.thumbUrl)
+                    .size(260, 390)
+                    .build(),
+                contentDescription = media.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .width(130.dp)
+                    .aspectRatio(2f / 3f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, cs.outlineVariant, RoundedCornerShape(8.dp)),
+            )
+
+            // Score badge (top-left of poster)
+            val posterRating = media.rating
+            if (posterRating != null && posterRating > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .background(cs.background.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, contentDescription = null, tint = cs.primary, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(2.dp))
+                        Text(String.format("%.1f", posterRating), style = MaterialTheme.typography.labelSmall, color = cs.primary, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // 4K badge (top-right of poster)
+            val is4K = media.mediaParts.firstOrNull()?.streams
+                ?.filterIsInstance<VideoStream>()
+                ?.firstOrNull()?.let { (it.height ?: 0) >= 2160 } ?: false
+            if (is4K) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .background(cs.primary, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text("4K", style = MaterialTheme.typography.labelSmall, color = cs.background, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(24.dp))
+
+        // Title + Meta + Tech + Genres (beside the poster)
+        Column(modifier = Modifier.padding(top = 60.dp)) {
             Text(
                 text = media.title,
                 style = MaterialTheme.typography.displayMedium,
@@ -439,32 +473,20 @@ private fun DetailFixedHeader(
                         Text(String.format("%.1f", ratingValue), style = MaterialTheme.typography.titleMedium, color = cs.onBackground, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
 
-                if (media.type != MediaType.Show && media.viewOffset > 0 && durationMs != null && durationMs > 0) {
-                    val remainingMs = (durationMs - media.viewOffset).coerceAtLeast(0)
-                    if (remainingMs > 0) {
-                        MetaDot()
-                        val endsAt = remember(remainingMs) {
-                            val cal = Calendar.getInstance()
-                            cal.add(Calendar.MILLISECOND, remainingMs.toInt())
-                            String.format("%d:%02d %s",
-                                if (cal.get(Calendar.HOUR) == 0) 12 else cal.get(Calendar.HOUR),
-                                cal.get(Calendar.MINUTE),
-                                if (cal.get(Calendar.AM_PM) == Calendar.AM) "AM" else "PM"
-                            )
-                        }
-                        Text(text = "Ends at $endsAt", style = MaterialTheme.typography.titleMedium, color = cs.onSurfaceVariant)
-                    }
-                }
+            // Tech badges row
+            val streams = media.mediaParts.firstOrNull()?.streams ?: emptyList()
+            val videoStreams = streams.filterIsInstance<VideoStream>()
+            val audioStreams = streams.filterIsInstance<AudioStream>()
+            val subtitleStreams = streams.filterIsInstance<SubtitleStream>()
 
-                // Tech badges inline
-                val streams = media.mediaParts.firstOrNull()?.streams ?: emptyList()
-                val videoStreams = streams.filterIsInstance<VideoStream>()
-                val audioStreams = streams.filterIsInstance<AudioStream>()
-                val subtitleStreams = streams.filterIsInstance<SubtitleStream>()
-
-                if (videoStreams.isNotEmpty() || audioStreams.isNotEmpty() || subtitleStreams.isNotEmpty()) {
-                    MetaDot()
+            if (videoStreams.isNotEmpty() || audioStreams.isNotEmpty() || subtitleStreams.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     videoStreams.firstOrNull()?.let { video ->
                         val resolution = when {
                             (video.height ?: 0) >= 2160 -> "4K"
@@ -491,8 +513,7 @@ private fun DetailFixedHeader(
                         TechBadge(text = "\uD83D\uDD0A $label")
                     }
                     if (subtitleStreams.isNotEmpty()) {
-                        val count = subtitleStreams.size
-                        TechBadge(text = "CC ($count)")
+                        TechBadge(text = "CC (${subtitleStreams.size})")
                     }
                 }
             }

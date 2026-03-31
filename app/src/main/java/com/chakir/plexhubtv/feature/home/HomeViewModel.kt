@@ -219,13 +219,15 @@ class HomeViewModel
                 settingsDataStore.showMyList,
                 settingsDataStore.showSuggestions,
                 settingsDataStore.homeRowOrder,
-            ) { showContinueWatching, showMyList, showSuggestions, homeRowOrder ->
+                settingsDataStore.useSpotlightGrid,
+            ) { showContinueWatching, showMyList, showSuggestions, homeRowOrder, useSpotlightGrid ->
                 _uiState.update {
                     it.copy(
                         showContinueWatching = showContinueWatching,
                         showMyList = showMyList,
                         showSuggestions = showSuggestions,
                         homeRowOrder = homeRowOrder.toImmutableList(),
+                        useSpotlightGrid = useSpotlightGrid,
                     )
                 }
             }.launchIn(viewModelScope)
