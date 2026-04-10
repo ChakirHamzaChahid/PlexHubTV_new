@@ -22,11 +22,11 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun shimmerBrush(): Brush {
-    val shimmerBase = MaterialTheme.colorScheme.onSurface
+    val shimmerBase = MaterialTheme.colorScheme.primary
     val shimmerColors = listOf(
-        shimmerBase.copy(alpha = 0.15f),
-        shimmerBase.copy(alpha = 0.25f),
-        shimmerBase.copy(alpha = 0.15f),
+        shimmerBase.copy(alpha = 0.08f),
+        shimmerBase.copy(alpha = 0.18f),
+        shimmerBase.copy(alpha = 0.08f),
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")

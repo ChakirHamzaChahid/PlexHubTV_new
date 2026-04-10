@@ -137,6 +137,8 @@
     <string name="filter_by_server">Filter by Server</string>
     <string name="filter_all">All</string>
     <string name="filter_no_servers">No servers available</string>
+    <string name="filter_by_source">Filter by Source</string>
+    <string name="filter_no_sources">No sources available</string>
     <string name="filter_by_genre">Filter by Genre</string>
     <string name="filter_no_genres">No genres available</string>
     <string name="filter_sort_by">Sort By</string>

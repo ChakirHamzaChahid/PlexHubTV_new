@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.chakir.plexhubtv.core.model.LibrarySection
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.SourceType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
@@ -50,6 +51,8 @@ data class LibraryFilterState(
     val searchQuery: String = "",
     val isSearchVisible: Boolean = false,
     val excludedServerIds: ImmutableSet<String> = persistentSetOf(),
+    val excludedSourceTypes: ImmutableSet<SourceType> = persistentSetOf(),
+    val availableSourceTypes: ImmutableSet<SourceType> = persistentSetOf(),
     val availableGenres: ImmutableList<String> = persistentListOf(),
     val availableServers: ImmutableList<String> = persistentListOf(),
     val availableServersMap: ImmutableMap<String, String> = persistentMapOf(),
@@ -68,6 +71,7 @@ data class LibrarySelectionState(
 data class LibraryDialogState(
     val isSortDialogOpen: Boolean = false,
     val isServerFilterOpen: Boolean = false,
+    val isSourceFilterOpen: Boolean = false,
     val isGenreFilterOpen: Boolean = false,
 )
 
@@ -122,6 +126,12 @@ sealed interface LibraryAction {
     data class SelectGenre(val genre: String?) : LibraryAction
 
     data class SelectServerFilter(val serverId: String?) : LibraryAction
+
+    object OpenSourceFilter : LibraryAction
+
+    object CloseSourceFilter : LibraryAction
+
+    data class ToggleSourceType(val sourceType: SourceType) : LibraryAction
 
     object OpenSortDialog : LibraryAction
 

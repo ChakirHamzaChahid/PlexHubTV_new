@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.chakir.plexhubtv.R
+import com.chakir.plexhubtv.core.model.SourceType
 
 /**
  * Server filter dialog — Netflix dark style.
@@ -296,6 +297,81 @@ fun SortDialog(
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Source type filter dialog — multi-select toggle chips.
+ * Each source type (Plex, Jellyfin, Xtream, Backend) can be toggled on/off.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SourceFilterDialog(
+    availableSourceTypes: Set<SourceType>,
+    excludedSourceTypes: Set<SourceType>,
+    onDismiss: () -> Unit,
+    onToggle: (SourceType) -> Unit,
+) {
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    val cs = MaterialTheme.colorScheme
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(cs.background.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.5f),
+                shape = RoundedCornerShape(16.dp),
+                color = cs.surface,
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    DialogHeader(
+                        title = stringResource(R.string.filter_by_source),
+                        onDismiss = onDismiss,
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    if (availableSourceTypes.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            availableSourceTypes.forEachIndexed { index, sourceType ->
+                                val isEnabled = sourceType !in excludedSourceTypes
+                                SelectableChip(
+                                    text = sourceType.label,
+                                    isSelected = isEnabled,
+                                    onClick = { onToggle(sourceType) },
+                                    modifier = if (index == 0) {
+                                        Modifier.focusRequester(focusRequester)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            stringResource(R.string.filter_no_sources),
+                            color = cs.onSurfaceVariant,
+                        )
                     }
                 }
             }

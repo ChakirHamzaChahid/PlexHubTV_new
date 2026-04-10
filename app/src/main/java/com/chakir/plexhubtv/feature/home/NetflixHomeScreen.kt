@@ -1,5 +1,9 @@
 package com.chakir.plexhubtv.feature.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -111,6 +115,10 @@ fun NetflixHomeContent(
             )
         }
 
+        // Staggered entrance animation — each row fades in with increasing delay
+        var rowsVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { rowsVisible = true }
+
         // Scrollable content rows
         LazyColumn(
             state = listState,
@@ -118,84 +126,109 @@ fun NetflixHomeContent(
             contentPadding = PaddingValues(bottom = 50.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Special rows in user-configured order
+            // Special rows in user-configured order — with staggered entrance animation
             activeSpecialRows.forEachIndexed { displayIndex, rowId ->
                 val isFirst = displayIndex == 0
                 when (rowId) {
                     "continue_watching" -> item(key = "continue_watching") {
-                        NetflixContentRow(
-                            title = "Continue Watching",
-                            items = onDeck,
-                            cardType = CardType.WIDE,
-                            onItemClick = { onAction(HomeAction.OpenMedia(it)) },
-                            onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
-                            onItemFocused = {
-                                onFocusChanged?.invoke(it)
-                                focusedRowIndex = specialRowIndices["continue_watching"] ?: 0
-                                focusVersion++
-                            },
-                            rowId = "home_on_deck",
-                            modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
-                        )
+                        StaggeredRow(visible = rowsVisible, index = displayIndex) {
+                            NetflixContentRow(
+                                title = "Continue Watching",
+                                items = onDeck,
+                                cardType = CardType.WIDE,
+                                onItemClick = { onAction(HomeAction.OpenMedia(it)) },
+                                onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                                onItemFocused = {
+                                    onFocusChanged?.invoke(it)
+                                    focusedRowIndex = specialRowIndices["continue_watching"] ?: 0
+                                    focusVersion++
+                                },
+                                rowId = "home_on_deck",
+                                modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
+                            )
+                        }
                     }
                     "my_list" -> item(key = "my_list") {
-                        NetflixContentRow(
-                            title = "My List",
-                            items = favorites,
-                            cardType = CardType.POSTER,
-                            onItemClick = { onAction(HomeAction.OpenMedia(it)) },
-                            onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
-                            onItemFocused = {
-                                onFocusChanged?.invoke(it)
-                                focusedRowIndex = specialRowIndices["my_list"] ?: 0
-                                focusVersion++
-                            },
-                            rowId = "home_my_list",
-                            modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
-                        )
+                        StaggeredRow(visible = rowsVisible, index = displayIndex) {
+                            NetflixContentRow(
+                                title = "My List",
+                                items = favorites,
+                                cardType = CardType.POSTER,
+                                onItemClick = { onAction(HomeAction.OpenMedia(it)) },
+                                onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                                onItemFocused = {
+                                    onFocusChanged?.invoke(it)
+                                    focusedRowIndex = specialRowIndices["my_list"] ?: 0
+                                    focusVersion++
+                                },
+                                rowId = "home_my_list",
+                                modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
+                            )
+                        }
                     }
                     "suggestions" -> item(key = "suggestions") {
-                        NetflixContentRow(
-                            title = "Suggested for You",
-                            items = suggestions,
-                            cardType = CardType.POSTER,
-                            onItemClick = { onAction(HomeAction.OpenMedia(it)) },
-                            onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
-                            onItemFocused = {
-                                onFocusChanged?.invoke(it)
-                                focusedRowIndex = specialRowIndices["suggestions"] ?: 0
-                                focusVersion++
-                            },
-                            rowId = "home_suggestions",
-                            modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
-                        )
+                        StaggeredRow(visible = rowsVisible, index = displayIndex) {
+                            NetflixContentRow(
+                                title = "Suggested for You",
+                                items = suggestions,
+                                cardType = CardType.POSTER,
+                                onItemClick = { onAction(HomeAction.OpenMedia(it)) },
+                                onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                                onItemFocused = {
+                                    onFocusChanged?.invoke(it)
+                                    focusedRowIndex = specialRowIndices["suggestions"] ?: 0
+                                    focusVersion++
+                                },
+                                rowId = "home_suggestions",
+                                modifier = if (isFirst) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
+                            )
+                        }
                     }
                 }
             }
 
-            // Hub Rows
+            // Hub Rows — with staggered entrance animation (offset by special rows count)
             hubs.forEachIndexed { index, hub ->
                 item(key = "home_hub_${hub.hubIdentifier ?: hub.title ?: index}") {
                     val isFirstRow = activeSpecialRows.isEmpty() && index == 0
                     val isEpisodeHub = hub.type == "episode"
                             || hub.items.firstOrNull()?.type == MediaType.Episode
                     val hubIdx = hubStartIdx + index
-                    NetflixContentRow(
-                        title = hub.title ?: "",
-                        items = hub.items,
-                        cardType = if (isEpisodeHub) CardType.WIDE else CardType.POSTER,
-                        onItemClick = { onAction(HomeAction.OpenMedia(it)) },
-                        onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
-                        onItemFocused = {
-                            onFocusChanged?.invoke(it)
-                            focusedRowIndex = hubIdx
-                            focusVersion++
-                        },
-                        rowId = "home_hub_${hub.hubIdentifier ?: hub.title?.lowercase()?.replace(" ", "_") ?: index}",
-                        modifier = if (isFirstRow) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
-                    )
+                    StaggeredRow(visible = rowsVisible, index = activeSpecialRows.size + index) {
+                        NetflixContentRow(
+                            title = hub.title ?: "",
+                            items = hub.items,
+                            cardType = if (isEpisodeHub) CardType.WIDE else CardType.POSTER,
+                            onItemClick = { onAction(HomeAction.OpenMedia(it)) },
+                            onItemPlay = { onAction(HomeAction.PlayMedia(it)) },
+                            onItemFocused = {
+                                onFocusChanged?.invoke(it)
+                                focusedRowIndex = hubIdx
+                                focusVersion++
+                            },
+                            rowId = "home_hub_${hub.hubIdentifier ?: hub.title?.lowercase()?.replace(" ", "_") ?: index}",
+                            modifier = if (isFirstRow) Modifier.focusRequester(firstRowFocusRequester) else Modifier,
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+/** Staggered entrance animation — each row fades in with an increasing delay. */
+@Composable
+private fun StaggeredRow(
+    visible: Boolean,
+    index: Int,
+    content: @Composable () -> Unit,
+) {
+    val delayMs = (index * 80).coerceAtMost(400) // cap at 400ms
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(300, delayMillis = delayMs)) +
+                slideInVertically(tween(300, delayMillis = delayMs)) { it / 4 },
+    ) {
+        content()
     }
 }

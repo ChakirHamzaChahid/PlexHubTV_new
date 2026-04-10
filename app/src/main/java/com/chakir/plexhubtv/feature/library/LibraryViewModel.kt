@@ -14,6 +14,7 @@ import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
+import com.chakir.plexhubtv.core.model.SourceType
 import com.chakir.plexhubtv.core.model.toAppError
 import com.chakir.plexhubtv.domain.repository.ProfileRepository
 import com.chakir.plexhubtv.domain.usecase.GetLibraryContentUseCase
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.flow.drop
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -101,6 +103,14 @@ class LibraryViewModel
                             null
                         }
 
+                    // Convert excluded source types to excluded server IDs
+                    val sourceExcludedIds = state.filter.excludedSourceTypes.flatMap { sourceType ->
+                        state.filter.availableServersMap.values.filter {
+                            SourceType.fromServerId(it) == sourceType
+                        }
+                    }
+                    val allExcludedIds = (state.filter.excludedServerIds + sourceExcludedIds).toList()
+
                     FilterParams(
                         filter = state.filter.currentFilter,
                         sort = state.filter.currentSort,
@@ -110,10 +120,9 @@ class LibraryViewModel
                         genre = genreQuery,
                         serverId = state.selection.selectedServerId ?: "all",
                         serverFilterId = serverFilterId,
-                        excludedServerIds = state.filter.excludedServerIds.toList(),
+                        excludedServerIds = allExcludedIds,
                         initialScrollIndex = state.scroll.initialScrollIndex,
                         query = state.filter.searchQuery.ifBlank { null },
-                        refreshVersion = state.filter.refreshVersion,
                     )
                 }
                 .distinctUntilChanged { old, new ->
@@ -183,7 +192,6 @@ class LibraryViewModel
             val excludedServerIds: List<String> = emptyList(),
             val initialScrollIndex: Int? = null,
             val query: String? = null,
-            val refreshVersion: Int = 0,
         )
 
         /** Params for filtered count (excludes initialScrollIndex to avoid unnecessary recomputation). */
@@ -198,7 +206,6 @@ class LibraryViewModel
             val serverFilterId: String?,
             val excludedServerIds: List<String>,
             val query: String?,
-            val refreshVersion: Int = 0,
         )
 
         init {
@@ -289,6 +296,11 @@ class LibraryViewModel
                             } else {
                                 null
                             }
+                        val sourceExcludedIds = state.filter.excludedSourceTypes.flatMap { sourceType ->
+                            state.filter.availableServersMap.values.filter {
+                                SourceType.fromServerId(it) == sourceType
+                            }
+                        }
                         CountParams(
                             filter = state.filter.currentFilter,
                             sort = state.filter.currentSort,
@@ -298,9 +310,8 @@ class LibraryViewModel
                             genre = genreQuery,
                             serverId = state.selection.selectedServerId ?: "all",
                             serverFilterId = serverFilterId,
-                            excludedServerIds = state.filter.excludedServerIds.toList(),
+                            excludedServerIds = (state.filter.excludedServerIds + sourceExcludedIds).toList(),
                             query = state.filter.searchQuery.ifBlank { null },
-                            refreshVersion = state.filter.refreshVersion,
                         )
                     }
                     .distinctUntilChanged()
@@ -332,6 +343,11 @@ class LibraryViewModel
          * to force PagingSource recreation + count refresh, and re-runs loadMetadata for totalItems.
          */
         private fun observeUnifiedRebuildCompletion() {
+            // Room auto-invalidates the PagingSource when media_unified changes
+            // (via observedEntities = [MediaUnifiedEntity::class] on getPagedUnified).
+            // We only need to refresh metadata (counts, server names) — NOT PagingData.
+            // The old refreshVersion++ caused flatMapLatest to cancel the PagingData flow
+            // during initialization, resulting in permanent skeleton loading.
             listOf("PostSyncChain", "UnifiedRebuild_Startup").forEach { workName ->
                 viewModelScope.launch {
                     workManager.getWorkInfosForUniqueWorkFlow(workName)
@@ -341,12 +357,10 @@ class LibraryViewModel
                             }
                         }
                         .distinctUntilChanged()
+                        .drop(1) // Skip initial/stale SUCCEEDED state from previous run
                         .collect { allSucceeded ->
                             if (allSucceeded) {
-                                Timber.i("$workName completed — refreshing library data (refreshVersion++)")
-                                _uiState.update {
-                                    it.copy(filter = it.filter.copy(refreshVersion = it.filter.refreshVersion + 1))
-                                }
+                                Timber.i("$workName completed — refreshing metadata only (PagingSource auto-invalidated by Room)")
                                 loadMetadata(_uiState.value.display.mediaType)
                             }
                         }
@@ -444,7 +458,12 @@ class LibraryViewModel
                 _uiState.update {
                     it.copy(
                         display = it.display.copy(totalItems = totalCount, isLoading = false),
-                        filter = it.filter.copy(availableServers = serverNames.toImmutableList(), availableServersMap = serverMap.toImmutableMap(), availableGenres = allGenres.toImmutableList()),
+                        filter = it.filter.copy(
+                            availableServers = serverNames.toImmutableList(),
+                            availableServersMap = serverMap.toImmutableMap(),
+                            availableGenres = allGenres.toImmutableList(),
+                            availableSourceTypes = serverMap.values.map { SourceType.fromServerId(it) }.toSet().toImmutableSet(),
+                        ),
                     )
                 }
 
@@ -558,6 +577,19 @@ class LibraryViewModel
                 }
                 is LibraryAction.OpenServerFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isServerFilterOpen = true)) }
                 is LibraryAction.CloseServerFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isServerFilterOpen = false)) }
+                is LibraryAction.OpenSourceFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isSourceFilterOpen = true)) }
+                is LibraryAction.CloseSourceFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isSourceFilterOpen = false)) }
+                is LibraryAction.ToggleSourceType -> {
+                    _uiState.update {
+                        val current = it.filter.excludedSourceTypes
+                        val updated = if (action.sourceType in current) {
+                            current - action.sourceType
+                        } else {
+                            current + action.sourceType
+                        }
+                        it.copy(filter = it.filter.copy(excludedSourceTypes = updated.toImmutableSet()))
+                    }
+                }
                 is LibraryAction.OpenGenreFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isGenreFilterOpen = true)) }
                 is LibraryAction.CloseGenreFilter -> _uiState.update { it.copy(dialog = it.dialog.copy(isGenreFilterOpen = false)) }
                 is LibraryAction.OpenSortDialog -> _uiState.update { it.copy(dialog = it.dialog.copy(isSortDialogOpen = true)) }

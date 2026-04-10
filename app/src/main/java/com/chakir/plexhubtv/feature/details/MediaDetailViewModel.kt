@@ -461,9 +461,8 @@ class MediaDetailViewModel
                         )
                     }
                     loadSimilarItems()
-                    if (detail.item.type == MediaType.Show) {
-                        loadUnifiedSeasons(detail.item)
-                    }
+                    // loadUnifiedSeasons removed here — called ONCE after prefetchRemoteEpisodes
+                    // to avoid race condition (2 concurrent calls producing duplicates)
                     if (mediaSourceResolver.resolve(detail.item.serverId).needsEnrichment()) {
                         loadAvailableServers(detail.item)
                     } else {
@@ -506,9 +505,9 @@ class MediaDetailViewModel
                         loadCollectionsFromRemoteSources(enriched)
                     }
 
-                    // For shows with remote sources: proactively fetch episodes from remote servers
-                    // so that unified seasons can find them in Room
-                    if (item.type == MediaType.Show && enriched.remoteSources.size > 1) {
+                    // For shows: prefetch episodes from remote servers to populate Room,
+                    // then run unified seasons ONCE (after prefetch completes).
+                    if (item.type == MediaType.Show) {
                         prefetchRemoteEpisodes(enriched)
                     }
                 } catch (e: Exception) {
@@ -581,10 +580,17 @@ class MediaDetailViewModel
                     val duration = System.currentTimeMillis() - startTime
                     Timber.i("VM: Loaded ${unifiedSeasons.size} unified seasons in ${duration}ms")
                     _uiState.update { currentState ->
-                        // Merge seasons from other servers that are missing from the primary list
-                        val existingIndices = currentState.seasons.map { it.seasonIndex ?: it.parentIndex }.toSet()
+                        // Dedup by season NUMBER (parentIndex), not by ratingKey+serverId
+                        val existingIndices = currentState.seasons
+                            .mapNotNull { it.seasonIndex ?: it.parentIndex }
+                            .toSet()
                         val supplementary = unifiedSeasons
                             .filter { it.seasonIndex !in existingIndices }
+                            // Filter out aberrant season numbers from badly-organized remote servers
+                            .filter { unified ->
+                                val maxExisting = existingIndices.maxOrNull() ?: 0
+                                unified.seasonIndex in 0..(maxExisting + 50).coerceAtMost(100)
+                            }
                             .mapNotNull { unified ->
                                 val rk = unified.bestSeasonRatingKey ?: return@mapNotNull null
                                 val sid = unified.bestSeasonServerId ?: return@mapNotNull null
@@ -596,12 +602,13 @@ class MediaDetailViewModel
                                     type = MediaType.Season,
                                     thumbUrl = unified.thumbUrl,
                                     parentIndex = unified.seasonIndex,
+                                    seasonIndex = unified.seasonIndex,
                                 )
                             }
                         val mergedSeasons = if (supplementary.isNotEmpty()) {
                             Timber.i("VM: Merged ${supplementary.size} extra seasons from other servers")
                             (currentState.seasons + supplementary)
-                                .distinctBy { "${it.ratingKey}_${it.serverId}" }
+                                .distinctBy { it.seasonIndex ?: it.parentIndex }
                                 .sortedBy { it.parentIndex }
                         } else {
                             currentState.seasons

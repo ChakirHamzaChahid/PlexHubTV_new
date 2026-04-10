@@ -91,8 +91,9 @@ fun NetflixDetailScreen(
     val contentRowFocusRequester = remember { FocusRequester() }
     var lastFocusTarget by remember { mutableStateOf(DetailFocusTarget.PlayButton) }
 
-    // NAV-03: Restore focus to last-active element (play button, tabs, or content row)
+    // NAV-03: Restore focus — scroll to top first so hero section is visible
     LaunchedEffect(Unit) {
+        listState.scrollToItem(0)
         try {
             when (lastFocusTarget) {
                 DetailFocusTarget.PlayButton -> playButtonFocusRequester.requestFocus()
@@ -106,47 +107,54 @@ fun NetflixDetailScreen(
     val backdropColors = rememberBackdropColors(media.artUrl ?: media.thumbUrl)
     val gradientBase = if (backdropColors.isDefault) cs.background else backdropColors.secondary
 
-    Box(modifier = Modifier.fillMaxSize().background(gradientBase)) {
-        // 1. Banner backdrop (reduced height with palette tint)
-        Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(media.artUrl ?: media.thumbUrl)
-                    .size(1920, 540)
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
-                    Color.Black.copy(alpha = 0.4f),
-                    androidx.compose.ui.graphics.BlendMode.Darken,
-                ),
-            )
-            // Bottom gradient fading into background
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, gradientBase)
-                        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Layer 1: Fullscreen backdrop (Cinema Gold v2)
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(media.artUrl ?: media.thumbUrl)
+                .size(1920, 1080)
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        // Layer 2: Horizontal gradient (opaque left for text, transparent right for artwork)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        0f to gradientBase.copy(alpha = 0.88f),
+                        0.55f to gradientBase.copy(alpha = 0.5f),
+                        1f to Color.Transparent,
                     )
-            )
-        }
+                )
+        )
+        // Layer 3: Vertical gradient (opaque bottom for cast + tabs)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.55f to gradientBase.copy(alpha = 0.4f),
+                        1f to gradientBase.copy(alpha = 0.95f),
+                    )
+                )
+        )
 
-        // 2. Content overlapping the banner
+        // Layer 4: Content — hero pinned at top, body scrolls below
         Column(
-            modifier = Modifier.fillMaxSize().zIndex(2f),
+            modifier = Modifier.fillMaxSize().padding(top = 56.dp),
         ) {
-            // ── HERO: Poster overlapping banner + Metadata ──
+            // ── HERO: Poster + Metadata (always visible, not scrollable) ──
             DetailHeroSection(
                 media = media,
                 seasons = seasons,
+                modifier = Modifier.padding(start = 50.dp),
             )
 
-            // ── SCROLLABLE BODY: Buttons, tech info, summary, tabs, content ──
+            // ── SCROLLABLE BODY ──
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -353,7 +361,7 @@ private fun DetailHeroSection(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 80.dp, start = 50.dp, end = 50.dp, bottom = 16.dp),
+            .padding(end = 50.dp, bottom = 8.dp),
     ) {
         // Poster (overlaps ~80dp into the banner above)
         Box {
@@ -365,7 +373,7 @@ private fun DetailHeroSection(
                 contentDescription = media.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .width(130.dp)
+                    .width(100.dp)
                     .aspectRatio(2f / 3f)
                     .clip(RoundedCornerShape(8.dp))
                     .border(1.dp, cs.outlineVariant, RoundedCornerShape(8.dp)),
@@ -409,17 +417,16 @@ private fun DetailHeroSection(
         Spacer(modifier = Modifier.width(24.dp))
 
         // Title + Meta + Tech + Genres (beside the poster)
-        Column(modifier = Modifier.padding(top = 60.dp)) {
+        Column(modifier = Modifier.padding(top = 8.dp)) {
             Text(
                 text = media.title,
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.ExtraBold,
+                style = com.chakir.plexhubtv.core.designsystem.CinemaTypo.TitleLarge,
                 color = cs.onBackground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Meta Row
             Row(

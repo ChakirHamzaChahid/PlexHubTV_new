@@ -2,6 +2,10 @@ package com.chakir.plexhubtv.core.ui
 
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -70,7 +74,7 @@ fun SectionTitle(
                 .background(cs.primary),
         )
         Text(
-            text = title,
+            text = title.uppercase(),
             style = CinemaTypo.SectionTitle,
             color = cs.onBackground,
         )
@@ -226,4 +230,46 @@ fun TechPill(
             .border(1.dp, cs.outline, RoundedCornerShape(4.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp),
     )
+}
+
+/**
+ * Animated "LIVE" badge — red background with blinking white dot.
+ */
+@Composable
+fun LiveBadge(
+    modifier: Modifier = Modifier,
+    text: String = "EN DIRECT",
+) {
+    val cs = MaterialTheme.colorScheme
+    val infiniteTransition = rememberInfiniteTransition(label = "liveBlink")
+    val dotAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "dotAlpha",
+    )
+
+    Row(
+        modifier = modifier
+            .background(cs.error, RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(5.dp)
+                .graphicsLayer { alpha = dotAlpha }
+                .clip(CircleShape)
+                .background(Color.White),
+        )
+        Text(
+            text = text,
+            style = CinemaTypo.BadgeSmall,
+            color = Color.White,
+        )
+    }
 }

@@ -100,7 +100,7 @@ class XtreamMediaMapper @Inject constructor() {
                 }
             },
             serverId = serverId,
-            librarySectionId = "xtream_series",
+            librarySectionId = "season_${seriesDto.seriesId}_$seasonNumber",
             title = episode.title ?: "Episode ${episode.episodeNum}",
             titleSortable = StringNormalizer.normalizeForSorting(
                 episode.title ?: "Episode ${episode.episodeNum}"

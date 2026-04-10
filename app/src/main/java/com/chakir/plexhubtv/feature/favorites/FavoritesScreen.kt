@@ -112,11 +112,8 @@ fun FavoritesScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(start = 58.dp, end = 58.dp, top = 80.dp),
     ) {
-        Text(
-            text = stringResource(R.string.favorites_title_with_count, activeCount),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+        com.chakir.plexhubtv.core.ui.SectionTitle(
+            title = stringResource(R.string.favorites_title_with_count, activeCount),
         )
         Spacer(modifier = Modifier.height(16.dp))
 

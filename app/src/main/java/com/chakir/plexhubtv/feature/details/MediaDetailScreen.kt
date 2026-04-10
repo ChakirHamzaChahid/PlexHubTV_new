@@ -257,14 +257,14 @@ fun ActionButtonsRow(
             onClick = { onAction(MediaDetailEvent.PlayClicked) },
             enabled = !state.isPlayButtonLoading,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isPlayFocused) cs.onBackground else cs.onBackground.copy(alpha = 0.15f),
-                contentColor = if (isPlayFocused) cs.background else cs.onBackground,
-                disabledContainerColor = cs.onBackground.copy(alpha = 0.08f),
-                disabledContentColor = cs.onBackground.copy(alpha = 0.38f),
+                containerColor = if (isPlayFocused) cs.primary else cs.primary.copy(alpha = 0.85f),
+                contentColor = cs.onPrimary,
+                disabledContainerColor = cs.primary.copy(alpha = 0.3f),
+                disabledContentColor = cs.onPrimary.copy(alpha = 0.5f),
             ),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(24.dp),
             modifier = Modifier
-                .height(40.dp)
+                .height(48.dp)
                 .testTag("play_button")
                 .semantics { contentDescription = if (state.isPlayButtonLoading) playLoadingDesc else playDesc }
                 .scale(if (isPlayFocused) 1.05f else 1f)

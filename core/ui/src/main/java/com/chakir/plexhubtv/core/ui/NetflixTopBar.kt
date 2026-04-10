@@ -83,7 +83,13 @@ fun NetflixTopBar(
 ) {
     // === CINEMA GOLD REFONTE ===
     val cs = MaterialTheme.colorScheme
-    val backgroundColor = cs.background.copy(alpha = if (isScrolled) 0.95f else 0.4f)
+    // Smooth fade transition instead of snap (Cinema Gold v2)
+    val bgAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isScrolled) 0.95f else 0.4f,
+        animationSpec = tween(400),
+        label = "topBarBgAlpha"
+    )
+    val backgroundColor = cs.background.copy(alpha = bgAlpha)
 
     // Individual focus requesters for each navigation item
     val homeFocusRequester = remember { FocusRequester() }

@@ -194,9 +194,8 @@ private fun PersonFixedHeader(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = person.name,
-                        style = MaterialTheme.typography.headlineLarge,
+                        style = com.chakir.plexhubtv.core.designsystem.CinemaTypo.TitleLarge,
                         color = cs.onBackground,
-                        fontWeight = FontWeight.Bold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),

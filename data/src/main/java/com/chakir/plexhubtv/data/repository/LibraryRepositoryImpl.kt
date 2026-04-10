@@ -120,7 +120,9 @@ class LibraryRepositoryImpl
                 }
 
                 // Resolve "default" library key by type
-                if (resolvedLibraryKey == "default") {
+                // Skip for unified path: media_unified query doesn't use libraryKey
+                val isUnifiedPath = serverId == "all"
+                if (resolvedLibraryKey == "default" && !isUnifiedPath) {
                     val plexType =
                         when (mediaType) {
                             com.chakir.plexhubtv.core.model.MediaType.Movie -> "movie"
@@ -132,8 +134,11 @@ class LibraryRepositoryImpl
                     if (cachedSection != null) {
                         resolvedLibraryKey = cachedSection.libraryKey
                     } else {
-                        val result = getLibraries(resolvedServerId)
-                        if (result.isSuccess) {
+                        // Network fallback with timeout — don't block paging indefinitely
+                        val result = kotlinx.coroutines.withTimeoutOrNull(5_000L) {
+                            getLibraries(resolvedServerId)
+                        }
+                        if (result != null && result.isSuccess) {
                             val section = result.getOrNull()?.find { it.type == plexType }
                             if (section != null) resolvedLibraryKey = section.key
                         }

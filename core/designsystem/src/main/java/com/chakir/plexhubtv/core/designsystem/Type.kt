@@ -107,30 +107,36 @@ val Typography =
 
 // === CINEMA GOLD — TextStyles hors Material3 Typography ===
 object CinemaTypo {
+    /** Section headers — UPPERCASE, letter-spacing 1.5sp, Netflix-style */
     val SectionTitle = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
+        fontSize = 13.sp,
+        letterSpacing = 1.5.sp,
     )
+    /** Detail screen title — large and imposing on TV */
     val TitleLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
+        fontSize = 28.sp,
     )
+    /** Card title — visible on focus reveal */
     val CardTitle = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
+        fontSize = 13.sp,
     )
     val Label = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
     )
+    /** Metadata — year, duration, with luxury letter-spacing */
     val Metadata = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
+        letterSpacing = 0.5.sp,
     )
     val Badge = TextStyle(
         fontFamily = FontFamily.Default,

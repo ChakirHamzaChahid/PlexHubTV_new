@@ -136,6 +136,20 @@ fun LibraryRoute(
     val isGenreFiltered by remember {
         derivedStateOf { state.filter.selectedGenre != null }
     }
+    val sourceLabel by remember {
+        derivedStateOf {
+            val excluded = state.filter.excludedSourceTypes
+            if (excluded.isEmpty()) {
+                "Source: All"
+            } else {
+                val active = state.filter.availableSourceTypes.filter { it !in excluded }
+                "Source: ${active.joinToString(", ") { it.label }}"
+            }
+        }
+    }
+    val isSourceFiltered by remember {
+        derivedStateOf { state.filter.excludedSourceTypes.isNotEmpty() }
+    }
 
     // Handle navigation events
     LaunchedEffect(viewModel.navigationEvents) {
@@ -165,6 +179,8 @@ fun LibraryRoute(
         showSidebar = showSidebar,
         serverLabel = serverLabel,
         isServerFiltered = isServerFiltered,
+        sourceLabel = sourceLabel,
+        isSourceFiltered = isSourceFiltered,
         genreLabel = genreLabel,
         isGenreFiltered = isGenreFiltered,
         showYear = state.display.showYearOnCards,
@@ -186,6 +202,8 @@ fun LibrariesScreen(
     showSidebar: Boolean = false,
     serverLabel: String = "Server: All",
     isServerFiltered: Boolean = false,
+    sourceLabel: String = "Source: All",
+    isSourceFiltered: Boolean = false,
     genreLabel: String = "Genre: All",
     isGenreFiltered: Boolean = false,
     showYear: Boolean = false,
@@ -229,7 +247,7 @@ fun LibrariesScreen(
 
     // Scroll to top when sort, genre, or server filter changes
     var isFirstComposition by remember { mutableStateOf(true) }
-    val sortKey = "${state.filter.currentSort}_${state.filter.isSortDescending}_${state.filter.selectedGenre}_${state.filter.selectedServerFilter}"
+    val sortKey = "${state.filter.currentSort}_${state.filter.isSortDescending}_${state.filter.selectedGenre}_${state.filter.selectedServerFilter}_${state.filter.excludedSourceTypes}"
     LaunchedEffect(sortKey) {
         if (isFirstComposition) {
             isFirstComposition = false
@@ -262,28 +280,20 @@ fun LibrariesScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Left side: Title
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = stringResource(if (state.display.mediaType == MediaType.Movie) R.string.library_movies else R.string.library_tv_shows),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            if (state.display.totalItems > 0) {
-                                Spacer(modifier = Modifier.width(12.dp))
-                                val hasActiveFilter = state.display.filteredItems != null && state.display.filteredItems != state.display.totalItems
-                                Text(
-                                    text = if (hasActiveFilter) {
-                                        stringResource(R.string.library_title_count_filtered, state.display.filteredItems ?: 0, state.display.totalItems)
-                                    } else {
-                                        stringResource(R.string.library_title_count, state.display.totalItems)
-                                    },
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                        // Left side: Title — Cinema Gold v2 UPPERCASE section title
+                        val titleText = stringResource(if (state.display.mediaType == MediaType.Movie) R.string.library_movies else R.string.library_tv_shows)
+                        val countText = if (state.display.totalItems > 0) {
+                            val hasActiveFilter = state.display.filteredItems != null && state.display.filteredItems != state.display.totalItems
+                            if (hasActiveFilter) {
+                                stringResource(R.string.library_title_count_filtered, state.display.filteredItems ?: 0, state.display.totalItems)
+                            } else {
+                                stringResource(R.string.library_title_count, state.display.totalItems)
                             }
-                        }
+                        } else null
+                        com.chakir.plexhubtv.core.ui.SectionTitle(
+                            title = titleText,
+                            count = countText,
+                        )
 
                         // Right side: Filters + View Mode
                         Row(
@@ -298,6 +308,15 @@ fun LibrariesScreen(
                                 testTag = "library_filter_server",
                                 focusRequester = topBarFocusRequester,
                             )
+
+                            if (state.filter.availableSourceTypes.size > 1) {
+                                FilterButton(
+                                    text = sourceLabel,
+                                    isActive = isSourceFiltered,
+                                    onClick = { onAction(LibraryAction.OpenSourceFilter) },
+                                    testTag = "library_filter_source",
+                                )
+                            }
 
                             FilterButton(
                                 text = genreLabel,
@@ -422,6 +441,17 @@ fun LibrariesScreen(
                     onApply = { server ->
                         onAction(LibraryAction.SelectServerFilter(server))
                         onAction(LibraryAction.CloseServerFilter)
+                    },
+                )
+            }
+
+            if (state.dialog.isSourceFilterOpen) {
+                SourceFilterDialog(
+                    availableSourceTypes = state.filter.availableSourceTypes,
+                    excludedSourceTypes = state.filter.excludedSourceTypes,
+                    onDismiss = { onAction(LibraryAction.CloseSourceFilter) },
+                    onToggle = { sourceType ->
+                        onAction(LibraryAction.ToggleSourceType(sourceType))
                     },
                 )
             }

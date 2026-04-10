@@ -72,11 +72,8 @@ fun HistoryScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(start = 48.dp, end = 48.dp, bottom = 48.dp, top = 80.dp),
     ) {
-        Text(
-            text = stringResource(R.string.history_title),
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+        com.chakir.plexhubtv.core.ui.SectionTitle(
+            title = stringResource(R.string.history_title),
         )
         Spacer(modifier = Modifier.height(16.dp))
 

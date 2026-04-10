@@ -57,4 +57,11 @@ object Dims {
 
     // SpotlightGrid (Phase 7)
     val SpotlightH = 360.dp
+
+    // Play button (v2 — pill shape CTA)
+    val PlayButtonH = 48.dp
+    val PlayButtonRadius = 24.dp
+
+    // Progress bar (v2 — integrated inside cards)
+    val ProgressBarH = 3.dp
 }

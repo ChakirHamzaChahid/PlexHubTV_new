@@ -178,7 +178,7 @@ class JellyfinSourceHandler @Inject constructor(
                 if (items != null) {
                     // Cache to Room
                     val entities = items.mapIndexed { index, dto ->
-                        jellyfinMapper.mapDtoToEntity(dto, serverId, "").copy(pageOffset = index)
+                        jellyfinMapper.mapDtoToEntity(dto, serverId, seasonRatingKey).copy(pageOffset = index)
                     }
                     mediaDao.upsertMedia(entities)
                     Timber.d("Cached ${entities.size} Jellyfin episodes to Room for $seasonRatingKey")

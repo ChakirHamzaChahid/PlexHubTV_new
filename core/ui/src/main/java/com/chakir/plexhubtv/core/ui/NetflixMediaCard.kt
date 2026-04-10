@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.chakir.plexhubtv.core.designsystem.CinemaTypo
 import com.chakir.plexhubtv.core.model.MediaItem
 import com.chakir.plexhubtv.core.model.MediaType
 
@@ -282,47 +283,7 @@ fun NetflixMediaCard(
                 )
             }
 
-            // Debug IDs Badge — Visible when focused (bottom-left corner), debug builds only
-            if (BuildConfig.DEBUG && isFocused && (media.imdbId != null || media.tmdbId != null || media.unificationId != null)) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp)
-                        .background(
-                            color = Color(0xFFFF6B00).copy(alpha = 0.9f), // Orange color for debug
-                            shape = RoundedCornerShape(4.dp)
-                        )
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
-                ) {
-                    if (media.imdbId != null) {
-                        Text(
-                            text = "IMDb: ${media.imdbId}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    if (media.tmdbId != null) {
-                        Text(
-                            text = "TMDb: ${media.tmdbId}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    if (media.unificationId != null) {
-                        Text(
-                            text = "Unified: ${media.unificationId}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
+            // Debug IDs Badge removed (was showing orange IMDb/TMDb overlay)
 
             // Progress Bar with Remaining Time
             val durationMs = media.durationMs
@@ -344,42 +305,32 @@ fun NetflixMediaCard(
             }
         }
 
-        // Title and Metadata — hidden in compact mode to save space
+        // Info-reveal: title + year appear ONLY when focused (Cinema Gold v2)
         if (!compact) {
+            val infoAlpha by animateFloatAsState(
+                targetValue = if (isFocused) 1f else 0f,
+                animationSpec = tween(durationMillis = 150),
+                label = "infoReveal"
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp)
+                    .padding(top = 6.dp)
+                    .graphicsLayer { alpha = infoAlpha }
             ) {
                 Text(
                     text = media.title,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = CinemaTypo.CardTitle,
                     color = cs.onBackground,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
-
-                // Year display (when enabled via settings)
-                if (showYear && media.year != null) {
+                if (media.year != null) {
                     Text(
                         text = media.year.toString(),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = CinemaTypo.Metadata,
                         color = cs.onSurfaceVariant,
-                        fontSize = 12.sp
                     )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                //  val metaText = media.contentRating ?: media.year?.toString()
-                //   if (metaText != null) {
-                //       Text(
-                //           text = metaText,
-                //          style = MaterialTheme.typography.labelSmall,
-                //          color = Color.White.copy(alpha = 0.7f),
-                //          fontSize = 14.sp // Increased from 10sp for TV readability
-                //      )
-                //  }
                 }
             }
         }
@@ -427,17 +378,20 @@ fun NetflixProgressBar(
             }
         }
 
-        // Progress Bar
+        // Progress Bar — integrated inside card, 3dp, rounded
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(4.dp)
+                .padding(start = 6.dp, end = 6.dp, bottom = 6.dp)
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp))
                 .background(cs.onSurfaceVariant.copy(alpha = 0.3f))
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progress)
-                    .height(4.dp)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
                     .background(cs.primary)
             )
         }
